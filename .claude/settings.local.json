@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m PyInstaller --version)",
+      "Bash(pip install:*)",
+      "Bash(python -m PyInstaller --onefile --windowed --name \"FerramentasPDF\" ferramenta_pdf.py)",
+      "Bash(python -c \"from PySide6.QtPdf import QPdfDocument; print\\(''ok''\\)\")",
+      "Bash(python -c \"from PySide6.QtPdfWidgets import QPdfView; print\\(''ok''\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(venv/Scripts/python.exe create_icon.py)",
+      "Bash(venv/Scripts/pip install:*)",
+      "Bash(venv/Scripts/python.exe -c \":*)",
+      "Bash(venv/Scripts/pyinstaller.exe pdforge.spec)",
+      "Bash(\"/c/Users/nelso/Desktop/App-pdf/venv/Scripts/pip.exe\" freeze:*)",
+      "Bash(taskkill //F //IM PDForge.exe)",
+      "Bash(\"/c/Users/nelso/Desktop/App-pdf/venv/Scripts/pyinstaller.exe\" pdforge.spec --clean)",
+      "WebFetch(domain:www.figma.com)"
+    ]
+  }
+}
