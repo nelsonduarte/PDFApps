@@ -3,4 +3,5 @@ pypdf>=6.8.0
 qtawesome>=1.4.1
 pillow>=12.1.1
 pymupdf>=1.27.2
+pytesseract>=0.3.10
 pyinstaller>=6.19.0

@@ -1,4 +1,4 @@
-('C:\\Users\\nelso\\Desktop\\App-pdf\\build\\uninstaller\\PYZ-00.pyz',
+('C:\\Users\\nelso\\Desktop\\PDFApps\\build\\uninstaller\\PYZ-00.pyz',
  [('__future__', 'C:\\Python314\\Lib\\__future__.py', 'PYMODULE'),
   ('_ast_unparse', 'C:\\Python314\\Lib\\_ast_unparse.py', 'PYMODULE'),
   ('_colorize', 'C:\\Python314\\Lib\\_colorize.py', 'PYMODULE'),
