@@ -24,7 +24,14 @@
       "Bash(python test_ctrl_scroll.py)",
       "Bash(python -c \"import pypdf; print\\(pypdf.__version__\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\(''pdfapps.py''\\).read\\(\\)\\); print\\(''Sintaxe OK''\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\(''pdfapps.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''Sintaxe OK''\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''pdfapps.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''Sintaxe OK''\\)\")",
+      "Bash(source venv/Scripts/activate)",
+      "Bash(pyinstaller pdfapps.spec --noconfirm)",
+      "Bash(./venv/Scripts/pyinstaller.exe pdfapps.spec --noconfirm)",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Users\\\\nelso\\\\Desktop\\\\PDFApps && venv\\\\Scripts\\\\pyinstaller.exe --version\")",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Users\\\\nelso\\\\Desktop\\\\PDFApps && venv\\\\Scripts\\\\pyinstaller.exe pdfapps.spec --noconfirm\")",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Users\\\\nelso\\\\Desktop\\\\PDFApps && venv\\\\Scripts\\\\pyinstaller.exe pdfapps.spec --noconfirm > build_log.txt 2>&1 && echo SUCCESS\")",
+      "Bash(cmd.exe /c \"type C:\\\\Users\\\\nelso\\\\Desktop\\\\PDFApps\\\\build_log.txt\")"
     ]
   }
 }
