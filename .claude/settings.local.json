@@ -14,7 +14,15 @@
       "Bash(\"/c/Users/nelso/Desktop/App-pdf/venv/Scripts/pip.exe\" freeze:*)",
       "Bash(taskkill //F //IM PDForge.exe)",
       "Bash(\"/c/Users/nelso/Desktop/App-pdf/venv/Scripts/pyinstaller.exe\" pdforge.spec --clean)",
-      "WebFetch(domain:www.figma.com)"
+      "WebFetch(domain:www.figma.com)",
+      "Bash(python -m py_compile \"c:\\\\Users\\\\nelso\\\\Desktop\\\\PDFApps\\\\pdfapps.py\")",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(venv/Scripts/python -c \"import fitz; print\\(''fitz'', fitz.__version__\\)\")",
+      "Bash(venv/Scripts/python -c \"import fitz; print\\(''fitz ok'', fitz.__version__\\)\")",
+      "Bash(python -m py_compile pdfapps.py)",
+      "Bash(python test_ctrl_scroll.py)",
+      "Bash(python -c \"import pypdf; print\\(pypdf.__version__\\)\")"
     ]
   }
 }
