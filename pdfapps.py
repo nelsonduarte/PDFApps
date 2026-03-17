@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QListWidget, QListWidgetItem, QAbstractItemView,
     QFileDialog, QMessageBox, QTextEdit, QTableWidget,
     QTableWidgetItem, QHeaderView, QFrame, QStatusBar, QSplitter,
-    QDialog, QLayout,
+    QDialog, QLayout, QSizePolicy,
 )
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
@@ -2252,6 +2252,27 @@ class PdfEditCanvas(QWidget):
             self._page_idx = idx
             self._render()
 
+    def get_span_at(self, pdf_pt):
+        """Devolve o span fitz mais próximo de pdf_pt (usa o doc já aberto — sem re-abrir o ficheiro)."""
+        if not self._doc: return None
+        import fitz
+        page = self._doc[self._page_idx]
+        click = fitz.Point(pdf_pt.x, pdf_pt.y)
+        found, best_dist = None, 30.0
+        for block in page.get_text("dict")["blocks"]:
+            if block.get("type") != 0: continue
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    bbox = fitz.Rect(span["bbox"])
+                    if bbox.contains(click):
+                        return span
+                    cx = max(bbox.x0, min(click.x, bbox.x1))
+                    cy = max(bbox.y0, min(click.y, bbox.y1))
+                    dist = ((click.x - cx)**2 + (click.y - cy)**2) ** 0.5
+                    if dist < best_dist:
+                        best_dist = dist; found = span
+        return found
+
     def close_doc(self):
         if self._doc: self._doc.close(); self._doc = None
         self._qpix = None; self._overlays = []
@@ -2345,6 +2366,22 @@ class PdfEditCanvas(QWidget):
                 ft = QFont(); ft.setPointSize(8); p.setFont(ft)
                 preview = e["text"][:40] + ("…" if len(e["text"]) > 40 else "")
                 p.drawText(px + 26, py - 4, preview)
+            elif t == "text_edit":
+                r = e["bbox"]
+                qr = QRect(int(r[0]*z), int(r[1]*z),
+                           max(1, int((r[2]-r[0])*z)), max(1, int((r[3]-r[1])*z)))
+                # original: fundo vermelho translúcido + risco
+                p.fillRect(qr, QColor(239, 68, 68, 60))
+                p.setPen(QPen(QColor("#EF4444"), 1, Qt.PenStyle.DashLine))
+                p.drawRect(qr)
+                mid_y = qr.top() + qr.height() // 2
+                p.setPen(QPen(QColor("#EF4444"), 1)); p.drawLine(qr.left(), mid_y, qr.right(), mid_y)
+                # novo texto: verde abaixo
+                new_txt = e.get("new_text", "")
+                if new_txt:
+                    p.setPen(QColor("#22C55E"))
+                    fn = QFont(); fn.setPointSize(max(4, int(e["size"] * z * 0.75))); p.setFont(fn)
+                    p.drawText(int(r[0]*z), int(r[3]*z) + max(10, int(e["size"]*z*0.85)), new_txt)
         # ── drag rect ─────────────────────────────────────────────────────────
         if self._drag_rect:
             p.setPen(QPen(QColor("#EF4444"), 2, Qt.PenStyle.DashLine))
@@ -2440,6 +2477,45 @@ class _PdfPasswordDialog(QDialog):
         return self._edit.text()
 
 
+class _TextEditDialog(QDialog):
+    """Diálogo para editar texto existente no PDF (pré-preenchido com o texto detectado)."""
+    def __init__(self, old_text: str, font_size: float, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Editar texto existente"); self.setModal(True)
+        self.setMinimumWidth(420)
+        v = QVBoxLayout(self); v.setContentsMargins(20, 20, 20, 16); v.setSpacing(10)
+
+        lbl_orig = QLabel(f"Texto detectado  (tamanho: {font_size:.1f}pt):")
+        lbl_orig.setStyleSheet(f"color:{TEXT_SEC}; font-size:10pt;")
+        v.addWidget(lbl_orig)
+
+        orig_box = QLabel(old_text or "(sem texto)")
+        orig_box.setWordWrap(True)
+        orig_box.setStyleSheet(
+            f"color:{TEXT_SEC}; font-size:9pt; padding:6px 8px;"
+            f"background:{BG_INNER}; border:1px solid {BORDER}; border-radius:4px;")
+        v.addWidget(orig_box)
+
+        lbl_new = QLabel("Novo texto  (deixa em branco para apagar):")
+        lbl_new.setStyleSheet(f"color:{TEXT_PRI}; font-size:10pt;")
+        v.addWidget(lbl_new)
+
+        self._edit = QTextEdit()
+        self._edit.setPlainText(old_text)
+        self._edit.setMinimumHeight(80)
+        v.addWidget(self._edit)
+
+        btns = QHBoxLayout(); btns.setSpacing(8); btns.addStretch()
+        ca = QPushButton("Cancelar"); ca.setFixedHeight(34); ca.clicked.connect(self.reject)
+        ok = QPushButton("  Aplicar  "); ok.setObjectName("btn_primary")
+        ok.setFixedHeight(34); ok.clicked.connect(self.accept)
+        btns.addWidget(ca); btns.addWidget(ok)
+        v.addLayout(btns)
+
+    def new_text(self) -> str:
+        return self._edit.toPlainText()
+
+
 class _TextDialog(QDialog):
     """Popup para inserir texto ao clicar no canvas."""
     _COLORS = {"Preto": (0,0,0), "Azul": (0,0,1), "Vermelho": (1,0,0), "Verde": (0,0.6,0)}
@@ -2500,6 +2576,7 @@ class TabEditar(QWidget):
         ("Destacar (highlight)",  "fa5s.highlighter"),
         ("Nota / Comentario",     "fa5s.sticky-note"),
         ("Preencher formularios", "fa5s.clipboard-list"),
+        ("Editar texto existente","fa5s.i-cursor"),
     ]
 
     def __init__(self, status_fn):
@@ -2573,6 +2650,8 @@ class TabEditar(QWidget):
             btn = QPushButton(f"  {label}")
             btn.setIcon(qta.icon(icon_name, color=TEXT_SEC))
             btn.setCheckable(True)
+            btn.setMinimumWidth(0)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             self._mode_btn_idx[id(btn)] = i
             btn.clicked.connect(lambda checked, b=btn: self._on_mode_btn(b))
             self._mode_btns.append(btn)
@@ -2646,6 +2725,16 @@ class TabEditar(QWidget):
         v5.addWidget(self._form_table)
         self._opt_stack.addWidget(w5)
 
+        # 6 - Editar texto existente
+        w6 = QWidget(); v6 = QVBoxLayout(w6); v6.setContentsMargins(0,4,0,0)
+        hint6 = QLabel("Clica sobre o texto no PDF para o editar.\n"
+                        "O texto detectado aparece pré-preenchido.\n"
+                        "Deixa vazio para apagar.")
+        hint6.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint6.setWordWrap(True)
+        v6.addWidget(hint6); v6.addStretch()
+        self._opt_stack.addWidget(w6)
+
         go.addWidget(self._opt_stack)
         cv.addWidget(grp_opts)
 
@@ -2673,12 +2762,13 @@ class TabEditar(QWidget):
         ctrl_scroll = QScrollArea()
         ctrl_scroll.setWidgetResizable(True)
         ctrl_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        ctrl_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        ctrl_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         ctrl_scroll.setWidget(ctrl_inner)
-        ctrl_scroll.setMinimumWidth(350)
-        ctrl_scroll.setMaximumWidth(500)
+        ctrl_scroll.setMinimumWidth(180)
         body.addWidget(ctrl_scroll)
-        body.setSizes([800, 380])
+        body.setSizes([800, 360])
+        body.setStretchFactor(0, 1)
+        body.setStretchFactor(1, 0)
         root.addWidget(body, 1)
 
         action_bar, _ = ActionBar("Aplicar e Guardar", self._run)
@@ -2795,7 +2885,7 @@ class TabEditar(QWidget):
 
     def _on_rect(self, pdf_rect):
         mode = self._mode_idx
-        if mode in (1, 4):  # modos de clique: usar o centro do rect como ponto
+        if mode in (1, 4, 6):  # modos de clique: usar o centro do rect como ponto
             import fitz
             center = fitz.Point((pdf_rect.x0 + pdf_rect.x1) / 2,
                                 (pdf_rect.y0 + pdf_rect.y1) / 2)
@@ -2829,6 +2919,20 @@ class TabEditar(QWidget):
             txt = dlg.edit.toPlainText().strip()
             if not txt: return
             self._add({"type": "note", "page": self._page_idx, "point": pdf_pt, "text": txt})
+        elif mode == 6:  # editar texto existente
+            if not self._doc_path: return
+            # usa o doc já aberto no canvas — evita re-abrir o ficheiro (deadlock no Windows)
+            found_span = self._canvas.get_span_at(pdf_pt)
+            if not found_span:
+                QMessageBox.information(self, "Info", "Nenhum texto encontrado nessa posição."); return
+            dlg = _TextEditDialog(found_span["text"], found_span["size"], self)
+            if dlg.exec() != QDialog.DialogCode.Accepted: return
+            new_txt = dlg.new_text()
+            if new_txt == found_span["text"]: return
+            self._add({"type": "text_edit", "page": self._page_idx,
+                       "bbox": list(found_span["bbox"]), "old_text": found_span["text"],
+                       "new_text": new_txt, "size": found_span["size"],
+                       "color": found_span.get("color", 0)})
 
     def _add(self, edit: dict):
         self._pending.append(edit)
@@ -2838,6 +2942,7 @@ class TabEditar(QWidget):
             "image":     lambda e: f"Imagem '{os.path.basename(e['path'])}' — pág. {e['page']+1}",
             "highlight": lambda e: f"Highlight — pág. {e['page']+1}",
             "note":      lambda e: f"Nota — pág. {e['page']+1}",
+            "text_edit": lambda e: f"Editar '{e['old_text'][:15]}' → '{e['new_text'][:15]}' — pág. {e['page']+1}",
         }
         lbl = labels[edit["type"]](edit)
         self._pending_list.addItem(lbl)
@@ -2875,6 +2980,19 @@ class TabEditar(QWidget):
                     a = pg.add_highlight_annot(e["rect"]); a.set_colors(stroke=e["color"]); a.update()
                 elif e["type"] == "note":
                     pg.add_text_annot(e["point"], e["text"])
+                elif e["type"] == "text_edit":
+                    bbox = fitz.Rect(e["bbox"])
+                    pg.add_redact_annot(bbox, fill=(1, 1, 1))
+                    pg.apply_redactions()
+                    new_txt = e.get("new_text", "").strip()
+                    if new_txt:
+                        c = e.get("color", 0)
+                        if isinstance(c, int):
+                            color = (((c>>16)&0xFF)/255, ((c>>8)&0xFF)/255, (c&0xFF)/255)
+                        else:
+                            color = c if c else (0, 0, 0)
+                        pg.insert_text(fitz.Point(bbox.x0, bbox.y1),
+                                       new_txt, fontsize=max(4, e["size"]), color=color)
             doc.save(out, garbage=4, deflate=True); doc.close()
             self._pending.clear(); self._pending_list.clear()
             self._status(f"✔  Guardado → {out}")
