@@ -141,6 +141,7 @@ class PdfViewerPanel(QWidget):
         self._update_page_label()
 
     def _on_scroll(self, val: int):
+        self._canvas.on_scroll()
         self._update_page_label()
 
     def _on_text_copied(self, text: str):
@@ -221,6 +222,7 @@ class PdfViewerPanel(QWidget):
             QMessageBox.critical(self, "Erro ao abrir PDF",
                                  f"Não foi possível abrir o ficheiro:\n{ex}")
             return
+        self._pdf_password = ""
         if doc.needs_pass:
             from app.editor.dialogs import _PdfPasswordDialog
             wrong = False
@@ -229,11 +231,12 @@ class PdfViewerPanel(QWidget):
                 if dlg.exec() != QDialog.DialogCode.Accepted:
                     doc.close(); return
                 if doc.authenticate(dlg.password()):
+                    self._pdf_password = dlg.password()
                     break
                 wrong = True
         self._current_path = path
         self._fitz_doc     = doc
-        self._canvas.load(doc, 0)
+        self._canvas.load(doc, 0, path=path, password=getattr(self, "_pdf_password", ""))
         self._canvas_scroll.verticalScrollBar().setValue(0)
         self._placeholder.setVisible(False)
         self._canvas_scroll.setVisible(True)
