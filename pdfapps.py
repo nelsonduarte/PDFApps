@@ -1809,27 +1809,38 @@ class _SelectCanvas(QWidget):
     def _render(self):
         if not self._doc:
             return
-        import fitz
-        from PySide6.QtGui import QPixmap as QP
-        page = self._doc[self._page_idx]
-        if self._zoom_factor == 1.0:
-            from PySide6.QtWidgets import QScrollArea as _SA
-            vp = self.parent()
-            sa = vp.parent() if vp else None
-            avail = sa.viewport().width() - 4 if isinstance(sa, _SA) else self.width()
-            self._base_avail = max(avail, 300)
-        dpr = self.devicePixelRatioF() or 1.0
-        self._zoom = (self._base_avail / page.rect.width) * self._zoom_factor
-        render_zoom = self._zoom * dpr
-        pix = page.get_pixmap(matrix=fitz.Matrix(render_zoom, render_zoom))
-        qp = QP(); qp.loadFromData(pix.tobytes("png"))
-        qp.setDevicePixelRatio(dpr)
-        self._qpix = qp
-        self.setFixedSize(round(qp.width() / dpr), round(qp.height() / dpr))
-        self._words = page.get_text("words")  # (x0,y0,x1,y1,word,block,line,word_no)
-        self._clear_selection()
-        self.zoom_changed.emit(round(self._zoom_factor * 100))
-        self.update()
+        try:
+            import fitz
+            from PySide6.QtGui import QPixmap as QP
+            page = self._doc[self._page_idx]
+            if self._zoom_factor == 1.0:
+                from PySide6.QtWidgets import QScrollArea as _SA
+                vp = self.parent()
+                sa = vp.parent() if vp else None
+                avail = sa.viewport().width() - 4 if isinstance(sa, _SA) else self.width()
+                self._base_avail = max(avail, 300)
+            dpr = self.devicePixelRatioF() or 1.0
+            self._zoom = (self._base_avail / page.rect.width) * self._zoom_factor
+            render_zoom = self._zoom * dpr
+            pix = page.get_pixmap(matrix=fitz.Matrix(render_zoom, render_zoom))
+            img = pix.tobytes("png")
+            qp = QP()
+            if not qp.loadFromData(img):
+                # Fallback: try via QImage for unusual colorspaces
+                from PySide6.QtGui import QImage
+                qi = QImage(pix.samples_mv, pix.width, pix.height,
+                            pix.stride, QImage.Format.Format_RGB888)
+                qp = QP.fromImage(qi)
+            qp.setDevicePixelRatio(dpr)
+            self._qpix = qp
+            self.setFixedSize(round(qp.width() / dpr), round(qp.height() / dpr))
+            self._words = page.get_text("words")  # (x0,y0,x1,y1,word,block,line,word_no)
+            self._clear_selection()
+            self.zoom_changed.emit(round(self._zoom_factor * 100))
+            self.update()
+        except Exception:
+            import traceback
+            traceback.print_exc()
 
     def _compute_selection(self):
         import fitz
@@ -2022,13 +2033,13 @@ class PdfViewerPanel(QWidget):
         ph_text = QLabel("Arrasta um PDF aqui\nou usa o botão  para abrir")
         ph_text.setObjectName("viewer_placeholder")
         ph_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ph_btn = QPushButton("  Abrir PDF")
-        ph_btn.setIcon(qta.icon('fa5s.folder-open', color='#FFFFFF'))
-        ph_btn.setObjectName("btn_primary")
-        ph_btn.setFixedWidth(160)
-        ph_btn.clicked.connect(self._open_dialog)
+        self._ph_btn = QPushButton("  Abrir PDF")
+        self._ph_btn.setIcon(qta.icon('fa5s.folder-open', color='#FFFFFF'))
+        self._ph_btn.setObjectName("btn_primary")
+        self._ph_btn.setFixedWidth(160)
+        self._ph_btn.clicked.connect(self._open_dialog)
         ph_lay.addWidget(ph_icon); ph_lay.addWidget(ph_text)
-        ph_lay.addWidget(ph_btn, 0, Qt.AlignmentFlag.AlignCenter)
+        ph_lay.addWidget(self._ph_btn, 0, Qt.AlignmentFlag.AlignCenter)
         self._placeholder = ph_widget
         layout.addWidget(self._placeholder, 1)
 
@@ -2094,13 +2105,22 @@ class PdfViewerPanel(QWidget):
         return self._current_path
 
     def load(self, path: str):
-        if not path or not path.lower().endswith(".pdf") or not os.path.isfile(path):
+        if not path or not os.path.isfile(path):
+            return
+        if not path.lower().endswith(".pdf"):
+            QMessageBox.warning(self, "Formato inválido",
+                                "Por favor seleciona um ficheiro PDF (.pdf).")
             return
         import fitz
         if self._fitz_doc:
             self._fitz_doc.close()
             self._fitz_doc = None
-        doc = fitz.open(path)
+        try:
+            doc = fitz.open(path)
+        except Exception as ex:
+            QMessageBox.critical(self, "Erro ao abrir PDF",
+                                 f"Não foi possível abrir o ficheiro:\n{ex}")
+            return
         if doc.needs_pass:
             wrong = False
             while True:
