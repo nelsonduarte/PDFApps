@@ -49,9 +49,18 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("PDFApps")
-        ico_path = resource_path("icon.ico")
-        if os.path.exists(ico_path):
-            self.setWindowIcon(QIcon(ico_path))
+        import sys as _sys
+        if _sys.platform == "darwin":
+            candidates = ["icon.icns", "icon.png", "icon.ico"]
+        elif _sys.platform == "win32":
+            candidates = ["icon.ico", "icon.png"]
+        else:
+            candidates = ["icon.png", "icon.ico"]
+        for _ico in candidates:
+            _ico_path = resource_path(_ico)
+            if os.path.exists(_ico_path):
+                self.setWindowIcon(QIcon(_ico_path))
+                break
         self.resize(1220, 700)
         self.showMaximized()
         self.setMinimumSize(860, 540)

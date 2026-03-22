@@ -1,21 +1,35 @@
-"""PDFApps — Uninstaller"""
+"""PDFApps — Cross-platform Uninstaller (Windows / macOS / Linux)"""
+import os, sys, shutil, subprocess, threading, time
 import tkinter as tk
 from tkinter import messagebox
-import os, sys, shutil, winreg, subprocess
 
 APP_NAME = "PDFApps"
 
 
+def _no_window():
+    return {"creationflags": 0x08000000} if sys.platform == "win32" else {}
+
+
 def get_install_dir() -> str:
-    try:
-        key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\PDFApps"
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
-            return winreg.QueryValueEx(k, "InstallLocation")[0]
-    except Exception:
-        return os.path.dirname(sys.executable)
+    """Lê o directório de instalação (registo no Windows, config file noutras plataformas)."""
+    if sys.platform == "win32":
+        try:
+            import winreg
+            key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\PDFApps"
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
+                return winreg.QueryValueEx(k, "InstallLocation")[0]
+        except Exception:
+            pass
+    # Fallback: pasta do executável actual
+    return os.path.dirname(sys.executable if getattr(sys, "frozen", False)
+                           else os.path.abspath(__file__))
 
 
 def remove_registry() -> None:
+    """Remove entradas do registo Windows."""
+    if sys.platform != "win32":
+        return
+    import winreg
     keys_to_delete = [
         r"Software\Microsoft\Windows\CurrentVersion\Uninstall\PDFApps",
         r"Software\Classes\PDFApps.Document\shell\open\command",
@@ -32,7 +46,6 @@ def remove_registry() -> None:
             winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key)
         except Exception:
             pass
-    # Remover entrada PDFApps.Document de .pdf\OpenWithProgids
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
                             r"Software\Classes\.pdf\OpenWithProgids",
@@ -40,7 +53,6 @@ def remove_registry() -> None:
             winreg.DeleteValue(k, "PDFApps.Document")
     except Exception:
         pass
-    # Remover entrada de RegisteredApplications
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
                             r"Software\RegisteredApplications",
@@ -51,39 +63,76 @@ def remove_registry() -> None:
 
 
 def remove_shortcuts() -> None:
-    # Desktop
-    lnk = os.path.join(os.path.expanduser("~"), "Desktop", f"{APP_NAME}.lnk")
-    try:
-        os.remove(lnk)
-    except Exception:
-        pass
-    # Start Menu
-    start = os.path.join(
-        os.environ.get("APPDATA", ""),
-        "Microsoft", "Windows", "Start Menu", "Programs", APP_NAME,
-    )
-    try:
-        shutil.rmtree(start)
-    except Exception:
-        pass
+    home = os.path.expanduser("~")
+    if sys.platform == "win32":
+        # Ambiente de Trabalho
+        lnk = os.path.join(home, "Desktop", f"{APP_NAME}.lnk")
+        try:
+            os.remove(lnk)
+        except Exception:
+            pass
+        # Menu Iniciar
+        start = os.path.join(
+            os.environ.get("APPDATA", ""),
+            "Microsoft", "Windows", "Start Menu", "Programs", APP_NAME,
+        )
+        try:
+            shutil.rmtree(start)
+        except Exception:
+            pass
+    elif sys.platform == "darwin":
+        for p in [
+            os.path.join(home, "Desktop", f"{APP_NAME}.app"),
+            os.path.join(home, "Applications", f"{APP_NAME}.app"),
+        ]:
+            try:
+                shutil.rmtree(p)
+            except Exception:
+                pass
+    else:
+        # Desktop .desktop
+        try:
+            os.remove(os.path.join(home, "Desktop", f"{APP_NAME}.desktop"))
+        except Exception:
+            pass
+        # Applications menu
+        try:
+            os.remove(os.path.join(
+                home, ".local", "share", "applications", f"{APP_NAME}.desktop"))
+        except Exception:
+            pass
+        # Atualizar base de dados
+        try:
+            subprocess.run(
+                ["update-desktop-database",
+                 os.path.join(home, ".local", "share", "applications")],
+                capture_output=True
+            )
+        except Exception:
+            pass
 
 
 def _schedule_dir_removal(install_dir: str) -> None:
-    """Lança batch em background que apaga a pasta após o processo terminar."""
-    bat = os.path.join(os.environ.get("TEMP", "C:\\Temp"), "pdfapps_uninstall.bat")
-    with open(bat, "w") as f:
-        f.write("@echo off\n")
-        f.write("timeout /t 5 /nobreak > nul\n")
-        f.write(f'rmdir /s /q "{install_dir}"\n')
-        f.write('del "%~f0"\n')
-    subprocess.Popen(
-        ["cmd", "/c", bat],
-        creationflags=0x08000000,   # CREATE_NO_WINDOW
-    )
+    """Apaga a pasta de instalação após o processo terminar."""
+    if sys.platform == "win32":
+        import tempfile
+        bat = os.path.join(tempfile.gettempdir(), "pdfapps_uninstall.bat")
+        with open(bat, "w") as f:
+            f.write("@echo off\n")
+            f.write("timeout /t 5 /nobreak > nul\n")
+            f.write(f'rmdir /s /q "{install_dir}"\n')
+            f.write('del "%~f0"\n')
+        subprocess.Popen(["cmd", "/c", bat], **_no_window())
+    else:
+        def _remove():
+            time.sleep(2)
+            shutil.rmtree(install_dir, ignore_errors=True)
+        threading.Thread(target=_remove, daemon=True).start()
 
 
 if __name__ == "__main__":
     silent = "/silent" in sys.argv
+
     root = tk.Tk()
     root.withdraw()
 
@@ -101,6 +150,5 @@ if __name__ == "__main__":
     if not silent:
         messagebox.showinfo(APP_NAME, f"{APP_NAME} foi desinstalado com sucesso.")
 
-    # Lançar batch DEPOIS de fechar a messagebox — o EXE já está prestes a sair
     _schedule_dir_removal(install_dir)
     root.destroy()

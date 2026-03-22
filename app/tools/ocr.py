@@ -13,10 +13,34 @@ from app.constants import TEXT_SEC
 from app.widgets import DropFileEdit
 
 
-_TESSERACT_PATHS = [
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-]
+def _find_tesseract() -> str | None:
+    """Devolve o caminho do executável tesseract ou None se não encontrado."""
+    import shutil, sys
+    # 1. Verificar no PATH do sistema
+    found = shutil.which("tesseract")
+    if found:
+        return found
+    # 2. Caminhos comuns por plataforma
+    if sys.platform == "win32":
+        candidates = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        ]
+    elif sys.platform == "darwin":
+        candidates = [
+            "/opt/homebrew/bin/tesseract",   # Apple Silicon
+            "/usr/local/bin/tesseract",      # Intel Homebrew
+        ]
+    else:  # Linux
+        candidates = [
+            "/usr/bin/tesseract",
+            "/usr/local/bin/tesseract",
+            "/snap/bin/tesseract",
+        ]
+    for p in candidates:
+        if os.path.isfile(p):
+            return p
+    return None
 
 
 class TabOCR(BasePage):
@@ -99,16 +123,11 @@ class TabOCR(BasePage):
 
     def _ensure_tesseract(self):
         """Localiza o Tesseract, define TESSDATA_PREFIX e atualiza idiomas disponíveis."""
-        import pytesseract
-        tess_exe = None
-        for path in _TESSERACT_PATHS:
-            if os.path.isfile(path):
-                tess_exe = path
-                break
+        import pytesseract, sys
+        tess_exe = _find_tesseract()
 
         if tess_exe:
             pytesseract.pytesseract.tesseract_cmd = tess_exe
-            # TESSDATA_PREFIX deve apontar para a pasta tessdata (não para o seu pai)
             tess_dir = os.path.dirname(tess_exe)
             tessdata = os.path.join(tess_dir, "tessdata")
             if os.path.isdir(tessdata):
@@ -117,10 +136,15 @@ class TabOCR(BasePage):
         try:
             pytesseract.get_tesseract_version()
         except Exception:
+            if sys.platform == "win32":
+                install_hint = "https://github.com/UB-Mannheim/tesseract/wiki"
+            elif sys.platform == "darwin":
+                install_hint = "brew install tesseract tesseract-lang"
+            else:
+                install_hint = "sudo apt install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng"
             QMessageBox.critical(self, "Tesseract não encontrado",
                 "O motor Tesseract OCR não está instalado ou não foi encontrado.\n\n"
-                "Instala em:\nhttps://github.com/UB-Mannheim/tesseract/wiki\n\n"
-                "Inclui os language packs de que precisas (por, eng…).")
+                f"Instala com:\n{install_hint}")
             return None
 
         # Detetar idiomas instalados e atualizar o dropdown
