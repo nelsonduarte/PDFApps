@@ -66,13 +66,89 @@ PDFApps reúne num só lugar todas as operações do dia a dia com ficheiros PDF
 
 ---
 
-## Instalação (utilizador final)
+## Instalação
+
+### Windows
 
 1. Descarrega `PDFAppsSetup.exe` da pasta `dist/`
 2. Executa o instalador e segue os passos
 3. O PDFApps ficará disponível no Menu Iniciar e, opcionalmente, no Ambiente de Trabalho
 
 Para desinstalar, vai a **Definições → Aplicações** ou usa o atalho de desinstalação no Menu Iniciar.
+
+---
+
+### Linux (Ubuntu / Debian)
+
+**Opção A — A partir do código fonte (recomendado)**
+
+```bash
+# 1. Dependências do sistema
+sudo apt update
+sudo apt install python3-pip python3-venv tesseract-ocr tesseract-ocr-por tesseract-ocr-eng
+
+# 2. Clonar o repositório
+git clone <url-do-repositório>
+cd PDFApps
+
+# 3. Ambiente virtual e dependências Python
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# 4. Correr
+python3 pdfapps.py
+```
+
+**Opção B — Compilar um binário nativo**
+
+```bash
+# (com o venv ativo)
+python -m PyInstaller --noconfirm pdfapps.spec
+
+# Executar
+./dist/PDFApps
+```
+
+> O PyInstaller não faz cross-compile — o binário tem de ser compilado no próprio Linux.
+
+---
+
+### macOS
+
+**Opção A — A partir do código fonte (recomendado)**
+
+```bash
+# 1. Instalar Homebrew (se necessário)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 2. Dependências do sistema
+brew install python tesseract tesseract-lang
+
+# 3. Clonar o repositório
+git clone <url-do-repositório>
+cd PDFApps
+
+# 4. Ambiente virtual e dependências Python
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# 5. Correr
+python3 pdfapps.py
+```
+
+**Opção B — Compilar um binário nativo (.app)**
+
+```bash
+# (com o venv ativo)
+python -m PyInstaller --noconfirm pdfapps.spec
+
+# Executar
+open dist/PDFApps
+```
+
+> O PyInstaller não faz cross-compile — o binário tem de ser compilado no próprio macOS.
 
 ---
 
@@ -83,15 +159,20 @@ Para desinstalar, vai a **Definições → Aplicações** ou usa o atalho de des
 git clone <url-do-repositório>
 cd PDFApps
 
-# Criar e ativar ambiente virtual
+# Windows
 python -m venv venv
 venv\Scripts\activate
+
+# macOS / Linux
+python3 -m venv venv
+source venv/bin/activate
 
 # Instalar dependências
 pip install -r requirements.txt
 
-# Executar a aplicação
-python pdfapps.py
+# Executar
+python pdfapps.py        # Windows
+python3 pdfapps.py       # macOS / Linux
 ```
 
 ---
