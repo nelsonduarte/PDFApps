@@ -1,6 +1,6 @@
 # PDFApps
 
-> Editor e gestor de PDFs para Windows — rápido, offline e sem subscrições.
+> Editor e gestor de PDFs para Windows, macOS e Linux — rápido, offline e sem subscrições.
 
 ![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)
 ![PySide6](https://img.shields.io/badge/PySide6-6.10-green?logo=qt&logoColor=white)
@@ -30,6 +30,7 @@ PDFApps reúne num só lugar todas as operações do dia a dia com ficheiros PDF
 ### Visualizador integrado
 
 - Scroll contínuo por todas as páginas (estilo Adobe Acrobat)
+- **Lazy rendering** — abre instantaneamente; páginas renderizadas em background à medida que são vistas
 - Zoom com Ctrl+scroll ou botões de zoom
 - Seleção e cópia de texto por arrastar
 - Suporte a PDF com senha
@@ -40,7 +41,8 @@ PDFApps reúne num só lugar todas as operações do dia a dia com ficheiros PDF
 - Interface escura moderna com painel lateral colapsável
 - Suporte completo a arrastar e largar ficheiros em todos os campos
 - 100% offline — os teus ficheiros nunca saem do teu computador
-- Instalador com deteção e instalação automática do motor OCR (Tesseract)
+- Multiplataforma: Windows, macOS e Linux
+- Instalador com deteção e instalação automática do motor OCR (Tesseract) — Windows
 
 ---
 
@@ -245,7 +247,7 @@ PDFApps/
 │   │   ├── info.py
 │   │   └── ocr.py
 │   ├── viewer/             # Visualizador PDF integrado
-│   │   ├── canvas.py       # Renderização contínua de páginas (fitz)
+│   │   ├── canvas.py       # Lazy rendering de páginas em background threads (fitz)
 │   │   └── panel.py        # Painel do visualizador com controlos
 │   └── editor/             # Editor PDF visual
 │       ├── canvas.py       # Canvas de edição (PdfEditCanvas)
