@@ -134,7 +134,13 @@ class MainWindow(QMainWindow):
         brand = QWidget(); brand.setObjectName("brand_area")
         bv = QVBoxLayout(brand); bv.setContentsMargins(0, 0, 0, 0); bv.setSpacing(0)
         ico_lbl = QLabel()
-        ico_lbl.setPixmap(qta.icon('fa5s.file-pdf', color=ACCENT).pixmap(28, 28))
+        from PySide6.QtGui import QPixmap as _QPixmap
+        _app_pix = _QPixmap(resource_path("icon.ico")).scaled(
+            28, 28, Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
+        if _app_pix.isNull():
+            _app_pix = qta.icon('fa5s.file-pdf', color=ACCENT).pixmap(28, 28)
+        ico_lbl.setPixmap(_app_pix)
         ico_lbl.setObjectName("app_icon")
         ico_lbl.setContentsMargins(16, 0, 0, 0)
         ttl_lbl = QLabel("PDFApps"); ttl_lbl.setObjectName("app_title")

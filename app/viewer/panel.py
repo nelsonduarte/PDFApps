@@ -92,7 +92,14 @@ class PdfViewerPanel(QWidget):
         ph_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_lay.setSpacing(14)
         ph_icon = QLabel()
-        ph_icon.setPixmap(qta.icon('fa5s.file-pdf', color='#2E3A55').pixmap(56, 56))
+        from PySide6.QtGui import QPixmap as _QPixmap
+        from app.utils import resource_path as _rp
+        _ph_pix = _QPixmap(_rp("icon.ico")).scaled(
+            56, 56, Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
+        if _ph_pix.isNull():
+            _ph_pix = qta.icon('fa5s.file-pdf', color='#2E3A55').pixmap(56, 56)
+        ph_icon.setPixmap(_ph_pix)
         ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_text = QLabel("Arrasta um PDF aqui\nou usa o botão  para abrir")
         ph_text.setObjectName("viewer_placeholder")
