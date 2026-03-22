@@ -119,7 +119,6 @@ class PdfViewerPanel(QWidget):
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         self._canvas_scroll.setVisible(False)
         self._canvas_scroll.viewport().installEventFilter(self)
-        self._canvas.installEventFilter(self)
         layout.addWidget(self._canvas_scroll, 1)
 
         # ── Barra de estado (seleção de texto) ──────────────────────────────
@@ -148,7 +147,7 @@ class PdfViewerPanel(QWidget):
 
     def eventFilter(self, obj, event):
         from PySide6.QtCore import QTimer
-        if obj is self._canvas or obj is self._canvas_scroll.viewport():
+        if obj is self._canvas_scroll.viewport():
             if event.type() == QEvent.Type.Wheel:
                 if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
                     if event.angleDelta().y() > 0:
@@ -156,8 +155,7 @@ class PdfViewerPanel(QWidget):
                     else:
                         self._canvas.zoom_out()
                     return True
-        if obj is self._canvas_scroll.viewport():
-            if event.type() == QEvent.Type.Resize:
+            elif event.type() == QEvent.Type.Resize:
                 if self._canvas._doc and self._canvas._zoom_factor == 1.0:
                     QTimer.singleShot(0, self._canvas._render)
         return super().eventFilter(obj, event)
