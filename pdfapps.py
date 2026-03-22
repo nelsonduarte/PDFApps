@@ -22,8 +22,6 @@ from PySide6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QFrame, QStatusBar, QSplitter,
     QDialog, QLayout, QSizePolicy,
 )
-from PySide6.QtPdf import QPdfDocument
-from PySide6.QtPdfWidgets import QPdfView
 import qtawesome as qta
 
 try:
@@ -1632,9 +1630,9 @@ class TabMarcaDagua(BasePage):
             over    = self.cmb_layer.currentIndex() == 1
             w = PdfWriter()
             for i, page in enumerate(reader.pages):
-                if i in targets:
-                    page.merge_page(wm_page, over=over)
                 w.add_page(page)
+                if i in targets:
+                    w.pages[i].merge_page(wm_page, over=over)
             with open(out_path, "wb") as f: w.write(f)
             self._status(f"✔  Marca d'água aplicada: {os.path.basename(out_path)}")
             QMessageBox.information(self, "Concluído", f"PDF guardado em:\n{out_path}")
@@ -1722,18 +1720,236 @@ class TabInfo(BasePage):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  Canvas fitz com seleção de texto nativa
+# ══════════════════════════════════════════════════════════════════════════════
+
+class _SelectCanvas(QWidget):
+    """Renderiza páginas PDF via fitz e suporta seleção de texto por arrastar."""
+
+    zoom_changed = Signal(int)   # percentagem actual
+
+    def __init__(self):
+        super().__init__()
+        self._doc         = None   # fitz.Document
+        self._page_idx    = 0
+        self._zoom        = 1.0
+        self._zoom_factor = 1.0
+        self._base_avail  = 700
+        self._qpix        = None
+        self._words       = []     # [(x0,y0,x1,y1,word,...)]
+        self._drag_start  = None   # QPoint screen
+        self._drag_end    = None   # QPoint screen
+        self._sel_rects   = []     # [QRect screen]
+        self._sel_text    = ""
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setMouseTracking(True)
+        self.setCursor(Qt.CursorShape.IBeamCursor)
+        self.setMinimumSize(300, 400)
+
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    def load(self, doc, page_idx: int = 0):
+        self._doc = doc
+        self._page_idx = page_idx
+        self._zoom_factor = 1.0
+        self._clear_selection()
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self._render)
+
+    def set_page(self, idx: int):
+        if self._doc and 0 <= idx < self._doc.page_count:
+            self._page_idx = idx
+            self._clear_selection()
+            self._render()
+
+    def page_count(self) -> int:
+        return self._doc.page_count if self._doc else 0
+
+    def zoom_in(self):
+        self._zoom_factor = min(4.0, round(self._zoom_factor * 1.25, 4))
+        self._render()
+
+    def zoom_out(self):
+        self._zoom_factor = max(0.2, round(self._zoom_factor / 1.25, 4))
+        self._render()
+
+    def zoom_reset(self):
+        self._zoom_factor = 1.0
+        self._render()
+
+    def close_doc(self):
+        if self._doc:
+            self._doc.close()
+            self._doc = None
+        self._qpix = None
+        self._words = []
+        self._clear_selection()
+        self.setFixedSize(300, 400)
+        self.update()
+
+    # ── Internos ─────────────────────────────────────────────────────────────
+
+    def _clear_selection(self):
+        self._drag_start = None
+        self._drag_end   = None
+        self._sel_rects  = []
+        self._sel_text   = ""
+
+    def _to_pdf(self, qpt):
+        import fitz
+        return fitz.Point(qpt.x() / self._zoom, qpt.y() / self._zoom)
+
+    def _word_to_screen(self, x0, y0, x1, y1):
+        from PySide6.QtCore import QRect
+        z = self._zoom
+        return QRect(int(x0 * z), int(y0 * z),
+                     max(1, int((x1 - x0) * z)),
+                     max(1, int((y1 - y0) * z)))
+
+    def _render(self):
+        if not self._doc:
+            return
+        import fitz
+        from PySide6.QtGui import QPixmap as QP
+        page = self._doc[self._page_idx]
+        if self._zoom_factor == 1.0:
+            from PySide6.QtWidgets import QScrollArea as _SA
+            vp = self.parent()
+            sa = vp.parent() if vp else None
+            avail = sa.viewport().width() - 4 if isinstance(sa, _SA) else self.width()
+            self._base_avail = max(avail, 300)
+        dpr = self.devicePixelRatioF() or 1.0
+        self._zoom = (self._base_avail / page.rect.width) * self._zoom_factor
+        render_zoom = self._zoom * dpr
+        pix = page.get_pixmap(matrix=fitz.Matrix(render_zoom, render_zoom))
+        qp = QP(); qp.loadFromData(pix.tobytes("png"))
+        qp.setDevicePixelRatio(dpr)
+        self._qpix = qp
+        self.setFixedSize(round(qp.width() / dpr), round(qp.height() / dpr))
+        self._words = page.get_text("words")  # (x0,y0,x1,y1,word,block,line,word_no)
+        self._clear_selection()
+        self.zoom_changed.emit(round(self._zoom_factor * 100))
+        self.update()
+
+    def _compute_selection(self):
+        import fitz
+        if not self._drag_start or not self._drag_end:
+            return
+        sp = self._to_pdf(self._drag_start)
+        ep = self._to_pdf(self._drag_end)
+        sel_r = fitz.Rect(min(sp.x, ep.x), min(sp.y, ep.y),
+                          max(sp.x, ep.x), max(sp.y, ep.y))
+        rects, words = [], []
+        for w in self._words:
+            x0, y0, x1, y1, word = w[0], w[1], w[2], w[3], w[4]
+            if sel_r.intersects(fitz.Rect(x0, y0, x1, y1)):
+                rects.append(self._word_to_screen(x0, y0, x1, y1))
+                words.append(word)
+        self._sel_rects = rects
+        self._sel_text  = " ".join(words)
+
+    # ── Paint ─────────────────────────────────────────────────────────────────
+
+    def paintEvent(self, _):
+        from PySide6.QtGui import QPainter, QColor, QPen
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(BG_INNER))
+        if self._qpix:
+            p.drawPixmap(0, 0, self._qpix)
+        else:
+            from PySide6.QtGui import QFont
+            p.setPen(QColor(TEXT_SEC))
+            f = QFont(); f.setPointSize(11); p.setFont(f)
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
+                       "Abre um PDF para visualizar")
+        for r in self._sel_rects:
+            p.fillRect(r, QColor(59, 130, 246, 90))
+        if self._drag_start and self._drag_end:
+            from PySide6.QtCore import QRect
+            drag_r = QRect(self._drag_start, self._drag_end).normalized()
+            p.setPen(QPen(QColor("#3B82F6"), 1))
+            p.setBrush(QColor(59, 130, 246, 25))
+            p.drawRect(drag_r)
+
+    # ── Mouse ─────────────────────────────────────────────────────────────────
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.setFocus()
+            self._drag_start = e.position().toPoint()
+            self._drag_end   = self._drag_start
+            self._sel_rects  = []
+            self._sel_text   = ""
+            self.update()
+
+    def mouseMoveEvent(self, e):
+        if self._drag_start and (e.buttons() & Qt.MouseButton.LeftButton):
+            self._drag_end = e.position().toPoint()
+            self._compute_selection()
+            self.update()
+
+    def mouseReleaseEvent(self, e):
+        if e.button() != Qt.MouseButton.LeftButton or not self._drag_start:
+            return
+        self._drag_end = e.position().toPoint()
+        self._compute_selection()
+        self._drag_start = None
+        self._drag_end   = None
+        if self._sel_text:
+            QApplication.clipboard().setText(self._sel_text)
+        self.update()
+
+    # ── Teclado ───────────────────────────────────────────────────────────────
+
+    def keyPressEvent(self, e):
+        if (e.modifiers() & Qt.KeyboardModifier.ControlModifier
+                and e.key() == Qt.Key.Key_C and self._sel_text):
+            QApplication.clipboard().setText(self._sel_text)
+            e.accept()
+        else:
+            super().keyPressEvent(e)
+
+    # ── Menu contextual ───────────────────────────────────────────────────────
+
+    def contextMenuEvent(self, e):
+        from PySide6.QtWidgets import QMenu
+        if not self._sel_text:
+            return
+        menu = QMenu(self)
+        act = menu.addAction(
+            qta.icon("fa5s.copy", color=TEXT_PRI),
+            f"  Copiar  ({len(self._sel_text)} car.)")
+        act.triggered.connect(lambda: QApplication.clipboard().setText(self._sel_text))
+        menu.exec(e.globalPos())
+
+    # ── Scroll + zoom ─────────────────────────────────────────────────────────
+
+    def wheelEvent(self, e):
+        if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            if e.angleDelta().y() > 0:
+                self.zoom_in()
+            else:
+                self.zoom_out()
+            e.accept()
+        else:
+            super().wheelEvent(e)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  Painel de pré-visualização PDF
 # ══════════════════════════════════════════════════════════════════════════════
 
 class PdfViewerPanel(QWidget):
-    """Visualizador PDF com drag & drop, botão abrir e navegação de páginas."""
+    """Visualizador PDF com drag & drop, seleção de texto nativa e navegação."""
 
     def __init__(self):
         super().__init__()
         self.setObjectName("viewer_panel")
         self.setMinimumWidth(260)
         self.setAcceptDrops(True)
-        self._doc = QPdfDocument(self)
+        self._current_path = ""
+        self._fitz_doc     = None
+        self._page_idx     = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1749,112 +1965,103 @@ class PdfViewerPanel(QWidget):
         self._name_lbl.setObjectName("viewer_title")
         hdr_lay.addWidget(self._name_lbl, 1)
 
-        self._open_btn = QPushButton()
-        self._open_btn.setIcon(qta.icon('fa5s.folder-open', color=TEXT_SEC))
-        self._open_btn.setObjectName("viewer_nav_btn")
-        self._open_btn.setFixedSize(28, 28)
+        def _nav_btn(icon_name):
+            b = QPushButton()
+            b.setIcon(qta.icon(icon_name, color=TEXT_SEC))
+            b.setObjectName("viewer_nav_btn")
+            b.setFixedSize(28, 28)
+            b.setEnabled(False)
+            return b
+
+        self._open_btn     = _nav_btn('fa5s.folder-open')
+        self._open_btn.setEnabled(True)
         self._open_btn.setToolTip("Abrir PDF")
         self._open_btn.clicked.connect(self._open_dialog)
 
-        self._prev_btn = QPushButton()
-        self._prev_btn.setIcon(qta.icon('fa5s.chevron-left', color=TEXT_SEC))
-        self._prev_btn.setObjectName("viewer_nav_btn")
-        self._prev_btn.setFixedSize(28, 28)
-        self._prev_btn.clicked.connect(self._prev_page)
-        self._prev_btn.setEnabled(False)
-
-        self._page_lbl = QLabel("— / —")
-        self._page_lbl.setObjectName("viewer_page_lbl")
-        self._page_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self._next_btn = QPushButton()
-        self._next_btn.setIcon(qta.icon('fa5s.chevron-right', color=TEXT_SEC))
-        self._next_btn.setObjectName("viewer_nav_btn")
-        self._next_btn.setFixedSize(28, 28)
-        self._next_btn.clicked.connect(self._next_page)
-        self._next_btn.setEnabled(False)
-
-        self._zoom_out_btn = QPushButton()
-        self._zoom_out_btn.setIcon(qta.icon('fa5s.search-minus', color=TEXT_SEC))
-        self._zoom_out_btn.setObjectName("viewer_nav_btn")
-        self._zoom_out_btn.setFixedSize(28, 28)
+        self._zoom_out_btn = _nav_btn('fa5s.search-minus')
         self._zoom_out_btn.setToolTip("Diminuir zoom (Ctrl+Scroll)")
-        self._zoom_out_btn.clicked.connect(self._zoom_out)
-        self._zoom_out_btn.setEnabled(False)
+        self._zoom_out_btn.clicked.connect(lambda: self._canvas.zoom_out())
 
         self._zoom_lbl = QLabel("Ajustar")
         self._zoom_lbl.setObjectName("viewer_page_lbl")
         self._zoom_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._zoom_lbl.setMinimumWidth(52)
 
-        self._zoom_in_btn = QPushButton()
-        self._zoom_in_btn.setIcon(qta.icon('fa5s.search-plus', color=TEXT_SEC))
-        self._zoom_in_btn.setObjectName("viewer_nav_btn")
-        self._zoom_in_btn.setFixedSize(28, 28)
+        self._zoom_in_btn  = _nav_btn('fa5s.search-plus')
         self._zoom_in_btn.setToolTip("Aumentar zoom (Ctrl+Scroll)")
-        self._zoom_in_btn.clicked.connect(self._zoom_in)
-        self._zoom_in_btn.setEnabled(False)
+        self._zoom_in_btn.clicked.connect(lambda: self._canvas.zoom_in())
 
-        self._fit_btn = QPushButton()
-        self._fit_btn.setIcon(qta.icon('fa5s.compress-arrows-alt', color=TEXT_SEC))
-        self._fit_btn.setObjectName("viewer_nav_btn")
-        self._fit_btn.setFixedSize(28, 28)
+        self._fit_btn      = _nav_btn('fa5s.compress-arrows-alt')
         self._fit_btn.setToolTip("Ajustar à janela")
         self._fit_btn.clicked.connect(self._zoom_fit)
-        self._fit_btn.setEnabled(False)
 
-        hdr_lay.addWidget(self._open_btn)
-        hdr_lay.addWidget(self._zoom_out_btn)
-        hdr_lay.addWidget(self._zoom_lbl)
-        hdr_lay.addWidget(self._zoom_in_btn)
-        hdr_lay.addWidget(self._fit_btn)
-        hdr_lay.addWidget(self._prev_btn)
-        hdr_lay.addWidget(self._page_lbl)
-        hdr_lay.addWidget(self._next_btn)
+        self._prev_btn     = _nav_btn('fa5s.chevron-left')
+        self._prev_btn.clicked.connect(self._prev_page)
+
+        self._page_lbl = QLabel("— / —")
+        self._page_lbl.setObjectName("viewer_page_lbl")
+        self._page_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self._next_btn     = _nav_btn('fa5s.chevron-right')
+        self._next_btn.clicked.connect(self._next_page)
+
+        for w in (self._open_btn, self._zoom_out_btn, self._zoom_lbl,
+                  self._zoom_in_btn, self._fit_btn,
+                  self._prev_btn, self._page_lbl, self._next_btn):
+            hdr_lay.addWidget(w)
         layout.addWidget(hdr)
 
         # ── Placeholder ─────────────────────────────────────────────────────
-        ph_widget = QWidget()
-        ph_widget.setObjectName("viewer_ph_widget")
+        ph_widget = QWidget(); ph_widget.setObjectName("viewer_ph_widget")
         ph_lay = QVBoxLayout(ph_widget)
         ph_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_lay.setSpacing(14)
-
         ph_icon = QLabel()
         ph_icon.setPixmap(qta.icon('fa5s.file-pdf', color='#2E3A55').pixmap(56, 56))
         ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         ph_text = QLabel("Arrasta um PDF aqui\nou usa o botão  para abrir")
         ph_text.setObjectName("viewer_placeholder")
         ph_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         ph_btn = QPushButton("  Abrir PDF")
         ph_btn.setIcon(qta.icon('fa5s.folder-open', color='#FFFFFF'))
         ph_btn.setObjectName("btn_primary")
         ph_btn.setFixedWidth(160)
         ph_btn.clicked.connect(self._open_dialog)
-
-        ph_lay.addWidget(ph_icon)
-        ph_lay.addWidget(ph_text)
+        ph_lay.addWidget(ph_icon); ph_lay.addWidget(ph_text)
         ph_lay.addWidget(ph_btn, 0, Qt.AlignmentFlag.AlignCenter)
-
         self._placeholder = ph_widget
         layout.addWidget(self._placeholder, 1)
 
-        # ── Vista PDF ───────────────────────────────────────────────────────
-        self._view = QPdfView(self)
-        self._view.setDocument(self._doc)
-        self._view.setPageMode(QPdfView.PageMode.MultiPage)
-        self._view.setZoomMode(QPdfView.ZoomMode.FitInView)
-        self._view.setObjectName("pdf_view")
-        self._view.setVisible(False)
-        layout.addWidget(self._view, 1)
-
-        self._view.pageNavigator().currentPageChanged.connect(self._update_page_label)
-        self._view.installEventFilter(self)
+        # ── Canvas com seleção de texto nativa ──────────────────────────────
+        self._canvas = _SelectCanvas()
+        self._canvas.zoom_changed.connect(lambda pct: self._zoom_lbl.setText(f"{pct}%"))
+        self._canvas_scroll = QScrollArea()
+        self._canvas_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._canvas_scroll.setWidgetResizable(False)
+        self._canvas_scroll.setWidget(self._canvas)
+        self._canvas_scroll.setAlignment(
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self._canvas_scroll.setVisible(False)
+        self._canvas_scroll.viewport().installEventFilter(self)
+        layout.addWidget(self._canvas_scroll, 1)
 
     def paintEvent(self, event):
         _paint_bg(self)
+
+    def eventFilter(self, obj, event):
+        from PySide6.QtCore import QEvent, QTimer
+        if obj is self._canvas_scroll.viewport():
+            if event.type() == QEvent.Type.Wheel:
+                if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                    if event.angleDelta().y() > 0:
+                        self._canvas.zoom_in()
+                    else:
+                        self._canvas.zoom_out()
+                    return True
+            elif event.type() == QEvent.Type.Resize:
+                if self._canvas._doc and self._canvas._zoom_factor == 1.0:
+                    QTimer.singleShot(0, self._canvas._render)
+        return super().eventFilter(obj, event)
 
     def update_theme(self, dark: bool) -> None:
         c = TEXT_SEC if dark else _LQ
@@ -1873,8 +2080,7 @@ class PdfViewerPanel(QWidget):
                 e.acceptProposedAction()
 
     def dropEvent(self, e: QDropEvent):
-        path = e.mimeData().urls()[0].toLocalFile()
-        self.load(path)
+        self.load(e.mimeData().urls()[0].toLocalFile())
 
     # ── Abrir diálogo ────────────────────────────────────────────────────────
     def _open_dialog(self):
@@ -1883,96 +2089,67 @@ class PdfViewerPanel(QWidget):
         if path:
             self.load(path)
 
-    # ── API ─────────────────────────────────────────────────────────────────
+    # ── API ──────────────────────────────────────────────────────────────────
     def current_path(self) -> str:
-        return getattr(self, "_current_path", "")
+        return self._current_path
 
     def load(self, path: str):
         if not path or not path.lower().endswith(".pdf") or not os.path.isfile(path):
             return
+        import fitz
+        if self._fitz_doc:
+            self._fitz_doc.close()
+            self._fitz_doc = None
+        doc = fitz.open(path)
+        if doc.needs_pass:
+            wrong = False
+            while True:
+                dlg = _PdfPasswordDialog(os.path.basename(path), wrong=wrong, parent=self)
+                if dlg.exec() != QDialog.DialogCode.Accepted:
+                    doc.close(); return
+                if doc.authenticate(dlg.password()):
+                    break
+                wrong = True
         self._current_path = path
-        self._doc.close()
-        self._doc.setPassword("")
-        self._doc.load(path)
-
-        # tratar PDF protegido com senha
-        wrong = False
-        while self._doc.error() == QPdfDocument.Error.IncorrectPassword:
-            dlg = _PdfPasswordDialog(os.path.basename(path), wrong=wrong, parent=self)
-            if dlg.exec() != QDialog.DialogCode.Accepted:
-                return
-            self._doc.close()
-            self._doc.setPassword(dlg.password())
-            self._doc.load(path)
-            wrong = True
-
-        ok = (self._doc.status() == QPdfDocument.Status.Ready)
-        self._view.setVisible(ok)
-        self._placeholder.setVisible(not ok)
-        if ok:
-            self._name_lbl.setText(os.path.basename(path))
-            nav = self._view.pageNavigator()
-            nav.jump(0, QPointF(), nav.currentZoom())
-            self._view.setZoomMode(QPdfView.ZoomMode.FitInView)
-            self._zoom_lbl.setText("Ajustar")
-            self._zoom_out_btn.setEnabled(True)
-            self._zoom_in_btn.setEnabled(True)
-            self._fit_btn.setEnabled(True)
-            self._update_page_label()
+        self._fitz_doc     = doc
+        self._page_idx     = 0
+        self._canvas.load(doc, 0)
+        self._placeholder.setVisible(False)
+        self._canvas_scroll.setVisible(True)
+        self._name_lbl.setText(os.path.basename(path))
+        self._zoom_lbl.setText("Ajustar")
+        for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn):
+            btn.setEnabled(True)
+        self._update_page_label()
 
     # ── Navegação ────────────────────────────────────────────────────────────
     def _update_page_label(self):
-        total = self._doc.pageCount()
+        total = self._fitz_doc.page_count if self._fitz_doc else 0
         if total > 0:
-            current = self._view.pageNavigator().currentPage() + 1
-            self._page_lbl.setText(f"{current} / {total}")
-            self._prev_btn.setEnabled(current > 1)
-            self._next_btn.setEnabled(current < total)
+            self._page_lbl.setText(f"{self._page_idx + 1} / {total}")
+            self._prev_btn.setEnabled(self._page_idx > 0)
+            self._next_btn.setEnabled(self._page_idx < total - 1)
         else:
             self._page_lbl.setText("— / —")
             self._prev_btn.setEnabled(False)
             self._next_btn.setEnabled(False)
 
     def _prev_page(self):
-        nav = self._view.pageNavigator()
-        if nav.currentPage() > 0:
-            nav.jump(nav.currentPage() - 1, QPointF(), nav.currentZoom())
+        if self._fitz_doc and self._page_idx > 0:
+            self._page_idx -= 1
+            self._canvas.set_page(self._page_idx)
+            self._update_page_label()
 
     def _next_page(self):
-        nav = self._view.pageNavigator()
-        if nav.currentPage() < self._doc.pageCount() - 1:
-            nav.jump(nav.currentPage() + 1, QPointF(), nav.currentZoom())
+        if self._fitz_doc and self._page_idx < self._fitz_doc.page_count - 1:
+            self._page_idx += 1
+            self._canvas.set_page(self._page_idx)
+            self._update_page_label()
 
     # ── Zoom ─────────────────────────────────────────────────────────────────
-    _ZOOM_STEP = 0.20
-    _ZOOM_MIN  = 0.25
-    _ZOOM_MAX  = 4.00
-
-    def _zoom_in(self):
-        self._set_zoom(self._view.zoomFactor() + self._ZOOM_STEP)
-
-    def _zoom_out(self):
-        self._set_zoom(self._view.zoomFactor() - self._ZOOM_STEP)
-
     def _zoom_fit(self):
-        self._view.setZoomMode(QPdfView.ZoomMode.FitInView)
+        self._canvas.zoom_reset()
         self._zoom_lbl.setText("Ajustar")
-
-    def _set_zoom(self, factor: float):
-        factor = max(self._ZOOM_MIN, min(self._ZOOM_MAX, factor))
-        self._view.setZoomMode(QPdfView.ZoomMode.Custom)
-        self._view.setZoomFactor(factor)
-        self._zoom_lbl.setText(f"{int(factor * 100)}%")
-
-    def eventFilter(self, obj, event):
-        if obj is self._view and event.type() == QEvent.Type.Wheel:
-            if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                if event.angleDelta().y() > 0:
-                    self._zoom_in()
-                else:
-                    self._zoom_out()
-                return True
-        return super().eventFilter(obj, event)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2206,9 +2383,14 @@ class PdfEditCanvas(QWidget):
         self._drag_start  = None
         self._drag_rect   = None
         self._overlays    = []
+        self._select_mode = False
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.CrossCursor)
         self.setMinimumSize(300, 400)
+
+    def set_select_mode(self, active: bool):
+        self._select_mode = active
+        self.setCursor(Qt.CursorShape.IBeamCursor if active else Qt.CursorShape.CrossCursor)
 
     def set_overlays(self, overlays: list):
         self._overlays = overlays
@@ -2384,8 +2566,12 @@ class PdfEditCanvas(QWidget):
                     p.drawText(int(r[0]*z), int(r[3]*z) + max(10, int(e["size"]*z*0.85)), new_txt)
         # ── drag rect ─────────────────────────────────────────────────────────
         if self._drag_rect:
-            p.setPen(QPen(QColor("#EF4444"), 2, Qt.PenStyle.DashLine))
-            p.setBrush(QColor(239, 68, 68, 50))
+            if self._select_mode:
+                p.setPen(QPen(QColor("#3B82F6"), 2, Qt.PenStyle.SolidLine))
+                p.setBrush(QColor(59, 130, 246, 50))
+            else:
+                p.setPen(QPen(QColor("#EF4444"), 2, Qt.PenStyle.DashLine))
+                p.setBrush(QColor(239, 68, 68, 50))
             p.drawRect(self._drag_rect)
 
     def mousePressEvent(self, e):
@@ -2570,13 +2756,14 @@ class TabEditar(QWidget):
     _HI_COLORS  = {"Amarelo": (1,1,0), "Verde": (0,1,0), "Rosa": (1,0.4,0.7), "Azul claro": (0.5,0.8,1)}
     _RED_FILLS  = {"Preto": (0,0,0), "Branco": (1,1,1), "Cinzento": (0.5,0.5,0.5)}
     _MODE_DEFS = [
-        ("Redigir / Censurar",    "fa5s.eraser"),
-        ("Adicionar texto",       "fa5s.font"),
-        ("Adicionar imagem",      "fa5s.image"),
-        ("Destacar (highlight)",  "fa5s.highlighter"),
-        ("Nota / Comentario",     "fa5s.sticky-note"),
-        ("Preencher formularios", "fa5s.clipboard-list"),
-        ("Editar texto existente","fa5s.i-cursor"),
+        ("Redigir / Censurar",      "fa5s.eraser"),
+        ("Adicionar texto",         "fa5s.font"),
+        ("Adicionar imagem",        "fa5s.image"),
+        ("Destacar (highlight)",    "fa5s.highlighter"),
+        ("Nota / Comentario",       "fa5s.sticky-note"),
+        ("Preencher formularios",   "fa5s.clipboard-list"),
+        ("Editar texto existente",  "fa5s.i-cursor"),
+        ("Selecionar / Copiar texto","fa5s.mouse-pointer"),
     ]
 
     def __init__(self, status_fn):
@@ -2735,6 +2922,24 @@ class TabEditar(QWidget):
         v6.addWidget(hint6); v6.addStretch()
         self._opt_stack.addWidget(w6)
 
+        # 7 - Selecionar / Copiar texto
+        w7 = QWidget(); v7 = QVBoxLayout(w7); v7.setContentsMargins(0,4,0,0); v7.setSpacing(6)
+        hint7 = QLabel("Arrasta para selecionar texto.\nO texto é copiado automaticamente.")
+        hint7.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint7.setWordWrap(True)
+        self._sel_result = QTextEdit()
+        self._sel_result.setReadOnly(True)
+        self._sel_result.setMaximumHeight(80)
+        self._sel_result.setPlaceholderText("Texto selecionado aparece aqui…")
+        btn_copy7 = QPushButton("  Copiar")
+        btn_copy7.setIcon(qta.icon("fa5s.copy", color=TEXT_PRI))
+        btn_copy7.clicked.connect(lambda: QApplication.clipboard().setText(self._sel_result.toPlainText()))
+        v7.addWidget(hint7)
+        v7.addWidget(self._sel_result)
+        v7.addWidget(btn_copy7)
+        v7.addStretch()
+        self._opt_stack.addWidget(w7)
+
         go.addWidget(self._opt_stack)
         cv.addWidget(grp_opts)
 
@@ -2820,6 +3025,7 @@ class TabEditar(QWidget):
                     "background:#18252E; border:1px solid #2A3944; "
                     "color:#93A9A3; border-radius:6px; padding:6px 8px; text-align:center;")
         self._opt_stack.setCurrentIndex(idx)
+        self._canvas.set_select_mode(idx == 7)
         if idx == 2:  # Adicionar imagem — abre picker logo
             self._pick_image()
 
@@ -2885,6 +3091,17 @@ class TabEditar(QWidget):
 
     def _on_rect(self, pdf_rect):
         mode = self._mode_idx
+        if mode == 7:  # selecionar / copiar texto
+            doc = self._canvas._doc
+            if not doc: return
+            text = doc[self._page_idx].get_text("text", clip=pdf_rect).strip()
+            self._sel_result.setPlainText(text)
+            if text:
+                QApplication.clipboard().setText(text)
+                self._status(f"✔  {len(text)} caracteres copiados para a área de transferência")
+            else:
+                self._status("ℹ  Nenhum texto encontrado na seleção")
+            return
         if mode in (1, 4, 6):  # modos de clique: usar o centro do rect como ponto
             import fitz
             center = fitz.Point((pdf_rect.x0 + pdf_rect.x1) / 2,
@@ -3262,4 +3479,9 @@ if __name__ == "__main__":
     app.setStyleSheet(STYLE)
     win = MainWindow()
     win.show()
+    # Abrir PDF passado como argumento (ex: duplo clique num ficheiro .pdf)
+    if len(sys.argv) > 1:
+        pdf_arg = sys.argv[1]
+        if os.path.isfile(pdf_arg) and pdf_arg.lower().endswith(".pdf"):
+            win._viewer.load(pdf_arg)
     sys.exit(app.exec())
