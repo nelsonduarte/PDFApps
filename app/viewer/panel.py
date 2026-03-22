@@ -25,7 +25,6 @@ class PdfViewerPanel(QWidget):
         self.setAcceptDrops(True)
         self._current_path = ""
         self._fitz_doc     = None
-        self._page_idx     = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -108,9 +107,9 @@ class PdfViewerPanel(QWidget):
         self._placeholder = ph_widget
         layout.addWidget(self._placeholder, 1)
 
-        # ── Canvas com seleção de texto nativa ──────────────────────────────
+        # ── Canvas com scroll contínuo de todas as páginas ──────────────────
         self._canvas = _SelectCanvas()
-        self._canvas.zoom_changed.connect(lambda pct: self._zoom_lbl.setText(f"{pct}%"))
+        self._canvas.zoom_changed.connect(self._on_zoom_changed)
         self._canvas_scroll = QScrollArea()
         self._canvas_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._canvas_scroll.setWidgetResizable(False)
@@ -119,6 +118,7 @@ class PdfViewerPanel(QWidget):
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         self._canvas_scroll.setVisible(False)
         self._canvas_scroll.viewport().installEventFilter(self)
+        self._canvas_scroll.verticalScrollBar().valueChanged.connect(self._on_scroll)
         layout.addWidget(self._canvas_scroll, 1)
 
         # ── Barra de estado (seleção de texto) ──────────────────────────────
@@ -128,6 +128,13 @@ class PdfViewerPanel(QWidget):
         self._sel_status.setVisible(False)
         layout.addWidget(self._sel_status)
         self._canvas.text_copied.connect(self._on_text_copied)
+
+    def _on_zoom_changed(self, pct: int):
+        self._zoom_lbl.setText(f"{pct}%")
+        self._update_page_label()
+
+    def _on_scroll(self, val: int):
+        self._update_page_label()
 
     def _on_text_copied(self, text: str):
         from PySide6.QtCore import QTimer
@@ -219,8 +226,8 @@ class PdfViewerPanel(QWidget):
                 wrong = True
         self._current_path = path
         self._fitz_doc     = doc
-        self._page_idx     = 0
         self._canvas.load(doc, 0)
+        self._canvas_scroll.verticalScrollBar().setValue(0)
         self._placeholder.setVisible(False)
         self._canvas_scroll.setVisible(True)
         self._sel_status.setVisible(True)
@@ -228,33 +235,37 @@ class PdfViewerPanel(QWidget):
         self._zoom_lbl.setText("Ajustar")
         for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn):
             btn.setEnabled(True)
-        self._update_page_label()
 
     # ── Navegação ────────────────────────────────────────────────────────────
     def _update_page_label(self):
-        total = self._fitz_doc.page_count if self._fitz_doc else 0
-        if total > 0:
-            self._page_lbl.setText(f"{self._page_idx + 1} / {total}")
-            self._prev_btn.setEnabled(self._page_idx > 0)
-            self._next_btn.setEnabled(self._page_idx < total - 1)
-        else:
+        pages = self._canvas._pages
+        if not pages:
             self._page_lbl.setText("— / —")
             self._prev_btn.setEnabled(False)
             self._next_btn.setEnabled(False)
+            return
+        sb_val = self._canvas_scroll.verticalScrollBar().value()
+        idx = self._canvas.page_at_y(sb_val)
+        total = len(pages)
+        self._page_lbl.setText(f"{idx + 1} / {total}")
+        self._prev_btn.setEnabled(idx > 0)
+        self._next_btn.setEnabled(idx < total - 1)
 
     def _prev_page(self):
-        if self._fitz_doc and self._page_idx > 0:
-            self._page_idx -= 1
-            self._canvas.set_page(self._page_idx)
-            self._canvas_scroll.verticalScrollBar().setValue(0)
-            self._update_page_label()
+        if not self._canvas._pages:
+            return
+        sb = self._canvas_scroll.verticalScrollBar()
+        idx = self._canvas.page_at_y(sb.value())
+        if idx > 0:
+            sb.setValue(self._canvas.scroll_to_page(idx - 1))
 
     def _next_page(self):
-        if self._fitz_doc and self._page_idx < self._fitz_doc.page_count - 1:
-            self._page_idx += 1
-            self._canvas.set_page(self._page_idx)
-            self._canvas_scroll.verticalScrollBar().setValue(0)
-            self._update_page_label()
+        if not self._canvas._pages:
+            return
+        sb = self._canvas_scroll.verticalScrollBar()
+        idx = self._canvas.page_at_y(sb.value())
+        if idx < len(self._canvas._pages) - 1:
+            sb.setValue(self._canvas.scroll_to_page(idx + 1))
 
     # ── Zoom ─────────────────────────────────────────────────────────────────
     def _zoom_fit(self):
