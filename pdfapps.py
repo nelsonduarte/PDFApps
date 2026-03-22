@@ -254,6 +254,8 @@ QStatusBar {{ background: {BG_SIDE}; border-top: 1px solid {BORDER};
 #viewer_nav_btn:pressed {{ background: {ACCENT_P}; }}
 #viewer_nav_btn:disabled {{ background: #141827; border-color: #1E2235; }}
 #viewer_placeholder {{ font-size: 12pt; color: #4A5C7A; background: {BG_SIDE}; }}
+#viewer_sel_status  {{ font-size: 9pt; color: {TEXT_SEC}; background: {BG_CARD};
+                       border-top: 1px solid {BORDER}; padding: 4px 8px; }}
 QPdfView {{ background: {BG_INNER}; border: none; }}
 QSplitter::handle {{ background: {BORDER}; width: 1px; }}
 
@@ -434,6 +436,8 @@ QStatusBar {{ background: {_LS}; border-top: 1px solid {_LO};
 #viewer_nav_btn:pressed {{ background: {_LAP}; }}
 #viewer_nav_btn:disabled {{ background: {_LN}; border-color: {_LO}; color: {_LO}; }}
 #viewer_placeholder {{ font-size: 12pt; color: {_LQ}; background: {_LN}; }}
+#viewer_sel_status  {{ font-size: 9pt; color: {_LQ}; background: {_LC};
+                       border-top: 1px solid {_LO}; padding: 4px 8px; }}
 QPdfView {{ background: {_LN}; border: none; }}
 QSplitter::handle {{ background: {_LO}; width: 1px; }}
 
@@ -1726,7 +1730,8 @@ class TabInfo(BasePage):
 class _SelectCanvas(QWidget):
     """Renderiza páginas PDF via fitz e suporta seleção de texto por arrastar."""
 
-    zoom_changed = Signal(int)   # percentagem actual
+    zoom_changed   = Signal(int)   # percentagem actual
+    text_copied    = Signal(str)   # texto copiado (vazio = nenhum encontrado)
 
     def __init__(self):
         super().__init__()
@@ -1892,12 +1897,14 @@ class _SelectCanvas(QWidget):
             self._sel_rects  = []
             self._sel_text   = ""
             self.update()
+            e.accept()
 
     def mouseMoveEvent(self, e):
         if self._drag_start and (e.buttons() & Qt.MouseButton.LeftButton):
             self._drag_end = e.position().toPoint()
             self._compute_selection()
             self.update()
+            e.accept()
 
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.MouseButton.LeftButton or not self._drag_start:
@@ -1908,7 +1915,9 @@ class _SelectCanvas(QWidget):
         self._drag_end   = None
         if self._sel_text:
             QApplication.clipboard().setText(self._sel_text)
+        self.text_copied.emit(self._sel_text)
         self.update()
+        e.accept()
 
     # ── Teclado ───────────────────────────────────────────────────────────────
 
@@ -2049,6 +2058,27 @@ class PdfViewerPanel(QWidget):
         self._canvas.installEventFilter(self)
         layout.addWidget(self._canvas_scroll, 1)
 
+        # ── Barra de estado (seleção de texto) ──────────────────────────────
+        self._sel_status = QLabel("Arrasta sobre o texto para selecionar e copiar")
+        self._sel_status.setObjectName("viewer_sel_status")
+        self._sel_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._sel_status.setVisible(False)
+        layout.addWidget(self._sel_status)
+        self._canvas.text_copied.connect(self._on_text_copied)
+
+    def _on_text_copied(self, text: str):
+        from PySide6.QtCore import QTimer
+        if text:
+            self._sel_status.setText(f"Copiado para a área de transferência  ({len(text)} car.)")
+            self._sel_status.setStyleSheet("color: #22c55e; padding: 4px;")
+        else:
+            self._sel_status.setText("Sem texto encontrado (PDF digitalizado ou sem camada de texto)")
+            self._sel_status.setStyleSheet("color: #f59e0b; padding: 4px;")
+        QTimer.singleShot(4000, lambda: (
+            self._sel_status.setText("Arrasta sobre o texto para selecionar e copiar"),
+            self._sel_status.setStyleSheet(""),
+        ))
+
     def paintEvent(self, event):
         _paint_bg(self)
 
@@ -2130,6 +2160,7 @@ class PdfViewerPanel(QWidget):
         self._canvas.load(doc, 0)
         self._placeholder.setVisible(False)
         self._canvas_scroll.setVisible(True)
+        self._sel_status.setVisible(True)
         self._name_lbl.setText(os.path.basename(path))
         self._zoom_lbl.setText("Ajustar")
         for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn):
@@ -2152,12 +2183,14 @@ class PdfViewerPanel(QWidget):
         if self._fitz_doc and self._page_idx > 0:
             self._page_idx -= 1
             self._canvas.set_page(self._page_idx)
+            self._canvas_scroll.verticalScrollBar().setValue(0)
             self._update_page_label()
 
     def _next_page(self):
         if self._fitz_doc and self._page_idx < self._fitz_doc.page_count - 1:
             self._page_idx += 1
             self._canvas.set_page(self._page_idx)
+            self._canvas_scroll.verticalScrollBar().setValue(0)
             self._update_page_label()
 
     # ── Zoom ─────────────────────────────────────────────────────────────────
