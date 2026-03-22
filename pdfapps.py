@@ -1933,17 +1933,9 @@ class _SelectCanvas(QWidget):
         act.triggered.connect(lambda: QApplication.clipboard().setText(self._sel_text))
         menu.exec(e.globalPos())
 
-    # ── Scroll + zoom ─────────────────────────────────────────────────────────
-
-    def wheelEvent(self, e):
-        if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            if e.angleDelta().y() > 0:
-                self.zoom_in()
-            else:
-                self.zoom_out()
-            e.accept()
-        else:
-            super().wheelEvent(e)
+    # ── Scroll ────────────────────────────────────────────────────────────────
+    # O Ctrl+scroll é tratado pelo eventFilter de PdfViewerPanel (instalado no
+    # canvas e no viewport), garantindo que o QScrollArea não interfere.
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2054,6 +2046,7 @@ class PdfViewerPanel(QWidget):
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         self._canvas_scroll.setVisible(False)
         self._canvas_scroll.viewport().installEventFilter(self)
+        self._canvas.installEventFilter(self)
         layout.addWidget(self._canvas_scroll, 1)
 
     def paintEvent(self, event):
@@ -2061,7 +2054,7 @@ class PdfViewerPanel(QWidget):
 
     def eventFilter(self, obj, event):
         from PySide6.QtCore import QEvent, QTimer
-        if obj is self._canvas_scroll.viewport():
+        if obj is self._canvas or obj is self._canvas_scroll.viewport():
             if event.type() == QEvent.Type.Wheel:
                 if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
                     if event.angleDelta().y() > 0:
@@ -2069,7 +2062,8 @@ class PdfViewerPanel(QWidget):
                     else:
                         self._canvas.zoom_out()
                     return True
-            elif event.type() == QEvent.Type.Resize:
+        if obj is self._canvas_scroll.viewport():
+            if event.type() == QEvent.Type.Resize:
                 if self._canvas._doc and self._canvas._zoom_factor == 1.0:
                     QTimer.singleShot(0, self._canvas._render)
         return super().eventFilter(obj, event)
@@ -2096,7 +2090,7 @@ class PdfViewerPanel(QWidget):
     # ── Abrir diálogo ────────────────────────────────────────────────────────
     def _open_dialog(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Abrir PDF", "", "Ficheiros PDF (*.pdf);;Todos (*.*)")
+            self.window(), "Abrir PDF", "", "Ficheiros PDF (*.pdf);;Todos (*.*)")
         if path:
             self.load(path)
 
