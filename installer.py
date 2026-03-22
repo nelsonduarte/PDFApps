@@ -42,6 +42,50 @@ def create_shortcut(target: str, lnk: str) -> None:
     )
 
 
+def register_file_association(app_exe: str) -> None:
+    """Regista PDFApps como handler de .pdf no registo do utilizador."""
+    prog_id = "PDFApps.Document"
+    try:
+        # ProgID: PDFApps.Document
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
+                              rf"Software\Classes\{prog_id}") as k:
+            winreg.SetValueEx(k, "", 0, winreg.REG_SZ, "Documento PDF")
+
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
+                              rf"Software\Classes\{prog_id}\DefaultIcon") as k:
+            winreg.SetValueEx(k, "", 0, winreg.REG_SZ, f'"{app_exe}",0')
+
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
+                              rf"Software\Classes\{prog_id}\shell\open\command") as k:
+            winreg.SetValueEx(k, "", 0, winreg.REG_SZ, f'"{app_exe}" "%1"')
+
+        # Associar .pdf ao ProgID
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
+                              r"Software\Classes\.pdf\OpenWithProgids") as k:
+            winreg.SetValueEx(k, prog_id, 0, winreg.REG_NONE, b"")
+
+        # Registar como aplicação capaz (Default Programs)
+        cap_key = r"Software\PDFApps\Capabilities"
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, cap_key) as k:
+            winreg.SetValueEx(k, "ApplicationName",        0, winreg.REG_SZ, APP_NAME)
+            winreg.SetValueEx(k, "ApplicationDescription", 0, winreg.REG_SZ, "Editor e visualizador de PDF")
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
+                              cap_key + r"\FileAssociations") as k:
+            winreg.SetValueEx(k, ".pdf", 0, winreg.REG_SZ, prog_id)
+
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
+                              r"Software\RegisteredApplications") as k:
+            winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_SZ, cap_key)
+
+        # Notificar o Windows para atualizar ícones / associações
+        subprocess.run(
+            ["ie4uinit.exe", "-show"],
+            capture_output=True, creationflags=0x08000000,
+        )
+    except Exception:
+        pass
+
+
 def register_uninstall(install_dir: str, uninstall_exe: str) -> None:
     key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\PDFApps"
     try:
@@ -280,6 +324,7 @@ class InstallerApp(tk.Tk):
             self._step("A registar no sistema…", 92)
             uninstall_exe = os.path.join(install_dir, "PDFAppsUninstall.exe")
             register_uninstall(install_dir, uninstall_exe)
+            register_file_association(app_exe)
 
             self._step("Instalação concluída!", 100)
             self.after(0, self._done, install_dir)
