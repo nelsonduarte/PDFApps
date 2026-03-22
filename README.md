@@ -4,7 +4,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)
 ![PySide6](https://img.shields.io/badge/PySide6-6.10-green?logo=qt&logoColor=white)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?logo=windows)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
 ---
@@ -48,8 +48,11 @@ PDFApps reúne num só lugar todas as operações do dia a dia com ficheiros PDF
 
 ### Execução (utilizador final)
 
-- Windows 10 / 11 (64-bit)
-- [PDFAppsSetup.exe](dist/PDFAppsSetup.exe) — inclui tudo; o Tesseract OCR é instalado automaticamente se necessário
+| Plataforma | Requisito |
+|---|---|
+| **Windows** 10/11 64-bit | `PDFAppsSetup.exe` — inclui tudo; Tesseract instalado automaticamente |
+| **macOS** 10.14+ | `PDFApps.app` — Tesseract via `brew install tesseract tesseract-lang` |
+| **Linux** (Ubuntu/Debian/Arch) | Binário `PDFApps` — Tesseract via `sudo apt install tesseract-ocr` |
 
 ### Desenvolvimento
 
@@ -57,8 +60,9 @@ PDFApps reúne num só lugar todas as operações do dia a dia com ficheiros PDF
 - Dependências em [requirements.txt](requirements.txt)
 
 > **Tesseract OCR** é necessário para a funcionalidade de reconhecimento de texto.
-> O instalador trata disto automaticamente. Para desenvolvimento, instala manualmente:
-> <https://github.com/UB-Mannheim/tesseract/releases>
+> - **Windows**: o instalador trata disto automaticamente
+> - **macOS**: `brew install tesseract tesseract-lang`
+> - **Linux**: `sudo apt install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng`
 
 ---
 
