@@ -21,7 +21,8 @@ from app.constants import (
 
 def resource_path(rel):
     """Returns the correct path both in dev and in PyInstaller exe."""
-    base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    base = getattr(sys, '_MEIPASS',
+                   os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return os.path.join(base, rel)
 
 
