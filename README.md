@@ -2,16 +2,27 @@
 
 > PDF editor and manager for Windows, macOS and Linux — fast, offline and subscription-free.
 
-![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)
-![PySide6](https://img.shields.io/badge/PySide6-6.10-green?logo=qt&logoColor=white)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
-![License](https://img.shields.io/badge/license-MIT-orange)
+[![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![PySide6](https://img.shields.io/badge/PySide6-6.10-green?logo=qt&logoColor=white)](https://doc.qt.io/qtforpython/)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#)
+[![License](https://img.shields.io/badge/license-MIT-orange)](LICENSE)
+[![GitHub Sponsors](https://img.shields.io/badge/sponsor-♥-ea4aaa?logo=github)](https://github.com/sponsors/nelsonduarte)
+
+---
+
+## Why PDFApps?
+
+Most PDF tools are either paid, browser-based, or require uploading your files to the cloud. **PDFApps** is different:
+
+- **100% offline** — your files never leave your computer
+- **No subscriptions** — free and open source, forever
+- **All-in-one** — split, merge, compress, encrypt, OCR, edit and more in a single app
+- **Cross-platform** — works on Windows, macOS and Linux
+- **Fast** — lazy rendering opens large PDFs instantly
 
 ---
 
 ## Features
-
-PDFApps brings together all everyday PDF operations in one place, with no internet connection or external service accounts required.
 
 | Tool | Description |
 |---|---|
@@ -38,144 +49,49 @@ PDFApps brings together all everyday PDF operations in one place, with no intern
 
 ### Other highlights
 
-- Modern dark interface with collapsible sidebar
+- Modern dark/light theme with collapsible sidebar
 - Full drag and drop support across all file fields
-- 100% offline — your files never leave your computer
 - Cross-platform: Windows, macOS and Linux
 - Installer with automatic OCR engine (Tesseract) detection and installation — Windows
 
 ---
 
-## Requirements
+## Getting started
 
-### Running (end user)
+### Download
 
-| Platform | Requirement |
+| Platform | How to get it |
 |---|---|
-| **Windows** 10/11 64-bit | `PDFAppsSetup.exe` — includes everything; Tesseract installed automatically |
-| **macOS** 10.14+ | `PDFApps.app` — Tesseract via `brew install tesseract tesseract-lang` |
-| **Linux** (Ubuntu/Debian/Arch) | `PDFApps` binary — Tesseract via `sudo apt install tesseract-ocr` |
+| **Windows** 10/11 64-bit | Download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps-en/releases) |
+| **macOS** 10.14+ | Build from source (see below) — Tesseract via `brew install tesseract tesseract-lang` |
+| **Linux** | Build from source (see below) — Tesseract via `sudo apt install tesseract-ocr` |
 
-### Development
-
-- Python 3.14+
-- Dependencies in [requirements.txt](requirements.txt)
-
-> **Tesseract OCR** is required for text recognition functionality.
-> - **Windows**: the installer handles this automatically
-> - **macOS**: `brew install tesseract tesseract-lang`
-> - **Linux**: `sudo apt install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng`
-
----
-
-## Installation
-
-### Windows
-
-1. Download `PDFAppsSetup.exe` from the `dist/` folder
-2. Run the installer and follow the steps
-3. PDFApps will be available in the Start Menu and, optionally, on the Desktop
-
-To uninstall, go to **Settings → Apps** or use the uninstall shortcut in the Start Menu.
-
----
-
-### Linux (Ubuntu / Debian)
-
-**Option A — From source (recommended)**
-
-```bash
-# 1. System dependencies
-sudo apt update
-sudo apt install python3-pip python3-venv tesseract-ocr tesseract-ocr-por tesseract-ocr-eng
-
-# 2. Clone the repository
-git clone <repository-url>
-cd PDFApps
-
-# 3. Virtual environment and Python dependencies
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# 4. Run
-python3 pdfapps.py
-```
-
-**Option B — Build a native binary**
-
-```bash
-# (with venv active)
-python -m PyInstaller --noconfirm pdfapps.spec
-
-# Run
-./dist/PDFApps
-```
-
-> PyInstaller does not cross-compile — the binary must be built on Linux itself.
-
----
-
-### macOS
-
-**Option A — From source (recommended)**
-
-```bash
-# 1. Install Homebrew (if needed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# 2. System dependencies
-brew install python tesseract tesseract-lang
-
-# 3. Clone the repository
-git clone <repository-url>
-cd PDFApps
-
-# 4. Virtual environment and Python dependencies
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# 5. Run
-python3 pdfapps.py
-```
-
-**Option B — Build a native binary (.app)**
-
-```bash
-# (with venv active)
-python -m PyInstaller --noconfirm pdfapps.spec
-
-# Run
-open dist/PDFApps
-```
-
-> PyInstaller does not cross-compile — the binary must be built on macOS itself.
-
----
-
-## Development environment setup
+### Run from source
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd PDFApps
+git clone https://github.com/nelsonduarte/PDFApps-en.git
+cd PDFApps-en
 
-# Windows
+# Create virtual environment
 python -m venv venv
-venv\Scripts\activate
 
-# macOS / Linux
-python3 -m venv venv
+# Activate — Windows
+venv\Scripts\activate
+# Activate — macOS / Linux
 source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Run
-python pdfapps.py        # Windows
-python3 pdfapps.py       # macOS / Linux
+python pdfapps.py
 ```
+
+> **Tesseract OCR** is required for text recognition:
+> - **Windows**: the installer handles this automatically
+> - **macOS**: `brew install tesseract tesseract-lang`
+> - **Linux**: `sudo apt install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng`
 
 ---
 
@@ -199,6 +115,8 @@ python -m PyInstaller --noconfirm installer.spec
 | `dist/PDFApps.exe` | Main application (~78 MB) |
 | `dist/PDFAppsUninstall.exe` | Standalone uninstaller (~11 MB) |
 | `dist/PDFAppsSetup.exe` | **Installer for distribution** (~99 MB) |
+
+> PyInstaller does not cross-compile — the binary must be built on the target platform.
 
 ---
 
@@ -255,6 +173,18 @@ PDFApps/
 │       └── dialogs.py      # Auxiliary dialogs
 └── dist/                   # Generated executables (after build)
 ```
+
+---
+
+## Contributing
+
+Contributions are welcome! Feel free to open issues or submit pull requests.
+
+---
+
+## Support the project
+
+If you find PDFApps useful, consider [sponsoring the project](https://github.com/sponsors/nelsonduarte) to help keep it alive and growing.
 
 ---
 
