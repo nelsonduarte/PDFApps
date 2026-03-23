@@ -85,6 +85,14 @@ class MainWindow(QMainWindow):
         wb_col.addWidget(wb_title); wb_col.addWidget(wb_hint)
         wb_h.addLayout(wb_col, 1)
 
+        self._open_pdf_btn = QPushButton()
+        self._open_pdf_btn.setIcon(qta.icon("fa5s.folder-open", color=TEXT_PRI))
+        self._open_pdf_btn.setObjectName("viewer_nav_btn")
+        self._open_pdf_btn.setFixedSize(28, 28)
+        self._open_pdf_btn.setToolTip("Open PDF")
+        self._open_pdf_btn.clicked.connect(self._open_pdf)
+        wb_h.addWidget(self._open_pdf_btn)
+
         self._quick_merge_btn = QPushButton("Merge"); self._quick_merge_btn.setObjectName("quick_btn")
         self._quick_ocr_btn = QPushButton("OCR"); self._quick_ocr_btn.setObjectName("quick_btn")
         self._quick_edit_btn = QPushButton("Edit"); self._quick_edit_btn.setObjectName("quick_btn")
@@ -263,6 +271,13 @@ class MainWindow(QMainWindow):
             self._try_auto_load(row)
             if row == edit_idx:
                 self._setup_zoom_bar(True)
+
+    def _open_pdf(self):
+        from PySide6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open PDF", "", "PDF Files (*.pdf);;All (*.*)")
+        if path:
+            self._viewer.load(path)
 
     def _set_status(self, msg: str):
         self._sb.showMessage(msg)
