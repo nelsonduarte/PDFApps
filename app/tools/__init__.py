@@ -9,8 +9,10 @@ from app.tools.encrypt import TabEncriptar
 from app.tools.watermark import TabMarcaDagua
 from app.tools.info import TabInfo
 from app.tools.ocr import TabOCR
+from app.tools.convert import TabConverter
 
 __all__ = [
     "TabDividir", "TabJuntar", "TabRotar", "TabExtrair", "TabReordenar",
     "TabComprimir", "TabEncriptar", "TabMarcaDagua", "TabInfo", "TabOCR",
+    "TabConverter",
 ]

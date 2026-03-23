@@ -4,4 +4,5 @@ qtawesome>=1.4.1
 pillow>=12.1.1
 pymupdf>=1.27.2
 pytesseract>=0.3.13
+python-docx>=1.2.0
 pyinstaller>=6.19.0
