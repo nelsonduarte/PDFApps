@@ -7,10 +7,10 @@ from app.constants import ACCENT, BG_INNER, TEXT_SEC
 
 
 class PdfEditCanvas(QWidget):
-    rect_selected = Signal(object)   # fitz.Rect em coords PDF
-    point_clicked = Signal(object)   # fitz.Point em coords PDF
+    rect_selected = Signal(object)   # fitz.Rect in PDF coords
+    point_clicked = Signal(object)   # fitz.Point in PDF coords
 
-    zoom_changed = Signal(int)   # percentagem actual
+    zoom_changed = Signal(int)   # current percentage
 
     def __init__(self):
         super().__init__()
@@ -42,7 +42,7 @@ class PdfEditCanvas(QWidget):
         self._doc = fitz.open(path)
         self._page_idx = 0
         self._zoom_factor = 1.0
-        # diferir render para o splitter estar posicionado
+        # defer render until the splitter is positioned
         from PySide6.QtCore import QTimer
         QTimer.singleShot(0, self._render)
 
@@ -75,7 +75,7 @@ class PdfEditCanvas(QWidget):
             self._render()
 
     def get_span_at(self, pdf_pt):
-        """Devolve o span fitz mais próximo de pdf_pt (usa o doc já aberto — sem re-abrir o ficheiro)."""
+        """Returns the closest fitz span to pdf_pt (uses the already open doc — no file re-open)."""
         if not self._doc: return None
         import fitz
         page = self._doc[self._page_idx]
@@ -111,7 +111,7 @@ class PdfEditCanvas(QWidget):
             sa = vp.parent() if vp else None
             avail = sa.viewport().width() - 4 if isinstance(sa, _SA) else self.width()
             self._base_avail = max(avail, 300)
-        # renderizar a resolução mais alta (DPR × zoom) para qualidade nítida
+        # render at higher resolution (DPR × zoom) for crisp quality
         dpr = self.devicePixelRatioF() or 1.0
         self._zoom = (self._base_avail / page.rect.width) * self._zoom_factor
         render_zoom = self._zoom * dpr
@@ -119,7 +119,7 @@ class PdfEditCanvas(QWidget):
         qp = QP(); qp.loadFromData(pix.tobytes("png"))
         qp.setDevicePixelRatio(dpr)
         self._qpix = qp
-        # tamanho lógico (sem DPR) para o layout
+        # logical size (without DPR) for layout
         self.setFixedSize(round(qp.width() / dpr), round(qp.height() / dpr))
         self.zoom_changed.emit(round(self._zoom_factor * 100))
         self.update()
@@ -144,8 +144,8 @@ class PdfEditCanvas(QWidget):
             p.setPen(QColor(TEXT_SEC))
             f = QFont(); f.setPointSize(11); p.setFont(f)
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Abre um PDF para editar")
-        # ── overlays dos edits pendentes ─────────────────────────────────────
+                       "Open a PDF to edit")
+        # ── pending edit overlays ─────────────────────────────────────
         z = self._zoom
         for e in self._overlays:
             t = e["type"]
@@ -177,13 +177,13 @@ class PdfEditCanvas(QWidget):
             elif t == "note":
                 pt = e["point"]
                 px, py = int(pt.x*z), int(pt.y*z)
-                # ícone de nota (fundo amarelo)
+                # note icon (yellow background)
                 icon_r = QRect(px, py - 18, 22, 22)
                 p.setBrush(QColor("#FBBF24")); p.setPen(QPen(QColor("#D97706"), 1))
                 p.drawRoundedRect(icon_r, 4, 4)
                 fi = QFont(); fi.setPointSize(10); fi.setBold(True); p.setFont(fi)
                 p.setPen(QColor("#1C1917")); p.drawText(icon_r, Qt.AlignmentFlag.AlignCenter, "✎")
-                # preview do texto ao lado
+                # text preview beside
                 p.setPen(QColor("#FBBF24"))
                 ft = QFont(); ft.setPointSize(8); p.setFont(ft)
                 preview = e["text"][:40] + ("…" if len(e["text"]) > 40 else "")
@@ -192,13 +192,13 @@ class PdfEditCanvas(QWidget):
                 r = e["bbox"]
                 qr = QRect(int(r[0]*z), int(r[1]*z),
                            max(1, int((r[2]-r[0])*z)), max(1, int((r[3]-r[1])*z)))
-                # original: fundo vermelho translúcido + risco
+                # original: translucent red background + strikethrough
                 p.fillRect(qr, QColor(239, 68, 68, 60))
                 p.setPen(QPen(QColor("#EF4444"), 1, Qt.PenStyle.DashLine))
                 p.drawRect(qr)
                 mid_y = qr.top() + qr.height() // 2
                 p.setPen(QPen(QColor("#EF4444"), 1)); p.drawLine(qr.left(), mid_y, qr.right(), mid_y)
-                # novo texto: verde abaixo
+                # new text: green below
                 new_txt = e.get("new_text", "")
                 if new_txt:
                     p.setPen(QColor("#22C55E"))

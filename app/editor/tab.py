@@ -20,19 +20,19 @@ from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
 
 
 class TabEditar(QWidget):
-    """Editor visual: clica/arrasta directamente no PDF renderizado."""
+    """Visual editor: click/drag directly on the rendered PDF."""
 
-    _HI_COLORS  = {"Amarelo": (1,1,0), "Verde": (0,1,0), "Rosa": (1,0.4,0.7), "Azul claro": (0.5,0.8,1)}
-    _RED_FILLS  = {"Preto": (0,0,0), "Branco": (1,1,1), "Cinzento": (0.5,0.5,0.5)}
+    _HI_COLORS  = {"Yellow": (1,1,0), "Green": (0,1,0), "Pink": (1,0.4,0.7), "Light blue": (0.5,0.8,1)}
+    _RED_FILLS  = {"Black": (0,0,0), "White": (1,1,1), "Grey": (0.5,0.5,0.5)}
     _MODE_DEFS = [
-        ("Redigir / Censurar",      "fa5s.eraser"),
-        ("Adicionar texto",         "fa5s.font"),
-        ("Adicionar imagem",        "fa5s.image"),
-        ("Destacar (highlight)",    "fa5s.highlighter"),
-        ("Nota / Comentario",       "fa5s.sticky-note"),
-        ("Preencher formularios",   "fa5s.clipboard-list"),
-        ("Editar texto existente",  "fa5s.i-cursor"),
-        ("Selecionar / Copiar texto","fa5s.mouse-pointer"),
+        ("Redact / Censor",         "fa5s.eraser"),
+        ("Add text",                "fa5s.font"),
+        ("Add image",               "fa5s.image"),
+        ("Highlight",               "fa5s.highlighter"),
+        ("Note / Comment",          "fa5s.sticky-note"),
+        ("Fill forms",              "fa5s.clipboard-list"),
+        ("Edit existing text",      "fa5s.i-cursor"),
+        ("Select / Copy text",      "fa5s.mouse-pointer"),
     ]
 
     def __init__(self, status_fn):
@@ -45,10 +45,9 @@ class TabEditar(QWidget):
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0); root.setSpacing(0)
-        root.addWidget(ToolHeader("fa5s.edit", "Editar PDF",
-                                  "Clica ou arrasta directamente no PDF para editar."))
+        root.addWidget(ToolHeader("fa5s.edit", "Edit PDF",
+                                  "Click or drag directly on the PDF to edit."))
 
-        # body: canvas esquerda | controlos direita
         body = QSplitter(Qt.Orientation.Horizontal)
 
         self._canvas = PdfEditCanvas()
@@ -63,14 +62,13 @@ class TabEditar(QWidget):
         self._canvas_scroll = canvas_scroll
         body.addWidget(canvas_scroll)
 
-        # painel de controlos (scrollavel)
         ctrl_inner = QWidget(); ctrl_inner.setObjectName("scroll_inner")
         ctrl_inner.setMinimumWidth(0)
         cv = QVBoxLayout(ctrl_inner); cv.setContentsMargins(10, 10, 10, 10); cv.setSpacing(8)
         cv.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
 
-        # -- Ficheiro PDF --
-        grp_file = QGroupBox("Ficheiro PDF")
+        # -- PDF file --
+        grp_file = QGroupBox("PDF file")
         gf = QVBoxLayout(grp_file); gf.setSpacing(4)
         self._drop_in = DropFileEdit()
         self._drop_in.btn.clicked.disconnect()
@@ -81,8 +79,8 @@ class TabEditar(QWidget):
         gf.addWidget(self._drop_in); gf.addWidget(self._lbl_info)
         cv.addWidget(grp_file)
 
-        # -- Pagina --
-        grp_page = QGroupBox("Pagina")
+        # -- Page --
+        grp_page = QGroupBox("Page")
         gp = QHBoxLayout(grp_page); gp.setSpacing(6)
         self._btn_prev = QPushButton()
         self._btn_prev.setIcon(qta.icon("fa5s.chevron-left", color=TEXT_PRI))
@@ -97,11 +95,11 @@ class TabEditar(QWidget):
         cv.addWidget(grp_page)
         self._page_idx = 0
 
-        # -- Modo de edicao --
-        grp_mode = QGroupBox("Modo de edicao")
+        # -- Edit mode --
+        grp_mode = QGroupBox("Edit mode")
         gm = QGridLayout(grp_mode); gm.setSpacing(4)
         self._mode_btns: list = []
-        self._mode_btn_idx: dict = {}   # id(btn) → mode index
+        self._mode_btn_idx: dict = {}
         for i, (label, icon_name) in enumerate(self._MODE_DEFS):
             btn = QPushButton(f"  {label}")
             btn.setIcon(qta.icon(icon_name, color=TEXT_SEC))
@@ -119,88 +117,88 @@ class TabEditar(QWidget):
             f"color:{ACCENT}; border-radius:6px; padding:6px 8px; text-align:center;")
         cv.addWidget(grp_mode)
 
-        # -- Opcoes por modo --
-        grp_opts = QGroupBox("Opcoes")
+        # -- Options per mode --
+        grp_opts = QGroupBox("Options")
         go = QVBoxLayout(grp_opts); go.setContentsMargins(6, 6, 6, 6)
         self._opt_stack = QStackedWidget()
 
-        # 0 - Redigir
+        # 0 - Redact
         w0 = QWidget(); v0 = QVBoxLayout(w0); v0.setContentsMargins(0,4,0,0); v0.setSpacing(4)
-        v0.addWidget(QLabel("Cor:"))
+        v0.addWidget(QLabel("Color:"))
         self._red_color = QComboBox(); self._red_color.addItems(list(self._RED_FILLS.keys()))
         v0.addWidget(self._red_color)
-        hint0 = QLabel("Arrasta para selecionar a area."); hint0.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint0 = QLabel("Drag to select the area."); hint0.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v0.addWidget(hint0); v0.addStretch()
         self._opt_stack.addWidget(w0)
 
-        # 1 - Texto
+        # 1 - Text
         w1 = QWidget(); v1 = QVBoxLayout(w1); v1.setContentsMargins(0,4,0,0)
-        hint1 = QLabel("Clica no PDF para posicionar.\nAs opcoes surgem num popup.")
+        hint1 = QLabel("Click on the PDF to position.\nOptions appear in a popup.")
         hint1.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v1.addWidget(hint1); v1.addStretch()
         self._opt_stack.addWidget(w1)
 
-        # 2 - Imagem
+        # 2 - Image
         w2 = QWidget(); v2 = QVBoxLayout(w2); v2.setContentsMargins(0,4,0,0); v2.setSpacing(4)
-        v2.addWidget(QLabel("Imagem:"))
-        self._img_drop = DropFileEdit(placeholder="Arrasta imagem aqui...",
-                                      filters="Imagens (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)")
+        v2.addWidget(QLabel("Image:"))
+        self._img_drop = DropFileEdit(placeholder="Drag image here...",
+                                      filters="Images (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)")
         self._img_drop.btn.clicked.disconnect()
         self._img_drop.btn.clicked.connect(self._pick_image)
         v2.addWidget(self._img_drop)
-        hint2 = QLabel("Arrasta no PDF para definir a area."); hint2.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint2 = QLabel("Drag on the PDF to define the area."); hint2.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v2.addWidget(hint2); v2.addStretch()
         self._opt_stack.addWidget(w2)
 
         # 3 - Highlight
         w3 = QWidget(); v3 = QVBoxLayout(w3); v3.setContentsMargins(0,4,0,0); v3.setSpacing(4)
-        v3.addWidget(QLabel("Cor:"))
+        v3.addWidget(QLabel("Color:"))
         self._hi_color = QComboBox(); self._hi_color.addItems(list(self._HI_COLORS.keys()))
         v3.addWidget(self._hi_color)
-        hint3 = QLabel("Arrasta para selecionar o texto."); hint3.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint3 = QLabel("Drag to select the text."); hint3.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v3.addWidget(hint3); v3.addStretch()
         self._opt_stack.addWidget(w3)
 
-        # 4 - Nota
+        # 4 - Note
         w4 = QWidget(); v4 = QVBoxLayout(w4); v4.setContentsMargins(0,4,0,0); v4.setSpacing(4)
-        v4.addWidget(QLabel("Texto da nota:"))
+        v4.addWidget(QLabel("Note text:"))
         self._note_txt = QTextEdit(); self._note_txt.setMaximumHeight(80)
         v4.addWidget(self._note_txt)
-        hint4 = QLabel("Clica no PDF para posicionar."); hint4.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint4 = QLabel("Click on the PDF to position."); hint4.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v4.addWidget(hint4); v4.addStretch()
         self._opt_stack.addWidget(w4)
 
-        # 5 - Formularios
+        # 5 - Forms
         w5 = QWidget(); v5 = QVBoxLayout(w5); v5.setContentsMargins(0,4,0,0); v5.setSpacing(4)
-        v5.addWidget(QLabel("Campos detectados:"))
+        v5.addWidget(QLabel("Detected fields:"))
         self._form_table = QTableWidget(0, 2)
-        self._form_table.setHorizontalHeaderLabels(["Campo", "Valor"])
+        self._form_table.setHorizontalHeaderLabels(["Field", "Value"])
         self._form_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._form_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self._form_table.setObjectName("pdf_table"); self._form_table.setMinimumHeight(130)
         v5.addWidget(self._form_table)
         self._opt_stack.addWidget(w5)
 
-        # 6 - Editar texto existente
+        # 6 - Edit existing text
         w6 = QWidget(); v6 = QVBoxLayout(w6); v6.setContentsMargins(0,4,0,0)
-        hint6 = QLabel("Clica sobre o texto no PDF para o editar.\n"
-                        "O texto detectado aparece pré-preenchido.\n"
-                        "Deixa vazio para apagar.")
+        hint6 = QLabel("Click on the text in the PDF to edit it.\n"
+                        "The detected text appears pre-filled.\n"
+                        "Leave blank to delete.")
         hint6.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         hint6.setWordWrap(True)
         v6.addWidget(hint6); v6.addStretch()
         self._opt_stack.addWidget(w6)
 
-        # 7 - Selecionar / Copiar texto
+        # 7 - Select / Copy text
         w7 = QWidget(); v7 = QVBoxLayout(w7); v7.setContentsMargins(0,4,0,0); v7.setSpacing(6)
-        hint7 = QLabel("Arrasta para selecionar texto.\nO texto é copiado automaticamente.")
+        hint7 = QLabel("Drag to select text.\nThe text is copied automatically.")
         hint7.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         hint7.setWordWrap(True)
         self._sel_result = QTextEdit()
         self._sel_result.setReadOnly(True)
         self._sel_result.setMaximumHeight(80)
-        self._sel_result.setPlaceholderText("Texto selecionado aparece aqui…")
-        btn_copy7 = QPushButton("  Copiar")
+        self._sel_result.setPlaceholderText("Selected text appears here…")
+        btn_copy7 = QPushButton("  Copy")
         btn_copy7.setIcon(qta.icon("fa5s.copy", color=TEXT_PRI))
         btn_copy7.clicked.connect(lambda: QApplication.clipboard().setText(self._sel_result.toPlainText()))
         v7.addWidget(hint7)
@@ -212,24 +210,23 @@ class TabEditar(QWidget):
         go.addWidget(self._opt_stack)
         cv.addWidget(grp_opts)
 
-        # -- Edicoes pendentes --
-        grp_pend = QGroupBox("Edicoes pendentes")
+        # -- Pending edits --
+        grp_pend = QGroupBox("Pending edits")
         gpe = QVBoxLayout(grp_pend); gpe.setSpacing(4)
         self._pending_list = QListWidget(); self._pending_list.setMaximumHeight(110)
         gpe.addWidget(self._pending_list)
-        btn_clear = QPushButton("Limpar tudo"); btn_clear.clicked.connect(self._clear_pending)
+        btn_clear = QPushButton("Clear all"); btn_clear.clicked.connect(self._clear_pending)
         gpe.addWidget(btn_clear)
         cv.addWidget(grp_pend)
 
-        # -- Guardar --
-        grp_save = QGroupBox("Guardar em")
+        # -- Save --
+        grp_save = QGroupBox("Save to")
         gs = QVBoxLayout(grp_save)
-        self._drop_out = DropFileEdit("output_editado.pdf", save=True, default_name="output_editado.pdf")
+        self._drop_out = DropFileEdit("output_edited.pdf", save=True, default_name="output_edited.pdf")
         gs.addWidget(self._drop_out)
         cv.addWidget(grp_save)
         cv.addStretch()
 
-        # forçar largura mínima zero em todos os groupboxes do painel direito
         for gb in ctrl_inner.findChildren(QGroupBox):
             gb.setMinimumWidth(0)
 
@@ -245,7 +242,7 @@ class TabEditar(QWidget):
         body.setStretchFactor(1, 0)
         root.addWidget(body, 1)
 
-        action_bar, _ = ActionBar("Aplicar e Guardar", self._run)
+        action_bar, _ = ActionBar("Apply and Save", self._run)
         root.addWidget(action_bar)
 
         self._update_nav()
@@ -295,11 +292,11 @@ class TabEditar(QWidget):
                     "color:#93A9A3; border-radius:6px; padding:6px 8px; text-align:center;")
         self._opt_stack.setCurrentIndex(idx)
         self._canvas.set_select_mode(idx == 7)
-        if idx == 2:  # Adicionar imagem — abre picker logo
+        if idx == 2:
             self._pick_image()
 
     def _pick_pdf(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Abrir PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
         if p: self._load_pdf(p)
 
     def _load_pdf(self, p: str):
@@ -310,21 +307,21 @@ class TabEditar(QWidget):
         self._drop_in.set_path(p)
         self._drop_in.blockSignals(False)
         if not self._drop_out.path():
-            self._drop_out.set_path(os.path.splitext(p)[0] + "_editado.pdf")
+            self._drop_out.set_path(os.path.splitext(p)[0] + "_edited.pdf")
         self._pending.clear(); self._pending_list.clear()
         try:
             self._canvas.load(p)
         except ModuleNotFoundError as ex:
-            QMessageBox.critical(self, "Dependência em falta",
-                "A ferramenta Editar requer PyMuPDF.\n\n"
-                "Instala com:\n  pip install pymupdf\n\n"
-                f"Detalhe: {ex}")
+            QMessageBox.critical(self, "Missing dependency",
+                "The Edit tool requires PyMuPDF.\n\n"
+                "Install with:\n  pip install pymupdf\n\n"
+                f"Detail: {ex}")
             return
         except Exception as ex:
-            QMessageBox.critical(self, "Erro", f"Não foi possível abrir o PDF:\n{ex}"); return
+            QMessageBox.critical(self, "Error", f"Could not open the PDF:\n{ex}"); return
         self._page_idx = 0
         n = self._canvas.page_count()
-        self._lbl_info.setText(f"  {n} páginas")
+        self._lbl_info.setText(f"  {n} pages")
         self._update_nav()
         self._load_form_fields(p)
 
@@ -341,8 +338,8 @@ class TabEditar(QWidget):
         self._update_nav()
 
     def _pick_image(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Selecionar imagem", "",
-                                           "Imagens (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)")
+        p, _ = QFileDialog.getOpenFileName(self, "Select image", "",
+                                           "Images (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)")
         if p: self._img_drop.set_path(p)
 
     def _load_form_fields(self, path):
@@ -360,57 +357,56 @@ class TabEditar(QWidget):
 
     def _on_rect(self, pdf_rect):
         mode = self._mode_idx
-        if mode == 7:  # selecionar / copiar texto
+        if mode == 7:
             doc = self._canvas._doc
             if not doc: return
             text = doc[self._page_idx].get_text("text", clip=pdf_rect).strip()
             self._sel_result.setPlainText(text)
             if text:
                 QApplication.clipboard().setText(text)
-                self._status(f"✔  {len(text)} caracteres copiados para a área de transferência")
+                self._status(f"✔  {len(text)} characters copied to clipboard")
             else:
-                self._status("ℹ  Nenhum texto encontrado na seleção")
+                self._status("ℹ  No text found in selection")
             return
-        if mode in (1, 4, 6):  # modos de clique: usar o centro do rect como ponto
+        if mode in (1, 4, 6):
             import fitz
             center = fitz.Point((pdf_rect.x0 + pdf_rect.x1) / 2,
                                 (pdf_rect.y0 + pdf_rect.y1) / 2)
             self._on_point(center); return
-        if mode == 0:   # redact
+        if mode == 0:
             self._add({"type": "redact", "page": self._page_idx, "rect": pdf_rect,
                        "fill": self._RED_FILLS[self._red_color.currentText()]})
-        elif mode == 2:  # image
+        elif mode == 2:
             img = self._img_drop.path()
             if not img or not os.path.isfile(img):
                 self._pick_image()
                 img = self._img_drop.path()
                 if not img or not os.path.isfile(img): return
             self._add({"type": "image", "page": self._page_idx, "rect": pdf_rect, "path": img})
-        elif mode == 3:  # highlight
+        elif mode == 3:
             self._add({"type": "highlight", "page": self._page_idx, "rect": pdf_rect,
                        "color": self._HI_COLORS[self._hi_color.currentText()]})
 
     def _on_point(self, pdf_pt):
         mode = self._mode_idx
-        if mode == 1:   # text
+        if mode == 1:
             dlg = _TextDialog(self)
             if dlg.exec() != QDialog.DialogCode.Accepted: return
             txt = dlg.edit.text().strip()
             if not txt: return
             self._add({"type": "text", "page": self._page_idx, "point": pdf_pt,
                        "text": txt, "size": dlg.font_size.value(), "color": dlg.color_tuple()})
-        elif mode == 4:  # note
+        elif mode == 4:
             dlg = _NoteDialog(self)
             if dlg.exec() != QDialog.DialogCode.Accepted: return
             txt = dlg.edit.toPlainText().strip()
             if not txt: return
             self._add({"type": "note", "page": self._page_idx, "point": pdf_pt, "text": txt})
-        elif mode == 6:  # editar texto existente
+        elif mode == 6:
             if not self._doc_path: return
-            # usa o doc já aberto no canvas — evita re-abrir o ficheiro (deadlock no Windows)
             found_span = self._canvas.get_span_at(pdf_pt)
             if not found_span:
-                QMessageBox.information(self, "Info", "Nenhum texto encontrado nessa posição."); return
+                QMessageBox.information(self, "Info", "No text found at that position."); return
             dlg = _TextEditDialog(found_span["text"], found_span["size"], self)
             if dlg.exec() != QDialog.DialogCode.Accepted: return
             new_txt = dlg.new_text()
@@ -423,34 +419,34 @@ class TabEditar(QWidget):
     def _add(self, edit: dict):
         self._pending.append(edit)
         labels = {
-            "redact":    lambda e: f"Redigir — pág. {e['page']+1}",
-            "text":      lambda e: f"Texto '{e['text'][:18]}' — pág. {e['page']+1}",
-            "image":     lambda e: f"Imagem '{os.path.basename(e['path'])}' — pág. {e['page']+1}",
-            "highlight": lambda e: f"Highlight — pág. {e['page']+1}",
-            "note":      lambda e: f"Nota — pág. {e['page']+1}",
-            "text_edit": lambda e: f"Editar '{e['old_text'][:15]}' → '{e['new_text'][:15]}' — pág. {e['page']+1}",
+            "redact":    lambda e: f"Redact — p. {e['page']+1}",
+            "text":      lambda e: f"Text '{e['text'][:18]}' — p. {e['page']+1}",
+            "image":     lambda e: f"Image '{os.path.basename(e['path'])}' — p. {e['page']+1}",
+            "highlight": lambda e: f"Highlight — p. {e['page']+1}",
+            "note":      lambda e: f"Note — p. {e['page']+1}",
+            "text_edit": lambda e: f"Edit '{e['old_text'][:15]}' → '{e['new_text'][:15]}' — p. {e['page']+1}",
         }
         lbl = labels[edit["type"]](edit)
         self._pending_list.addItem(lbl)
-        self._status(f"✏  {lbl} adicionado — {len(self._pending)} edição(ões) pendente(s)")
+        self._status(f"✏  {lbl} added — {len(self._pending)} pending edit(s)")
         self._canvas.set_overlays([e for e in self._pending if e["page"] == self._page_idx])
 
     def _clear_pending(self):
         self._pending.clear(); self._pending_list.clear()
         self._canvas.set_overlays([])
 
-    # ── aplicar ──────────────────────────────────────────────────────────────
+    # ── apply ──────────────────────────────────────────────────────────────
 
     def _run(self):
         if not self._doc_path or not os.path.isfile(self._doc_path):
-            QMessageBox.warning(self, "Aviso", "Abre um PDF primeiro."); return
+            QMessageBox.warning(self, "Warning", "Open a PDF first."); return
         out = self._drop_out.path()
         if not out:
-            QMessageBox.warning(self, "Aviso", "Escolhe o ficheiro de saída."); return
+            QMessageBox.warning(self, "Warning", "Choose the output file."); return
         if self._mode_idx == 5:
             self._apply_forms(out); return
         if not self._pending:
-            QMessageBox.warning(self, "Aviso", "Nenhuma edição pendente."); return
+            QMessageBox.warning(self, "Warning", "No pending edits."); return
         try:
             import fitz
             doc = fitz.open(self._doc_path)
@@ -481,10 +477,10 @@ class TabEditar(QWidget):
                                        new_txt, fontsize=max(4, e["size"]), color=color)
             doc.save(out, garbage=4, deflate=True); doc.close()
             self._pending.clear(); self._pending_list.clear()
-            self._status(f"✔  Guardado → {out}")
-            QMessageBox.information(self, "Concluído", f"PDF guardado em:\n{out}")
+            self._status(f"✔  Saved → {out}")
+            QMessageBox.information(self, "Done", f"PDF saved at:\n{out}")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", str(e))
+            QMessageBox.critical(self, "Error", str(e))
 
     def _apply_forms(self, out):
         try:
@@ -496,7 +492,7 @@ class TabEditar(QWidget):
             for page in writer.pages:
                 writer.update_page_form_field_values(page, fields, auto_regenerate=False)
             with open(out, "wb") as f: writer.write(f)
-            self._status(f"✔  Formulário guardado → {out}")
-            QMessageBox.information(self, "Concluído", f"Formulário guardado em:\n{out}")
+            self._status(f"✔  Form saved → {out}")
+            QMessageBox.information(self, "Done", f"Form saved at:\n{out}")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", str(e))
+            QMessageBox.critical(self, "Error", str(e))

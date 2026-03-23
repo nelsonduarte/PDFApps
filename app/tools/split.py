@@ -16,13 +16,13 @@ from app.widgets import DropFileEdit
 
 class TabDividir(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.cut", "Dividir PDF",
-                         "Corta o PDF em vários ficheiros por intervalos de páginas.",
-                         "Dividir PDF", status_fn)
+        super().__init__("fa5s.cut", "Split PDF",
+                         "Split the PDF into multiple files by page ranges.",
+                         "Split PDF", status_fn)
         self._total = 0
         f = self._form
 
-        f.addWidget(section("Ficheiro de origem"))
+        f.addWidget(section("Source file"))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -31,27 +31,27 @@ class TabDividir(BasePage):
         f.addWidget(self.drop_in)
         f.addWidget(self.lbl_info)
 
-        grp = QGroupBox("Intervalos de páginas")
+        grp = QGroupBox("Page ranges")
         vt  = QVBoxLayout(grp); vt.setSpacing(8)
         self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Início", "Fim", "Nome do ficheiro de saída"])
+        self.table.setHorizontalHeaderLabels(["Start", "End", "Output file name"])
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.setFixedHeight(160)
         vt.addWidget(self.table)
         hb = QHBoxLayout()
-        btn_add = QPushButton("＋  Adicionar linha")
-        btn_rem = danger_btn("−  Remover")
+        btn_add = QPushButton("＋  Add row")
+        btn_rem = danger_btn("−  Remove")
         btn_add.clicked.connect(self._add_row)
         btn_rem.clicked.connect(self._remove_row)
         hb.addWidget(btn_add); hb.addWidget(btn_rem); hb.addStretch()
         vt.addLayout(hb)
         f.addWidget(grp)
 
-        f.addWidget(section("Pasta de saída"))
-        self.drop_out = DropFileEdit("Pasta onde serão guardados os ficheiros…")
-        self.drop_out.btn.setText("Escolher…")
+        f.addWidget(section("Output folder"))
+        self.drop_out = DropFileEdit("Folder where the files will be saved…")
+        self.drop_out.btn.setText("Choose…")
         self.drop_out.btn.clicked.disconnect()
         self.drop_out.btn.clicked.connect(self._pick_output)
         f.addWidget(self.drop_out)
@@ -59,7 +59,7 @@ class TabDividir(BasePage):
         self._add_row()
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Abrir PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -69,8 +69,8 @@ class TabDividir(BasePage):
         if not self.drop_out.path(): self.drop_out.set_path(os.path.dirname(p))
         try:
             r = PdfReader(p); self._total = len(r.pages)
-            self.lbl_info.setText(f"  {self._total} páginas no ficheiro")
-        except Exception as e: self.lbl_info.setText(f"  Erro: {e}")
+            self.lbl_info.setText(f"  {self._total} pages in the file")
+        except Exception as e: self.lbl_info.setText(f"  Error: {e}")
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
@@ -85,7 +85,7 @@ class TabDividir(BasePage):
         spn_e = QSpinBox(); spn_e.setRange(1, 9999); spn_e.setValue(max(1, self._total))
         self.table.setCellWidget(r, 0, spn_s)
         self.table.setCellWidget(r, 1, spn_e)
-        self.table.setItem(r, 2, QTableWidgetItem(f"parte_{r+1}.pdf"))
+        self.table.setItem(r, 2, QTableWidgetItem(f"part_{r+1}.pdf"))
 
     def _remove_row(self):
         for r in sorted({i.row() for i in self.table.selectedIndexes()}, reverse=True):
@@ -94,28 +94,28 @@ class TabDividir(BasePage):
     def _run(self):
         pdf_path = self.drop_in.path(); out_dir = self.drop_out.path()
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Aviso", "Seleciona um PDF válido."); return
+            QMessageBox.warning(self, "Warning", "Select a valid PDF."); return
         if not out_dir:
-            QMessageBox.warning(self, "Aviso", "Escolhe a pasta de saída."); return
+            QMessageBox.warning(self, "Warning", "Choose the output folder."); return
         try:
             reader = PdfReader(pdf_path); total = len(reader.pages)
         except Exception as e:
-            QMessageBox.critical(self, "Erro", str(e)); return
+            QMessageBox.critical(self, "Error", str(e)); return
         os.makedirs(out_dir, exist_ok=True)
-        erros, gerados = [], []
+        errors, generated = [], []
         for r in range(self.table.rowCount()):
             start = self.table.cellWidget(r, 0).value()
             end   = self.table.cellWidget(r, 1).value()
-            name  = self.table.item(r, 2).text().strip() or f"parte_{r+1}.pdf"
+            name  = self.table.item(r, 2).text().strip() or f"part_{r+1}.pdf"
             if not name.lower().endswith(".pdf"): name += ".pdf"
             if start < 1 or end < start or end > total:
-                erros.append(f"Linha {r+1}: {start}–{end} inválido"); continue
+                errors.append(f"Row {r+1}: {start}–{end} invalid"); continue
             w = PdfWriter()
             for p in range(start - 1, end): w.add_page(reader.pages[p])
             with open(os.path.join(out_dir, name), "wb") as f: w.write(f)
-            gerados.append(name)
-        if erros: QMessageBox.warning(self, "Aviso", "Ignorados:\n" + "\n".join(erros))
-        if gerados:
-            self._status(f"✔  {len(gerados)} ficheiro(s) criado(s) em {out_dir}")
-            QMessageBox.information(self, "Concluído",
-                f"{len(gerados)} ficheiro(s) criado(s) em:\n{out_dir}\n\n" + "\n".join(gerados))
+            generated.append(name)
+        if errors: QMessageBox.warning(self, "Warning", "Skipped:\n" + "\n".join(errors))
+        if generated:
+            self._status(f"✔  {len(generated)} file(s) created in {out_dir}")
+            QMessageBox.information(self, "Done",
+                f"{len(generated)} file(s) created in:\n{out_dir}\n\n" + "\n".join(generated))

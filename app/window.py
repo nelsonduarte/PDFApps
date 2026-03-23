@@ -17,31 +17,31 @@ from app.styles import STYLE, STYLE_LIGHT
 from app.utils import resource_path, _make_palette
 from app.widgets import DropFileEdit
 from app.viewer.panel import PdfViewerPanel
-from app.tools.dividir import TabDividir
-from app.tools.juntar import TabJuntar
-from app.tools.rotar import TabRotar
-from app.tools.extrair import TabExtrair
-from app.tools.reordenar import TabReordenar
-from app.tools.comprimir import TabComprimir
-from app.tools.encriptar import TabEncriptar
-from app.tools.marca_dagua import TabMarcaDagua
+from app.tools.split import TabDividir
+from app.tools.merge import TabJuntar
+from app.tools.rotate import TabRotar
+from app.tools.extract import TabExtrair
+from app.tools.reorder import TabReordenar
+from app.tools.compress import TabComprimir
+from app.tools.encrypt import TabEncriptar
+from app.tools.watermark import TabMarcaDagua
 from app.tools.ocr import TabOCR
 from app.editor.tab import TabEditar
 from app.tools.info import TabInfo
 
 
 NAV_ITEMS = [
-    ("Dividir",         "fa5s.cut",                TabDividir),
-    ("Juntar",          "fa5s.object-group",        TabJuntar),
-    ("Rodar",           "fa5s.sync-alt",            TabRotar),
-    ("Extrair páginas", "fa5s.file-export",         TabExtrair),
-    ("Reordenar",       "fa5s.sort",                TabReordenar),
-    ("Comprimir",       "fa5s.compress-arrows-alt", TabComprimir),
-    ("Encriptar",       "fa5s.lock",                TabEncriptar),
-    ("Marca d'água",    "fa5s.stamp",               TabMarcaDagua),
+    ("Split",           "fa5s.cut",                TabDividir),
+    ("Merge",           "fa5s.object-group",        TabJuntar),
+    ("Rotate",          "fa5s.sync-alt",            TabRotar),
+    ("Extract pages",   "fa5s.file-export",         TabExtrair),
+    ("Reorder",         "fa5s.sort",                TabReordenar),
+    ("Compress",        "fa5s.compress-arrows-alt", TabComprimir),
+    ("Encrypt",         "fa5s.lock",                TabEncriptar),
+    ("Watermark",       "fa5s.stamp",               TabMarcaDagua),
     ("OCR",             "fa5s.search",              TabOCR),
-    ("Editar",          "fa5s.edit",                TabEditar),
-    ("Informação",      "fa5s.info-circle",         TabInfo),
+    ("Edit",            "fa5s.edit",                TabEditar),
+    ("Info",            "fa5s.info-circle",         TabInfo),
 ]
 
 
@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(860, 540)
 
         self._sb = QStatusBar(); self.setStatusBar(self._sb)
-        self._sb.showMessage("Pronto")
+        self._sb.showMessage("Ready")
 
         central = QWidget()
         root_v = QVBoxLayout(central)
@@ -80,39 +80,39 @@ class MainWindow(QMainWindow):
 
         wb_col = QVBoxLayout(); wb_col.setContentsMargins(0, 0, 0, 0); wb_col.setSpacing(1)
         wb_title = QLabel("Workspace"); wb_title.setObjectName("workspace_title")
-        wb_hint = QLabel("Escolhe uma ferramenta na barra lateral ou usa os atalhos rápidos.")
+        wb_hint = QLabel("Choose a tool from the sidebar or use the quick shortcuts.")
         wb_hint.setObjectName("workspace_hint")
         wb_col.addWidget(wb_title); wb_col.addWidget(wb_hint)
         wb_h.addLayout(wb_col, 1)
 
-        self._quick_merge_btn = QPushButton("Juntar"); self._quick_merge_btn.setObjectName("quick_btn")
+        self._quick_merge_btn = QPushButton("Merge"); self._quick_merge_btn.setObjectName("quick_btn")
         self._quick_ocr_btn = QPushButton("OCR"); self._quick_ocr_btn.setObjectName("quick_btn")
-        self._quick_edit_btn = QPushButton("Editar"); self._quick_edit_btn.setObjectName("quick_btn")
+        self._quick_edit_btn = QPushButton("Edit"); self._quick_edit_btn.setObjectName("quick_btn")
         wb_h.addWidget(self._quick_merge_btn)
         wb_h.addWidget(self._quick_ocr_btn)
         wb_h.addWidget(self._quick_edit_btn)
 
-        # zoom widget — só visível na ferramenta Editar
+        # zoom widget — only visible in the Edit tool
         self._zoom_widget = QWidget()
         zw_h = QHBoxLayout(self._zoom_widget); zw_h.setContentsMargins(0,0,0,0); zw_h.setSpacing(4)
         _zm = QPushButton(); _zm.setIcon(qta.icon("fa5s.search-minus", color=TEXT_PRI))
-        _zm.setFixedSize(28, 28); _zm.setObjectName("viewer_nav_btn"); _zm.setToolTip("Diminuir zoom (Ctrl+scroll)")
+        _zm.setFixedSize(28, 28); _zm.setObjectName("viewer_nav_btn"); _zm.setToolTip("Zoom out (Ctrl+scroll)")
         self._lbl_zoom = QLabel("100%"); self._lbl_zoom.setMinimumWidth(42); self._lbl_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
         _zp = QPushButton(); _zp.setIcon(qta.icon("fa5s.search-plus", color=TEXT_PRI))
-        _zp.setFixedSize(28, 28); _zp.setObjectName("viewer_nav_btn"); _zp.setToolTip("Aumentar zoom (Ctrl+scroll)")
-        _z0 = QPushButton("Repor"); _z0.setObjectName("viewer_nav_btn"); _z0.setFixedHeight(28)
-        _z0.setToolTip("Repor zoom 100%")
+        _zp.setFixedSize(28, 28); _zp.setObjectName("viewer_nav_btn"); _zp.setToolTip("Zoom in (Ctrl+scroll)")
+        _z0 = QPushButton("Reset"); _z0.setObjectName("viewer_nav_btn"); _z0.setFixedHeight(28)
+        _z0.setToolTip("Reset zoom to 100%")
         zw_h.addWidget(_zm); zw_h.addWidget(self._lbl_zoom); zw_h.addWidget(_zp); zw_h.addWidget(_z0)
         self._zoom_widget.setVisible(False)
         self._zm_btn = _zm; self._zp_btn = _zp; self._z0_btn = _z0
         wb_h.addWidget(self._zoom_widget)
 
-        self._tool_badge = QLabel("Modo: Visualizador"); self._tool_badge.setObjectName("workspace_badge")
+        self._tool_badge = QLabel("Mode: Viewer"); self._tool_badge.setObjectName("workspace_badge")
         wb_h.addWidget(self._tool_badge)
 
         self._theme_btn = QPushButton("☀")
         self._theme_btn.setObjectName("theme_btn")
-        self._theme_btn.setToolTip("Alternar tema claro/escuro")
+        self._theme_btn.setToolTip("Toggle light/dark theme")
         self._theme_btn.setFixedSize(28, 28)
         self._theme_btn.clicked.connect(self._toggle_theme)
         wb_h.addWidget(self._theme_btn)
@@ -168,13 +168,13 @@ class MainWindow(QMainWindow):
         self._dark_mode = True
         self._qapp: QApplication = QApplication.instance()  # type: ignore[assignment]
 
-        # ── Stack de ferramentas (oculto por defeito) ─────────────────────────
+        # ── Tool stack (hidden by default) ─────────────────────────
         self.stack = QStackedWidget(); self.stack.setObjectName("content_area")
         for _, __, cls in NAV_ITEMS:
             self.stack.addWidget(cls(self._set_status))
         self.stack.setVisible(False)
 
-        # ── Viewer (ocupa tudo quando nenhuma ferramenta está ativa) ──────────
+        # ── Viewer (fills everything when no tool is active) ──────────
         self._viewer = PdfViewerPanel()
 
         self._splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -191,11 +191,11 @@ class MainWindow(QMainWindow):
 
         self._current_tool = -1
         self.nav.itemClicked.connect(self._on_nav_clicked)
-        self._quick_merge_btn.clicked.connect(lambda: self._open_tool_by_name("Juntar"))
+        self._quick_merge_btn.clicked.connect(lambda: self._open_tool_by_name("Merge"))
         self._quick_ocr_btn.clicked.connect(lambda: self._open_tool_by_name("OCR"))
-        self._quick_edit_btn.clicked.connect(lambda: self._open_tool_by_name("Editar"))
+        self._quick_edit_btn.clicked.connect(lambda: self._open_tool_by_name("Edit"))
 
-        # Ligar todos os DropFileEdit ao viewer
+        # Connect all DropFileEdit widgets to the viewer
         for i in range(self.stack.count()):
             for dfe in self.stack.widget(i).findChildren(DropFileEdit):
                 dfe.path_changed.connect(self._viewer.load)
@@ -208,7 +208,7 @@ class MainWindow(QMainWindow):
                 self.stack.setCurrentIndex(i)
                 self.stack.setVisible(True)
                 self._viewer.setVisible(False)
-                self._tool_badge.setText(f"Modo: {name}")
+                self._tool_badge.setText(f"Mode: {name}")
                 self._try_auto_load(i)
                 return
 
@@ -250,7 +250,7 @@ class MainWindow(QMainWindow):
             self._current_tool = -1
             self.stack.setVisible(False)
             self._viewer.setVisible(True)
-            self._tool_badge.setText("Modo: Visualizador")
+            self._tool_badge.setText("Mode: Viewer")
             self._setup_zoom_bar(False)
         else:
             if self._current_tool == edit_idx:
@@ -259,7 +259,7 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentIndex(row)
             self.stack.setVisible(True)
             self._viewer.setVisible(False)
-            self._tool_badge.setText(f"Modo: {NAV_ITEMS[row][0]}")
+            self._tool_badge.setText(f"Mode: {NAV_ITEMS[row][0]}")
             self._try_auto_load(row)
             if row == edit_idx:
                 self._setup_zoom_bar(True)

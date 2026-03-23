@@ -1,6 +1,6 @@
 """
-Testes das funcionalidades principais da PDFApps.
-Testa a lógica de PDF diretamente (sem UI) usando pypdf e fitz.
+Tests for the main PDFApps features.
+Tests the PDF logic directly (without UI) using pypdf and fitz.
 """
 import os
 import sys
@@ -12,12 +12,12 @@ from pypdf import PdfReader, PdfWriter
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def make_pdf(path: str, num_pages: int = 3) -> str:
-    """Cria um PDF simples com N páginas usando pypdf."""
+    """Create a simple PDF with N pages using fitz."""
     import fitz
     doc = fitz.open()
     for i in range(num_pages):
         page = doc.new_page(width=595, height=842)  # A4
-        page.insert_text((72, 72), f"Página {i + 1}", fontsize=24)
+        page.insert_text((72, 72), f"Page {i + 1}", fontsize=24)
     doc.save(path)
     doc.close()
     return path
@@ -30,20 +30,20 @@ def tmp(tmp_path):
 
 @pytest.fixture
 def pdf3(tmp):
-    """PDF com 3 páginas."""
+    """PDF with 3 pages."""
     return make_pdf(str(tmp / "sample.pdf"), 3)
 
 
 @pytest.fixture
 def pdf5(tmp):
-    """PDF com 5 páginas."""
+    """PDF with 5 pages."""
     return make_pdf(str(tmp / "sample5.pdf"), 5)
 
 
 # ── parse_pages ───────────────────────────────────────────────────────────────
 
 def parse_pages(text: str, total: int) -> list:
-    """Replica da função parse_pages do pdfapps.py."""
+    """Replica of the parse_pages function from pdfapps.py."""
     pages = []
     for part in text.split(","):
         part = part.strip()
@@ -56,7 +56,7 @@ def parse_pages(text: str, total: int) -> list:
             pages.append(int(part) - 1)
     invalid = [p for p in pages if p < 0 or p >= total]
     if invalid:
-        raise ValueError(f"Páginas fora do intervalo: {[p+1 for p in invalid]}  (total: {total})")
+        raise ValueError(f"Pages out of range: {[p+1 for p in invalid]}  (total: {total})")
     return pages
 
 
@@ -94,7 +94,7 @@ class TestParsePages:
         assert parse_pages("1-3", 3) == [0, 1, 2]
 
 
-# ── Dividir (Split) ───────────────────────────────────────────────────────────
+# ── Split ───────────────────────────────────────────────────────────────
 
 class TestDividir:
     def test_split_all_pages(self, pdf3, tmp):
@@ -102,7 +102,7 @@ class TestDividir:
         total = len(reader.pages)
         assert total == 3
 
-        out1 = str(tmp / "parte1.pdf")
+        out1 = str(tmp / "part1.pdf")
         w = PdfWriter()
         w.add_page(reader.pages[0])
         with open(out1, "wb") as f:
@@ -113,9 +113,9 @@ class TestDividir:
 
     def test_split_range(self, pdf5, tmp):
         reader = PdfReader(pdf5)
-        out = str(tmp / "parte2-4.pdf")
+        out = str(tmp / "part2-4.pdf")
         w = PdfWriter()
-        for i in range(1, 4):  # páginas 2-4 (0-indexed: 1,2,3)
+        for i in range(1, 4):  # pages 2-4 (0-indexed: 1,2,3)
             w.add_page(reader.pages[i])
         with open(out, "wb") as f:
             w.write(f)
@@ -126,7 +126,7 @@ class TestDividir:
     def test_invalid_range_not_written(self, pdf3, tmp):
         reader = PdfReader(pdf3)
         total = len(reader.pages)
-        # range inválido: início > total
+        # invalid range: start > total
         start, end = 5, 6
         assert start > total or end > total
 
@@ -141,7 +141,7 @@ class TestDividir:
         assert os.path.getsize(out) > 0
 
 
-# ── Juntar (Merge) ────────────────────────────────────────────────────────────
+# ── Merge ────────────────────────────────────────────────────────────
 
 class TestJuntar:
     def test_merge_two_pdfs(self, tmp):
@@ -175,7 +175,7 @@ class TestJuntar:
         assert len(r.pages) == 2
 
     def test_merge_single_raises_logically(self):
-        # a app exige >= 2 PDFs
+        # the app requires >= 2 PDFs
         paths = ["one.pdf"]
         assert len(paths) < 2
 
@@ -191,12 +191,12 @@ class TestJuntar:
         with open(out, "wb") as f:
             w.write(f)
 
-        # deve ser legível sem erros
+        # should be readable without errors
         r = PdfReader(out)
         assert len(r.pages) == 2
 
 
-# ── Rodar (Rotate) ────────────────────────────────────────────────────────────
+# ── Rotate ────────────────────────────────────────────────────────────
 
 class TestRotar:
     def test_rotate_all_pages_90(self, pdf3, tmp):
@@ -211,7 +211,7 @@ class TestRotar:
 
         r = PdfReader(out)
         assert len(r.pages) == 3
-        # pypdf regista a rotação no campo /Rotate, não troca o mediabox
+        # pypdf records rotation in the /Rotate field, does not swap the mediabox
         p = r.pages[0]
         rotation = p.get("/Rotate", 0)
         assert rotation == 90
@@ -254,13 +254,13 @@ class TestRotar:
         assert len(PdfReader(out).pages) == 5
 
 
-# ── Extrair páginas ───────────────────────────────────────────────────────────
+# ── Extract pages ───────────────────────────────────────────────────────────
 
 class TestExtrair:
     def test_extract_single_page(self, pdf5, tmp):
         reader = PdfReader(pdf5)
         pages = parse_pages("3", 5)
-        out = str(tmp / "extraido.pdf")
+        out = str(tmp / "extracted.pdf")
         w = PdfWriter()
         for p in pages:
             w.add_page(reader.pages[p])
@@ -273,7 +273,7 @@ class TestExtrair:
     def test_extract_range(self, pdf5, tmp):
         reader = PdfReader(pdf5)
         pages = parse_pages("2-4", 5)
-        out = str(tmp / "extraido2-4.pdf")
+        out = str(tmp / "extracted2-4.pdf")
         w = PdfWriter()
         for p in pages:
             w.add_page(reader.pages[p])
@@ -286,7 +286,7 @@ class TestExtrair:
     def test_extract_mixed(self, pdf5, tmp):
         reader = PdfReader(pdf5)
         pages = parse_pages("1,3,5", 5)
-        out = str(tmp / "extraido135.pdf")
+        out = str(tmp / "extracted135.pdf")
         w = PdfWriter()
         for p in pages:
             w.add_page(reader.pages[p])
@@ -300,7 +300,7 @@ class TestExtrair:
             parse_pages("10", 3)
 
 
-# ── Reordenar ─────────────────────────────────────────────────────────────────
+# ── Reorder ─────────────────────────────────────────────────────────────────
 
 class TestReordenar:
     def test_reverse_order(self, pdf3, tmp):
@@ -329,9 +329,9 @@ class TestReordenar:
         assert len(PdfReader(out).pages) == 5
 
     def test_delete_pages(self, pdf5, tmp):
-        """Simula eliminar páginas na reordenação."""
+        """Simulate deleting pages during reorder."""
         reader = PdfReader(pdf5)
-        indices = [0, 2, 4]  # mantém só pág. 1, 3, 5
+        indices = [0, 2, 4]  # keep only pages 1, 3, 5
         out = str(tmp / "reduced.pdf")
         w = PdfWriter()
         for idx in indices:
@@ -342,7 +342,7 @@ class TestReordenar:
         assert len(PdfReader(out).pages) == 3
 
     def test_identity_reorder(self, pdf3, tmp):
-        """Reordenar sem mudar deve produzir o mesmo número de páginas."""
+        """Reordering without changes should produce the same number of pages."""
         reader = PdfReader(pdf3)
         indices = list(range(len(reader.pages)))
         out = str(tmp / "identity.pdf")
@@ -355,7 +355,7 @@ class TestReordenar:
         assert len(PdfReader(out).pages) == 3
 
 
-# ── Encriptar / Desencriptar ──────────────────────────────────────────────────
+# ── Encrypt / Decrypt ──────────────────────────────────────────────────
 
 class TestEncriptar:
     def test_encrypt_creates_encrypted_pdf(self, pdf3, tmp):
@@ -371,7 +371,7 @@ class TestEncriptar:
         assert r.is_encrypted
 
     def test_decrypt_with_correct_password(self, pdf3, tmp):
-        # encriptar
+        # encrypt
         enc = str(tmp / "enc.pdf")
         w = PdfWriter()
         w.append(PdfReader(pdf3))
@@ -379,11 +379,11 @@ class TestEncriptar:
         with open(enc, "wb") as f:
             w.write(f)
 
-        # desencriptar
+        # decrypt
         out = str(tmp / "dec.pdf")
         r = PdfReader(enc)
         result = r.decrypt("pass")
-        assert result != 0  # 0 = falhou
+        assert result != 0  # 0 = failed
 
         w2 = PdfWriter()
         w2.append(r)
@@ -403,21 +403,21 @@ class TestEncriptar:
 
         r = PdfReader(enc)
         result = r.decrypt("wrong")
-        assert result == 0  # senha errada
+        assert result == 0  # wrong password
 
     def test_non_encrypted_pdf_not_encrypted(self, pdf3):
         r = PdfReader(pdf3)
         assert not r.is_encrypted
 
 
-# ── Marca d'água ──────────────────────────────────────────────────────────────
+# ── Watermark ──────────────────────────────────────────────────────────────
 
 class TestMarcaDagua:
     def _make_watermark(self, path: str) -> str:
         import fitz
         doc = fitz.open()
         page = doc.new_page(width=595, height=842)
-        page.insert_text((200, 400), "CONFIDENCIAL", fontsize=36, color=(0.8, 0.8, 0.8))
+        page.insert_text((200, 400), "CONFIDENTIAL", fontsize=36, color=(0.8, 0.8, 0.8))
         doc.save(path)
         doc.close()
         return path
@@ -468,7 +468,7 @@ class TestMarcaDagua:
         assert len(PdfReader(out).pages) == 5
 
 
-# ── Informação (metadados) ─────────────────────────────────────────────────────
+# ── Info (metadata) ─────────────────────────────────────────────────────
 
 class TestInfo:
     def test_page_count(self, pdf3):
@@ -493,6 +493,6 @@ class TestInfo:
 
     def test_metadata_accessible(self, pdf3):
         r = PdfReader(pdf3)
-        # metadados podem estar vazios, mas não deve lançar exceção
+        # metadata may be empty, but should not raise an exception
         meta = r.metadata
         assert meta is None or isinstance(meta, dict)

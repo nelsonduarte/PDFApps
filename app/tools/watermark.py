@@ -15,11 +15,11 @@ from app.widgets import DropFileEdit
 
 class TabMarcaDagua(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.stamp", "Marca d'água",
-                         "Sobrepõe um PDF (marca, carimbo) sobre as páginas.",
-                         "Aplicar marca d'água", status_fn)
+        super().__init__("fa5s.stamp", "Watermark",
+                         "Overlay a PDF (watermark, stamp) on the pages.",
+                         "Apply watermark", status_fn)
         f = self._form
-        f.addWidget(section("PDF de origem"))
+        f.addWidget(section("Source PDF"))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -27,28 +27,28 @@ class TabMarcaDagua(BasePage):
         self.lbl_info = info_lbl()
         f.addWidget(self.drop_in); f.addWidget(self.lbl_info)
 
-        f.addWidget(section("PDF da marca d'água  (1 página)"))
-        self.drop_wm = DropFileEdit("Arrasta o PDF da marca d'água aqui…")
+        f.addWidget(section("Watermark PDF  (1 page)"))
+        self.drop_wm = DropFileEdit("Drag the watermark PDF here…")
         f.addWidget(self.drop_wm)
 
-        grp = QGroupBox("Opções")
+        grp = QGroupBox("Options")
         form = QFormLayout(grp)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.edit_pages = QLineEdit()
-        self.edit_pages.setPlaceholderText("ex: 1,3,5-8  (vazio = todas)")
+        self.edit_pages.setPlaceholderText("e.g.: 1,3,5-8  (empty = all)")
         self.cmb_layer = QComboBox()
-        self.cmb_layer.addItems(["Por baixo  (fundo / marca d'água clássica)",
-                                  "Por cima  (carimbo / frente)"])
-        form.addRow("Páginas:", self.edit_pages)
-        form.addRow("Posição:", self.cmb_layer)
+        self.cmb_layer.addItems(["Below  (background / classic watermark)",
+                                  "Above  (stamp / foreground)"])
+        form.addRow("Pages:", self.edit_pages)
+        form.addRow("Position:", self.cmb_layer)
         f.addWidget(grp)
 
-        f.addWidget(section("Ficheiro de saída"))
-        self.drop_out = DropFileEdit("com_marca.pdf", save=True, default_name="com_marca.pdf")
+        f.addWidget(section("Output file"))
+        self.drop_out = DropFileEdit("watermarked.pdf", save=True, default_name="watermarked.pdf")
         f.addWidget(self.drop_out); f.addStretch()
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Abrir PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -57,10 +57,10 @@ class TabMarcaDagua(BasePage):
         self.drop_in.blockSignals(False)
         if not self.drop_out.path():
             base, ext = os.path.splitext(p)
-            self.drop_out.set_path(base + "_marca" + ext)
+            self.drop_out.set_path(base + "_watermark" + ext)
         try:
-            r = PdfReader(p); self.lbl_info.setText(f"  {len(r.pages)} páginas")
-        except Exception as e: self.lbl_info.setText(f"  Erro: {e}")
+            r = PdfReader(p); self.lbl_info.setText(f"  {len(r.pages)} pages")
+        except Exception as e: self.lbl_info.setText(f"  Error: {e}")
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
@@ -69,11 +69,11 @@ class TabMarcaDagua(BasePage):
         pdf_path = self.drop_in.path(); wm_path = self.drop_wm.path()
         out_path = self.drop_out.path()
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Aviso", "Seleciona o PDF de origem."); return
+            QMessageBox.warning(self, "Warning", "Select the source PDF."); return
         if not wm_path or not os.path.isfile(wm_path):
-            QMessageBox.warning(self, "Aviso", "Seleciona o PDF de marca d'água."); return
+            QMessageBox.warning(self, "Warning", "Select the watermark PDF."); return
         if not out_path:
-            QMessageBox.warning(self, "Aviso", "Escolhe o ficheiro de saída."); return
+            QMessageBox.warning(self, "Warning", "Choose the output file."); return
         try:
             reader  = PdfReader(pdf_path)
             wm_page = PdfReader(wm_path).pages[0]
@@ -87,6 +87,6 @@ class TabMarcaDagua(BasePage):
                 if i in targets:
                     w.pages[i].merge_page(wm_page, over=over)
             with open(out_path, "wb") as f: w.write(f)
-            self._status(f"✔  Marca d'água aplicada: {os.path.basename(out_path)}")
-            QMessageBox.information(self, "Concluído", f"PDF guardado em:\n{out_path}")
-        except Exception as e: QMessageBox.critical(self, "Erro", str(e))
+            self._status(f"✔  Watermark applied: {os.path.basename(out_path)}")
+            QMessageBox.information(self, "Done", f"PDF saved at:\n{out_path}")
+        except Exception as e: QMessageBox.critical(self, "Error", str(e))

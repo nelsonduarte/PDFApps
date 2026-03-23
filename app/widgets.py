@@ -13,13 +13,13 @@ from app.constants import ACCENT
 
 
 class DropFileEdit(QWidget):
-    """Campo de ficheiro com drag & drop, ícone de estado e botão de limpar."""
+    """File field with drag & drop, status icon and clear button."""
 
     path_changed = Signal(str)
 
-    def __init__(self, placeholder="Arrasta o ficheiro PDF aqui ou usa o botão →",
-                 filters="Ficheiros PDF (*.pdf);;Todos (*.*)",
-                 save=False, default_name="resultado.pdf"):
+    def __init__(self, placeholder="Drag the PDF file here or use the button →",
+                 filters="PDF Files (*.pdf);;All (*.*)",
+                 save=False, default_name="result.pdf"):
         super().__init__()
         self._filters      = filters
         self._save         = save
@@ -52,7 +52,7 @@ class DropFileEdit(QWidget):
         self._clr.clicked.connect(self.clear)
         h.addWidget(self._clr)
 
-        self.btn = QPushButton("Guardar como…" if save else "  Abrir…  ")
+        self.btn = QPushButton("Save as…" if save else "  Open…  ")
         self.btn.setFixedWidth(140 if save else 110)
         self.btn.clicked.connect(self._browse)
         h.addWidget(self.btn)
@@ -107,15 +107,15 @@ class DropFileEdit(QWidget):
 
     def _browse(self):
         if self._save:
-            p, _ = QFileDialog.getSaveFileName(self, "Guardar como", self._default, self._filters)
+            p, _ = QFileDialog.getSaveFileName(self, "Save as", self._default, self._filters)
         else:
-            p, _ = QFileDialog.getOpenFileName(self, "Abrir ficheiro", "", self._filters)
+            p, _ = QFileDialog.getOpenFileName(self, "Open file", "", self._filters)
         if p:
             self.set_path(p)
 
 
 class MultiDropWidget(QWidget):
-    """Zona de drop para múltiplos PDFs."""
+    """Drop zone for multiple PDFs."""
 
     def __init__(self, on_drop_callback):
         super().__init__()
@@ -131,10 +131,10 @@ class MultiDropWidget(QWidget):
         lbl.setObjectName("drop_icon")
         lbl.setFixedWidth(26)
         h.addWidget(lbl)
-        self._lbl = QLabel("Arrasta vários PDFs aqui  ou  usa o botão →")
+        self._lbl = QLabel("Drag multiple PDFs here  or  use the button →")
         self._lbl.setObjectName("drop_zone_lbl")
         h.addWidget(self._lbl, 1)
-        self.btn = QPushButton("  Adicionar…  ")
+        self.btn = QPushButton("  Add…  ")
         self.btn.setFixedWidth(110)
         h.addWidget(self.btn)
 

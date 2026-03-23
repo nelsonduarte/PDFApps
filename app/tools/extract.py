@@ -15,11 +15,11 @@ from app.widgets import DropFileEdit
 
 class TabExtrair(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.file-export", "Extrair páginas",
-                         "Copia páginas específicas para um novo PDF.",
-                         "Extrair páginas", status_fn)
+        super().__init__("fa5s.file-export", "Extract pages",
+                         "Copy specific pages to a new PDF.",
+                         "Extract pages", status_fn)
         f = self._form
-        f.addWidget(section("Ficheiro de origem"))
+        f.addWidget(section("Source file"))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -27,23 +27,23 @@ class TabExtrair(BasePage):
         self.lbl_info = info_lbl()
         f.addWidget(self.drop_in); f.addWidget(self.lbl_info)
 
-        grp = QGroupBox("Páginas a extrair")
+        grp = QGroupBox("Pages to extract")
         form = QFormLayout(grp)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.edit_pages = QLineEdit()
-        self.edit_pages.setPlaceholderText("ex: 1,3,5-8,10")
-        hint = QLabel("Usa vírgulas e hífens.  Ex:  1, 3, 5-8, 10")
+        self.edit_pages.setPlaceholderText("e.g.: 1,3,5-8,10")
+        hint = QLabel("Use commas and hyphens.  E.g.:  1, 3, 5-8, 10")
         hint.setObjectName("info_lbl")
-        form.addRow("Páginas:", self.edit_pages)
+        form.addRow("Pages:", self.edit_pages)
         form.addRow("", hint)
         f.addWidget(grp)
 
-        f.addWidget(section("Ficheiro de saída"))
-        self.drop_out = DropFileEdit("extraido.pdf", save=True, default_name="extraido.pdf")
+        f.addWidget(section("Output file"))
+        self.drop_out = DropFileEdit("extracted.pdf", save=True, default_name="extracted.pdf")
         f.addWidget(self.drop_out); f.addStretch()
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Abrir PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -52,10 +52,10 @@ class TabExtrair(BasePage):
         self.drop_in.blockSignals(False)
         if not self.drop_out.path():
             base, ext = os.path.splitext(p)
-            self.drop_out.set_path(base + "_extraido" + ext)
+            self.drop_out.set_path(base + "_extracted" + ext)
         try:
-            r = PdfReader(p); self.lbl_info.setText(f"  {len(r.pages)} páginas")
-        except Exception as e: self.lbl_info.setText(f"  Erro: {e}")
+            r = PdfReader(p); self.lbl_info.setText(f"  {len(r.pages)} pages")
+        except Exception as e: self.lbl_info.setText(f"  Error: {e}")
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
@@ -64,18 +64,18 @@ class TabExtrair(BasePage):
         pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
         txt = self.edit_pages.text().strip()
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Aviso", "Seleciona um PDF válido."); return
+            QMessageBox.warning(self, "Warning", "Select a valid PDF."); return
         if not txt:
-            QMessageBox.warning(self, "Aviso", "Indica as páginas a extrair."); return
+            QMessageBox.warning(self, "Warning", "Specify the pages to extract."); return
         if not out_path:
-            QMessageBox.warning(self, "Aviso", "Escolhe o ficheiro de saída."); return
+            QMessageBox.warning(self, "Warning", "Choose the output file."); return
         try:
             reader = PdfReader(pdf_path)
             pages  = parse_pages(txt, len(reader.pages))
             w = PdfWriter()
             for p in pages: w.add_page(reader.pages[p])
             with open(out_path, "wb") as f: w.write(f)
-            self._status(f"✔  {len(pages)} página(s) extraída(s): {os.path.basename(out_path)}")
-            QMessageBox.information(self, "Concluído",
-                f"{len(pages)} página(s) extraída(s) para:\n{out_path}")
-        except Exception as e: QMessageBox.critical(self, "Erro", str(e))
+            self._status(f"✔  {len(pages)} page(s) extracted: {os.path.basename(out_path)}")
+            QMessageBox.information(self, "Done",
+                f"{len(pages)} page(s) extracted to:\n{out_path}")
+        except Exception as e: QMessageBox.critical(self, "Error", str(e))

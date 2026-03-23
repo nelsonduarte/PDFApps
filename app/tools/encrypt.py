@@ -16,11 +16,11 @@ from app.widgets import DropFileEdit
 
 class TabEncriptar(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.lock", "Encriptar / Desencriptar",
-                         "Protege o PDF com senha ou remove a protecção existente.",
-                         "Executar", status_fn)
+        super().__init__("fa5s.lock", "Encrypt / Decrypt",
+                         "Protect the PDF with a password or remove existing protection.",
+                         "Execute", status_fn)
         f = self._form
-        f.addWidget(section("Ficheiro PDF"))
+        f.addWidget(section("PDF file"))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -28,42 +28,41 @@ class TabEncriptar(BasePage):
         self.lbl_info = info_lbl()
         f.addWidget(self.drop_in); f.addWidget(self.lbl_info)
 
-        grp_mode = QGroupBox("Operação")
+        grp_mode = QGroupBox("Operation")
         hm = QHBoxLayout(grp_mode)
         self.cmb_mode = QComboBox()
-        self.cmb_mode.addItems(["🔒  Encriptar  —  proteger com senha",
-                                  "🔓  Desencriptar  —  remover protecção"])
+        self.cmb_mode.addItems(["🔒  Encrypt  —  protect with password",
+                                  "🔓  Decrypt  —  remove protection"])
         self.cmb_mode.currentIndexChanged.connect(self._on_mode)
         hm.addWidget(self.cmb_mode)
         f.addWidget(grp_mode)
 
-        self.grp_enc = QGroupBox("Senhas de encriptação")
+        self.grp_enc = QGroupBox("Encryption passwords")
         fe = QFormLayout(self.grp_enc)
         fe.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.edit_owner = QLineEdit(); self.edit_owner.setEchoMode(QLineEdit.EchoMode.Password)
         self.edit_user  = QLineEdit(); self.edit_user.setEchoMode(QLineEdit.EchoMode.Password)
-        self.edit_user.setPlaceholderText("Opcional — se vazio, usa a senha do proprietário")
-        fe.addRow("Senha do proprietário *:", self.edit_owner)
-        fe.addRow("Senha do utilizador:", self.edit_user)
+        self.edit_user.setPlaceholderText("Optional — if empty, uses the owner password")
+        fe.addRow("Owner password *:", self.edit_owner)
+        fe.addRow("User password:", self.edit_user)
         f.addWidget(self.grp_enc)
 
-        self.grp_dec = QGroupBox("Senha actual do PDF")
+        self.grp_dec = QGroupBox("Current PDF password")
         fd = QFormLayout(self.grp_dec)
         fd.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.edit_pwd = QLineEdit(); self.edit_pwd.setEchoMode(QLineEdit.EchoMode.Password)
-        self.edit_pwd.setPlaceholderText("Deixa em branco se não tiver senha")
-        fd.addRow("Senha:", self.edit_pwd)
+        self.edit_pwd.setPlaceholderText("Leave blank if no password")
+        fd.addRow("Password:", self.edit_pwd)
         f.addWidget(self.grp_dec)
         self._on_mode(0)
 
-        f.addWidget(section("Ficheiro de saída"))
-        self.drop_out = DropFileEdit("resultado.pdf", save=True, default_name="resultado.pdf")
+        f.addWidget(section("Output file"))
+        self.drop_out = DropFileEdit("result.pdf", save=True, default_name="result.pdf")
         f.addWidget(self.drop_out); f.addStretch()
 
     def _on_mode(self, idx: int):
         self.grp_enc.setVisible(idx == 0)
         self.grp_dec.setVisible(idx == 1)
-        # actualizar sufixo do output quando o modo muda
         p = self.drop_in.path()
         if p:
             base, ext = os.path.splitext(p)
@@ -71,7 +70,7 @@ class TabEncriptar(BasePage):
             self.drop_out.set_path(base + suffix + ext)
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Abrir PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -84,15 +83,14 @@ class TabEncriptar(BasePage):
         try:
             r = PdfReader(p)
             encrypted = r.is_encrypted
-            estado = "🔒 encriptado" if encrypted else "🔓 sem protecção"
-            # len(r.pages) falha se encriptado e sem senha — usar page_count alternativo
+            status = "🔒 encrypted" if encrypted else "🔓 no protection"
             try:
                 n_pages = len(r.pages)
             except Exception:
                 n_pages = "?"
-            self.lbl_info.setText(f"  {n_pages} páginas  ·  {estado}")
+            self.lbl_info.setText(f"  {n_pages} pages  ·  {status}")
         except Exception as e:
-            self.lbl_info.setText(f"  Erro: {e}")
+            self.lbl_info.setText(f"  Error: {e}")
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
@@ -100,30 +98,30 @@ class TabEncriptar(BasePage):
     def _run(self):
         pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Aviso", "Seleciona um PDF válido."); return
+            QMessageBox.warning(self, "Warning", "Select a valid PDF."); return
         if not out_path:
-            QMessageBox.warning(self, "Aviso", "Escolhe o ficheiro de saída."); return
+            QMessageBox.warning(self, "Warning", "Choose the output file."); return
         try:
             reader = PdfReader(pdf_path)
             if self.cmb_mode.currentIndex() == 0:
                 owner = self.edit_owner.text()
                 if not owner:
-                    QMessageBox.warning(self, "Aviso", "Introduz a senha do proprietário."); return
-                user_pwd = self.edit_user.text() or owner  # se vazio, usar a mesma senha para abrir
+                    QMessageBox.warning(self, "Warning", "Enter the owner password."); return
+                user_pwd = self.edit_user.text() or owner
                 w = PdfWriter(); w.append(reader)
                 w.encrypt(user_password=user_pwd,
                           owner_password=owner, use_128bit=True)
                 with open(out_path, "wb") as f: w.write(f)
-                self._status(f"✔  PDF encriptado: {os.path.basename(out_path)}")
-                QMessageBox.information(self, "Concluído", f"PDF encriptado:\n{out_path}")
+                self._status(f"✔  PDF encrypted: {os.path.basename(out_path)}")
+                QMessageBox.information(self, "Done", f"PDF encrypted:\n{out_path}")
             else:
                 if reader.is_encrypted:
                     result = reader.decrypt(self.edit_pwd.text())
                     if result == 0:
-                        QMessageBox.warning(self, "Aviso", "Senha incorrecta — não foi possível desencriptar o PDF.")
+                        QMessageBox.warning(self, "Warning", "Incorrect password — could not decrypt the PDF.")
                         return
                 w = PdfWriter(); w.append(reader)
                 with open(out_path, "wb") as f: w.write(f)
-                self._status(f"✔  PDF desencriptado: {os.path.basename(out_path)}")
-                QMessageBox.information(self, "Concluído", f"PDF desencriptado:\n{out_path}")
-        except Exception as e: QMessageBox.critical(self, "Erro", str(e))
+                self._status(f"✔  PDF decrypted: {os.path.basename(out_path)}")
+                QMessageBox.information(self, "Done", f"PDF decrypted:\n{out_path}")
+        except Exception as e: QMessageBox.critical(self, "Error", str(e))

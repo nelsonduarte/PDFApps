@@ -8,8 +8,8 @@ try:
     from pypdf import PdfReader, PdfWriter
 except ImportError:
     _app = QApplication(sys.argv)
-    QMessageBox.critical(None, "Dependência em falta",
-                         "Instala a biblioteca pypdf:\n\npip install pypdf")
+    QMessageBox.critical(None, "Missing dependency",
+                         "Install the pypdf library:\n\npip install pypdf")
     sys.exit(1)
 
 from app.window import MainWindow
@@ -28,7 +28,7 @@ def main():
     window = MainWindow()
     window.show()
 
-    # Abrir PDF passado como argumento (ex: duplo clique num ficheiro .pdf)
+    # Open PDF passed as argument (e.g.: double-click on a .pdf file)
     if len(sys.argv) > 1:
         pdf_arg = sys.argv[1]
         if os.path.isfile(pdf_arg) and pdf_arg.lower().endswith(".pdf"):

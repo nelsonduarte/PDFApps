@@ -10,10 +10,10 @@ from app.constants import ACCENT, BORDER, TEXT_PRI, TEXT_SEC, BG_INNER
 
 
 class _PdfPasswordDialog(QDialog):
-    """Diálogo estilizado para introduzir a senha de um PDF protegido."""
+    """Styled dialog to enter the password of a protected PDF."""
     def __init__(self, filename: str, wrong: bool = False, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("PDF Protegido")
+        self.setWindowTitle("Protected PDF")
         self.setModal(True)
         self.setMinimumWidth(400)
 
@@ -21,14 +21,13 @@ class _PdfPasswordDialog(QDialog):
         v.setContentsMargins(24, 24, 24, 20)
         v.setSpacing(16)
 
-        # ícone + título
         top = QHBoxLayout(); top.setSpacing(14)
         ico = QLabel()
         ico.setPixmap(qta.icon("fa5s.lock", color=ACCENT).pixmap(36, 36))
         ico.setFixedSize(40, 40)
         top.addWidget(ico)
         title_col = QVBoxLayout(); title_col.setSpacing(2)
-        lbl_title = QLabel("PDF Protegido com Senha")
+        lbl_title = QLabel("Password Protected PDF")
         lbl_title.setStyleSheet(f"font-size:13pt; font-weight:700; color:{TEXT_PRI};")
         lbl_file  = QLabel(filename)
         lbl_file.setStyleSheet(f"font-size:9pt; color:{TEXT_SEC};")
@@ -37,31 +36,27 @@ class _PdfPasswordDialog(QDialog):
         top.addLayout(title_col, 1)
         v.addLayout(top)
 
-        # separador
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
         sep.setStyleSheet(f"color:{BORDER};"); v.addWidget(sep)
 
-        # campo senha
-        lbl_pwd = QLabel("Senha:")
+        lbl_pwd = QLabel("Password:")
         lbl_pwd.setStyleSheet(f"color:{TEXT_SEC}; font-size:10pt;")
         v.addWidget(lbl_pwd)
         self._edit = QLineEdit()
         self._edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self._edit.setPlaceholderText("Introduz a senha do PDF…")
+        self._edit.setPlaceholderText("Enter the PDF password…")
         v.addWidget(self._edit)
 
-        # aviso senha errada
-        self._warn = QLabel("⚠  Senha incorrecta. Tenta novamente.")
+        self._warn = QLabel("⚠  Incorrect password. Try again.")
         self._warn.setStyleSheet("color:#F87171; font-size:9pt;")
         self._warn.setVisible(wrong)
         v.addWidget(self._warn)
 
-        # botões
         btns = QHBoxLayout(); btns.setSpacing(8)
         btns.addStretch()
-        ca = QPushButton("Cancelar"); ca.setFixedHeight(36)
+        ca = QPushButton("Cancel"); ca.setFixedHeight(36)
         ca.clicked.connect(self.reject)
-        ok = QPushButton("  Abrir  "); ok.setObjectName("btn_primary")
+        ok = QPushButton("  Open  "); ok.setObjectName("btn_primary")
         ok.setFixedHeight(36); ok.clicked.connect(self.accept)
         self._edit.returnPressed.connect(self.accept)
         btns.addWidget(ca); btns.addWidget(ok)
@@ -72,25 +67,25 @@ class _PdfPasswordDialog(QDialog):
 
 
 class _TextEditDialog(QDialog):
-    """Diálogo para editar texto existente no PDF (pré-preenchido com o texto detectado)."""
+    """Dialog to edit existing text in the PDF (pre-filled with detected text)."""
     def __init__(self, old_text: str, font_size: float, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Editar texto existente"); self.setModal(True)
+        self.setWindowTitle("Edit existing text"); self.setModal(True)
         self.setMinimumWidth(420)
         v = QVBoxLayout(self); v.setContentsMargins(20, 20, 20, 16); v.setSpacing(10)
 
-        lbl_orig = QLabel(f"Texto detectado  (tamanho: {font_size:.1f}pt):")
+        lbl_orig = QLabel(f"Detected text  (size: {font_size:.1f}pt):")
         lbl_orig.setStyleSheet(f"color:{TEXT_SEC}; font-size:10pt;")
         v.addWidget(lbl_orig)
 
-        orig_box = QLabel(old_text or "(sem texto)")
+        orig_box = QLabel(old_text or "(no text)")
         orig_box.setWordWrap(True)
         orig_box.setStyleSheet(
             f"color:{TEXT_SEC}; font-size:9pt; padding:6px 8px;"
             f"background:{BG_INNER}; border:1px solid {BORDER}; border-radius:4px;")
         v.addWidget(orig_box)
 
-        lbl_new = QLabel("Novo texto  (deixa em branco para apagar):")
+        lbl_new = QLabel("New text  (leave blank to delete):")
         lbl_new.setStyleSheet(f"color:{TEXT_PRI}; font-size:10pt;")
         v.addWidget(lbl_new)
 
@@ -100,8 +95,8 @@ class _TextEditDialog(QDialog):
         v.addWidget(self._edit)
 
         btns = QHBoxLayout(); btns.setSpacing(8); btns.addStretch()
-        ca = QPushButton("Cancelar"); ca.setFixedHeight(34); ca.clicked.connect(self.reject)
-        ok = QPushButton("  Aplicar  "); ok.setObjectName("btn_primary")
+        ca = QPushButton("Cancel"); ca.setFixedHeight(34); ca.clicked.connect(self.reject)
+        ok = QPushButton("  Apply  "); ok.setObjectName("btn_primary")
         ok.setFixedHeight(34); ok.clicked.connect(self.accept)
         btns.addWidget(ca); btns.addWidget(ok)
         v.addLayout(btns)
@@ -111,26 +106,26 @@ class _TextEditDialog(QDialog):
 
 
 class _TextDialog(QDialog):
-    """Popup para inserir texto ao clicar no canvas."""
-    _COLORS = {"Preto": (0,0,0), "Azul": (0,0,1), "Vermelho": (1,0,0), "Verde": (0,0.6,0)}
+    """Popup to insert text when clicking on the canvas."""
+    _COLORS = {"Black": (0,0,0), "Blue": (0,0,1), "Red": (1,0,0), "Green": (0,0.6,0)}
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.setWindowTitle("Inserir texto"); self.setModal(True)
+        self.setWindowTitle("Insert text"); self.setModal(True)
         v = QVBoxLayout(self)
-        self.edit = QLineEdit(); self.edit.setPlaceholderText("Texto a inserir…")
+        self.edit = QLineEdit(); self.edit.setPlaceholderText("Text to insert…")
         v.addWidget(self.edit)
         row = QHBoxLayout()
-        row.addWidget(QLabel("Tamanho:"))
+        row.addWidget(QLabel("Size:"))
         self.font_size = QSpinBox(); self.font_size.setMinimum(4); self.font_size.setMaximum(144); self.font_size.setValue(12)
         row.addWidget(self.font_size); row.addSpacing(12)
-        row.addWidget(QLabel("Cor:"))
+        row.addWidget(QLabel("Color:"))
         self.color = QComboBox(); self.color.addItems(list(self._COLORS.keys()))
         row.addWidget(self.color); row.addStretch()
         v.addLayout(row)
         btns = QHBoxLayout()
         ok = QPushButton("OK"); ok.setObjectName("btn_primary"); ok.clicked.connect(self.accept)
-        ca = QPushButton("Cancelar"); ca.clicked.connect(self.reject)
+        ca = QPushButton("Cancel"); ca.clicked.connect(self.reject)
         btns.addStretch(); btns.addWidget(ca); btns.addWidget(ok)
         v.addLayout(btns)
         self.setMinimumWidth(360)
@@ -140,19 +135,19 @@ class _TextDialog(QDialog):
 
 
 class _NoteDialog(QDialog):
-    """Popup para escrever um comentário estilo Adobe."""
+    """Popup to write a comment (Adobe-style)."""
     def __init__(self, parent):
         super().__init__(parent)
-        self.setWindowTitle("Adicionar comentário"); self.setModal(True)
+        self.setWindowTitle("Add comment"); self.setModal(True)
         self.setMinimumWidth(360)
         v = QVBoxLayout(self)
-        v.addWidget(QLabel("Comentário:"))
+        v.addWidget(QLabel("Comment:"))
         self.edit = QTextEdit()
-        self.edit.setPlaceholderText("Escreve o comentário aqui…")
+        self.edit.setPlaceholderText("Write your comment here…")
         self.edit.setMinimumHeight(90)
         v.addWidget(self.edit)
         btns = QHBoxLayout()
         ok = QPushButton("OK"); ok.setObjectName("btn_primary"); ok.clicked.connect(self.accept)
-        ca = QPushButton("Cancelar"); ca.clicked.connect(self.reject)
+        ca = QPushButton("Cancel"); ca.clicked.connect(self.reject)
         btns.addStretch(); btns.addWidget(ca); btns.addWidget(ok)
         v.addLayout(btns)

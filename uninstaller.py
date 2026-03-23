@@ -11,7 +11,7 @@ def _no_window():
 
 
 def get_install_dir() -> str:
-    """Lê o directório de instalação (registo no Windows, config file noutras plataformas)."""
+    """Read the installation directory (registry on Windows, config file on other platforms)."""
     if sys.platform == "win32":
         try:
             import winreg
@@ -20,13 +20,13 @@ def get_install_dir() -> str:
                 return winreg.QueryValueEx(k, "InstallLocation")[0]
         except Exception:
             pass
-    # Fallback: pasta do executável actual
+    # Fallback: current executable's folder
     return os.path.dirname(sys.executable if getattr(sys, "frozen", False)
                            else os.path.abspath(__file__))
 
 
 def remove_registry() -> None:
-    """Remove entradas do registo Windows."""
+    """Remove Windows registry entries."""
     if sys.platform != "win32":
         return
     import winreg
@@ -65,13 +65,13 @@ def remove_registry() -> None:
 def remove_shortcuts() -> None:
     home = os.path.expanduser("~")
     if sys.platform == "win32":
-        # Ambiente de Trabalho
+        # Desktop
         lnk = os.path.join(home, "Desktop", f"{APP_NAME}.lnk")
         try:
             os.remove(lnk)
         except Exception:
             pass
-        # Menu Iniciar
+        # Start Menu
         start = os.path.join(
             os.environ.get("APPDATA", ""),
             "Microsoft", "Windows", "Start Menu", "Programs", APP_NAME,
@@ -101,7 +101,7 @@ def remove_shortcuts() -> None:
                 home, ".local", "share", "applications", f"{APP_NAME}.desktop"))
         except Exception:
             pass
-        # Atualizar base de dados
+        # Update database
         try:
             subprocess.run(
                 ["update-desktop-database",
@@ -113,7 +113,7 @@ def remove_shortcuts() -> None:
 
 
 def _schedule_dir_removal(install_dir: str) -> None:
-    """Apaga a pasta de instalação após o processo terminar."""
+    """Delete the installation folder after the process exits."""
     if sys.platform == "win32":
         import tempfile
         bat = os.path.join(tempfile.gettempdir(), "pdfapps_uninstall.bat")
@@ -138,8 +138,8 @@ if __name__ == "__main__":
 
     if not silent:
         if not messagebox.askyesno(
-            f"Desinstalar {APP_NAME}",
-            f"Tens a certeza que queres desinstalar o {APP_NAME}?",
+            f"Uninstall {APP_NAME}",
+            f"Are you sure you want to uninstall {APP_NAME}?",
         ):
             sys.exit(0)
 
@@ -148,7 +148,7 @@ if __name__ == "__main__":
     remove_registry()
 
     if not silent:
-        messagebox.showinfo(APP_NAME, f"{APP_NAME} foi desinstalado com sucesso.")
+        messagebox.showinfo(APP_NAME, f"{APP_NAME} was uninstalled successfully.")
 
     _schedule_dir_removal(install_dir)
     root.destroy()
