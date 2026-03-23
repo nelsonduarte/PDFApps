@@ -336,7 +336,10 @@ class TabEditar(QWidget):
     def _pick_image(self):
         p, _ = QFileDialog.getOpenFileName(self, "Select image", "",
                                            "Images (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)")
-        if p: self._img_drop.set_path(p)
+        if p:
+            self._img_drop.blockSignals(True)
+            self._img_drop.set_path(p)
+            self._img_drop.blockSignals(False)
 
     def _load_form_fields(self, path):
         self._form_table.setRowCount(0)
@@ -445,6 +448,8 @@ class TabEditar(QWidget):
             QMessageBox.warning(self, "Warning", "No pending edits."); return
         try:
             import fitz
+            # Close the canvas doc to release the file lock
+            self._canvas.close_doc()
             doc = fitz.open(self._doc_path)
             for e in self._pending:
                 pg = doc[e["page"]]
@@ -475,6 +480,8 @@ class TabEditar(QWidget):
             self._pending.clear(); self._pending_list.clear()
             self._status(f"✔  Saved → {out}")
             QMessageBox.information(self, "Done", f"PDF saved at:\n{out}")
+            # Reload the saved file
+            self._load_pdf(out)
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
 
