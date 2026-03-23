@@ -210,6 +210,27 @@ Contributions are welcome! Feel free to open issues or submit pull requests.
 
 If you find PDFApps useful, consider [sponsoring the project](https://github.com/sponsors/nelsonduarte) to help keep it alive and growing.
 
+<a href="https://github.com/sponsors/nelsonduarte">
+  <img src="https://img.shields.io/badge/Sponsor_on_GitHub-♥-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor on GitHub">
+</a>
+
+### Sponsors
+
+<!-- gold -->
+<!-- Add your logo here by sponsoring at the Gold tier -->
+
+#### Gold sponsors
+
+_Be the first Gold sponsor — [become one](https://github.com/sponsors/nelsonduarte)_
+
+#### Backers
+
+_Be the first Backer — [become one](https://github.com/sponsors/nelsonduarte)_
+
+#### Supporters
+
+_Be the first Supporter — [become one](https://github.com/sponsors/nelsonduarte)_
+
 ---
 
 ## License
