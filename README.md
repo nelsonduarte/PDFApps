@@ -22,6 +22,30 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/viewer.png" alt="PDF Viewer" width="800">
+  <br><em>Integrated PDF viewer with continuous scroll and lazy rendering</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/editor.png" alt="Visual PDF Editor" width="800">
+  <br><em>Visual PDF editor — redact, insert text, images, highlights and notes</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/tools.png" alt="PDF Tools" width="800">
+  <br><em>All-in-one PDF tools — split, merge, compress, encrypt, OCR and more</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/light-theme.png" alt="Light Theme" width="800">
+  <br><em>Light theme support</em>
+</p>
+
+---
+
 ## Features
 
 | Tool | Description |

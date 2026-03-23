@@ -172,7 +172,7 @@ class PdfViewerPanel(QWidget):
                     return True
             elif event.type() == QEvent.Type.Resize:
                 if self._canvas._doc and self._canvas._zoom_factor == 1.0:
-                    QTimer.singleShot(0, self._canvas._render)
+                    QTimer.singleShot(0, self._canvas._layout_and_schedule)
         return super().eventFilter(obj, event)
 
     def update_theme(self, dark: bool) -> None:
@@ -248,7 +248,7 @@ class PdfViewerPanel(QWidget):
 
     # ── Navigation ────────────────────────────────────────────────────────
     def _update_page_label(self):
-        pages = self._canvas._pages
+        pages = self._canvas._entries
         if not pages:
             self._page_lbl.setText("— / —")
             self._prev_btn.setEnabled(False)
@@ -262,7 +262,7 @@ class PdfViewerPanel(QWidget):
         self._next_btn.setEnabled(idx < total - 1)
 
     def _prev_page(self):
-        if not self._canvas._pages:
+        if not self._canvas._entries:
             return
         sb = self._canvas_scroll.verticalScrollBar()
         idx = self._canvas.page_at_y(sb.value())
@@ -270,11 +270,11 @@ class PdfViewerPanel(QWidget):
             sb.setValue(self._canvas.scroll_to_page(idx - 1))
 
     def _next_page(self):
-        if not self._canvas._pages:
+        if not self._canvas._entries:
             return
         sb = self._canvas_scroll.verticalScrollBar()
         idx = self._canvas.page_at_y(sb.value())
-        if idx < len(self._canvas._pages) - 1:
+        if idx < len(self._canvas._entries) - 1:
             sb.setValue(self._canvas.scroll_to_page(idx + 1))
 
     # ── Zoom ─────────────────────────────────────────────────────────────────
