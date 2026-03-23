@@ -1,4 +1,4 @@
-"""PDFApps – _SelectCanvas: scroll contínuo com lazy rendering por thread."""
+"""PDFApps – _SelectCanvas: continuous scroll with lazy rendering via threads."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ import qtawesome as qta
 
 from app.constants import BG_INNER, TEXT_SEC
 
-_PAGE_GAP   = 12   # px entre páginas
-_BUFFER_PGS = 2    # páginas extra a pré-renderizar fora da área visível
-_MAX_THREADS = 2   # workers simultâneos de renderização
+_PAGE_GAP   = 12   # px between pages
+_BUFFER_PGS = 2    # extra pages to pre-render outside the visible area
+_MAX_THREADS = 2   # simultaneous render workers
 
 
 # ── Worker ────────────────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ class _RenderSignals(QObject):
 
 
 class _PageJob(QRunnable):
-    """Renderiza uma página fitz em background thread."""
+    """Renders a fitz page in a background thread."""
 
     def __init__(self, path: str, password: str, idx: int,
                  zoom: float, dpr: float, gen: int, signals: _RenderSignals):
@@ -61,7 +61,7 @@ class _PageJob(QRunnable):
             traceback.print_exc()
 
 
-# ── Entrada de página ─────────────────────────────────────────────────────────
+# ── Page entry ─────────────────────────────────────────────────────────
 
 class _PageEntry:
     __slots__ = ("y_off", "w", "h", "pixmap", "words")
@@ -70,28 +70,28 @@ class _PageEntry:
         self.y_off  = y_off
         self.w      = w
         self.h      = h
-        self.pixmap = None   # QPixmap | None — preenchido pelo worker
-        self.words  = None   # list | None   — preenchido pelo worker
+        self.pixmap = None   # QPixmap | None — filled by worker
+        self.words  = None   # list | None   — filled by worker
 
 
 # ── Canvas ────────────────────────────────────────────────────────────────────
 
 class _SelectCanvas(QWidget):
-    """Scroll contínuo de todas as páginas com lazy rendering em background."""
+    """Continuous scroll of all pages with lazy background rendering."""
 
-    zoom_changed = Signal(int)   # percentagem de zoom actual
-    text_copied  = Signal(str)   # texto copiado (vazio = sem camada de texto)
+    zoom_changed = Signal(int)   # current zoom percentage
+    text_copied  = Signal(str)   # copied text (empty = no text layer)
 
     def __init__(self):
         super().__init__()
-        self._doc         = None    # fitz.Document (apenas main thread)
+        self._doc         = None    # fitz.Document (main thread only)
         self._path        = ""
         self._password    = ""
         self._zoom        = 1.0
         self._zoom_factor = 1.0
         self._base_avail  = 700
         self._entries: list[_PageEntry] = []
-        self._gen         = 0       # geração — invalida renders antigos
+        self._gen         = 0       # generation — invalidates old renders
         self._pending: set[int] = set()
         self._signals     = _RenderSignals()
         self._signals.page_ready.connect(self._on_page_ready)
@@ -104,7 +104,7 @@ class _SelectCanvas(QWidget):
         self.setCursor(Qt.CursorShape.IBeamCursor)
         self.setMinimumSize(300, 400)
 
-    # ── API pública ───────────────────────────────────────────────────────────
+    # ── Public API ───────────────────────────────────────────────────────────
 
     def load(self, doc, page_idx: int = 0, path: str = "", password: str = ""):
         self._doc      = doc
@@ -118,7 +118,7 @@ class _SelectCanvas(QWidget):
         QTimer.singleShot(0, self._layout_and_schedule)
 
     def on_scroll(self):
-        """Chamado quando o scroll muda — agenda páginas recém visíveis."""
+        """Called when scroll changes — schedules newly visible pages."""
         self._schedule_visible()
 
     def scroll_to_page(self, idx: int) -> int:
@@ -168,8 +168,8 @@ class _SelectCanvas(QWidget):
         self._layout_and_schedule()
 
     def _layout_and_schedule(self):
-        """Calcula dimensões de todas as páginas (rápido — sem renderizar pixels)
-        e agenda o render das páginas visíveis em background."""
+        """Calculate dimensions of all pages (fast — no pixel rendering)
+        and schedule rendering of visible pages in background."""
         if not self._doc:
             return
 
@@ -197,10 +197,10 @@ class _SelectCanvas(QWidget):
         self._entries = entries
         self.setFixedSize(max_w, max(total_h, 400))
         self.zoom_changed.emit(round(self._zoom_factor * 100))
-        self.update()          # mostra placeholders imediatamente
+        self.update()          # show placeholders immediately
         self._schedule_visible()
 
-    # ── Render lazy ──────────────────────────────────────────────────────────
+    # ── Lazy render ──────────────────────────────────────────────────────────
 
     def _visible_range(self) -> tuple[int, int]:
         from PySide6.QtWidgets import QScrollArea as _SA
@@ -241,14 +241,14 @@ class _SelectCanvas(QWidget):
 
     def _on_page_ready(self, gen: int, idx: int, pixmap, words):
         if gen != self._gen:
-            return  # render desatualizado após zoom change — descartar
+            return  # outdated render after zoom change — discard
         self._pending.discard(idx)
         if 0 <= idx < len(self._entries):
             self._entries[idx].pixmap = pixmap
             self._entries[idx].words  = words
             self.update()
 
-    # ── Selecção de texto ─────────────────────────────────────────────────────
+    # ── Text selection ─────────────────────────────────────────────────────
 
     def _clear_selection(self):
         self._drag_start = None
@@ -298,7 +298,7 @@ class _SelectCanvas(QWidget):
             p.setPen(QColor(TEXT_SEC))
             f = QFont(); f.setPointSize(11); p.setFont(f)
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Abre um PDF para visualizar")
+                       "Open a PDF to view")
             return
 
         first, last = self._visible_range()
@@ -311,7 +311,7 @@ class _SelectCanvas(QWidget):
                 p.setPen(QColor(TEXT_SEC))
                 f = QFont(); f.setPointSize(9); p.setFont(f)
                 p.drawText(QRect(0, e.y_off, e.w, e.h),
-                           Qt.AlignmentFlag.AlignCenter, "A carregar…")
+                           Qt.AlignmentFlag.AlignCenter, "Loading…")
             p.setPen(QPen(QColor("#0d0d1a"), 1))
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawRect(0, e.y_off, e.w - 1, e.h - 1)
@@ -357,7 +357,7 @@ class _SelectCanvas(QWidget):
         self.update()
         e.accept()
 
-    # ── Teclado ───────────────────────────────────────────────────────────────
+    # ── Keyboard ───────────────────────────────────────────────────────────────
 
     def keyPressEvent(self, e):
         if (e.modifiers() & Qt.KeyboardModifier.ControlModifier
@@ -367,7 +367,7 @@ class _SelectCanvas(QWidget):
         else:
             super().keyPressEvent(e)
 
-    # ── Menu contextual ───────────────────────────────────────────────────────
+    # ── Context menu ───────────────────────────────────────────────────────
 
     def contextMenuEvent(self, e):
         from PySide6.QtWidgets import QMenu
@@ -376,6 +376,6 @@ class _SelectCanvas(QWidget):
         menu = QMenu(self)
         act  = menu.addAction(
             qta.icon("fa5s.copy", color=TEXT_SEC),
-            f"  Copiar  ({len(self._sel_text)} car.)")
+            f"  Copy  ({len(self._sel_text)} chars)")
         act.triggered.connect(lambda: QApplication.clipboard().setText(self._sel_text))
         menu.exec(e.globalPos())

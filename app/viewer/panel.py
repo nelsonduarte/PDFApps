@@ -16,7 +16,7 @@ from app.viewer.canvas import _SelectCanvas
 
 
 class PdfViewerPanel(QWidget):
-    """Visualizador PDF com drag & drop, seleção de texto nativa e navegação."""
+    """PDF viewer with drag & drop, native text selection and navigation."""
 
     def __init__(self):
         super().__init__()
@@ -30,13 +30,13 @@ class PdfViewerPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # ── Cabeçalho ───────────────────────────────────────────────────────
+        # ── Header ───────────────────────────────────────────────────────
         hdr = QWidget(); hdr.setObjectName("viewer_header")
         hdr_lay = QHBoxLayout(hdr)
         hdr_lay.setContentsMargins(12, 8, 8, 8)
         hdr_lay.setSpacing(6)
 
-        self._name_lbl = QLabel("Visualizador PDF")
+        self._name_lbl = QLabel("PDF Viewer")
         self._name_lbl.setObjectName("viewer_title")
         hdr_lay.addWidget(self._name_lbl, 1)
 
@@ -50,24 +50,24 @@ class PdfViewerPanel(QWidget):
 
         self._open_btn     = _nav_btn('fa5s.folder-open')
         self._open_btn.setEnabled(True)
-        self._open_btn.setToolTip("Abrir PDF")
+        self._open_btn.setToolTip("Open PDF")
         self._open_btn.clicked.connect(self._open_dialog)
 
         self._zoom_out_btn = _nav_btn('fa5s.search-minus')
-        self._zoom_out_btn.setToolTip("Diminuir zoom (Ctrl+Scroll)")
+        self._zoom_out_btn.setToolTip("Zoom out (Ctrl+Scroll)")
         self._zoom_out_btn.clicked.connect(lambda: self._canvas.zoom_out())
 
-        self._zoom_lbl = QLabel("Ajustar")
+        self._zoom_lbl = QLabel("Fit")
         self._zoom_lbl.setObjectName("viewer_page_lbl")
         self._zoom_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._zoom_lbl.setMinimumWidth(52)
 
         self._zoom_in_btn  = _nav_btn('fa5s.search-plus')
-        self._zoom_in_btn.setToolTip("Aumentar zoom (Ctrl+Scroll)")
+        self._zoom_in_btn.setToolTip("Zoom in (Ctrl+Scroll)")
         self._zoom_in_btn.clicked.connect(lambda: self._canvas.zoom_in())
 
         self._fit_btn      = _nav_btn('fa5s.compress-arrows-alt')
-        self._fit_btn.setToolTip("Ajustar à janela")
+        self._fit_btn.setToolTip("Fit to window")
         self._fit_btn.clicked.connect(self._zoom_fit)
 
         self._prev_btn     = _nav_btn('fa5s.chevron-left')
@@ -101,10 +101,10 @@ class PdfViewerPanel(QWidget):
             _ph_pix = qta.icon('fa5s.file-pdf', color='#2E3A55').pixmap(56, 56)
         ph_icon.setPixmap(_ph_pix)
         ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ph_text = QLabel("Arrasta um PDF aqui\nou usa o botão  para abrir")
+        ph_text = QLabel("Drag a PDF here\nor use the button  to open")
         ph_text.setObjectName("viewer_placeholder")
         ph_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._ph_btn = QPushButton("  Abrir PDF")
+        self._ph_btn = QPushButton("  Open PDF")
         self._ph_btn.setIcon(qta.icon('fa5s.folder-open', color='#FFFFFF'))
         self._ph_btn.setObjectName("btn_primary")
         self._ph_btn.setFixedWidth(160)
@@ -114,7 +114,7 @@ class PdfViewerPanel(QWidget):
         self._placeholder = ph_widget
         layout.addWidget(self._placeholder, 1)
 
-        # ── Canvas com scroll contínuo de todas as páginas ──────────────────
+        # ── Canvas with continuous scroll of all pages ──────────────────
         self._canvas = _SelectCanvas()
         self._canvas.zoom_changed.connect(self._on_zoom_changed)
         self._canvas_scroll = QScrollArea()
@@ -128,8 +128,8 @@ class PdfViewerPanel(QWidget):
         self._canvas_scroll.verticalScrollBar().valueChanged.connect(self._on_scroll)
         layout.addWidget(self._canvas_scroll, 1)
 
-        # ── Barra de estado (seleção de texto) ──────────────────────────────
-        self._sel_status = QLabel("Arrasta sobre o texto para selecionar e copiar")
+        # ── Status bar (text selection) ──────────────────────────────────
+        self._sel_status = QLabel("Drag over text to select and copy")
         self._sel_status.setObjectName("viewer_sel_status")
         self._sel_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._sel_status.setVisible(False)
@@ -147,13 +147,13 @@ class PdfViewerPanel(QWidget):
     def _on_text_copied(self, text: str):
         from PySide6.QtCore import QTimer
         if text:
-            self._sel_status.setText(f"Copiado para a área de transferência  ({len(text)} car.)")
+            self._sel_status.setText(f"Copied to clipboard  ({len(text)} chars)")
             self._sel_status.setStyleSheet("color: #22c55e; padding: 4px;")
         else:
-            self._sel_status.setText("Sem texto encontrado (PDF digitalizado ou sem camada de texto)")
+            self._sel_status.setText("No text found (scanned PDF or no text layer)")
             self._sel_status.setStyleSheet("color: #f59e0b; padding: 4px;")
         QTimer.singleShot(4000, lambda: (
-            self._sel_status.setText("Arrasta sobre o texto para selecionar e copiar"),
+            self._sel_status.setText("Drag over text to select and copy"),
             self._sel_status.setStyleSheet(""),
         ))
 
@@ -194,10 +194,10 @@ class PdfViewerPanel(QWidget):
     def dropEvent(self, e: QDropEvent):
         self.load(e.mimeData().urls()[0].toLocalFile())
 
-    # ── Abrir diálogo ────────────────────────────────────────────────────────
+    # ── Open dialog ────────────────────────────────────────────────────────
     def _open_dialog(self):
         path, _ = QFileDialog.getOpenFileName(
-            self.window(), "Abrir PDF", "", "Ficheiros PDF (*.pdf);;Todos (*.*)")
+            self.window(), "Open PDF", "", "PDF Files (*.pdf);;All (*.*)")
         if path:
             self.load(path)
 
@@ -209,8 +209,8 @@ class PdfViewerPanel(QWidget):
         if not path or not os.path.isfile(path):
             return
         if not path.lower().endswith(".pdf"):
-            QMessageBox.warning(self, "Formato inválido",
-                                "Por favor seleciona um ficheiro PDF (.pdf).")
+            QMessageBox.warning(self, "Invalid format",
+                                "Please select a PDF file (.pdf).")
             return
         import fitz
         if self._fitz_doc:
@@ -219,8 +219,8 @@ class PdfViewerPanel(QWidget):
         try:
             doc = fitz.open(path)
         except Exception as ex:
-            QMessageBox.critical(self, "Erro ao abrir PDF",
-                                 f"Não foi possível abrir o ficheiro:\n{ex}")
+            QMessageBox.critical(self, "Error opening PDF",
+                                 f"Could not open the file:\n{ex}")
             return
         self._pdf_password = ""
         if doc.needs_pass:
@@ -242,11 +242,11 @@ class PdfViewerPanel(QWidget):
         self._canvas_scroll.setVisible(True)
         self._sel_status.setVisible(True)
         self._name_lbl.setText(os.path.basename(path))
-        self._zoom_lbl.setText("Ajustar")
+        self._zoom_lbl.setText("Fit")
         for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn):
             btn.setEnabled(True)
 
-    # ── Navegação ────────────────────────────────────────────────────────────
+    # ── Navigation ────────────────────────────────────────────────────────
     def _update_page_label(self):
         pages = self._canvas._pages
         if not pages:
@@ -280,4 +280,4 @@ class PdfViewerPanel(QWidget):
     # ── Zoom ─────────────────────────────────────────────────────────────────
     def _zoom_fit(self):
         self._canvas.zoom_reset()
-        self._zoom_lbl.setText("Ajustar")
+        self._zoom_lbl.setText("Fit")

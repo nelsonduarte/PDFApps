@@ -11,7 +11,7 @@ ACCENT      = "#3B82F6"
 TEXT        = "#1E293B"
 TEXT_L      = "#64748B"
 
-# ── Constantes por plataforma ─────────────────────────────────────────────────
+# ── Platform constants ─────────────────────────────────────────────────
 
 if sys.platform == "win32":
     TESSERACT_EXE  = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -23,11 +23,11 @@ if sys.platform == "win32":
 elif sys.platform == "darwin":
     TESSERACT_EXE  = shutil.which("tesseract") or "/opt/homebrew/bin/tesseract"
     TESSDATA_DIR   = "/opt/homebrew/share/tessdata"
-    TESSERACT_URL  = None   # instalado via Homebrew
+    TESSERACT_URL  = None
 else:
     TESSERACT_EXE  = shutil.which("tesseract") or "/usr/bin/tesseract"
     TESSDATA_DIR   = "/usr/share/tesseract-ocr/5/tessdata"
-    TESSERACT_URL  = None   # instalado via package manager
+    TESSERACT_URL  = None
 
 LANG_PACKS = ["eng", "por"]
 
@@ -48,7 +48,7 @@ def default_dir() -> str:
 
 
 def open_file(path: str) -> None:
-    """Abre um ficheiro com a aplicação padrão, independente da plataforma."""
+    """Open a file with the default application, cross-platform."""
     if sys.platform == "win32":
         os.startfile(path)
     elif sys.platform == "darwin":
@@ -58,11 +58,11 @@ def open_file(path: str) -> None:
 
 
 def _no_window():
-    """Flags para ocultar janela de consola (apenas Windows)."""
+    """Flags to hide console window (Windows only)."""
     return {"creationflags": 0x08000000} if sys.platform == "win32" else {}
 
 
-# ── Atalhos / launchers ───────────────────────────────────────────────────────
+# ── Shortcuts / launchers ───────────────────────────────────────────────────────
 
 def create_shortcut_windows(target: str, lnk: str) -> None:
     ps = (
@@ -81,7 +81,7 @@ def create_desktop_entry_linux(exe: str, desktop_file: str) -> None:
         "[Desktop Entry]\n"
         "Type=Application\n"
         f"Name={APP_NAME}\n"
-        "Comment=Editor e visualizador de PDF\n"
+        "Comment=PDF editor and viewer\n"
         f"Exec={exe} %f\n"
         f"Icon={icon}\n"
         "Terminal=false\n"
@@ -95,19 +95,17 @@ def create_desktop_entry_linux(exe: str, desktop_file: str) -> None:
 
 
 def create_app_bundle_macos(exe: str, app_dir: str) -> None:
-    """Cria estrutura .app mínima para macOS."""
+    """Create minimal .app structure for macOS."""
     contents = os.path.join(app_dir, "Contents", "MacOS")
     os.makedirs(contents, exist_ok=True)
     launcher = os.path.join(contents, APP_NAME)
     shutil.copy2(exe, launcher)
     os.chmod(launcher, 0o755)
-    # Copiar ícone se existir
     icns_src = os.path.join(os.path.dirname(exe), "icon.icns")
     resources = os.path.join(app_dir, "Contents", "Resources")
     if os.path.isfile(icns_src):
         os.makedirs(resources, exist_ok=True)
         shutil.copy2(icns_src, os.path.join(resources, "icon.icns"))
-    # Info.plist
     plist = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
@@ -132,14 +130,13 @@ def create_app_bundle_macos(exe: str, app_dir: str) -> None:
         f.write(plist)
 
 
-# ── Associações de ficheiro ───────────────────────────────────────────────────
+# ── File associations ───────────────────────────────────────────────────
 
 def register_file_association(app_exe: str) -> None:
     if sys.platform == "win32":
         _register_file_association_win(app_exe)
     elif sys.platform == "linux":
         _register_file_association_linux(app_exe)
-    # macOS: tratado via Info.plist no .app bundle
 
 
 def _register_file_association_win(app_exe: str) -> None:
@@ -148,7 +145,7 @@ def _register_file_association_win(app_exe: str) -> None:
     try:
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
                               rf"Software\Classes\{prog_id}") as k:
-            winreg.SetValueEx(k, "", 0, winreg.REG_SZ, "Documento PDF")
+            winreg.SetValueEx(k, "", 0, winreg.REG_SZ, "PDF Document")
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
                               rf"Software\Classes\{prog_id}\DefaultIcon") as k:
             winreg.SetValueEx(k, "", 0, winreg.REG_SZ, f'"{app_exe}",0')
@@ -162,7 +159,7 @@ def _register_file_association_win(app_exe: str) -> None:
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, cap_key) as k:
             winreg.SetValueEx(k, "ApplicationName",        0, winreg.REG_SZ, APP_NAME)
             winreg.SetValueEx(k, "ApplicationDescription", 0, winreg.REG_SZ,
-                              "Editor e visualizador de PDF")
+                              "PDF editor and viewer")
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
                               cap_key + r"\FileAssociations") as k:
             winreg.SetValueEx(k, ".pdf", 0, winreg.REG_SZ, prog_id)
@@ -234,9 +231,9 @@ def install_tesseract_windows(step_fn) -> None:
     import tempfile
     temp = tempfile.gettempdir()
     installer = os.path.join(temp, "tesseract_setup.exe")
-    step_fn("A descarregar Tesseract OCR (~6 MB)…", 42)
+    step_fn("Downloading Tesseract OCR (~6 MB)…", 42)
     download_file(TESSERACT_URL, installer)
-    step_fn("A instalar Tesseract OCR…", 52)
+    step_fn("Installing Tesseract OCR…", 52)
     subprocess.run([installer, "/S"], check=True)
     for _ in range(30):
         if os.path.isfile(TESSERACT_EXE):
@@ -249,18 +246,18 @@ def install_tesseract_windows(step_fn) -> None:
 
 
 def install_tesseract_macos(step_fn) -> None:
-    step_fn("A instalar Tesseract via Homebrew…", 42)
+    step_fn("Installing Tesseract via Homebrew…", 42)
     if not shutil.which("brew"):
         raise RuntimeError(
-            "Homebrew não encontrado.\n"
-            "Instala em https://brew.sh e depois executa:\n"
+            "Homebrew not found.\n"
+            "Install at https://brew.sh then run:\n"
             "brew install tesseract tesseract-lang"
         )
     subprocess.run(["brew", "install", "tesseract", "tesseract-lang"], check=True)
 
 
 def install_tesseract_linux(step_fn) -> None:
-    step_fn("A instalar Tesseract via package manager…", 42)
+    step_fn("Installing Tesseract via package manager…", 42)
     pkg_manager = None
     for pm in [("apt-get", ["-y", "install", "tesseract-ocr",
                              "tesseract-ocr-por", "tesseract-ocr-eng"]),
@@ -273,8 +270,8 @@ def install_tesseract_linux(step_fn) -> None:
             break
     if not pkg_manager:
         raise RuntimeError(
-            "Package manager não encontrado.\n"
-            "Instala manualmente:\n  sudo apt install tesseract-ocr"
+            "Package manager not found.\n"
+            "Install manually:\n  sudo apt install tesseract-ocr"
         )
     subprocess.run(["sudo", pkg_manager[0]] + pkg_manager[1], check=True)
 
@@ -286,7 +283,7 @@ def install_lang_packs_windows(step_fn, base_pct: int) -> None:
         if os.path.isfile(dest):
             continue
         pct = base_pct + i * 8
-        step_fn(f"A descarregar idioma OCR: {lang} (~15 MB)…", pct)
+        step_fn(f"Downloading OCR language: {lang} (~15 MB)…", pct)
         url = f"https://github.com/tesseract-ocr/tessdata/raw/main/{lang}.traineddata"
         download_file(url, dest)
 
@@ -296,7 +293,7 @@ def install_lang_packs_windows(step_fn, base_pct: int) -> None:
 class InstallerApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f"Instalar {APP_NAME} {APP_VERSION}")
+        self.title(f"Install {APP_NAME} {APP_VERSION}")
         self.geometry("520x440")
         self.resizable(False, False)
         self.configure(bg=BG)
@@ -312,14 +309,14 @@ class InstallerApp(tk.Tk):
         hdr.pack_propagate(False)
         tk.Label(hdr, text=APP_NAME, bg=HEADER_BG, fg="#FFFFFF",
                  font=("Segoe UI", 22, "bold")).place(x=24, y=16)
-        tk.Label(hdr, text=f"Versão {APP_VERSION}  ·  Editor de PDF",
+        tk.Label(hdr, text=f"Version {APP_VERSION}  ·  PDF Editor",
                  bg=HEADER_BG, fg="#94A3B8",
                  font=("Segoe UI", 10)).place(x=26, y=55)
 
         body = tk.Frame(self, bg=BG, padx=24, pady=16)
         body.pack(fill="both", expand=True)
 
-        tk.Label(body, text="Pasta de instalação:", bg=BG, fg=TEXT,
+        tk.Label(body, text="Installation folder:", bg=BG, fg=TEXT,
                  font=("Segoe UI", 10, "bold")).pack(anchor="w")
         row = tk.Frame(body, bg=BG)
         row.pack(fill="x", pady=(4, 12))
@@ -330,7 +327,7 @@ class InstallerApp(tk.Tk):
                                    highlightbackground="#CBD5E1",
                                    highlightthickness=1)
         self._dir_entry.pack(side="left", fill="x", expand=True, ipady=6)
-        tk.Button(row, text="  Procurar  ", command=self._browse,
+        tk.Button(row, text="  Browse  ", command=self._browse,
                   bg="#E2E8F0", fg=TEXT, relief="flat",
                   font=("Segoe UI", 9), cursor="hand2").pack(
                   side="left", padx=(6, 0), ipady=6)
@@ -339,25 +336,25 @@ class InstallerApp(tk.Tk):
         self._startmenu_var = tk.BooleanVar(value=True)
 
         if sys.platform == "win32":
-            tk.Checkbutton(body, text="Criar atalho no Ambiente de Trabalho",
+            tk.Checkbutton(body, text="Create Desktop shortcut",
                            variable=self._desktop_var, bg=BG, fg=TEXT,
                            font=("Segoe UI", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w")
-            tk.Checkbutton(body, text="Criar atalho no Menu Iniciar",
+            tk.Checkbutton(body, text="Create Start Menu shortcut",
                            variable=self._startmenu_var, bg=BG, fg=TEXT,
                            font=("Segoe UI", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w", pady=(4, 0))
         elif sys.platform == "darwin":
-            tk.Checkbutton(body, text="Criar atalho no Ambiente de Trabalho",
+            tk.Checkbutton(body, text="Create Desktop shortcut",
                            variable=self._desktop_var, bg=BG, fg=TEXT,
                            font=("Helvetica", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w")
         else:
-            tk.Checkbutton(body, text="Criar atalho no Ambiente de Trabalho",
+            tk.Checkbutton(body, text="Create Desktop shortcut",
                            variable=self._desktop_var, bg=BG, fg=TEXT,
                            font=("Segoe UI", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w")
-            tk.Checkbutton(body, text="Registar no menu de aplicações",
+            tk.Checkbutton(body, text="Register in application menu",
                            variable=self._startmenu_var, bg=BG, fg=TEXT,
                            font=("Segoe UI", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w", pady=(4, 0))
@@ -365,19 +362,19 @@ class InstallerApp(tk.Tk):
         self._ocr_var = tk.BooleanVar(value=True)
         self._ocr_chk = tk.Checkbutton(
             body,
-            text="Instalar motor OCR — Tesseract",
+            text="Install OCR engine — Tesseract",
             variable=self._ocr_var, bg=BG, fg="#0369A1",
             font=("Segoe UI", 10), activebackground=BG, selectcolor="#EFF6FF",
         )
         if not tesseract_installed():
             self._ocr_chk.pack(anchor="w", pady=(4, 0))
 
-        note = "Tesseract já instalado." if tesseract_installed() else ""
+        note = "Tesseract already installed." if tesseract_installed() else ""
         self._note_var = tk.StringVar(value=note)
         tk.Label(body, textvariable=self._note_var, bg=BG, fg="#10B981",
                  font=("Segoe UI", 9)).pack(anchor="w", pady=(2, 8))
 
-        self._status_var = tk.StringVar(value="Pronto para instalar.")
+        self._status_var = tk.StringVar(value="Ready to install.")
         tk.Label(body, textvariable=self._status_var, bg=BG, fg=TEXT_L,
                  font=("Segoe UI", 9)).pack(anchor="w")
         self._pb = ttk.Progressbar(body, mode="determinate", length=472)
@@ -385,13 +382,13 @@ class InstallerApp(tk.Tk):
 
         btn_row = tk.Frame(body, bg=BG)
         btn_row.pack(fill="x")
-        self._btn = tk.Button(btn_row, text="  Instalar  ",
+        self._btn = tk.Button(btn_row, text="  Install  ",
                               command=self._start,
                               bg=ACCENT, fg="#FFFFFF",
                               font=("Segoe UI", 11, "bold"),
                               relief="flat", cursor="hand2")
         self._btn.pack(side="right", ipady=8, ipadx=8)
-        tk.Button(btn_row, text="  Cancelar  ", command=self.destroy,
+        tk.Button(btn_row, text="  Cancel  ", command=self.destroy,
                   bg="#E2E8F0", fg=TEXT, font=("Segoe UI", 10),
                   relief="flat", cursor="hand2").pack(
                   side="right", padx=(0, 8), ipady=8, ipadx=4)
@@ -402,7 +399,7 @@ class InstallerApp(tk.Tk):
             self._dir_var.set(os.path.normpath(d))
 
     def _start(self):
-        self._btn.config(state="disabled", text="  A instalar…  ")
+        self._btn.config(state="disabled", text="  Installing…  ")
         self._dir_entry.config(state="disabled")
         threading.Thread(target=self._install, daemon=True).start()
 
@@ -414,7 +411,7 @@ class InstallerApp(tk.Tk):
     def _install(self):
         install_dir = self._dir_var.get()
         try:
-            self._step("A criar pasta de instalação…", 8)
+            self._step("Creating installation folder…", 8)
             try:
                 os.makedirs(install_dir, exist_ok=True)
                 test = os.path.join(install_dir, ".write_test")
@@ -432,19 +429,18 @@ class InstallerApp(tk.Tk):
                 self._dir_var.set(install_dir)
                 os.makedirs(install_dir, exist_ok=True)
 
-            # Copiar executável principal
             if sys.platform == "win32":
-                self._step("A copiar PDFApps.exe…", 18)
+                self._step("Copying PDFApps.exe…", 18)
                 app_exe = os.path.join(install_dir, "PDFApps.exe")
                 shutil.copy2(resource("PDFApps.exe"), app_exe)
-                self._step("A copiar ficheiros…", 28)
+                self._step("Copying files…", 28)
                 for f in ("icon.ico", "PDFAppsUninstall.exe"):
                     try:
                         shutil.copy2(resource(f), os.path.join(install_dir, f))
                     except Exception:
                         pass
             elif sys.platform == "darwin":
-                self._step("A criar bundle .app…", 18)
+                self._step("Creating .app bundle…", 18)
                 app_exe_src = resource("PDFApps")
                 app_dir = install_dir if install_dir.endswith(".app") else \
                           os.path.join(install_dir, f"{APP_NAME}.app")
@@ -452,21 +448,19 @@ class InstallerApp(tk.Tk):
                 create_app_bundle_macos(app_exe_src, app_dir)
                 app_exe = os.path.join(app_dir, "Contents", "MacOS", APP_NAME)
             else:
-                self._step("A copiar PDFApps…", 18)
+                self._step("Copying PDFApps…", 18)
                 app_exe = os.path.join(install_dir, "PDFApps")
                 shutil.copy2(resource("PDFApps"), app_exe)
                 os.chmod(app_exe, 0o755)
-                # Copiar ícone para PNG se existir
                 for ico in ("icon.ico", "icon.png"):
                     try:
                         shutil.copy2(resource(ico), os.path.join(install_dir, ico))
                     except Exception:
                         pass
 
-            # Atalhos
             home = os.path.expanduser("~")
             if self._desktop_var.get():
-                self._step("A criar atalho no Ambiente de Trabalho…", 32)
+                self._step("Creating Desktop shortcut…", 32)
                 desktop = os.path.join(home, "Desktop")
                 if sys.platform == "win32":
                     create_shortcut_windows(
@@ -486,7 +480,7 @@ class InstallerApp(tk.Tk):
 
             if self._startmenu_var.get():
                 if sys.platform == "win32":
-                    self._step("A criar atalho no Menu Iniciar…", 36)
+                    self._step("Creating Start Menu shortcut…", 36)
                     start = os.path.join(
                         os.environ.get("APPDATA", ""),
                         "Microsoft", "Windows", "Start Menu", "Programs", APP_NAME,
@@ -495,12 +489,11 @@ class InstallerApp(tk.Tk):
                     create_shortcut_windows(
                         app_exe, os.path.join(start, f"{APP_NAME}.lnk"))
                 elif sys.platform != "darwin":
-                    self._step("A registar no menu de aplicações…", 36)
+                    self._step("Registering in application menu…", 36)
                     apps_dir = os.path.expanduser("~/.local/share/applications")
                     create_desktop_entry_linux(
                         app_exe, os.path.join(apps_dir, f"{APP_NAME}.desktop"))
 
-            # Tesseract OCR
             if not tesseract_installed() and self._ocr_var.get():
                 if sys.platform == "win32":
                     install_tesseract_windows(self._step)
@@ -511,26 +504,26 @@ class InstallerApp(tk.Tk):
                 else:
                     install_tesseract_linux(self._step)
 
-            self._step("A registar no sistema…", 92)
+            self._step("Registering in the system…", 92)
             if sys.platform == "win32":
                 uninstall_exe = os.path.join(install_dir, "PDFAppsUninstall.exe")
                 register_uninstall(install_dir, uninstall_exe)
             register_file_association(app_exe)
 
-            self._step("Instalação concluída!", 100)
+            self._step("Installation complete!", 100)
             self.after(0, self._done, install_dir, app_exe)
 
         except Exception as exc:
-            self.after(0, lambda: messagebox.showerror("Erro", str(exc)))
+            self.after(0, lambda: messagebox.showerror("Error", str(exc)))
             self.after(0, lambda: self._btn.config(
-                state="normal", text="  Instalar  "))
+                state="normal", text="  Install  "))
 
     def _done(self, install_dir: str, app_exe: str):
-        self._btn.config(text="  Concluir  ", state="normal",
+        self._btn.config(text="  Finish  ", state="normal",
                          command=self.destroy, bg="#10B981")
         if messagebox.askyesno(
-            "Instalação concluída",
-            f"{APP_NAME} foi instalado com sucesso em:\n{install_dir}\n\nAbrir agora?",
+            "Installation complete",
+            f"{APP_NAME} was installed successfully at:\n{install_dir}\n\nOpen now?",
         ):
             open_file(app_exe)
         self.destroy()

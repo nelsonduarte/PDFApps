@@ -14,13 +14,11 @@ from app.widgets import DropFileEdit
 
 
 def _find_tesseract() -> str | None:
-    """Devolve o caminho do executável tesseract ou None se não encontrado."""
+    """Returns the tesseract executable path or None if not found."""
     import shutil, sys
-    # 1. Verificar no PATH do sistema
     found = shutil.which("tesseract")
     if found:
         return found
-    # 2. Caminhos comuns por plataforma
     if sys.platform == "win32":
         candidates = [
             r"C:\Program Files\Tesseract-OCR\tesseract.exe",
@@ -28,10 +26,10 @@ def _find_tesseract() -> str | None:
         ]
     elif sys.platform == "darwin":
         candidates = [
-            "/opt/homebrew/bin/tesseract",   # Apple Silicon
-            "/usr/local/bin/tesseract",      # Intel Homebrew
+            "/opt/homebrew/bin/tesseract",
+            "/usr/local/bin/tesseract",
         ]
-    else:  # Linux
+    else:
         candidates = [
             "/usr/bin/tesseract",
             "/usr/local/bin/tesseract",
@@ -45,21 +43,21 @@ def _find_tesseract() -> str | None:
 
 class TabOCR(BasePage):
     _LANGS = [
-        ("Português",          "por"),
-        ("Inglês",             "eng"),
-        ("Português + Inglês", "por+eng"),
-        ("Espanhol",           "spa"),
-        ("Francês",            "fra"),
-        ("Alemão",             "deu"),
+        ("Portuguese",             "por"),
+        ("English",                "eng"),
+        ("Portuguese + English",   "por+eng"),
+        ("Spanish",                "spa"),
+        ("French",                 "fra"),
+        ("German",                 "deu"),
     ]
 
     def __init__(self, status_fn):
-        super().__init__("fa5s.search", "OCR – Reconhecer Texto",
-                         "Extrai texto de PDFs digitalizados/escaneados usando OCR.",
-                         "Executar OCR", status_fn)
+        super().__init__("fa5s.search", "OCR – Text Recognition",
+                         "Extract text from scanned PDFs using OCR.",
+                         "Run OCR", status_fn)
         f = self._form
 
-        f.addWidget(section("Ficheiro PDF (digitalizado)"))
+        f.addWidget(section("PDF file (scanned)"))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -67,9 +65,9 @@ class TabOCR(BasePage):
         self.lbl_info = info_lbl()
         f.addWidget(self.drop_in); f.addWidget(self.lbl_info)
 
-        f.addWidget(section("Opções"))
+        f.addWidget(section("Options"))
         row_lang = QHBoxLayout()
-        lbl_lang = QLabel("Idioma do documento:")
+        lbl_lang = QLabel("Document language:")
         lbl_lang.setStyleSheet(f"color:{TEXT_SEC};")
         self.cmb_lang = QComboBox()
         self._lang_codes = [c for _, c in self._LANGS]
@@ -79,15 +77,15 @@ class TabOCR(BasePage):
         f.addLayout(row_lang)
 
         row_fmt = QHBoxLayout()
-        lbl_fmt = QLabel("Formato de saída:")
+        lbl_fmt = QLabel("Output format:")
         lbl_fmt.setStyleSheet(f"color:{TEXT_SEC};")
         self.cmb_fmt = QComboBox()
-        self.cmb_fmt.addItems(["PDF pesquisável (.pdf)", "Texto simples (.txt)"])
+        self.cmb_fmt.addItems(["Searchable PDF (.pdf)", "Plain text (.txt)"])
         self.cmb_fmt.currentIndexChanged.connect(self._on_fmt_change)
         row_fmt.addWidget(lbl_fmt); row_fmt.addWidget(self.cmb_fmt); row_fmt.addStretch()
         f.addLayout(row_fmt)
 
-        f.addWidget(section("Ficheiro de saída"))
+        f.addWidget(section("Output file"))
         self.drop_out = DropFileEdit("ocr_output.pdf", save=True, default_name="ocr_output.pdf")
         f.addWidget(self.drop_out)
         f.addStretch()
@@ -99,7 +97,7 @@ class TabOCR(BasePage):
             self.drop_out.set_path(base + (".pdf" if idx == 0 else ".txt"))
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Abrir PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -113,16 +111,16 @@ class TabOCR(BasePage):
         try:
             import fitz
             doc = fitz.open(p)
-            self.lbl_info.setText(f"  {doc.page_count} páginas")
+            self.lbl_info.setText(f"  {doc.page_count} pages")
             doc.close()
         except Exception as e:
-            self.lbl_info.setText(f"  Erro: {e}")
+            self.lbl_info.setText(f"  Error: {e}")
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
 
     def _ensure_tesseract(self):
-        """Localiza o Tesseract, define TESSDATA_PREFIX e atualiza idiomas disponíveis."""
+        """Locate Tesseract, set TESSDATA_PREFIX and update available languages."""
         import pytesseract, sys
         tess_exe = _find_tesseract()
 
@@ -142,12 +140,11 @@ class TabOCR(BasePage):
                 install_hint = "brew install tesseract tesseract-lang"
             else:
                 install_hint = "sudo apt install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng"
-            QMessageBox.critical(self, "Tesseract não encontrado",
-                "O motor Tesseract OCR não está instalado ou não foi encontrado.\n\n"
-                f"Instala com:\n{install_hint}")
+            QMessageBox.critical(self, "Tesseract not found",
+                "The Tesseract OCR engine is not installed or was not found.\n\n"
+                f"Install with:\n{install_hint}")
             return None
 
-        # Detetar idiomas instalados e atualizar o dropdown
         try:
             installed = pytesseract.get_languages(config="")
             self._update_lang_combo(installed)
@@ -157,17 +154,16 @@ class TabOCR(BasePage):
         return pytesseract
 
     def _update_lang_combo(self, installed: list):
-        """Mostra só os idiomas instalados + combinações possíveis."""
+        """Show only installed languages + possible combinations."""
         entries = []
-        label_map = {"por": "Português", "eng": "Inglês", "spa": "Espanhol",
-                     "fra": "Francês",   "deu": "Alemão",  "ita": "Italiano"}
+        label_map = {"por": "Portuguese", "eng": "English", "spa": "Spanish",
+                     "fra": "French",     "deu": "German",  "ita": "Italian"}
         for code, label in [(c, label_map.get(c, c)) for c in installed if c != "osd"]:
             entries.append((label, code))
-        # combinação por+eng se ambos disponíveis
         if "por" in installed and "eng" in installed:
-            entries.append(("Português + Inglês", "por+eng"))
+            entries.append(("Portuguese + English", "por+eng"))
         if not entries:
-            entries = [("Inglês (padrão)", "eng")]
+            entries = [("English (default)", "eng")]
         current_codes = [e[1] for e in entries]
         self.cmb_lang.clear()
         for name, _ in entries:
@@ -178,42 +174,42 @@ class TabOCR(BasePage):
         import io as _io
         pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Aviso", "Seleciona um PDF válido."); return
+            QMessageBox.warning(self, "Warning", "Select a valid PDF."); return
         if not out_path:
-            QMessageBox.warning(self, "Aviso", "Escolhe o ficheiro de saída."); return
+            QMessageBox.warning(self, "Warning", "Choose the output file."); return
         try:
             import pytesseract
         except ImportError:
-            QMessageBox.critical(self, "Dependência em falta",
-                "Instala a biblioteca pytesseract:\n  pip install pytesseract")
+            QMessageBox.critical(self, "Missing dependency",
+                "Install the pytesseract library:\n  pip install pytesseract")
             return
         tess = self._ensure_tesseract()
         if tess is None: return
         try:
             import fitz
         except ImportError:
-            QMessageBox.critical(self, "Dependência em falta",
-                "Instala a biblioteca PyMuPDF:\n\npip install pymupdf")
+            QMessageBox.critical(self, "Missing dependency",
+                "Install the PyMuPDF library:\n\npip install pymupdf")
             return
         try:
             from PIL import Image
         except ImportError:
-            QMessageBox.critical(self, "Dependência em falta",
-                "Instala a biblioteca Pillow:\n\npip install Pillow")
+            QMessageBox.critical(self, "Missing dependency",
+                "Install the Pillow library:\n\npip install Pillow")
             return
         try:
             codes = getattr(self, "_lang_codes", [c for _, c in self._LANGS])
             lang  = codes[self.cmb_lang.currentIndex()]
-            fmt  = self.cmb_fmt.currentIndex()  # 0=pdf, 1=txt
+            fmt  = self.cmb_fmt.currentIndex()
             doc  = fitz.open(pdf_path)
             n    = doc.page_count
-            self._status(f"A iniciar OCR em {n} página(s)…")
+            self._status(f"Starting OCR on {n} page(s)…")
             QApplication.processEvents()
 
             if fmt == 1:
                 texts = []
                 for i, page in enumerate(doc):
-                    self._status(f"OCR: página {i+1}/{n}…")
+                    self._status(f"OCR: page {i+1}/{n}…")
                     QApplication.processEvents()
                     pix = page.get_pixmap(dpi=300)
                     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
@@ -224,7 +220,7 @@ class TabOCR(BasePage):
             else:
                 pdf_pages = []
                 for i, page in enumerate(doc):
-                    self._status(f"OCR: página {i+1}/{n}…")
+                    self._status(f"OCR: page {i+1}/{n}…")
                     QApplication.processEvents()
                     pix = page.get_pixmap(dpi=300)
                     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
@@ -237,8 +233,8 @@ class TabOCR(BasePage):
                 with open(out_path, "wb") as fh:
                     writer.write(fh)
 
-            self._status(f"✔  OCR concluído → {out_path}")
-            QMessageBox.information(self, "Concluído",
-                f"OCR concluído com sucesso!\n\nFicheiro guardado em:\n{out_path}")
+            self._status(f"✔  OCR complete → {out_path}")
+            QMessageBox.information(self, "Done",
+                f"OCR completed successfully!\n\nFile saved at:\n{out_path}")
         except Exception as e:
-            QMessageBox.critical(self, "Erro no OCR", str(e))
+            QMessageBox.critical(self, "OCR Error", str(e))

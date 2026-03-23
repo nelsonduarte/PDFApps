@@ -15,11 +15,11 @@ from app.widgets import DropFileEdit
 
 class TabRotar(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.sync-alt", "Rodar páginas",
-                         "Roda uma ou todas as páginas do PDF.",
-                         "Rodar e guardar", status_fn)
+        super().__init__("fa5s.sync-alt", "Rotate pages",
+                         "Rotate one or all pages of the PDF.",
+                         "Rotate and save", status_fn)
         f = self._form
-        f.addWidget(section("Ficheiro de origem"))
+        f.addWidget(section("Source file"))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -27,25 +27,25 @@ class TabRotar(BasePage):
         self.lbl_info = info_lbl()
         f.addWidget(self.drop_in); f.addWidget(self.lbl_info)
 
-        grp = QGroupBox("Opções de rotação")
+        grp = QGroupBox("Rotation options")
         form = QFormLayout(grp)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.edit_pages = QLineEdit()
-        self.edit_pages.setPlaceholderText("ex: 1,3,5-8  (vazio = todas)")
+        self.edit_pages.setPlaceholderText("e.g.: 1,3,5-8  (empty = all)")
         self.cmb_angle = QComboBox()
-        self.cmb_angle.addItems(["90°  (sentido horário)",
+        self.cmb_angle.addItems(["90°  (clockwise)",
                                   "180°",
-                                  "270°  (sentido anti-horário)"])
-        form.addRow("Páginas:", self.edit_pages)
-        form.addRow("Ângulo:", self.cmb_angle)
+                                  "270°  (counter-clockwise)"])
+        form.addRow("Pages:", self.edit_pages)
+        form.addRow("Angle:", self.cmb_angle)
         f.addWidget(grp)
 
-        f.addWidget(section("Ficheiro de saída"))
-        self.drop_out = DropFileEdit("rotado.pdf", save=True, default_name="rotado.pdf")
+        f.addWidget(section("Output file"))
+        self.drop_out = DropFileEdit("rotated.pdf", save=True, default_name="rotated.pdf")
         f.addWidget(self.drop_out); f.addStretch()
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Abrir PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -54,10 +54,10 @@ class TabRotar(BasePage):
         self.drop_in.blockSignals(False)
         if not self.drop_out.path():
             base, ext = os.path.splitext(p)
-            self.drop_out.set_path(base + "_rotado" + ext)
+            self.drop_out.set_path(base + "_rotated" + ext)
         try:
-            r = PdfReader(p); self.lbl_info.setText(f"  {len(r.pages)} páginas")
-        except Exception as e: self.lbl_info.setText(f"  Erro: {e}")
+            r = PdfReader(p); self.lbl_info.setText(f"  {len(r.pages)} pages")
+        except Exception as e: self.lbl_info.setText(f"  Error: {e}")
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
@@ -66,9 +66,9 @@ class TabRotar(BasePage):
         pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
         angle = {0: 90, 1: 180, 2: 270}[self.cmb_angle.currentIndex()]
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Aviso", "Seleciona um PDF válido."); return
+            QMessageBox.warning(self, "Warning", "Select a valid PDF."); return
         if not out_path:
-            QMessageBox.warning(self, "Aviso", "Escolhe o ficheiro de saída."); return
+            QMessageBox.warning(self, "Warning", "Choose the output file."); return
         try:
             reader = PdfReader(pdf_path); total = len(reader.pages)
             txt = self.edit_pages.text().strip()
@@ -78,6 +78,6 @@ class TabRotar(BasePage):
                 if i in pages: page.rotate(angle)
                 w.add_page(page)
             with open(out_path, "wb") as f: w.write(f)
-            self._status(f"✔  PDF rodado: {os.path.basename(out_path)}")
-            QMessageBox.information(self, "Concluído", f"PDF guardado em:\n{out_path}")
-        except Exception as e: QMessageBox.critical(self, "Erro", str(e))
+            self._status(f"✔  PDF rotated: {os.path.basename(out_path)}")
+            QMessageBox.information(self, "Done", f"PDF saved at:\n{out_path}")
+        except Exception as e: QMessageBox.critical(self, "Error", str(e))

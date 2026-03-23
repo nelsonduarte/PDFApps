@@ -1,6 +1,6 @@
 # PDFApps
 
-> Editor e gestor de PDFs para Windows, macOS e Linux — rápido, offline e sem subscrições.
+> PDF editor and manager for Windows, macOS and Linux — fast, offline and subscription-free.
 
 ![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)
 ![PySide6](https://img.shields.io/badge/PySide6-6.10-green?logo=qt&logoColor=white)
@@ -9,156 +9,156 @@
 
 ---
 
-## Funcionalidades
+## Features
 
-PDFApps reúne num só lugar todas as operações do dia a dia com ficheiros PDF, sem necessidade de ligação à Internet nem conta em serviços externos.
+PDFApps brings together all everyday PDF operations in one place, with no internet connection or external service accounts required.
 
-| Ferramenta | Descrição |
+| Tool | Description |
 |---|---|
-| **Dividir** | Corta o PDF em vários ficheiros por intervalos de páginas definidos pelo utilizador |
-| **Juntar** | Combina múltiplos PDFs (arrastar e largar) numa única saída, com ordenação livre |
-| **Rodar** | Roda páginas individuais ou todo o documento em qualquer ângulo |
-| **Extrair páginas** | Exporta um subconjunto de páginas para um novo PDF |
-| **Reordenar** | Interface drag-and-drop para reordenar ou remover páginas com pré-visualização |
-| **Comprimir** | Reduz o tamanho do ficheiro com três níveis de compressão (extrema / recomendada / leve) |
-| **Encriptar** | Protege o PDF com senha ou remove a proteção existente |
-| **Marca d'água** | Sobrepõe um PDF de marca/carimbo sobre as páginas com controlo de opacidade e posição |
-| **OCR** | Reconhece texto em PDFs digitalizados — suporta PT, EN, ES, FR e DE |
-| **Editar** | Editor visual inline: redigir, inserir texto, imagem, realce, notas, formulários e edição de texto existente |
-| **Informação** | Mostra metadados, número de páginas, tamanho e propriedades do documento |
+| **Split** | Split the PDF into multiple files by user-defined page ranges |
+| **Merge** | Combine multiple PDFs (drag and drop) into a single output, with free ordering |
+| **Rotate** | Rotate individual pages or the entire document at any angle |
+| **Extract pages** | Export a subset of pages to a new PDF |
+| **Reorder** | Drag-and-drop interface to reorder or remove pages with preview |
+| **Compress** | Reduce file size with three compression levels (extreme / recommended / low) |
+| **Encrypt** | Protect the PDF with a password or remove existing protection |
+| **Watermark** | Overlay a watermark/stamp PDF on pages with opacity and position control |
+| **OCR** | Recognise text in scanned PDFs — supports PT, EN, ES, FR and DE |
+| **Edit** | Inline visual editor: redact, insert text, image, highlight, notes, forms and edit existing text |
+| **Info** | Show metadata, page count, size and document properties |
 
-### Visualizador integrado
+### Integrated viewer
 
-- Scroll contínuo por todas as páginas (estilo Adobe Acrobat)
-- **Lazy rendering** — abre instantaneamente; páginas renderizadas em background à medida que são vistas
-- Zoom com Ctrl+scroll ou botões de zoom
-- Seleção e cópia de texto por arrastar
-- Suporte a PDF com senha
-- Drag & drop de ficheiros
+- Continuous scroll through all pages (Adobe Acrobat style)
+- **Lazy rendering** — opens instantly; pages rendered in background as they are viewed
+- Zoom with Ctrl+scroll or zoom buttons
+- Text selection and copy by dragging
+- Password-protected PDF support
+- Drag & drop file support
 
-### Outros destaques
+### Other highlights
 
-- Interface escura moderna com painel lateral colapsável
-- Suporte completo a arrastar e largar ficheiros em todos os campos
-- 100% offline — os teus ficheiros nunca saem do teu computador
-- Multiplataforma: Windows, macOS e Linux
-- Instalador com deteção e instalação automática do motor OCR (Tesseract) — Windows
+- Modern dark interface with collapsible sidebar
+- Full drag and drop support across all file fields
+- 100% offline — your files never leave your computer
+- Cross-platform: Windows, macOS and Linux
+- Installer with automatic OCR engine (Tesseract) detection and installation — Windows
 
 ---
 
-## Requisitos
+## Requirements
 
-### Execução (utilizador final)
+### Running (end user)
 
-| Plataforma | Requisito |
+| Platform | Requirement |
 |---|---|
-| **Windows** 10/11 64-bit | `PDFAppsSetup.exe` — inclui tudo; Tesseract instalado automaticamente |
+| **Windows** 10/11 64-bit | `PDFAppsSetup.exe` — includes everything; Tesseract installed automatically |
 | **macOS** 10.14+ | `PDFApps.app` — Tesseract via `brew install tesseract tesseract-lang` |
-| **Linux** (Ubuntu/Debian/Arch) | Binário `PDFApps` — Tesseract via `sudo apt install tesseract-ocr` |
+| **Linux** (Ubuntu/Debian/Arch) | `PDFApps` binary — Tesseract via `sudo apt install tesseract-ocr` |
 
-### Desenvolvimento
+### Development
 
 - Python 3.14+
-- Dependências em [requirements.txt](requirements.txt)
+- Dependencies in [requirements.txt](requirements.txt)
 
-> **Tesseract OCR** é necessário para a funcionalidade de reconhecimento de texto.
-> - **Windows**: o instalador trata disto automaticamente
+> **Tesseract OCR** is required for text recognition functionality.
+> - **Windows**: the installer handles this automatically
 > - **macOS**: `brew install tesseract tesseract-lang`
 > - **Linux**: `sudo apt install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng`
 
 ---
 
-## Instalação
+## Installation
 
 ### Windows
 
-1. Descarrega `PDFAppsSetup.exe` da pasta `dist/`
-2. Executa o instalador e segue os passos
-3. O PDFApps ficará disponível no Menu Iniciar e, opcionalmente, no Ambiente de Trabalho
+1. Download `PDFAppsSetup.exe` from the `dist/` folder
+2. Run the installer and follow the steps
+3. PDFApps will be available in the Start Menu and, optionally, on the Desktop
 
-Para desinstalar, vai a **Definições → Aplicações** ou usa o atalho de desinstalação no Menu Iniciar.
+To uninstall, go to **Settings → Apps** or use the uninstall shortcut in the Start Menu.
 
 ---
 
 ### Linux (Ubuntu / Debian)
 
-**Opção A — A partir do código fonte (recomendado)**
+**Option A — From source (recommended)**
 
 ```bash
-# 1. Dependências do sistema
+# 1. System dependencies
 sudo apt update
 sudo apt install python3-pip python3-venv tesseract-ocr tesseract-ocr-por tesseract-ocr-eng
 
-# 2. Clonar o repositório
-git clone <url-do-repositório>
+# 2. Clone the repository
+git clone <repository-url>
 cd PDFApps
 
-# 3. Ambiente virtual e dependências Python
+# 3. Virtual environment and Python dependencies
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 4. Correr
+# 4. Run
 python3 pdfapps.py
 ```
 
-**Opção B — Compilar um binário nativo**
+**Option B — Build a native binary**
 
 ```bash
-# (com o venv ativo)
+# (with venv active)
 python -m PyInstaller --noconfirm pdfapps.spec
 
-# Executar
+# Run
 ./dist/PDFApps
 ```
 
-> O PyInstaller não faz cross-compile — o binário tem de ser compilado no próprio Linux.
+> PyInstaller does not cross-compile — the binary must be built on Linux itself.
 
 ---
 
 ### macOS
 
-**Opção A — A partir do código fonte (recomendado)**
+**Option A — From source (recommended)**
 
 ```bash
-# 1. Instalar Homebrew (se necessário)
+# 1. Install Homebrew (if needed)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# 2. Dependências do sistema
+# 2. System dependencies
 brew install python tesseract tesseract-lang
 
-# 3. Clonar o repositório
-git clone <url-do-repositório>
+# 3. Clone the repository
+git clone <repository-url>
 cd PDFApps
 
-# 4. Ambiente virtual e dependências Python
+# 4. Virtual environment and Python dependencies
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 5. Correr
+# 5. Run
 python3 pdfapps.py
 ```
 
-**Opção B — Compilar um binário nativo (.app)**
+**Option B — Build a native binary (.app)**
 
 ```bash
-# (com o venv ativo)
+# (with venv active)
 python -m PyInstaller --noconfirm pdfapps.spec
 
-# Executar
+# Run
 open dist/PDFApps
 ```
 
-> O PyInstaller não faz cross-compile — o binário tem de ser compilado no próprio macOS.
+> PyInstaller does not cross-compile — the binary must be built on macOS itself.
 
 ---
 
-## Configuração do ambiente de desenvolvimento
+## Development environment setup
 
 ```bash
-# Clonar o repositório
-git clone <url-do-repositório>
+# Clone the repository
+git clone <repository-url>
 cd PDFApps
 
 # Windows
@@ -169,10 +169,10 @@ venv\Scripts\activate
 python3 -m venv venv
 source venv/bin/activate
 
-# Instalar dependências
+# Install dependencies
 pip install -r requirements.txt
 
-# Executar
+# Run
 python pdfapps.py        # Windows
 python3 pdfapps.py       # macOS / Linux
 ```
@@ -181,83 +181,83 @@ python3 pdfapps.py       # macOS / Linux
 
 ## Build
 
-O processo de build gera três executáveis na pasta `dist/`:
+The build process generates three executables in the `dist/` folder:
 
 ```bash
-# 1. Aplicação principal
+# 1. Main application
 python -m PyInstaller --noconfirm pdfapps.spec
 
-# 2. Desinstalador
+# 2. Uninstaller
 python -m PyInstaller --noconfirm uninstaller.spec
 
-# 3. Instalador (bundla os dois anteriores)
+# 3. Installer (bundles the two above)
 python -m PyInstaller --noconfirm installer.spec
 ```
 
-| Ficheiro | Descrição |
+| File | Description |
 |---|---|
-| `dist/PDFApps.exe` | Aplicação principal (~78 MB) |
-| `dist/PDFAppsUninstall.exe` | Desinstalador standalone (~11 MB) |
-| `dist/PDFAppsSetup.exe` | **Instalador para distribuição** (~99 MB) |
+| `dist/PDFApps.exe` | Main application (~78 MB) |
+| `dist/PDFAppsUninstall.exe` | Standalone uninstaller (~11 MB) |
+| `dist/PDFAppsSetup.exe` | **Installer for distribution** (~99 MB) |
 
 ---
 
-## Stack tecnológica
+## Tech stack
 
-| Componente | Tecnologia | Versão |
+| Component | Technology | Version |
 |---|---|---|
-| Interface gráfica | [PySide6](https://doc.qt.io/qtforpython/) (Qt 6) | 6.10.2 |
-| Renderização PDF | [PyMuPDF](https://pymupdf.readthedocs.io/) (fitz) | 1.27.2 |
-| Manipulação PDF | [pypdf](https://pypdf.readthedocs.io/) | 6.8.0 |
+| GUI | [PySide6](https://doc.qt.io/qtforpython/) (Qt 6) | 6.10.2 |
+| PDF rendering | [PyMuPDF](https://pymupdf.readthedocs.io/) (fitz) | 1.27.2 |
+| PDF manipulation | [pypdf](https://pypdf.readthedocs.io/) | 6.8.0 |
 | OCR | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13 |
-| Processamento de imagem | [Pillow](https://python-pillow.org/) | 12.1.1 |
-| Ícones | [QtAwesome](https://github.com/spyder-ide/qtawesome) | 1.4.1 |
-| Empacotamento | [PyInstaller](https://pyinstaller.org/) | 6.19.0 |
+| Image processing | [Pillow](https://python-pillow.org/) | 12.1.1 |
+| Icons | [QtAwesome](https://github.com/spyder-ide/qtawesome) | 1.4.1 |
+| Packaging | [PyInstaller](https://pyinstaller.org/) | 6.19.0 |
 
 ---
 
-## Estrutura do projeto
+## Project structure
 
 ```
 PDFApps/
-├── pdfapps.py              # Ponto de entrada da aplicação
-├── installer.py            # Instalador (UI tkinter)
-├── uninstaller.py          # Desinstalador
-├── pdfapps.spec            # Configuração PyInstaller — app
-├── installer.spec          # Configuração PyInstaller — instalador
-├── uninstaller.spec        # Configuração PyInstaller — desinstalador
-├── icon.ico                # Ícone da aplicação
-├── requirements.txt        # Dependências Python
-├── app/                    # Código fonte modular
-│   ├── constants.py        # Cores e constantes de design
-│   ├── styles.py           # Stylesheet Qt (tema escuro/claro)
-│   ├── utils.py            # Utilitários partilhados
-│   ├── widgets.py          # Widgets reutilizáveis (DropFileEdit, etc.)
-│   ├── base.py             # Classe base para ferramentas (BasePage)
-│   ├── window.py           # Janela principal (MainWindow)
-│   ├── tools/              # Ferramentas de manipulação PDF
-│   │   ├── dividir.py
-│   │   ├── juntar.py
-│   │   ├── rotar.py
-│   │   ├── extrair.py
-│   │   ├── reordenar.py
-│   │   ├── comprimir.py
-│   │   ├── encriptar.py
-│   │   ├── marca_dagua.py
+├── pdfapps.py              # Application entry point
+├── installer.py            # Installer (tkinter UI)
+├── uninstaller.py          # Uninstaller
+├── pdfapps.spec            # PyInstaller config — app
+├── installer.spec          # PyInstaller config — installer
+├── uninstaller.spec        # PyInstaller config — uninstaller
+├── icon.ico                # Application icon
+├── requirements.txt        # Python dependencies
+├── app/                    # Modular source code
+│   ├── constants.py        # Colours and design constants
+│   ├── styles.py           # Qt stylesheet (dark/light theme)
+│   ├── utils.py            # Shared utilities
+│   ├── widgets.py          # Reusable widgets (DropFileEdit, etc.)
+│   ├── base.py             # Base class for tools (BasePage)
+│   ├── window.py           # Main window (MainWindow)
+│   ├── tools/              # PDF manipulation tools
+│   │   ├── split.py
+│   │   ├── merge.py
+│   │   ├── rotate.py
+│   │   ├── extract.py
+│   │   ├── reorder.py
+│   │   ├── compress.py
+│   │   ├── encrypt.py
+│   │   ├── watermark.py
 │   │   ├── info.py
 │   │   └── ocr.py
-│   ├── viewer/             # Visualizador PDF integrado
-│   │   ├── canvas.py       # Lazy rendering de páginas em background threads (fitz)
-│   │   └── panel.py        # Painel do visualizador com controlos
-│   └── editor/             # Editor PDF visual
-│       ├── canvas.py       # Canvas de edição (PdfEditCanvas)
-│       ├── tab.py          # Tab de edição (TabEditar)
-│       └── dialogs.py      # Diálogos auxiliares
-└── dist/                   # Executáveis gerados (após build)
+│   ├── viewer/             # Integrated PDF viewer
+│   │   ├── canvas.py       # Lazy page rendering in background threads (fitz)
+│   │   └── panel.py        # Viewer panel with controls
+│   └── editor/             # Visual PDF editor
+│       ├── canvas.py       # Edit canvas (PdfEditCanvas)
+│       ├── tab.py          # Edit tab (TabEditar)
+│       └── dialogs.py      # Auxiliary dialogs
+└── dist/                   # Generated executables (after build)
 ```
 
 ---
 
-## Licença
+## License
 
-Este projeto está licenciado sob a [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE).

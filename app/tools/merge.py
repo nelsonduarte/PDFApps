@@ -15,12 +15,12 @@ from app.widgets import DropFileEdit, MultiDropWidget
 
 class TabJuntar(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.object-group", "Juntar PDFs",
-                         "Combina vários ficheiros PDF numa única documento.",
-                         "Juntar PDFs", status_fn)
+        super().__init__("fa5s.object-group", "Merge PDFs",
+                         "Combine multiple PDF files into a single document.",
+                         "Merge PDFs", status_fn)
         f = self._form
 
-        grp = QGroupBox("PDFs a juntar  (arrasta para reordenar)")
+        grp = QGroupBox("PDFs to merge  (drag to reorder)")
         vl  = QVBoxLayout(grp); vl.setSpacing(8)
         self.drop_multi = MultiDropWidget(self._on_drop)
         self.drop_multi.btn.clicked.connect(self._add_files)
@@ -31,15 +31,15 @@ class TabJuntar(BasePage):
         self.lst.setMinimumHeight(180)
         vl.addWidget(self.lst)
         hb = QHBoxLayout()
-        for txt, slot in [("▲ Subir", self._up), ("▼ Descer", self._dn),
-                          ("−  Remover", self._remove), ("Limpar", self.lst.clear)]:
-            btn = danger_btn(txt) if "Remover" in txt else QPushButton(txt)
+        for txt, slot in [("▲ Up", self._up), ("▼ Down", self._dn),
+                          ("−  Remove", self._remove), ("Clear", self.lst.clear)]:
+            btn = danger_btn(txt) if "Remove" in txt else QPushButton(txt)
             btn.clicked.connect(slot); hb.addWidget(btn)
         hb.addStretch(); vl.addLayout(hb)
         f.addWidget(grp)
 
-        f.addWidget(section("Ficheiro de saída"))
-        self.drop_out = DropFileEdit(save=True, default_name="juntado.pdf")
+        f.addWidget(section("Output file"))
+        self.drop_out = DropFileEdit(save=True, default_name="merged.pdf")
         f.addWidget(self.drop_out)
         f.addStretch()
 
@@ -75,14 +75,14 @@ class TabJuntar(BasePage):
         paths = [self.lst.item(i).text() for i in range(self.lst.count())]
         out   = self.drop_out.path()
         if len(paths) < 2:
-            QMessageBox.warning(self, "Aviso", "Adiciona pelo menos 2 PDFs."); return
+            QMessageBox.warning(self, "Warning", "Add at least 2 PDFs."); return
         if not out:
-            QMessageBox.warning(self, "Aviso", "Escolhe o ficheiro de saída."); return
+            QMessageBox.warning(self, "Warning", "Choose the output file."); return
         try:
             w = PdfWriter()
             for p in paths:
                 for page in PdfReader(p).pages: w.add_page(page)
             with open(out, "wb") as f: w.write(f)
-            self._status(f"✔  PDF criado: {os.path.basename(out)}")
-            QMessageBox.information(self, "Concluído", f"PDF criado em:\n{out}")
-        except Exception as e: QMessageBox.critical(self, "Erro", str(e))
+            self._status(f"✔  PDF created: {os.path.basename(out)}")
+            QMessageBox.information(self, "Done", f"PDF created at:\n{out}")
+        except Exception as e: QMessageBox.critical(self, "Error", str(e))

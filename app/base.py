@@ -6,7 +6,7 @@ from app.utils import ToolHeader, ActionBar, scrolled, _paint_bg
 
 
 class BasePage(QWidget):
-    """Estrutura padrão: header fixo + scroll area + action bar."""
+    """Standard layout: fixed header + scroll area + action bar."""
 
     def __init__(self, icon, title, desc, action_text, status_fn):
         super().__init__()
@@ -19,14 +19,14 @@ class BasePage(QWidget):
 
         page_layout.addWidget(ToolHeader(icon, title, desc))
 
-        # conteúdo scrollável
+        # scrollable content
         self._inner = QWidget(); self._inner.setObjectName("scroll_inner")
         self._form  = QVBoxLayout(self._inner)
         self._form.setContentsMargins(24, 20, 24, 20)
         self._form.setSpacing(10)
         page_layout.addWidget(scrolled(self._inner), 1)
 
-        # barra de acção fixa
+        # fixed action bar
         self._action_bar, self.action_btn = ActionBar(action_text, self._run)
         page_layout.addWidget(self._action_bar)
 
@@ -34,7 +34,7 @@ class BasePage(QWidget):
         _paint_bg(self)
 
     def _build(self):
-        """Subclasses adicionam widgets ao self._form aqui."""
+        """Subclasses add widgets to self._form here."""
 
     def _run(self):
-        """Lógica principal chamada pelo botão de acção."""
+        """Main logic called by the action button."""
