@@ -5,7 +5,7 @@ import os
 from PySide6.QtCore import Qt, QEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QScrollArea, QFrame, QSplitter, QStackedWidget, QGroupBox,
+    QScrollArea, QFrame, QStackedWidget, QGroupBox,
     QGridLayout, QLayout, QSizePolicy, QListWidget, QTableWidget,
     QTableWidgetItem, QHeaderView, QTextEdit, QComboBox, QFileDialog,
     QMessageBox, QDialog, QApplication,
@@ -48,7 +48,9 @@ class TabEditar(QWidget):
         root.addWidget(ToolHeader("fa5s.edit", "Edit PDF",
                                   "Click or drag directly on the PDF to edit."))
 
-        body = QSplitter(Qt.Orientation.Horizontal)
+        body = QWidget()
+        body_h = QHBoxLayout(body)
+        body_h.setContentsMargins(0, 0, 0, 0); body_h.setSpacing(0)
 
         self._canvas = PdfEditCanvas()
         self._canvas.rect_selected.connect(self._on_rect)
@@ -60,12 +62,11 @@ class TabEditar(QWidget):
         canvas_scroll.setMinimumWidth(320)
         canvas_scroll.viewport().installEventFilter(self)
         self._canvas_scroll = canvas_scroll
-        body.addWidget(canvas_scroll)
+        body_h.addWidget(canvas_scroll, 1)
 
         ctrl_inner = QWidget(); ctrl_inner.setObjectName("scroll_inner")
-        ctrl_inner.setMinimumWidth(0)
+        ctrl_inner.setFixedWidth(380)
         cv = QVBoxLayout(ctrl_inner); cv.setContentsMargins(10, 10, 10, 10); cv.setSpacing(8)
-        cv.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
 
         # -- PDF file --
         grp_file = QGroupBox("PDF file")
@@ -227,19 +228,14 @@ class TabEditar(QWidget):
         cv.addWidget(grp_save)
         cv.addStretch()
 
-        for gb in ctrl_inner.findChildren(QGroupBox):
-            gb.setMinimumWidth(0)
-
         ctrl_scroll = QScrollArea()
         ctrl_scroll.setWidgetResizable(True)
         ctrl_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        ctrl_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        ctrl_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         ctrl_scroll.setWidget(ctrl_inner)
-        ctrl_scroll.setMinimumWidth(180)
-        body.addWidget(ctrl_scroll)
-        body.setSizes([800, 360])
-        body.setStretchFactor(0, 1)
-        body.setStretchFactor(1, 0)
+        ctrl_scroll.setFixedWidth(400)
+        ctrl_scroll.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        body_h.addWidget(ctrl_scroll)
         root.addWidget(body, 1)
 
         action_bar, _ = ActionBar("Apply and Save", self._run)
