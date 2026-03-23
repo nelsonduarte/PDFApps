@@ -26,6 +26,7 @@ from app.tools.compress import TabComprimir
 from app.tools.encrypt import TabEncriptar
 from app.tools.watermark import TabMarcaDagua
 from app.tools.ocr import TabOCR
+from app.tools.convert import TabConverter
 from app.editor.tab import TabEditar
 from app.tools.info import TabInfo
 
@@ -40,6 +41,7 @@ NAV_ITEMS = [
     ("Encrypt",         "fa5s.lock",                TabEncriptar),
     ("Watermark",       "fa5s.stamp",               TabMarcaDagua),
     ("OCR",             "fa5s.search",              TabOCR),
+    ("Convert",         "fa5s.exchange-alt",        TabConverter),
     ("Edit",            "fa5s.edit",                TabEditar),
     ("Info",            "fa5s.info-circle",         TabInfo),
 ]
