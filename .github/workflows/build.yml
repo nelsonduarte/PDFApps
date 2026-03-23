@@ -1,0 +1,112 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: PDFApps-Windows
+          - os: ubuntu-22.04
+            artifact: PDFApps-Linux
+          - os: macos-latest
+            artifact: PDFApps-macOS
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── Windows ─────────────────────────────────────────────────
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python -m PyInstaller --noconfirm pdfapps.spec
+          python -m PyInstaller --noconfirm uninstaller.spec
+          python -m PyInstaller --noconfirm installer.spec
+
+      - name: Upload (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/PDFApps.exe
+            dist/PDFAppsSetup.exe
+            dist/PDFAppsUninstall.exe
+
+      # ── Linux ───────────────────────────────────────────────────
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          python -m PyInstaller --noconfirm pdfapps.spec
+          chmod +x dist/PDFApps
+          tar -czf dist/PDFApps-Linux.tar.gz -C dist PDFApps
+
+      - name: Upload (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/PDFApps-Linux.tar.gz
+
+      # ── macOS ───────────────────────────────────────────────────
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          python -m PyInstaller --noconfirm pdfapps.spec
+          chmod +x dist/PDFApps
+          cd dist && zip -r PDFApps-macOS.zip PDFApps
+
+      - name: Upload (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/PDFApps-macOS.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/PDFApps-Windows/PDFAppsSetup.exe
+            artifacts/PDFApps-Windows/PDFApps.exe
+            artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz
+            artifacts/PDFApps-macOS/PDFApps-macOS.zip
