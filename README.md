@@ -16,7 +16,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 - **100% offline** — your files never leave your computer
 - **No subscriptions** — free and open source, forever
-- **All-in-one** — split, merge, compress, encrypt, OCR, edit and more in a single app
+- **All-in-one** — split, merge, compress, encrypt, OCR, convert, edit and more in a single app
 - **Cross-platform** — works on Windows, macOS and Linux
 - **Fast** — lazy rendering opens large PDFs instantly
 
@@ -59,6 +59,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 | **Encrypt** | Protect the PDF with a password or remove existing protection |
 | **Watermark** | Overlay a watermark/stamp PDF on pages with opacity and position control |
 | **OCR** | Recognise text in scanned PDFs — supports PT, EN, ES, FR and DE |
+| **Convert** | Convert PDF to images (PNG/JPG with DPI control), Word (DOCX) or plain text (TXT) |
 | **Edit** | Inline visual editor: redact, insert text, image, highlight, notes, forms and edit existing text |
 | **Info** | Show metadata, page count, size and document properties |
 
@@ -152,6 +153,7 @@ python -m PyInstaller --noconfirm installer.spec
 | PDF rendering | [PyMuPDF](https://pymupdf.readthedocs.io/) (fitz) | 1.27.2 |
 | PDF manipulation | [pypdf](https://pypdf.readthedocs.io/) | 6.8.0 |
 | OCR | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13 |
+| DOCX export | [python-docx](https://python-docx.readthedocs.io/) | 1.2.0 |
 | Image processing | [Pillow](https://python-pillow.org/) | 12.1.1 |
 | Icons | [QtAwesome](https://github.com/spyder-ide/qtawesome) | 1.4.1 |
 | Packaging | [PyInstaller](https://pyinstaller.org/) | 6.19.0 |
@@ -186,6 +188,7 @@ PDFApps/
 │   │   ├── compress.py
 │   │   ├── encrypt.py
 │   │   ├── watermark.py
+│   │   ├── convert.py
 │   │   ├── info.py
 │   │   └── ocr.py
 │   ├── viewer/             # Integrated PDF viewer
