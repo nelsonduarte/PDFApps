@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QListWidget, QListWidgetItem,
     QStackedWidget, QSplitter, QStatusBar, QFrame,
-    QApplication,
+    QApplication, QLineEdit,
 )
 import qtawesome as qta
 
@@ -117,6 +117,25 @@ class MainWindow(QMainWindow):
         self._zm_btn = _zm; self._zp_btn = _zp; self._z0_btn = _z0
         wb_h.addWidget(self._zoom_widget)
 
+        # page navigation widget
+        self._page_nav_widget = QWidget()
+        pn_h = QHBoxLayout(self._page_nav_widget); pn_h.setContentsMargins(0,0,0,0); pn_h.setSpacing(4)
+        _prev_pg = QPushButton(); _prev_pg.setIcon(qta.icon("fa5s.chevron-left", color=TEXT_PRI))
+        _prev_pg.setFixedSize(28, 28); _prev_pg.setObjectName("viewer_nav_btn"); _prev_pg.setToolTip("Previous page")
+        self._page_input = QLineEdit("1"); self._page_input.setFixedWidth(40); self._page_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._page_input.setObjectName("page_input")
+        self._page_total_lbl = QLabel("/ —"); self._page_total_lbl.setMinimumWidth(30)
+        _next_pg = QPushButton(); _next_pg.setIcon(qta.icon("fa5s.chevron-right", color=TEXT_PRI))
+        _next_pg.setFixedSize(28, 28); _next_pg.setObjectName("viewer_nav_btn"); _next_pg.setToolTip("Next page")
+        pn_h.addWidget(_prev_pg); pn_h.addWidget(self._page_input)
+        pn_h.addWidget(self._page_total_lbl); pn_h.addWidget(_next_pg)
+        self._page_nav_widget.setVisible(False)
+        self._prev_pg_btn = _prev_pg; self._next_pg_btn = _next_pg
+        _prev_pg.clicked.connect(self._goto_prev_page)
+        _next_pg.clicked.connect(self._goto_next_page)
+        self._page_input.returnPressed.connect(self._goto_input_page)
+        wb_h.addWidget(self._page_nav_widget)
+
         self._tool_badge = QLabel("Mode: Viewer"); self._tool_badge.setObjectName("workspace_badge")
         wb_h.addWidget(self._tool_badge)
 
@@ -210,6 +229,17 @@ class MainWindow(QMainWindow):
             for dfe in self.stack.widget(i).findChildren(DropFileEdit):
                 dfe.path_changed.connect(self._viewer.load)
 
+        # Connect viewer scroll to update page nav in workspace bar
+        self._viewer._canvas_scroll.verticalScrollBar().valueChanged.connect(
+            lambda _: self._update_page_nav())
+        # Update page nav when a PDF is loaded
+        original_load = self._viewer.load
+        def _wrapped_load(*args, **kwargs):
+            original_load(*args, **kwargs)
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(100, self._update_page_nav)
+        self._viewer.load = _wrapped_load
+
     def _open_tool_by_name(self, tool_name: str):
         for i, (name, _, _) in enumerate(NAV_ITEMS):
             if name == tool_name:
@@ -283,6 +313,56 @@ class MainWindow(QMainWindow):
 
     def _set_status(self, msg: str):
         self._sb.showMessage(msg)
+
+    # ── Page navigation (workspace bar) ───────────────────────────────────
+
+    def _update_page_nav(self):
+        """Update the page nav widget from the viewer's scroll position."""
+        canvas = self._viewer._canvas
+        entries = canvas._entries
+        if not entries:
+            self._page_nav_widget.setVisible(False)
+            return
+        self._page_nav_widget.setVisible(True)
+        sb_val = self._viewer._canvas_scroll.verticalScrollBar().value()
+        idx = canvas.page_at_y(sb_val)
+        total = len(entries)
+        self._page_input.setText(str(idx + 1))
+        self._page_total_lbl.setText(f"/ {total}")
+        self._prev_pg_btn.setEnabled(idx > 0)
+        self._next_pg_btn.setEnabled(idx < total - 1)
+
+    def _goto_prev_page(self):
+        canvas = self._viewer._canvas
+        if not canvas._entries:
+            return
+        sb = self._viewer._canvas_scroll.verticalScrollBar()
+        idx = canvas.page_at_y(sb.value())
+        if idx > 0:
+            sb.setValue(canvas.scroll_to_page(idx - 1))
+
+    def _goto_next_page(self):
+        canvas = self._viewer._canvas
+        if not canvas._entries:
+            return
+        sb = self._viewer._canvas_scroll.verticalScrollBar()
+        idx = canvas.page_at_y(sb.value())
+        if idx < len(canvas._entries) - 1:
+            sb.setValue(canvas.scroll_to_page(idx + 1))
+
+    def _goto_input_page(self):
+        """Navigate to the page number typed by the user."""
+        canvas = self._viewer._canvas
+        if not canvas._entries:
+            return
+        try:
+            page_num = int(self._page_input.text())
+        except ValueError:
+            return
+        page_num = max(1, min(page_num, len(canvas._entries)))
+        self._page_input.setText(str(page_num))
+        sb = self._viewer._canvas_scroll.verticalScrollBar()
+        sb.setValue(canvas.scroll_to_page(page_num - 1))
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode

@@ -32,6 +32,9 @@ test_ctrl_scroll.py
 # Claude Code
 .claude/settings.local.json
 .claude
+# Marketing
+marketing-posts.md
+
 # Windows
 Thumbs.db
 desktop.ini

@@ -288,6 +288,11 @@ class TabEditar(QWidget):
                     "color:#93A9A3; border-radius:6px; padding:6px 8px; text-align:center;")
         self._opt_stack.setCurrentIndex(idx)
         self._canvas.set_select_mode(idx == 7)
+        # Text-related modes get a text cursor
+        if idx in (1, 4, 6):
+            self._canvas.setCursor(Qt.CursorShape.IBeamCursor)
+        elif idx != 7:
+            self._canvas.setCursor(Qt.CursorShape.CrossCursor)
         if idx == 2:
             self._pick_image()
 
@@ -319,7 +324,39 @@ class TabEditar(QWidget):
         n = self._canvas.page_count()
         self._lbl_info.setText(f"  {n} pages")
         self._update_nav()
+        self._load_existing_annotations()
         self._load_form_fields(p)
+
+    def _load_existing_annotations(self):
+        """Load existing text annotations from the PDF as note overlays."""
+        try:
+            doc = self._canvas._doc
+            if not doc:
+                self._status("⚠  No doc loaded for annotations")
+                return
+            import fitz
+            count = 0
+            total_annots = 0
+            for page_idx in range(doc.page_count):
+                page = doc[page_idx]
+                for annot in page.annots():
+                    total_annots += 1
+                    if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                        r = annot.rect
+                        txt = annot.info.get("content", "")
+                        if txt:
+                            self._pending.append({
+                                "type": "note", "page": page_idx,
+                                "point": fitz.Point(r.x0, r.y0 + r.height),
+                                "text": txt,
+                                "_existing": True,
+                            })
+                            self._pending_list.addItem(f"Note — p. {page_idx+1}")
+                            count += 1
+            self._status(f"ℹ  {count} note(s) loaded ({total_annots} total annots)")
+            self._canvas.set_overlays([e for e in self._pending if e["page"] == self._page_idx])
+        except Exception as ex:
+            self._status(f"⚠  Annotation load error: {ex}")
 
     def auto_load(self, path: str):
         if path and not self._drop_in.path(): self._load_pdf(path)
@@ -387,6 +424,19 @@ class TabEditar(QWidget):
                        "color": self._HI_COLORS[self._hi_color.currentText()]})
 
     def _on_point(self, pdf_pt):
+        # Check if clicking on an existing annotation in the document
+        doc = self._canvas._doc
+        if doc:
+            import fitz
+            page = doc[self._page_idx]
+            for annot in page.annots():
+                if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                    expanded = annot.rect + fitz.Rect(-10, -10, 10, 10)
+                    if expanded.contains(fitz.Point(pdf_pt.x, pdf_pt.y)):
+                        txt = annot.info.get("content", "")
+                        if txt:
+                            QMessageBox.information(self, "Note", txt)
+                            return
         mode = self._mode_idx
         if mode == 1:
             dlg = _TextDialog(self)
@@ -448,10 +498,12 @@ class TabEditar(QWidget):
             QMessageBox.warning(self, "Warning", "No pending edits."); return
         try:
             import fitz
-            # Close the canvas doc to release the file lock
-            self._canvas.close_doc()
+            # Release the file lock without resetting the canvas
+            self._canvas.release_doc()
             doc = fitz.open(self._doc_path)
             for e in self._pending:
+                if e.get("_existing"):
+                    continue  # already saved in the PDF
                 pg = doc[e["page"]]
                 if e["type"] == "redact":
                     pg.add_redact_annot(e["rect"], fill=e["fill"]); pg.apply_redactions()

@@ -1,9 +1,12 @@
 """PDFApps – PdfEditCanvas: visual PDF edit canvas with fitz rendering."""
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QRect, QPoint
 from PySide6.QtWidgets import QWidget
 
 from app.constants import ACCENT, BG_INNER, TEXT_SEC
+
+# Size of the note icon in pixels
+_NOTE_ICON_SIZE = 22
 
 
 class PdfEditCanvas(QWidget):
@@ -24,16 +27,17 @@ class PdfEditCanvas(QWidget):
         self._drag_rect   = None
         self._overlays    = []
         self._select_mode = False
+        self._open_note   = None   # index of the note overlay with open balloon
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.CrossCursor)
         self.setMinimumSize(300, 400)
 
     def set_select_mode(self, active: bool):
         self._select_mode = active
-        self.setCursor(Qt.CursorShape.IBeamCursor if active else Qt.CursorShape.CrossCursor)
 
     def set_overlays(self, overlays: list):
         self._overlays = overlays
+        self._open_note = None
         self.update()
 
     def load(self, path: str):
@@ -95,9 +99,14 @@ class PdfEditCanvas(QWidget):
                         best_dist = dist; found = span
         return found
 
-    def close_doc(self):
+    def release_doc(self):
+        """Close the fitz document to release the file lock, keeping the canvas state."""
         if self._doc: self._doc.close(); self._doc = None
-        self._qpix = None; self._overlays = []
+
+    def close_doc(self):
+        """Fully close and reset the canvas."""
+        self.release_doc()
+        self._qpix = None; self._overlays = []; self._open_note = None
         self.setFixedSize(300, 400); self.update()
 
     def _render(self):
@@ -115,7 +124,7 @@ class PdfEditCanvas(QWidget):
         dpr = self.devicePixelRatioF() or 1.0
         self._zoom = (self._base_avail / page.rect.width) * self._zoom_factor
         render_zoom = self._zoom * dpr
-        pix = page.get_pixmap(matrix=fitz.Matrix(render_zoom, render_zoom))
+        pix = page.get_pixmap(matrix=fitz.Matrix(render_zoom, render_zoom), annots=False)
         qp = QP(); qp.loadFromData(pix.tobytes("png"))
         qp.setDevicePixelRatio(dpr)
         self._qpix = qp
@@ -177,17 +186,39 @@ class PdfEditCanvas(QWidget):
             elif t == "note":
                 pt = e["point"]
                 px, py = int(pt.x*z), int(pt.y*z)
+                note_idx = self._overlays.index(e) if e in self._overlays else -1
                 # note icon (yellow background)
-                icon_r = QRect(px, py - 18, 22, 22)
+                icon_r = QRect(px, py - _NOTE_ICON_SIZE, _NOTE_ICON_SIZE, _NOTE_ICON_SIZE)
                 p.setBrush(QColor("#FBBF24")); p.setPen(QPen(QColor("#D97706"), 1))
                 p.drawRoundedRect(icon_r, 4, 4)
                 fi = QFont(); fi.setPointSize(10); fi.setBold(True); p.setFont(fi)
                 p.setPen(QColor("#1C1917")); p.drawText(icon_r, Qt.AlignmentFlag.AlignCenter, "✎")
-                # text preview beside
-                p.setPen(QColor("#FBBF24"))
-                ft = QFont(); ft.setPointSize(8); p.setFont(ft)
-                preview = e["text"][:40] + ("…" if len(e["text"]) > 40 else "")
-                p.drawText(px + 26, py - 4, preview)
+                # balloon only when this note is open
+                if self._open_note == note_idx:
+                    balloon_x = px + _NOTE_ICON_SIZE + 6
+                    balloon_y = py - _NOTE_ICON_SIZE - 4
+                    ft = QFont(); ft.setPointSize(9); p.setFont(ft)
+                    fm = p.fontMetrics()
+                    lines = e["text"].split("\n")
+                    text_w = max(fm.horizontalAdvance(ln) for ln in lines) + 20
+                    text_h = fm.height() * len(lines) + 16
+                    balloon_w = max(120, min(text_w, 260))
+                    balloon_h = max(32, text_h)
+                    balloon_r = QRect(balloon_x, balloon_y, balloon_w, balloon_h)
+                    # shadow
+                    shadow_r = QRect(balloon_x + 2, balloon_y + 2, balloon_w, balloon_h)
+                    p.setBrush(QColor(0, 0, 0, 30)); p.setPen(Qt.PenStyle.NoPen)
+                    p.drawRoundedRect(shadow_r, 6, 6)
+                    # balloon background
+                    p.setBrush(QColor("#FFFDF5")); p.setPen(QPen(QColor("#D97706"), 1))
+                    p.drawRoundedRect(balloon_r, 6, 6)
+                    # text in black
+                    p.setPen(QColor("#000000"))
+                    text_rect = QRect(balloon_x + 10, balloon_y + 8,
+                                      balloon_w - 20, balloon_h - 16)
+                    p.drawText(text_rect,
+                               Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
+                               e["text"])
             elif t == "text_edit":
                 r = e["bbox"]
                 qr = QRect(int(r[0]*z), int(r[1]*z),
@@ -225,12 +256,108 @@ class PdfEditCanvas(QWidget):
             self._drag_rect = QRect(self._drag_start, e.position().toPoint()).normalized()
             self.update()
 
+    def _note_icon_at(self, pos: QPoint) -> int:
+        """Return the overlay index of a note icon under *pos*, or -1."""
+        z = self._zoom
+        margin = 10
+        for i, e in enumerate(self._overlays):
+            if e.get("type") != "note":
+                continue
+            pt = e["point"]
+            px, py = int(pt.x * z), int(pt.y * z)
+            hit_r = QRect(px - margin, py - _NOTE_ICON_SIZE - margin,
+                          _NOTE_ICON_SIZE + margin * 2, _NOTE_ICON_SIZE + margin * 2)
+            if hit_r.contains(pos):
+                return i
+        return -1
+
+    def _annot_note_at(self, pos: QPoint):
+        """Check if there's a text annotation in the fitz doc at this position.
+        Returns (index_in_overlays, annot_text) or (-1, None)."""
+        if not self._doc:
+            return -1, None
+        import fitz
+        pdf_pt = self._to_pdf(pos.x(), pos.y())
+        page = self._doc[self._page_idx]
+        for annot in page.annots() or []:
+            if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                # Expand the annot rect for easier clicking
+                expanded = annot.rect + fitz.Rect(-10, -10, 10, 10)
+                if expanded.contains(pdf_pt):
+                    # Find matching overlay
+                    txt = annot.info.get("content", "") or annot.get_text() or ""
+                    for i, e in enumerate(self._overlays):
+                        if e.get("type") == "note" and e.get("text", "").strip() == txt.strip():
+                            return i, txt.strip()
+                    # No matching overlay found — create a temporary one
+                    if txt.strip():
+                        pt = fitz.Point(annot.rect.x0, annot.rect.y0 + annot.rect.height)
+                        self._overlays.append({
+                            "type": "note", "page": self._page_idx,
+                            "point": pt, "text": txt.strip(),
+                            "_existing": True,
+                        })
+                        return len(self._overlays) - 1, txt.strip()
+        return -1, None
+
+    def contextMenuEvent(self, e):
+        """Right-click context menu to delete note annotations."""
+        pos = e.pos()
+        hit = self._note_icon_at(pos)
+        if hit < 0:
+            hit, _ = self._annot_note_at(pos)
+        if hit >= 0:
+            from PySide6.QtWidgets import QMenu
+            menu = QMenu(self)
+            delete_action = menu.addAction("Delete comment")
+            action = menu.exec(e.globalPos())
+            if action == delete_action:
+                overlay = self._overlays[hit]
+                # Remove from fitz doc if it's an existing annotation
+                if self._doc and overlay.get("_existing"):
+                    import fitz
+                    page = self._doc[overlay.get("page", self._page_idx)]
+                    for annot in page.annots() or []:
+                        if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                            txt = annot.info.get("content", "") or ""
+                            if txt.strip() == overlay.get("text", "").strip():
+                                page.delete_annot(annot)
+                                break
+                # Remove from overlays
+                self._overlays.pop(hit)
+                # Remove from pending if it was a pending edit
+                self._pending = [p for p in self._pending
+                                 if not (p.get("type") == "note" and
+                                         p.get("text", "").strip() == overlay.get("text", "").strip() and
+                                         p.get("page") == overlay.get("page", self._page_idx))]
+                if self._open_note == hit:
+                    self._open_note = None
+                elif self._open_note is not None and self._open_note > hit:
+                    self._open_note -= 1
+                self.update()
+            return
+        super().contextMenuEvent(e)
+
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.MouseButton.LeftButton: return
         pos = e.position().toPoint()
         if self._drag_rect and self._drag_rect.width() > 3 and self._drag_rect.height() > 3:
             self.rect_selected.emit(self._rect_to_pdf(self._drag_rect))
         else:
+            # check if a note overlay icon was clicked
+            hit = self._note_icon_at(pos)
+            if hit < 0:
+                # fallback: check fitz annotations directly
+                hit, _ = self._annot_note_at(pos)
+            if hit >= 0:
+                self._open_note = None if self._open_note == hit else hit
+                self.update()
+                self._drag_start = None; self._drag_rect = None
+                return
+            # close any open balloon when clicking elsewhere
+            if self._open_note is not None:
+                self._open_note = None
+                self.update()
             self.point_clicked.emit(self._to_pdf(pos.x(), pos.y()))
         self._drag_start = None; self._drag_rect = None
         self.update()

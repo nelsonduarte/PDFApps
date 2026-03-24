@@ -211,6 +211,8 @@ QStatusBar {{ background: {BG_SIDE}; border-top: 1px solid {BORDER};
 #viewer_nav_btn:hover   {{ background: {ACCENT}; border-color: {ACCENT}; }}
 #viewer_nav_btn:pressed {{ background: {ACCENT_P}; }}
 #viewer_nav_btn:disabled {{ background: #141827; border-color: #1E2235; }}
+#page_input {{ background: #1E2235; border: 1px solid {BORDER}; border-radius: 4px;
+               color: {TEXT_PRI}; font-size: 10pt; padding: 2px; }}
 #viewer_placeholder {{ font-size: 12pt; color: #4A5C7A; background: {BG_SIDE}; }}
 #viewer_sel_status  {{ font-size: 9pt; color: {TEXT_SEC}; background: {BG_CARD};
                        border-top: 1px solid {BORDER}; padding: 4px 8px; }}
@@ -387,6 +389,8 @@ QStatusBar {{ background: {_LS}; border-top: 1px solid {_LO};
 #viewer_nav_btn:hover   {{ background: {_LA}; border-color: {_LA}; color: white; }}
 #viewer_nav_btn:pressed {{ background: {_LAP}; }}
 #viewer_nav_btn:disabled {{ background: {_LN}; border-color: {_LO}; color: {_LO}; }}
+#page_input {{ background: {_LI}; border: 1px solid {_LO}; border-radius: 4px;
+               color: {_LP}; font-size: 10pt; padding: 2px; }}
 #viewer_placeholder {{ font-size: 12pt; color: {_LQ}; background: {_LN}; }}
 #viewer_sel_status  {{ font-size: 9pt; color: {_LQ}; background: {_LC};
                        border-top: 1px solid {_LO}; padding: 4px 8px; }}

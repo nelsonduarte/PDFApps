@@ -9,9 +9,10 @@ import qtawesome as qta
 
 from app.constants import BG_INNER, TEXT_SEC
 
-_PAGE_GAP   = 12   # px between pages
-_BUFFER_PGS = 2    # extra pages to pre-render outside the visible area
-_MAX_THREADS = 2   # simultaneous render workers
+_PAGE_GAP       = 12   # px between pages
+_BUFFER_PGS     = 2    # extra pages to pre-render outside the visible area
+_MAX_THREADS    = 2    # simultaneous render workers
+_NOTE_ICON_SIZE = 22   # note icon size in pixels
 
 
 # ── Worker ────────────────────────────────────────────────────────────────────
@@ -44,7 +45,7 @@ class _PageJob(QRunnable):
                 doc.authenticate(self._password)
             page  = doc[self._idx]
             rz    = self._zoom * self._dpr
-            pix   = page.get_pixmap(matrix=fitz.Matrix(rz, rz))
+            pix   = page.get_pixmap(matrix=fitz.Matrix(rz, rz), annots=False)
             words = page.get_text("words")
             img   = pix.tobytes("png")
             doc.close()
@@ -64,7 +65,7 @@ class _PageJob(QRunnable):
 # ── Page entry ─────────────────────────────────────────────────────────
 
 class _PageEntry:
-    __slots__ = ("y_off", "w", "h", "pixmap", "words")
+    __slots__ = ("y_off", "w", "h", "pixmap", "words", "annots")
 
     def __init__(self, y_off: int, w: int, h: int):
         self.y_off  = y_off
@@ -72,6 +73,7 @@ class _PageEntry:
         self.h      = h
         self.pixmap = None   # QPixmap | None — filled by worker
         self.words  = None   # list | None   — filled by worker
+        self.annots = None   # list | None   — [(rect, text), ...]
 
 
 # ── Canvas ────────────────────────────────────────────────────────────────────
@@ -99,6 +101,7 @@ class _SelectCanvas(QWidget):
         self._drag_end    = None
         self._sel_rects: list[QRect] = []
         self._sel_text    = ""
+        self._open_note   = None   # (page_idx, annot_idx) of open balloon
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.IBeamCursor)
@@ -197,8 +200,27 @@ class _SelectCanvas(QWidget):
         self._entries = entries
         self.setFixedSize(max_w, max(total_h, 400))
         self.zoom_changed.emit(round(self._zoom_factor * 100))
+        self._load_annotations()
+        self._open_note = None
         self.update()          # show placeholders immediately
         self._schedule_visible()
+
+    def _load_annotations(self):
+        """Load text annotations for all pages."""
+        if not self._doc:
+            return
+        import fitz
+        for page_idx in range(self._doc.page_count):
+            if page_idx >= len(self._entries):
+                break
+            page = self._doc[page_idx]
+            notes = []
+            for annot in page.annots():
+                if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                    txt = annot.info.get("content", "")
+                    if txt:
+                        notes.append((annot.rect, txt))
+            self._entries[page_idx].annots = notes
 
     # ── Lazy render ──────────────────────────────────────────────────────────
 
@@ -316,6 +338,51 @@ class _SelectCanvas(QWidget):
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawRect(0, e.y_off, e.w - 1, e.h - 1)
 
+        # ── Note icons ──
+        z = self._zoom
+        for page_idx in range(first, last + 1):
+            entry = self._entries[page_idx]
+            if not entry.annots:
+                continue
+            for annot_idx, (rect, txt) in enumerate(entry.annots):
+                px = int(rect.x0 * z)
+                py = entry.y_off + int(rect.y0 * z)
+                # Draw pencil icon
+                icon_r = QRect(px, py, _NOTE_ICON_SIZE, _NOTE_ICON_SIZE)
+                p.setBrush(QColor("#FBBF24"))
+                p.setPen(QPen(QColor("#D97706"), 1))
+                p.drawRoundedRect(icon_r, 4, 4)
+                fi = QFont(); fi.setPointSize(10); fi.setBold(True); p.setFont(fi)
+                p.setPen(QColor("#1C1917"))
+                p.drawText(icon_r, Qt.AlignmentFlag.AlignCenter, "✎")
+                # Draw balloon if this note is open
+                if self._open_note == (page_idx, annot_idx):
+                    balloon_x = px + _NOTE_ICON_SIZE + 6
+                    balloon_y = py
+                    ft = QFont(); ft.setPointSize(9); p.setFont(ft)
+                    fm = p.fontMetrics()
+                    lines = txt.split("\n")
+                    text_w = max(fm.horizontalAdvance(ln) for ln in lines) + 20
+                    text_h = fm.height() * len(lines) + 16
+                    balloon_w = max(140, min(text_w, 300))
+                    balloon_h = max(36, text_h)
+                    balloon_r = QRect(balloon_x, balloon_y, balloon_w, balloon_h)
+                    # Shadow
+                    shadow_r = QRect(balloon_x + 2, balloon_y + 2, balloon_w, balloon_h)
+                    p.setBrush(QColor(0, 0, 0, 30)); p.setPen(Qt.PenStyle.NoPen)
+                    p.drawRoundedRect(shadow_r, 6, 6)
+                    # Balloon background
+                    p.setBrush(QColor("#FFFDF5")); p.setPen(QPen(QColor("#D97706"), 1))
+                    p.drawRoundedRect(balloon_r, 6, 6)
+                    # Text in black
+                    p.setPen(QColor("#000000"))
+                    text_rect = QRect(balloon_x + 10, balloon_y + 8,
+                                      balloon_w - 20, balloon_h - 16)
+                    p.drawText(text_rect,
+                               Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
+                               txt)
+
+        # ── Selection ──
         for r in self._sel_rects:
             p.fillRect(r, QColor(59, 130, 246, 90))
 
@@ -348,6 +415,22 @@ class _SelectCanvas(QWidget):
         if e.button() != Qt.MouseButton.LeftButton or not self._drag_start:
             return
         self._drag_end = e.position().toPoint()
+        # Check for click (no drag) on a note icon
+        is_click = (abs(self._drag_start.x() - self._drag_end.x()) < 4
+                     and abs(self._drag_start.y() - self._drag_end.y()) < 4)
+        if is_click:
+            hit = self._note_icon_at(self._drag_end)
+            if hit is not None:
+                self._open_note = None if self._open_note == hit else hit
+                self._drag_start = None
+                self._drag_end = None
+                self.update()
+                e.accept()
+                return
+            # Close any open balloon when clicking elsewhere
+            if self._open_note is not None:
+                self._open_note = None
+                self.update()
         self._compute_selection()
         self._drag_start = None
         self._drag_end   = None
@@ -356,6 +439,24 @@ class _SelectCanvas(QWidget):
         self.text_copied.emit(self._sel_text)
         self.update()
         e.accept()
+
+    def _note_icon_at(self, pos):
+        """Return (page_idx, annot_idx) if pos hits a note icon, else None."""
+        z = self._zoom
+        margin = 8
+        for page_idx, entry in enumerate(self._entries):
+            if not entry.annots:
+                continue
+            if pos.y() < entry.y_off - margin or pos.y() > entry.y_off + entry.h + margin:
+                continue
+            for annot_idx, (rect, txt) in enumerate(entry.annots):
+                px = int(rect.x0 * z)
+                py = entry.y_off + int(rect.y0 * z)
+                hit_r = QRect(px - margin, py - margin,
+                              _NOTE_ICON_SIZE + margin * 2, _NOTE_ICON_SIZE + margin * 2)
+                if hit_r.contains(pos):
+                    return (page_idx, annot_idx)
+        return None
 
     # ── Keyboard ───────────────────────────────────────────────────────────────
 
@@ -371,6 +472,37 @@ class _SelectCanvas(QWidget):
 
     def contextMenuEvent(self, e):
         from PySide6.QtWidgets import QMenu
+        pos = e.pos()
+        # Check if right-click is on a note icon
+        hit = self._note_icon_at(pos)
+        if hit is not None:
+            menu = QMenu(self)
+            delete_action = menu.addAction("Delete comment")
+            action = menu.exec(e.globalPos())
+            if action == delete_action:
+                page_idx, annot_idx = hit
+                entry = self._entries[page_idx]
+                if entry.annots and annot_idx < len(entry.annots):
+                    rect, txt = entry.annots[annot_idx]
+                    # Remove annotation from fitz doc
+                    if self._doc:
+                        import fitz
+                        page = self._doc[page_idx]
+                        for annot in page.annots() or []:
+                            if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                                content = annot.info.get("content", "") or ""
+                                if content.strip() == txt.strip():
+                                    page.delete_annot(annot)
+                                    break
+                        # Save the doc
+                        if self._path:
+                            self._doc.saveIncr()
+                    # Remove from entry annots list
+                    entry.annots.pop(annot_idx)
+                    if self._open_note == hit:
+                        self._open_note = None
+                    self.update()
+            return
         if not self._sel_text:
             return
         menu = QMenu(self)
