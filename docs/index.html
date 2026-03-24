@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDFApps — Fast, Offline, Subscription-Free PDF Editor</title>
     <meta name="description" content="PDFApps is a fast, offline, subscription-free PDF editor. Split, merge, rotate, compress, encrypt, watermark, OCR, convert, and visually edit PDFs. Open source, cross-platform.">
+    <meta name="keywords" content="PDF editor, offline PDF, free PDF tool, open source, split PDF, merge PDF, compress PDF, OCR, watermark, encrypt PDF">
+    <meta property="og:title" content="PDFApps — Fast, Offline PDF Editor">
+    <meta property="og:description" content="11 PDF tools in one app. 100% offline, free forever, open source.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://nelsonduarte.github.io/PDFApps-en/">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after {
             box-sizing: border-box;
@@ -17,67 +25,99 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: #1e293b;
             background: #ffffff;
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
         /* ── Layout ── */
         .container {
-            max-width: 1120px;
+            max-width: 1140px;
             margin: 0 auto;
             padding: 0 24px;
         }
 
         section {
-            padding: 80px 0;
+            padding: 96px 0;
         }
 
         h2 {
-            font-size: 2rem;
-            font-weight: 700;
+            font-size: 2.25rem;
+            font-weight: 800;
             text-align: center;
-            margin-bottom: 48px;
+            margin-bottom: 16px;
             color: #0f172a;
+            letter-spacing: -0.02em;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 1.1rem;
+            max-width: 560px;
+            margin: 0 auto 56px;
         }
 
         /* ── Navbar ── */
         nav {
             position: sticky;
             top: 0;
-            background: rgba(255,255,255,.92);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-bottom: 1px solid #e2e8f0;
+            background: rgba(255,255,255,.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(0,0,0,.06);
             z-index: 100;
-            padding: 14px 0;
+            padding: 0;
+            height: 64px;
+            display: flex;
+            align-items: center;
         }
 
         nav .container {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            width: 100%;
         }
 
         nav .logo {
-            font-size: 1.25rem;
-            font-weight: 700;
+            font-size: 1.3rem;
+            font-weight: 800;
             color: #2563eb;
             text-decoration: none;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        nav .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: #2563eb;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
         }
 
         nav ul {
             list-style: none;
             display: flex;
-            gap: 28px;
+            gap: 32px;
+            align-items: center;
         }
 
         nav a {
-            color: #475569;
+            color: #64748b;
             text-decoration: none;
-            font-size: 0.925rem;
+            font-size: 0.9rem;
             font-weight: 500;
             transition: color .2s;
         }
@@ -86,69 +126,140 @@
             color: #2563eb;
         }
 
+        .nav-cta {
+            background: #2563eb;
+            color: #fff !important;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: background .2s, transform .15s;
+        }
+
+        .nav-cta:hover {
+            background: #1d4ed8;
+            color: #fff !important;
+            transform: translateY(-1px);
+        }
+
         /* ── Hero ── */
         .hero {
             text-align: center;
-            padding: 100px 0 80px;
-            background: linear-gradient(180deg, #f0f5ff 0%, #ffffff 100%);
+            padding: 120px 0 100px;
+            background: linear-gradient(180deg, #f8faff 0%, #eef2ff 40%, #ffffff 100%);
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(37,99,235,.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #2563eb;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 28px;
         }
 
         .hero h1 {
-            font-size: 3.25rem;
-            font-weight: 800;
-            letter-spacing: -0.02em;
+            font-size: 4rem;
+            font-weight: 900;
+            letter-spacing: -0.03em;
             color: #0f172a;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
+            line-height: 1.1;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .hero .tagline {
             font-size: 1.35rem;
-            color: #475569;
-            margin-bottom: 40px;
-            max-width: 540px;
+            color: #64748b;
+            margin-bottom: 44px;
+            max-width: 520px;
             margin-left: auto;
             margin-right: auto;
+            line-height: 1.5;
         }
 
         .btn-group {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 14px;
-            margin-bottom: 28px;
+            gap: 12px;
+            margin-bottom: 32px;
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 14px 28px;
-            border-radius: 10px;
-            font-size: 1rem;
+            gap: 10px;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 0.95rem;
             font-weight: 600;
             text-decoration: none;
-            transition: transform .15s, box-shadow .15s;
+            transition: all .2s;
+            border: none;
+            cursor: pointer;
         }
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,.12);
         }
 
         .btn-download {
             background: #10b981;
             color: #fff;
+            box-shadow: 0 4px 14px rgba(16,185,129,.3);
+        }
+
+        .btn-download:hover {
+            background: #059669;
+            box-shadow: 0 8px 24px rgba(16,185,129,.35);
+        }
+
+        .btn-download svg {
+            width: 18px;
+            height: 18px;
         }
 
         .btn-outline {
             background: #fff;
+            color: #1e293b;
+            border: 1.5px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,.04);
+        }
+
+        .btn-outline:hover {
+            border-color: #2563eb;
             color: #2563eb;
-            border: 2px solid #2563eb;
+            box-shadow: 0 4px 14px rgba(37,99,235,.1);
         }
 
         .hero-sub {
             font-size: 0.9rem;
-            color: #64748b;
+            color: #94a3b8;
         }
 
         .hero-sub a {
@@ -161,91 +272,164 @@
             text-decoration: underline;
         }
 
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-top: 56px;
+            padding-top: 40px;
+            border-top: 1px solid #e2e8f0;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-stat {
+            text-align: center;
+        }
+
+        .hero-stat-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .hero-stat-label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
         /* ── Features Grid ── */
         #features {
-            background: #f8fafc;
+            background: #ffffff;
         }
 
         .features-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
         }
 
         .feature-card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 28px 20px;
+            background: #f8fafc;
+            border: 1px solid #f1f5f9;
+            border-radius: 16px;
+            padding: 32px 24px;
             text-align: center;
-            transition: box-shadow .2s, transform .2s;
+            transition: all .25s;
+            position: relative;
         }
 
         .feature-card:hover {
-            box-shadow: 0 8px 24px rgba(0,0,0,.07);
-            transform: translateY(-3px);
+            background: #ffffff;
+            border-color: #e2e8f0;
+            box-shadow: 0 12px 32px rgba(0,0,0,.06);
+            transform: translateY(-4px);
         }
 
         .feature-icon {
-            font-size: 2rem;
-            margin-bottom: 12px;
-            display: block;
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin: 0 auto 16px;
         }
 
+        .feature-icon-blue { background: #eff6ff; }
+        .feature-icon-green { background: #ecfdf5; }
+        .feature-icon-purple { background: #f5f3ff; }
+        .feature-icon-amber { background: #fffbeb; }
+        .feature-icon-rose { background: #fff1f2; }
+        .feature-icon-cyan { background: #ecfeff; }
+
         .feature-card h3 {
-            font-size: 1rem;
-            font-weight: 600;
+            font-size: 0.95rem;
+            font-weight: 700;
             color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .feature-card p {
+            font-size: 0.82rem;
+            color: #94a3b8;
+            line-height: 1.4;
         }
 
         /* ── Why PDFApps ── */
+        #why {
+            background: #f8fafc;
+        }
+
         .why-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 32px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
         }
 
         .why-card {
-            text-align: center;
-            padding: 36px 28px;
-            border-radius: 14px;
-            background: #f0f5ff;
+            text-align: left;
+            padding: 40px 32px;
+            border-radius: 20px;
+            background: #ffffff;
+            border: 1px solid #f1f5f9;
+            transition: all .25s;
+        }
+
+        .why-card:hover {
+            box-shadow: 0 16px 40px rgba(0,0,0,.06);
+            transform: translateY(-3px);
         }
 
         .why-icon {
-            font-size: 2.5rem;
-            margin-bottom: 16px;
-            display: block;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            margin-bottom: 20px;
         }
 
         .why-card h3 {
-            font-size: 1.15rem;
+            font-size: 1.2rem;
             font-weight: 700;
             margin-bottom: 10px;
             color: #0f172a;
         }
 
         .why-card p {
-            color: #475569;
+            color: #64748b;
             font-size: 0.95rem;
+            line-height: 1.6;
         }
 
         /* ── Screenshots ── */
         #screenshots {
-            background: #f8fafc;
+            background: #ffffff;
         }
 
         .screenshots-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 24px;
         }
 
         .screenshot-item {
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
             border: 1px solid #e2e8f0;
-            background: #fff;
+            background: #f8fafc;
+            transition: all .25s;
+        }
+
+        .screenshot-item:hover {
+            box-shadow: 0 16px 40px rgba(0,0,0,.08);
+            transform: translateY(-3px);
         }
 
         .screenshot-item img {
@@ -255,33 +439,42 @@
         }
 
         .screenshot-item figcaption {
-            padding: 12px 16px;
+            padding: 14px 20px;
             font-size: 0.9rem;
-            font-weight: 500;
-            color: #475569;
+            font-weight: 600;
+            color: #334155;
             text-align: center;
+            background: #fff;
         }
 
         /* ── Comparison Table ── */
+        #compare {
+            background: #f8fafc;
+        }
+
         .table-wrap {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            box-shadow: 0 4px 16px rgba(0,0,0,.04);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
             min-width: 640px;
-            font-size: 0.95rem;
+            font-size: 0.925rem;
         }
 
         thead {
-            background: #2563eb;
+            background: #0f172a;
             color: #fff;
         }
 
         th, td {
-            padding: 14px 18px;
+            padding: 16px 20px;
             text-align: center;
         }
 
@@ -291,18 +484,21 @@
 
         th {
             font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.01em;
         }
 
         thead th:nth-child(2) {
-            background: #1d4ed8;
-        }
-
-        tbody tr:nth-child(even) {
-            background: #f8fafc;
+            background: #2563eb;
         }
 
         tbody tr {
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background .15s;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
         }
 
         td:nth-child(2) {
@@ -310,78 +506,161 @@
             color: #2563eb;
         }
 
-        .check {
-            color: #10b981;
-            font-weight: 700;
+        .check { color: #10b981; font-weight: 700; font-size: 1.1rem; }
+        .cross { color: #ef4444; font-weight: 700; font-size: 1.1rem; }
+        .partial { color: #f59e0b; font-weight: 700; font-size: 1.1rem; }
+
+        .table-legend {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.85rem;
+            color: #94a3b8;
         }
 
-        .cross {
-            color: #ef4444;
-            font-weight: 700;
+        /* ── CTA Section ── */
+        .cta-section {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            padding: 80px 0;
+            text-align: center;
         }
 
-        .partial {
-            color: #f59e0b;
+        .cta-section h2 {
+            color: #fff;
+            margin-bottom: 16px;
+        }
+
+        .cta-section p {
+            color: rgba(255,255,255,.8);
+            font-size: 1.1rem;
+            margin-bottom: 36px;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-section .btn-download {
+            background: #fff;
+            color: #2563eb;
             font-weight: 700;
+            box-shadow: 0 4px 20px rgba(0,0,0,.15);
+        }
+
+        .cta-section .btn-download:hover {
+            background: #f8fafc;
+            box-shadow: 0 8px 30px rgba(0,0,0,.2);
+        }
+
+        .cta-section .btn-outline {
+            border-color: rgba(255,255,255,.4);
+            color: #fff;
+            background: transparent;
+        }
+
+        .cta-section .btn-outline:hover {
+            border-color: #fff;
+            background: rgba(255,255,255,.1);
+            color: #fff;
         }
 
         /* ── Footer ── */
         footer {
             background: #0f172a;
             color: #94a3b8;
-            padding: 48px 0;
-            text-align: center;
+            padding: 56px 0 40px;
         }
 
-        footer .footer-links {
+        .footer-top {
             display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 24px;
-            margin-bottom: 20px;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid #1e293b;
         }
 
-        footer a {
+        .footer-brand {
+            max-width: 300px;
+        }
+
+        .footer-brand .logo {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .footer-brand p {
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        .footer-links-group {
+            display: flex;
+            gap: 56px;
+        }
+
+        .footer-col h4 {
             color: #e2e8f0;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+        }
+
+        .footer-col a {
+            display: block;
+            color: #94a3b8;
             text-decoration: none;
-            font-weight: 500;
+            font-size: 0.9rem;
+            padding: 4px 0;
             transition: color .2s;
         }
 
-        footer a:hover {
+        .footer-col a:hover {
             color: #60a5fa;
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.82rem;
         }
 
         .btn-sponsor {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            background: #db2777;
-            color: #fff;
-            padding: 10px 22px;
-            border-radius: 8px;
+            gap: 8px;
+            background: transparent;
+            border: 1.5px solid #db2777;
+            color: #f472b6;
+            padding: 10px 24px;
+            border-radius: 10px;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             text-decoration: none;
-            margin-bottom: 20px;
-            transition: transform .15s, box-shadow .15s;
+            transition: all .2s;
         }
 
         .btn-sponsor:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(219,39,119,.3);
+            background: #db2777;
             color: #fff;
-        }
-
-        footer .meta {
-            font-size: 0.85rem;
-            margin-top: 12px;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(219,39,119,.25);
         }
 
         /* ── Responsive ── */
+        @media (max-width: 1024px) {
+            .features-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
         @media (max-width: 768px) {
             .hero h1 {
-                font-size: 2.25rem;
+                font-size: 2.5rem;
             }
 
             .hero .tagline {
@@ -389,12 +668,24 @@
             }
 
             section {
-                padding: 56px 0;
+                padding: 64px 0;
             }
 
             h2 {
-                font-size: 1.6rem;
-                margin-bottom: 32px;
+                font-size: 1.75rem;
+            }
+
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 14px;
+            }
+
+            .why-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .screenshots-grid {
+                grid-template-columns: 1fr;
             }
 
             nav ul {
@@ -402,12 +693,27 @@
             }
 
             nav a {
-                font-size: 0.85rem;
+                font-size: 0.82rem;
             }
 
             .btn {
-                padding: 12px 20px;
+                padding: 13px 22px;
                 font-size: 0.9rem;
+            }
+
+            .hero-stats {
+                gap: 32px;
+            }
+
+            .footer-top {
+                flex-direction: column;
+                gap: 32px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
             }
         }
 
@@ -417,7 +723,7 @@
             }
 
             .hero h1 {
-                font-size: 1.85rem;
+                font-size: 2rem;
             }
 
             .btn-group {
@@ -425,9 +731,23 @@
                 align-items: center;
             }
 
+            .btn {
+                width: 100%;
+                max-width: 260px;
+                justify-content: center;
+            }
+
             .features-grid {
                 grid-template-columns: repeat(2, 1fr);
-                gap: 14px;
+                gap: 12px;
+            }
+
+            .feature-card {
+                padding: 20px 16px;
+            }
+
+            .footer-links-group {
+                gap: 32px;
             }
         }
     </style>
@@ -437,13 +757,16 @@
 <!-- ── Navbar ── -->
 <nav>
     <div class="container">
-        <a href="#" class="logo">PDFApps</a>
+        <a href="#" class="logo">
+            <span class="logo-icon">P</span>
+            PDFApps
+        </a>
         <ul>
             <li><a href="#features">Features</a></li>
             <li><a href="#why">Why PDFApps?</a></li>
             <li><a href="#screenshots">Screenshots</a></li>
             <li><a href="#compare">Compare</a></li>
-            <li><a href="https://github.com/nelsonduarte/PDFApps-en">GitHub</a></li>
+            <li><a href="https://github.com/nelsonduarte/PDFApps-en" class="nav-cta">GitHub</a></li>
         </ul>
     </div>
 </nav>
@@ -451,70 +774,111 @@
 <!-- ── Hero ── -->
 <section class="hero">
     <div class="container">
-        <h1>PDFApps</h1>
-        <p class="tagline">Fast, offline, subscription-free PDF editor</p>
+        <div class="hero-badge">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="4" fill="#2563eb"/></svg>
+            Open Source &middot; MIT License
+        </div>
+
+        <h1>The PDF editor that<br>respects your <span>privacy</span></h1>
+        <p class="tagline">11 powerful tools in one app. 100% offline, free forever, no accounts needed. Your files never leave your computer.</p>
 
         <div class="btn-group">
-            <a href="https://github.com/nelsonduarte/PDFApps-en/releases/latest/download/PDFAppsSetup.exe" class="btn btn-download">&#11015; Windows</a>
-            <a href="https://github.com/nelsonduarte/PDFApps-en/releases/latest/download/PDFApps-Linux.tar.gz" class="btn btn-download">&#11015; Linux</a>
-            <a href="https://github.com/nelsonduarte/PDFApps-en/releases/latest/download/PDFApps-macOS.zip" class="btn btn-download">&#11015; macOS</a>
+            <a href="https://github.com/nelsonduarte/PDFApps-en/releases/latest/download/PDFAppsSetup.exe" class="btn btn-download">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Windows
+            </a>
+            <a href="https://github.com/nelsonduarte/PDFApps-en/releases/latest/download/PDFApps-Linux.tar.gz" class="btn btn-download">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Linux
+            </a>
+            <a href="https://github.com/nelsonduarte/PDFApps-en/releases/latest/download/PDFApps-macOS.zip" class="btn btn-download">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                macOS
+            </a>
         </div>
 
         <p class="hero-sub">
-            Open source &middot; MIT License &middot;
-            <a href="https://github.com/nelsonduarte/PDFApps-en">View on GitHub</a>
+            <a href="https://github.com/nelsonduarte/PDFApps-en">View source on GitHub</a>
+            &nbsp;&middot;&nbsp; v1.2.0
         </p>
+
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <div class="hero-stat-value">11</div>
+                <div class="hero-stat-label">PDF Tools</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value">3</div>
+                <div class="hero-stat-label">Platforms</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value">0</div>
+                <div class="hero-stat-label">Subscriptions</div>
+            </div>
+        </div>
     </div>
 </section>
 
 <!-- ── Features ── -->
 <section id="features">
     <div class="container">
-        <h2>11 Built-in Tools</h2>
+        <h2>Everything you need for PDFs</h2>
+        <p class="section-subtitle">11 built-in tools that cover every common PDF task. No plugins, no add-ons, no internet required.</p>
         <div class="features-grid">
             <div class="feature-card">
-                <span class="feature-icon">&#9986;</span>
+                <div class="feature-icon feature-icon-blue">&#9986;</div>
                 <h3>Split</h3>
+                <p>Extract page ranges</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#128279;</span>
+                <div class="feature-icon feature-icon-green">&#128279;</div>
                 <h3>Merge</h3>
+                <p>Combine multiple PDFs</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#128260;</span>
+                <div class="feature-icon feature-icon-purple">&#128260;</div>
                 <h3>Rotate</h3>
+                <p>Rotate any page</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#128196;</span>
+                <div class="feature-icon feature-icon-amber">&#128196;</div>
                 <h3>Extract</h3>
+                <p>Pull out specific pages</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#128218;</span>
+                <div class="feature-icon feature-icon-rose">&#128218;</div>
                 <h3>Reorder</h3>
+                <p>Drag & drop pages</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#128230;</span>
+                <div class="feature-icon feature-icon-cyan">&#128230;</div>
                 <h3>Compress</h3>
+                <p>3 compression levels</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#128274;</span>
+                <div class="feature-icon feature-icon-blue">&#128274;</div>
                 <h3>Encrypt</h3>
+                <p>Password protection</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#128167;</span>
+                <div class="feature-icon feature-icon-purple">&#128167;</div>
                 <h3>Watermark</h3>
+                <p>Stamp overlay</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#128065;</span>
+                <div class="feature-icon feature-icon-green">&#128065;</div>
                 <h3>OCR</h3>
+                <p>5 languages supported</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#128257;</span>
+                <div class="feature-icon feature-icon-amber">&#128257;</div>
                 <h3>Convert</h3>
+                <p>PNG, JPG, DOCX, TXT</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon">&#9998;</span>
+                <div class="feature-icon feature-icon-rose">&#9998;</div>
                 <h3>Visual Editor</h3>
+                <p>Redact, text, images</p>
             </div>
         </div>
     </div>
@@ -524,21 +888,22 @@
 <section id="why">
     <div class="container">
         <h2>Why PDFApps?</h2>
+        <p class="section-subtitle">Built for people who care about privacy, simplicity, and not paying for basic tools.</p>
         <div class="why-grid">
             <div class="why-card">
-                <span class="why-icon">&#128272;</span>
+                <div class="why-icon feature-icon-blue">&#128272;</div>
                 <h3>100% Offline</h3>
                 <p>Your files never leave your computer. No uploads, no cloud processing, no data collection. Complete privacy by design.</p>
             </div>
             <div class="why-card">
-                <span class="why-icon">&#127873;</span>
+                <div class="why-icon feature-icon-green">&#127873;</div>
                 <h3>Free Forever</h3>
                 <p>Open source and MIT licensed. No subscriptions, no trials, no feature locks. Every tool is yours to use, forever.</p>
             </div>
             <div class="why-card">
-                <span class="why-icon">&#128187;</span>
+                <div class="why-icon feature-icon-purple">&#128187;</div>
                 <h3>Cross-Platform</h3>
-                <p>Runs natively on Windows, macOS, and Linux. Same experience everywhere, built with Python and PySide6.</p>
+                <p>Runs natively on Windows, macOS, and Linux. Same experience everywhere, built with Python and PySide6 (Qt 6).</p>
             </div>
         </div>
     </div>
@@ -547,23 +912,24 @@
 <!-- ── Screenshots ── -->
 <section id="screenshots">
     <div class="container">
-        <h2>Screenshots</h2>
+        <h2>See it in action</h2>
+        <p class="section-subtitle">A clean, modern interface designed for productivity.</p>
         <div class="screenshots-grid">
             <figure class="screenshot-item">
                 <img src="screenshots/viewer.png" alt="PDFApps Viewer" loading="lazy">
-                <figcaption>PDF Viewer</figcaption>
+                <figcaption>PDF Viewer with continuous scroll</figcaption>
             </figure>
             <figure class="screenshot-item">
                 <img src="screenshots/editor.png" alt="PDFApps Visual Editor" loading="lazy">
-                <figcaption>Visual Editor</figcaption>
+                <figcaption>Visual Editor with annotations</figcaption>
             </figure>
             <figure class="screenshot-item">
                 <img src="screenshots/tools.png" alt="PDFApps Tools" loading="lazy">
-                <figcaption>Built-in Tools</figcaption>
+                <figcaption>Built-in tools sidebar</figcaption>
             </figure>
             <figure class="screenshot-item">
                 <img src="screenshots/light-theme.png" alt="PDFApps Light Theme" loading="lazy">
-                <figcaption>Light Theme</figcaption>
+                <figcaption>Light theme</figcaption>
             </figure>
         </div>
     </div>
@@ -572,7 +938,8 @@
 <!-- ── Comparison ── -->
 <section id="compare">
     <div class="container">
-        <h2>How PDFApps Compares</h2>
+        <h2>How PDFApps compares</h2>
+        <p class="section-subtitle">See how PDFApps stacks up against the most popular PDF tools.</p>
         <div class="table-wrap">
             <table>
                 <thead>
@@ -586,14 +953,14 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Offline</td>
+                        <td>Works Offline</td>
                         <td class="check">&#10003;</td>
                         <td class="check">&#10003;</td>
                         <td class="cross">&#10007;</td>
                         <td class="cross">&#10007;</td>
                     </tr>
                     <tr>
-                        <td>Free</td>
+                        <td>Completely Free</td>
                         <td class="check">&#10003;</td>
                         <td class="cross">&#10007;</td>
                         <td class="partial">&#9673;</td>
@@ -637,7 +1004,7 @@
                 </tbody>
             </table>
         </div>
-        <p style="text-align:center; margin-top:14px; font-size:0.85rem; color:#94a3b8;">
+        <p class="table-legend">
             <span class="check">&#10003;</span> Yes &nbsp;&nbsp;
             <span class="partial">&#9673;</span> Partial / Limited &nbsp;&nbsp;
             <span class="cross">&#10007;</span> No
@@ -645,18 +1012,45 @@
     </div>
 </section>
 
+<!-- ── CTA ── -->
+<section class="cta-section">
+    <div class="container">
+        <h2>Ready to take control of your PDFs?</h2>
+        <p>Download PDFApps for free and start working with your documents offline.</p>
+        <div class="btn-group">
+            <a href="https://github.com/nelsonduarte/PDFApps-en/releases/latest" class="btn btn-download">Download PDFApps</a>
+            <a href="https://github.com/nelsonduarte/PDFApps-en" class="btn btn-outline">View on GitHub</a>
+        </div>
+    </div>
+</section>
+
 <!-- ── Footer ── -->
 <footer>
     <div class="container">
-        <div class="footer-links">
-            <a href="https://github.com/nelsonduarte/PDFApps-en">GitHub</a>
-            <a href="https://github.com/nelsonduarte/PDFApps-en/releases">Releases</a>
-            <a href="https://github.com/nelsonduarte/PDFApps-en/issues">Issues</a>
-            <a href="https://github.com/nelsonduarte/PDFApps-en/blob/main/LICENSE">MIT License</a>
+        <div class="footer-top">
+            <div class="footer-brand">
+                <span class="logo">PDFApps</span>
+                <p>A fast, offline, open-source PDF editor. Built with Python and PySide6.</p>
+            </div>
+            <div class="footer-links-group">
+                <div class="footer-col">
+                    <h4>Project</h4>
+                    <a href="https://github.com/nelsonduarte/PDFApps-en">Source Code</a>
+                    <a href="https://github.com/nelsonduarte/PDFApps-en/releases">Releases</a>
+                    <a href="https://github.com/nelsonduarte/PDFApps-en/issues">Report a Bug</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Community</h4>
+                    <a href="https://github.com/nelsonduarte/PDFApps-en/blob/main/LICENSE">MIT License</a>
+                    <a href="https://github.com/nelsonduarte/PDFApps-en#contributing">Contributing</a>
+                    <a href="https://github.com/sponsors/nelsonduarte">Sponsor</a>
+                </div>
+            </div>
         </div>
-        <a href="https://github.com/sponsors/nelsonduarte" class="btn-sponsor">&#9829; Sponsor</a>
-        <p class="meta">Made with Python and PySide6</p>
-        <p class="meta" style="margin-top:6px;">&copy; PDFApps &mdash; MIT License</p>
+        <div class="footer-bottom">
+            <p>&copy; 2025 PDFApps &mdash; MIT License</p>
+            <a href="https://github.com/sponsors/nelsonduarte" class="btn-sponsor">&#9829; Sponsor this project</a>
+        </div>
     </div>
 </footer>
 
