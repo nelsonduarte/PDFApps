@@ -84,6 +84,8 @@ class PdfViewerPanel(QWidget):
                   self._zoom_in_btn, self._fit_btn,
                   self._prev_btn, self._page_lbl, self._next_btn):
             hdr_lay.addWidget(w)
+        self._hdr = hdr
+        self._hdr.setVisible(False)
         layout.addWidget(hdr)
 
         # ── Placeholder ─────────────────────────────────────────────────────
