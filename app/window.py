@@ -238,6 +238,8 @@ class MainWindow(QMainWindow):
             original_load(*args, **kwargs)
             from PySide6.QtCore import QTimer
             QTimer.singleShot(100, self._update_page_nav)
+            if self._current_tool == -1:
+                self._setup_zoom_bar(True, canvas=self._viewer._canvas)
         self._viewer.load = _wrapped_load
 
     def _open_tool_by_name(self, tool_name: str):
@@ -263,9 +265,17 @@ class MainWindow(QMainWindow):
     def _edit_tool_idx(self) -> int:
         return next(i for i, (_, __, cls) in enumerate(NAV_ITEMS) if cls is TabEditar)
 
-    def _setup_zoom_bar(self, active: bool):
+    def _setup_zoom_bar(self, active: bool, canvas=None):
         self._zoom_widget.setVisible(active)
-        canvas = getattr(self.stack.widget(self._edit_tool_idx()), '_canvas', None)
+        # Disconnect previous connections
+        try:
+            self._zm_btn.clicked.disconnect()
+            self._zp_btn.clicked.disconnect()
+            self._z0_btn.clicked.disconnect()
+        except Exception:
+            pass
+        if canvas is None:
+            canvas = getattr(self.stack.widget(self._edit_tool_idx()), '_canvas', None)
         if canvas is None:
             return
         if active:
@@ -273,14 +283,7 @@ class MainWindow(QMainWindow):
             self._zp_btn.clicked.connect(canvas.zoom_in)
             self._z0_btn.clicked.connect(canvas.zoom_reset)
             canvas.zoom_changed.connect(lambda pct: self._lbl_zoom.setText(f"{pct}%"))
-        else:
-            try:
-                self._zm_btn.clicked.disconnect(canvas.zoom_out)
-                self._zp_btn.clicked.disconnect(canvas.zoom_in)
-                self._z0_btn.clicked.disconnect(canvas.zoom_reset)
-                canvas.zoom_changed.disconnect()
-            except Exception:
-                pass
+            self._lbl_zoom.setText(f"{round(canvas._zoom_factor * 100)}%")
 
     def _on_nav_clicked(self, item):
         row = self.nav.row(item)
@@ -291,10 +294,9 @@ class MainWindow(QMainWindow):
             self.stack.setVisible(False)
             self._viewer.setVisible(True)
             self._tool_badge.setText("Mode: Viewer")
-            self._setup_zoom_bar(False)
+            self._setup_zoom_bar(True, canvas=self._viewer._canvas)
         else:
-            if self._current_tool == edit_idx:
-                self._setup_zoom_bar(False)
+            self._setup_zoom_bar(False)
             self._current_tool = row
             self.stack.setCurrentIndex(row)
             self.stack.setVisible(True)
