@@ -517,6 +517,69 @@
             color: #94a3b8;
         }
 
+        /* ── Guide Section ── */
+        .guide-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+            margin-top: 48px;
+        }
+
+        .guide-step {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 28px;
+            position: relative;
+        }
+
+        .guide-step h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            padding-left: 40px;
+        }
+
+        .guide-step p, .guide-step ul {
+            font-size: 0.95rem;
+            color: #475569;
+            line-height: 1.7;
+        }
+
+        .guide-step ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+
+        .guide-step ul li {
+            margin-bottom: 4px;
+        }
+
+        .guide-number {
+            position: absolute;
+            top: 26px;
+            left: 28px;
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .guide-step a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+
+        .guide-step a:hover {
+            text-decoration: underline;
+        }
+
         /* ── CTA Section ── */
         .cta-section {
             background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
@@ -765,6 +828,7 @@
             <li><a href="#features">Features</a></li>
             <li><a href="#why">Why PDFApps?</a></li>
             <li><a href="#screenshots">Screenshots</a></li>
+            <li><a href="#guide">Guide</a></li>
             <li><a href="#compare">Compare</a></li>
             <li><a href="https://github.com/nelsonduarte/PDFApps-en" class="nav-cta">GitHub</a></li>
         </ul>
@@ -931,6 +995,81 @@
                 <img src="screenshots/light-theme.png" alt="PDFApps Light Theme" loading="lazy">
                 <figcaption>Light theme</figcaption>
             </figure>
+        </div>
+    </div>
+</section>
+
+<!-- ── Guide ── -->
+<section id="guide">
+    <div class="container">
+        <h2>How to Use PDFApps</h2>
+        <p class="section-subtitle">A quick guide to get you started with every feature.</p>
+
+        <div class="guide-grid">
+            <div class="guide-step">
+                <div class="guide-number">1</div>
+                <h3>Open a PDF</h3>
+                <p>Click the <strong>folder icon</strong> in the toolbar, drag and drop a file onto the window, or double-click a PDF associated with PDFApps. The viewer loads instantly with continuous scroll.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">2</div>
+                <h3>Navigate Pages</h3>
+                <p>Use the <strong>page input field</strong> in the toolbar to jump to any page. Type a number and press Enter. Use the <strong>arrow buttons</strong> to go to the previous or next page.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">3</div>
+                <h3>Zoom In & Out</h3>
+                <p>Use the <strong>+ / −</strong> buttons in the toolbar or <strong>Ctrl + Scroll</strong> to zoom. Click <strong>Reset</strong> to return to the default zoom level.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">4</div>
+                <h3>Use the Tools</h3>
+                <p>Click any tool in the <strong>sidebar</strong> (Split, Merge, Rotate, etc.). Select your PDF, adjust the settings, and click <strong>Run</strong>. The output file is saved automatically.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">5</div>
+                <h3>Visual Editor</h3>
+                <p>Click <strong>Edit</strong> in the toolbar to open the visual editor. Choose a mode from the right panel:</p>
+                <ul>
+                    <li><strong>Redact / Censor</strong> — draw a black rectangle to hide content</li>
+                    <li><strong>Add Text</strong> — click to place text on the page</li>
+                    <li><strong>Add Image</strong> — insert an image onto the PDF</li>
+                    <li><strong>Highlight</strong> — draw a yellow highlight over text</li>
+                    <li><strong>Note / Comment</strong> — click to add a note; click the icon to show/hide the popup</li>
+                    <li><strong>Edit Existing Text</strong> — click on text to modify it inline</li>
+                </ul>
+                <p>Click <strong>Save</strong> to apply all edits.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">6</div>
+                <h3>Comments & Annotations</h3>
+                <p>Notes appear as <strong>pencil icons</strong>. Click to toggle the popup balloon. <strong>Right-click</strong> on a note icon to delete it. Annotations are saved in the PDF and visible in any PDF reader.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">7</div>
+                <h3>Convert PDF</h3>
+                <p>Use the <strong>Convert</strong> tool to export PDF pages to <strong>PNG</strong>, <strong>JPG</strong> (with DPI selector), <strong>DOCX</strong> (Word), or <strong>TXT</strong> (plain text).</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">8</div>
+                <h3>OCR (Text Recognition)</h3>
+                <p>Use the <strong>OCR</strong> tool to extract text from scanned PDFs. Requires <a href="https://github.com/tesseract-ocr/tesseract" target="_blank">Tesseract</a> installed. Supports Portuguese, English, Spanish, French, and German.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">9</div>
+                <h3>Keyboard Shortcuts</h3>
+                <ul>
+                    <li><strong>Ctrl + Scroll</strong> — Zoom in/out</li>
+                    <li><strong>Ctrl + O</strong> — Open file</li>
+                    <li><strong>Enter</strong> (in page field) — Go to page</li>
+                    <li><strong>Right-click</strong> on note — Delete comment</li>
+                </ul>
+            </div>
+            <div class="guide-step">
+                <div class="guide-number">10</div>
+                <h3>Themes</h3>
+                <p>Click the <strong>sun/moon icon</strong> in the top-right corner to toggle between <strong>dark</strong> and <strong>light</strong> themes.</p>
+            </div>
         </div>
     </div>
 </section>

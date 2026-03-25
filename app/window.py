@@ -139,6 +139,13 @@ class MainWindow(QMainWindow):
         self._tool_badge = QLabel("Mode: Viewer"); self._tool_badge.setObjectName("workspace_badge")
         wb_h.addWidget(self._tool_badge)
 
+        self._help_btn = QPushButton("?")
+        self._help_btn.setObjectName("theme_btn")
+        self._help_btn.setToolTip("Help — How to use PDFApps")
+        self._help_btn.setFixedSize(28, 28)
+        self._help_btn.clicked.connect(lambda: __import__('webbrowser').open("https://nelsonduarte.github.io/PDFApps-en/#guide"))
+        wb_h.addWidget(self._help_btn)
+
         self._theme_btn = QPushButton("☀")
         self._theme_btn.setObjectName("theme_btn")
         self._theme_btn.setToolTip("Toggle light/dark theme")
