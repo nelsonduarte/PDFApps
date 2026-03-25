@@ -102,6 +102,8 @@ class _SelectCanvas(QWidget):
         self._sel_rects: list[QRect] = []
         self._sel_text    = ""
         self._open_note   = None   # (page_idx, annot_idx) of open balloon
+        self._search_highlights: list[tuple[int, object]] = []  # [(page_idx, fitz_rect), ...]
+        self._search_current = -1   # index of current match in _search_highlights
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.IBeamCursor)
@@ -137,6 +139,10 @@ class _SelectCanvas(QWidget):
 
     def page_count(self) -> int:
         return len(self._entries)
+
+    def set_search_highlights(self, highlights: list, current: int = -1):
+        self._search_highlights = highlights
+        self._search_current = current
 
     def zoom_in(self):
         self._zoom_factor = min(4.0, round(self._zoom_factor * 1.25, 4))
@@ -381,6 +387,24 @@ class _SelectCanvas(QWidget):
                     p.drawText(text_rect,
                                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
                                txt)
+
+        # ── Search highlights ──
+        z = self._zoom
+        for hi_idx, (pg_idx, fr) in enumerate(self._search_highlights):
+            if pg_idx < first or pg_idx > last:
+                continue
+            ey = self._entries[pg_idx].y_off
+            rx = int(fr.x0 * z)
+            ry = ey + int(fr.y0 * z)
+            rw = int((fr.x1 - fr.x0) * z)
+            rh = int((fr.y1 - fr.y0) * z)
+            if hi_idx == self._search_current:
+                p.fillRect(rx, ry, rw, rh, QColor(249, 115, 22, 140))  # orange for current
+                p.setPen(QPen(QColor("#F97316"), 2))
+                p.setBrush(Qt.BrushStyle.NoBrush)
+                p.drawRect(rx, ry, rw, rh)
+            else:
+                p.fillRect(rx, ry, rw, rh, QColor(250, 204, 21, 100))  # yellow for others
 
         # ── Selection ──
         for r in self._sel_rects:

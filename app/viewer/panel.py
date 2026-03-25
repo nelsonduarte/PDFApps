@@ -7,7 +7,9 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QFileDialog, QMessageBox, QDialog,
+    QLineEdit,
 )
+from PySide6.QtGui import QKeySequence, QShortcut
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_SEC, _LQ
@@ -130,6 +132,47 @@ class PdfViewerPanel(QWidget):
         self._canvas_scroll.verticalScrollBar().valueChanged.connect(self._on_scroll)
         layout.addWidget(self._canvas_scroll, 1)
 
+        # ── Search bar (Ctrl+F) ───────────────────────────────────────────
+        self._search_bar = QWidget()
+        self._search_bar.setObjectName("search_bar")
+        sb_lay = QHBoxLayout(self._search_bar)
+        sb_lay.setContentsMargins(8, 4, 8, 4)
+        sb_lay.setSpacing(4)
+        self._search_input = QLineEdit()
+        self._search_input.setPlaceholderText("Search in PDF...")
+        self._search_input.setObjectName("search_input")
+        self._search_input.returnPressed.connect(self._search_next)
+        self._search_input.textChanged.connect(self._on_search_text_changed)
+        self._search_lbl = QLabel("")
+        self._search_lbl.setMinimumWidth(60)
+        self._search_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        _prev_s = QPushButton()
+        _prev_s.setIcon(qta.icon("fa5s.chevron-up", color=TEXT_SEC))
+        _prev_s.setFixedSize(28, 28); _prev_s.setObjectName("viewer_nav_btn")
+        _prev_s.setToolTip("Previous match")
+        _prev_s.clicked.connect(self._search_prev)
+        _next_s = QPushButton()
+        _next_s.setIcon(qta.icon("fa5s.chevron-down", color=TEXT_SEC))
+        _next_s.setFixedSize(28, 28); _next_s.setObjectName("viewer_nav_btn")
+        _next_s.setToolTip("Next match")
+        _next_s.clicked.connect(self._search_next)
+        _close_s = QPushButton()
+        _close_s.setIcon(qta.icon("fa5s.times", color=TEXT_SEC))
+        _close_s.setFixedSize(28, 28); _close_s.setObjectName("viewer_nav_btn")
+        _close_s.setToolTip("Close search (Esc)")
+        _close_s.clicked.connect(self._close_search)
+        sb_lay.addWidget(self._search_input, 1)
+        sb_lay.addWidget(self._search_lbl)
+        sb_lay.addWidget(_prev_s); sb_lay.addWidget(_next_s); sb_lay.addWidget(_close_s)
+        self._search_bar.setVisible(False)
+        layout.addWidget(self._search_bar)
+        self._search_results: list[tuple[int, list]] = []  # [(page_idx, [fitz_rects]), ...]
+        self._search_current = -1
+
+        # Shortcuts
+        QShortcut(QKeySequence("Ctrl+F"), self, self._toggle_search)
+        QShortcut(QKeySequence("Escape"), self._search_input, self._close_search)
+
         # ── Status bar (text selection) ──────────────────────────────────
         self._sel_status = QLabel("Drag over text to select and copy")
         self._sel_status.setObjectName("viewer_sel_status")
@@ -247,6 +290,100 @@ class PdfViewerPanel(QWidget):
         self._zoom_lbl.setText("Fit")
         for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn):
             btn.setEnabled(True)
+
+    # ── Search ──────────────────────────────────────────────────────────
+    def _toggle_search(self):
+        if self._search_bar.isVisible():
+            self._close_search()
+        else:
+            self._search_bar.setVisible(True)
+            self._search_input.setFocus()
+            self._search_input.selectAll()
+
+    def _close_search(self):
+        self._search_bar.setVisible(False)
+        self._search_results.clear()
+        self._search_current = -1
+        self._search_lbl.setText("")
+        self._canvas.set_search_highlights([])
+        self._canvas.update()
+
+    def _on_search_text_changed(self, text: str):
+        if not text.strip():
+            self._search_results.clear()
+            self._search_current = -1
+            self._search_lbl.setText("")
+            self._canvas.set_search_highlights([])
+            self._canvas.update()
+            return
+        self._do_search(text.strip())
+
+    def _do_search(self, query: str):
+        if not self._fitz_doc:
+            return
+        results = []
+        for page_idx in range(self._fitz_doc.page_count):
+            page = self._fitz_doc[page_idx]
+            rects = page.search_for(query)
+            if rects:
+                results.append((page_idx, rects))
+        self._search_results = results
+        total = sum(len(rects) for _, rects in results)
+        if total == 0:
+            self._search_lbl.setText("0 / 0")
+            self._search_current = -1
+            self._canvas.set_search_highlights([])
+            self._canvas.update()
+            return
+        self._search_current = 0
+        self._update_search_highlight()
+
+    def _search_next(self):
+        if not self._search_results:
+            text = self._search_input.text().strip()
+            if text:
+                self._do_search(text)
+            return
+        total = sum(len(rects) for _, rects in self._search_results)
+        if total == 0:
+            return
+        self._search_current = (self._search_current + 1) % total
+        self._update_search_highlight()
+
+    def _search_prev(self):
+        if not self._search_results:
+            return
+        total = sum(len(rects) for _, rects in self._search_results)
+        if total == 0:
+            return
+        self._search_current = (self._search_current - 1) % total
+        self._update_search_highlight()
+
+    def _update_search_highlight(self):
+        total = sum(len(rects) for _, rects in self._search_results)
+        self._search_lbl.setText(f"{self._search_current + 1} / {total}")
+        # Build highlight list for canvas: [(page_idx, fitz_rect), ...]
+        all_highlights = []
+        flat_idx = 0
+        current_page = 0
+        current_rect_idx = 0
+        for page_idx, rects in self._search_results:
+            for rect in rects:
+                all_highlights.append((page_idx, rect))
+                if flat_idx == self._search_current:
+                    current_page = page_idx
+                    current_rect_idx = flat_idx
+                flat_idx += 1
+        self._canvas.set_search_highlights(all_highlights, self._search_current)
+        # Scroll to current match
+        if current_page < len(self._canvas._entries):
+            entry = self._canvas._entries[current_page]
+            # Get the rect of current match
+            _, cur_rect = all_highlights[self._search_current]
+            z = self._canvas._zoom
+            y_target = entry.y_off + int(cur_rect.y0 * z) - 100
+            self._canvas_scroll.verticalScrollBar().setValue(max(0, y_target))
+        self._canvas.update()
 
     # ── Navigation ────────────────────────────────────────────────────────
     def _update_page_label(self):
