@@ -9,17 +9,18 @@ from PySide6.QtWidgets import (
 from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
+from app.i18n import t
 from app.utils import section, info_lbl, parse_pages
 from app.widgets import DropFileEdit
 
 
 class TabExtrair(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.file-export", "Extract pages",
-                         "Copy specific pages to a new PDF.",
-                         "Extract pages", status_fn)
+        super().__init__("fa5s.file-export", t("tool.extract.name"),
+                         t("tool.extract.desc"),
+                         t("tool.extract.btn"), status_fn)
         f = self._form
-        f.addWidget(section("Source file"))
+        f.addWidget(section(t("tool.extract.source")))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -27,23 +28,23 @@ class TabExtrair(BasePage):
         self.lbl_info = info_lbl()
         f.addWidget(self.drop_in); f.addWidget(self.lbl_info)
 
-        grp = QGroupBox("Pages to extract")
+        grp = QGroupBox(t("tool.extract.section"))
         form = QFormLayout(grp)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.edit_pages = QLineEdit()
-        self.edit_pages.setPlaceholderText("e.g.: 1,3,5-8,10")
-        hint = QLabel("Use commas and hyphens.  E.g.:  1, 3, 5-8, 10")
+        self.edit_pages.setPlaceholderText(t("tool.extract.hint"))
+        hint = QLabel(t("tool.extract.help"))
         hint.setObjectName("info_lbl")
-        form.addRow("Pages:", self.edit_pages)
+        form.addRow(t("tool.extract.pages_label"), self.edit_pages)
         form.addRow("", hint)
         f.addWidget(grp)
 
-        f.addWidget(section("Output file"))
+        f.addWidget(section(t("tool.extract.output")))
         self.drop_out = DropFileEdit("extracted.pdf", save=True, default_name="extracted.pdf")
         f.addWidget(self.drop_out); f.addStretch()
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -64,18 +65,18 @@ class TabExtrair(BasePage):
         pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
         txt = self.edit_pages.text().strip()
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Warning", "Select a valid PDF."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
         if not txt:
-            QMessageBox.warning(self, "Warning", "Specify the pages to extract."); return
+            QMessageBox.warning(self, t("msg.warning"), t("tool.extract.specify")); return
         if not out_path:
-            QMessageBox.warning(self, "Warning", "Choose the output file."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
         try:
             reader = PdfReader(pdf_path)
             pages  = parse_pages(txt, len(reader.pages))
             w = PdfWriter()
             for p in pages: w.add_page(reader.pages[p])
             with open(out_path, "wb") as f: w.write(f)
-            self._status(f"✔  {len(pages)} page(s) extracted: {os.path.basename(out_path)}")
-            QMessageBox.information(self, "Done",
-                f"{len(pages)} page(s) extracted to:\n{out_path}")
+            self._status(f"✔  {len(pages)} → {os.path.basename(out_path)}")
+            QMessageBox.information(self, t("msg.done"),
+                t("tool.extract.done", n=len(pages), path=out_path))
         except Exception as e: QMessageBox.critical(self, "Error", str(e))

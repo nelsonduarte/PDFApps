@@ -9,18 +9,19 @@ from PySide6.QtWidgets import (
 from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
+from app.i18n import t
 from app.utils import section, info_lbl, danger_btn
 from app.widgets import DropFileEdit
 
 
 class TabReordenar(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.sort", "Reorder pages",
-                         "Drag pages to change their order or remove them.",
-                         "Save reordered PDF", status_fn)
+        super().__init__("fa5s.sort", t("tool.reorder.name"),
+                         t("tool.reorder.desc"),
+                         t("tool.reorder.btn"), status_fn)
         self._reader = None
         f = self._form
-        f.addWidget(section("Source file"))
+        f.addWidget(section(t("tool.reorder.source")))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -28,7 +29,7 @@ class TabReordenar(BasePage):
         self.lbl_info = info_lbl()
         f.addWidget(self.drop_in); f.addWidget(self.lbl_info)
 
-        grp = QGroupBox("Page order  (drag to reorder)")
+        grp = QGroupBox(t("tool.reorder.list"))
         vl  = QVBoxLayout(grp); vl.setSpacing(8)
         self.lst = QListWidget()
         self.lst.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
@@ -36,19 +37,19 @@ class TabReordenar(BasePage):
         self.lst.setMinimumHeight(200)
         vl.addWidget(self.lst)
         hb = QHBoxLayout()
-        for txt, slot in [("▲ Up", self._up), ("▼ Down", self._dn),
-                          ("−  Delete", self._del), ("↺  Reset order", self._reset)]:
-            btn = danger_btn(txt) if "Delete" in txt else QPushButton(txt)
+        for txt, slot in [(t("btn.up"), self._up), (t("btn.down"), self._dn),
+                          (t("btn.delete"), self._del), (t("btn.reset_order"), self._reset)]:
+            btn = danger_btn(txt) if "Delete" in txt or "Apagar" in txt else QPushButton(txt)
             btn.clicked.connect(slot); hb.addWidget(btn)
         hb.addStretch(); vl.addLayout(hb)
         f.addWidget(grp)
 
-        f.addWidget(section("Output file"))
+        f.addWidget(section(t("tool.reorder.output")))
         self.drop_out = DropFileEdit("reordered.pdf", save=True, default_name="reordered.pdf")
         f.addWidget(self.drop_out); f.addStretch()
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -70,7 +71,7 @@ class TabReordenar(BasePage):
     def _populate(self, indices: list):
         self.lst.clear()
         for i in indices:
-            item = QListWidgetItem(f"   Page  {i + 1}")
+            item = QListWidgetItem(t("tool.reorder.page", n=i + 1))
             item.setData(256, i); self.lst.addItem(item)
 
     def _up(self):
@@ -94,10 +95,10 @@ class TabReordenar(BasePage):
 
     def _run(self):
         if not self._reader:
-            QMessageBox.warning(self, "Warning", "Open a PDF first."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.open_pdf_first")); return
         out = self.drop_out.path()
         if not out:
-            QMessageBox.warning(self, "Warning", "Choose the output file."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
         try:
             indices = [self.lst.item(i).data(256) for i in range(self.lst.count())]
             w = PdfWriter()

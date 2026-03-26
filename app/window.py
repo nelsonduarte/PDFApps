@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ
+from app.i18n import t, set_language, get_language
 from app.styles import STYLE, STYLE_LIGHT
 from app.utils import resource_path, _make_palette
 from app.widgets import DropFileEdit
@@ -31,26 +32,31 @@ from app.editor.tab import TabEditar
 from app.tools.info import TabInfo
 
 
-NAV_ITEMS = [
-    ("Split",           "fa5s.cut",                TabDividir),
-    ("Merge",           "fa5s.object-group",        TabJuntar),
-    ("Rotate",          "fa5s.sync-alt",            TabRotar),
-    ("Extract pages",   "fa5s.file-export",         TabExtrair),
-    ("Reorder",         "fa5s.sort",                TabReordenar),
-    ("Compress",        "fa5s.compress-arrows-alt", TabComprimir),
-    ("Encrypt",         "fa5s.lock",                TabEncriptar),
-    ("Watermark",       "fa5s.stamp",               TabMarcaDagua),
-    ("OCR",             "fa5s.search",              TabOCR),
-    ("Convert",         "fa5s.exchange-alt",        TabConverter),
-    ("Edit",            "fa5s.edit",                TabEditar),
-    ("Info",            "fa5s.info-circle",         TabInfo),
+_NAV_KEYS = [
+    ("nav.split",     "fa5s.cut",                TabDividir),
+    ("nav.merge",     "fa5s.object-group",        TabJuntar),
+    ("nav.rotate",    "fa5s.sync-alt",            TabRotar),
+    ("nav.extract",   "fa5s.file-export",         TabExtrair),
+    ("nav.reorder",   "fa5s.sort",                TabReordenar),
+    ("nav.compress",  "fa5s.compress-arrows-alt", TabComprimir),
+    ("nav.encrypt",   "fa5s.lock",                TabEncriptar),
+    ("nav.watermark", "fa5s.stamp",               TabMarcaDagua),
+    ("nav.ocr",       "fa5s.search",              TabOCR),
+    ("nav.convert",   "fa5s.exchange-alt",        TabConverter),
+    ("nav.edit",      "fa5s.edit",                TabEditar),
+    ("nav.info",      "fa5s.info-circle",         TabInfo),
 ]
+
+def _build_nav_items():
+    return [(t(key), icon, cls) for key, icon, cls in _NAV_KEYS]
+
+NAV_ITEMS = _build_nav_items()
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PDFApps")
+        self.setWindowTitle(t("app.name"))
         import sys as _sys
         if _sys.platform == "darwin":
             candidates = ["icon.icns", "icon.png", "icon.ico"]
@@ -68,7 +74,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(860, 540)
 
         self._sb = QStatusBar(); self.setStatusBar(self._sb)
-        self._sb.showMessage("Ready")
+        self._sb.showMessage(t("app.ready"))
 
         central = QWidget()
         root_v = QVBoxLayout(central)
@@ -81,8 +87,8 @@ class MainWindow(QMainWindow):
         wb_h.setSpacing(8)
 
         wb_col = QVBoxLayout(); wb_col.setContentsMargins(0, 0, 0, 0); wb_col.setSpacing(1)
-        wb_title = QLabel("Workspace"); wb_title.setObjectName("workspace_title")
-        wb_hint = QLabel("Choose a tool from the sidebar or use the quick shortcuts.")
+        wb_title = QLabel(t("workspace.title")); wb_title.setObjectName("workspace_title")
+        wb_hint = QLabel(t("workspace.subtitle"))
         wb_hint.setObjectName("workspace_hint")
         wb_col.addWidget(wb_title); wb_col.addWidget(wb_hint)
         wb_h.addLayout(wb_col, 1)
@@ -91,27 +97,27 @@ class MainWindow(QMainWindow):
         self._open_pdf_btn.setIcon(qta.icon("fa5s.folder-open", color=TEXT_PRI))
         self._open_pdf_btn.setObjectName("viewer_nav_btn")
         self._open_pdf_btn.setFixedSize(28, 28)
-        self._open_pdf_btn.setToolTip("Open PDF")
+        self._open_pdf_btn.setToolTip(t("btn.open_pdf"))
         self._open_pdf_btn.clicked.connect(self._open_pdf)
         wb_h.addWidget(self._open_pdf_btn)
 
-        self._quick_merge_btn = QPushButton("Merge"); self._quick_merge_btn.setObjectName("quick_btn")
-        self._quick_ocr_btn = QPushButton("OCR"); self._quick_ocr_btn.setObjectName("quick_btn")
-        self._quick_edit_btn = QPushButton("Edit"); self._quick_edit_btn.setObjectName("quick_btn")
+        self._quick_merge_btn = QPushButton(t("btn.merge")); self._quick_merge_btn.setObjectName("quick_btn")
+        self._quick_ocr_btn = QPushButton(t("btn.ocr")); self._quick_ocr_btn.setObjectName("quick_btn")
+        self._quick_edit_btn = QPushButton(t("btn.edit")); self._quick_edit_btn.setObjectName("quick_btn")
         wb_h.addWidget(self._quick_merge_btn)
         wb_h.addWidget(self._quick_ocr_btn)
         wb_h.addWidget(self._quick_edit_btn)
 
-        # zoom widget — only visible in the Edit tool
+        # zoom widget
         self._zoom_widget = QWidget()
         zw_h = QHBoxLayout(self._zoom_widget); zw_h.setContentsMargins(0,0,0,0); zw_h.setSpacing(4)
         _zm = QPushButton(); _zm.setIcon(qta.icon("fa5s.search-minus", color=TEXT_PRI))
-        _zm.setFixedSize(28, 28); _zm.setObjectName("viewer_nav_btn"); _zm.setToolTip("Zoom out (Ctrl+scroll)")
+        _zm.setFixedSize(28, 28); _zm.setObjectName("viewer_nav_btn"); _zm.setToolTip(t("zoom.out"))
         self._lbl_zoom = QLabel("100%"); self._lbl_zoom.setMinimumWidth(42); self._lbl_zoom.setAlignment(Qt.AlignmentFlag.AlignCenter)
         _zp = QPushButton(); _zp.setIcon(qta.icon("fa5s.search-plus", color=TEXT_PRI))
-        _zp.setFixedSize(28, 28); _zp.setObjectName("viewer_nav_btn"); _zp.setToolTip("Zoom in (Ctrl+scroll)")
-        _z0 = QPushButton("Reset"); _z0.setObjectName("viewer_nav_btn"); _z0.setFixedHeight(28)
-        _z0.setToolTip("Reset zoom to 100%")
+        _zp.setFixedSize(28, 28); _zp.setObjectName("viewer_nav_btn"); _zp.setToolTip(t("zoom.in"))
+        _z0 = QPushButton(t("zoom.reset")); _z0.setObjectName("viewer_nav_btn"); _z0.setFixedHeight(28)
+        _z0.setToolTip(t("zoom.reset_tip"))
         zw_h.addWidget(_zm); zw_h.addWidget(self._lbl_zoom); zw_h.addWidget(_zp); zw_h.addWidget(_z0)
         self._zoom_widget.setVisible(False)
         self._zm_btn = _zm; self._zp_btn = _zp; self._z0_btn = _z0
@@ -121,12 +127,12 @@ class MainWindow(QMainWindow):
         self._page_nav_widget = QWidget()
         pn_h = QHBoxLayout(self._page_nav_widget); pn_h.setContentsMargins(0,0,0,0); pn_h.setSpacing(4)
         _prev_pg = QPushButton(); _prev_pg.setIcon(qta.icon("fa5s.chevron-left", color=TEXT_PRI))
-        _prev_pg.setFixedSize(28, 28); _prev_pg.setObjectName("viewer_nav_btn"); _prev_pg.setToolTip("Previous page")
+        _prev_pg.setFixedSize(28, 28); _prev_pg.setObjectName("viewer_nav_btn"); _prev_pg.setToolTip(t("nav.prev_page"))
         self._page_input = QLineEdit("1"); self._page_input.setFixedWidth(40); self._page_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._page_input.setObjectName("page_input")
-        self._page_total_lbl = QLabel("/ —"); self._page_total_lbl.setMinimumWidth(30)
+        self._page_total_lbl = QLabel(t("nav.page_total")); self._page_total_lbl.setMinimumWidth(30)
         _next_pg = QPushButton(); _next_pg.setIcon(qta.icon("fa5s.chevron-right", color=TEXT_PRI))
-        _next_pg.setFixedSize(28, 28); _next_pg.setObjectName("viewer_nav_btn"); _next_pg.setToolTip("Next page")
+        _next_pg.setFixedSize(28, 28); _next_pg.setObjectName("viewer_nav_btn"); _next_pg.setToolTip(t("nav.next_page"))
         pn_h.addWidget(_prev_pg); pn_h.addWidget(self._page_input)
         pn_h.addWidget(self._page_total_lbl); pn_h.addWidget(_next_pg)
         self._page_nav_widget.setVisible(False)
@@ -136,19 +142,26 @@ class MainWindow(QMainWindow):
         self._page_input.returnPressed.connect(self._goto_input_page)
         wb_h.addWidget(self._page_nav_widget)
 
-        self._tool_badge = QLabel("Mode: Viewer"); self._tool_badge.setObjectName("workspace_badge")
+        self._tool_badge = QLabel(t("workspace.mode_viewer")); self._tool_badge.setObjectName("workspace_badge")
         wb_h.addWidget(self._tool_badge)
 
         self._help_btn = QPushButton("?")
         self._help_btn.setObjectName("theme_btn")
-        self._help_btn.setToolTip("Help — How to use PDFApps")
+        self._help_btn.setToolTip(t("help.tip"))
         self._help_btn.setFixedSize(28, 28)
         self._help_btn.clicked.connect(lambda: __import__('webbrowser').open("https://nelsonduarte.github.io/PDFApps-en/#guide"))
         wb_h.addWidget(self._help_btn)
 
+        self._lang_btn = QPushButton("EN" if get_language() == "en" else "PT")
+        self._lang_btn.setObjectName("theme_btn")
+        self._lang_btn.setToolTip(t("lang.selector"))
+        self._lang_btn.setFixedSize(28, 28)
+        self._lang_btn.clicked.connect(self._toggle_language)
+        wb_h.addWidget(self._lang_btn)
+
         self._theme_btn = QPushButton("☀")
         self._theme_btn.setObjectName("theme_btn")
-        self._theme_btn.setToolTip("Toggle light/dark theme")
+        self._theme_btn.setToolTip(t("theme.toggle"))
         self._theme_btn.setFixedSize(28, 28)
         self._theme_btn.clicked.connect(self._toggle_theme)
         wb_h.addWidget(self._theme_btn)
@@ -179,8 +192,8 @@ class MainWindow(QMainWindow):
         ico_lbl.setPixmap(_app_pix)
         ico_lbl.setObjectName("app_icon")
         ico_lbl.setContentsMargins(16, 0, 0, 0)
-        ttl_lbl = QLabel("PDFApps"); ttl_lbl.setObjectName("app_title")
-        sub_lbl = QLabel("PDF Editor"); sub_lbl.setObjectName("app_sub")
+        ttl_lbl = QLabel(t("app.name")); ttl_lbl.setObjectName("app_title")
+        sub_lbl = QLabel(t("app.subtitle")); sub_lbl.setObjectName("app_sub")
         bv.addWidget(ico_lbl); bv.addWidget(ttl_lbl); bv.addWidget(sub_lbl)
         sb_lay.addWidget(brand)
 
@@ -198,7 +211,7 @@ class MainWindow(QMainWindow):
         footer_w = QWidget(); footer_w.setObjectName("sidebar")
         footer_h = QHBoxLayout(footer_w)
         footer_h.setContentsMargins(14, 8, 14, 10); footer_h.setSpacing(0)
-        footer_lbl = QLabel("pypdf  +  PySide6"); footer_lbl.setObjectName("sidebar_footer")
+        footer_lbl = QLabel(t("app.credits")); footer_lbl.setObjectName("sidebar_footer")
         footer_h.addWidget(footer_lbl, 1)
         sb_lay.addWidget(footer_w)
         self._dark_mode = True
@@ -257,7 +270,7 @@ class MainWindow(QMainWindow):
                 self.stack.setCurrentIndex(i)
                 self.stack.setVisible(True)
                 self._viewer.setVisible(False)
-                self._tool_badge.setText(f"Mode: {name}")
+                self._tool_badge.setText(t("workspace.mode_tool", name=name))
                 self._try_auto_load(i)
                 return
 
@@ -300,7 +313,7 @@ class MainWindow(QMainWindow):
             self._current_tool = -1
             self.stack.setVisible(False)
             self._viewer.setVisible(True)
-            self._tool_badge.setText("Mode: Viewer")
+            self._tool_badge.setText(t("workspace.mode_viewer"))
             self._setup_zoom_bar(True, canvas=self._viewer._canvas)
         else:
             self._setup_zoom_bar(False)
@@ -308,7 +321,7 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentIndex(row)
             self.stack.setVisible(True)
             self._viewer.setVisible(False)
-            self._tool_badge.setText(f"Mode: {NAV_ITEMS[row][0]}")
+            self._tool_badge.setText(t("workspace.mode_tool", name=NAV_ITEMS[row][0]))
             self._try_auto_load(row)
             if row == edit_idx:
                 self._setup_zoom_bar(True)
@@ -316,7 +329,7 @@ class MainWindow(QMainWindow):
     def _open_pdf(self):
         from PySide6.QtWidgets import QFileDialog
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open PDF", "", "PDF Files (*.pdf);;All (*.*)")
+            self, t("btn.open_pdf"), "", t("file_filter.pdf"))
         if path:
             self._viewer.load(path)
 
@@ -372,6 +385,15 @@ class MainWindow(QMainWindow):
         self._page_input.setText(str(page_num))
         sb = self._viewer._canvas_scroll.verticalScrollBar()
         sb.setValue(canvas.scroll_to_page(page_num - 1))
+
+    def _toggle_language(self):
+        from PySide6.QtWidgets import QMessageBox
+        new_lang = "pt" if get_language() == "en" else "en"
+        lang_name = "Português" if new_lang == "pt" else "English"
+        set_language(new_lang)
+        self._lang_btn.setText("PT" if new_lang == "pt" else "EN")
+        QMessageBox.information(self, t("lang.selector"),
+                                t("lang.restart", lang=lang_name))
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode

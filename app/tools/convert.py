@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 from pypdf import PdfReader
 
 from app.base import BasePage
+from app.i18n import t
 from app.utils import section, info_lbl, pick_folder
 from app.widgets import DropFileEdit
 
@@ -18,13 +19,13 @@ class TabConverter(BasePage):
     _DPI_VALUES = [72, 150, 300]
 
     def __init__(self, status_fn):
-        super().__init__("fa5s.exchange-alt", "Convert PDF",
-                         "Convert PDF to images (PNG/JPG), Word (DOCX) or plain text (TXT).",
-                         "Convert", status_fn)
+        super().__init__("fa5s.exchange-alt", t("tool.convert.name"),
+                         t("tool.convert.desc"),
+                         t("tool.convert.btn"), status_fn)
         f = self._form
 
         # -- Source file --
-        f.addWidget(section("Source file"))
+        f.addWidget(section(t("tool.convert.source")))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -33,44 +34,39 @@ class TabConverter(BasePage):
         f.addWidget(self.drop_in); f.addWidget(self.lbl_info)
 
         # -- Output format --
-        grp_fmt = QGroupBox("Output format")
+        grp_fmt = QGroupBox(t("tool.convert.format_section"))
         gf = QFormLayout(grp_fmt)
         gf.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.cmb_format = QComboBox()
         self.cmb_format.addItems([
-            "PNG (images)",
-            "JPG (images)",
-            "DOCX (Word)",
-            "TXT (plain text)",
+            t("tool.convert.png"), t("tool.convert.jpg"),
+            t("tool.convert.docx"), t("tool.convert.txt"),
         ])
         self.cmb_format.currentIndexChanged.connect(self._on_format_changed)
-        gf.addRow("Format:", self.cmb_format)
+        gf.addRow(t("tool.convert.format_label"), self.cmb_format)
         f.addWidget(grp_fmt)
 
         # -- Image options (visible for PNG/JPG) --
-        self._grp_dpi = QGroupBox("Image options")
+        self._grp_dpi = QGroupBox(t("tool.convert.img_options"))
         gd = QFormLayout(self._grp_dpi)
         gd.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.cmb_dpi = QComboBox()
         self.cmb_dpi.addItems([
-            "72 DPI (screen)",
-            "150 DPI (standard)",
-            "300 DPI (print quality)",
+            t("tool.convert.dpi_72"), t("tool.convert.dpi_150"), t("tool.convert.dpi_300"),
         ])
         self.cmb_dpi.setCurrentIndex(1)
-        gd.addRow("Resolution:", self.cmb_dpi)
+        gd.addRow(t("tool.convert.dpi_label"), self.cmb_dpi)
         f.addWidget(self._grp_dpi)
 
         # -- Output folder (images) --
-        f.addWidget(section("Output folder"))
-        self._drop_folder = DropFileEdit(
-            placeholder="Folder where images will be saved…")
+        f.addWidget(section(t("tool.convert.output_folder")))
+        self._drop_folder = DropFileEdit(placeholder=t("tool.convert.folder_hint"))
         self._drop_folder.btn.clicked.disconnect()
         self._drop_folder.btn.clicked.connect(self._pick_folder)
         f.addWidget(self._drop_folder)
 
         # -- Output file (DOCX / TXT) --
-        self._section_file = section("Output file")
+        self._section_file = section(t("tool.convert.output_file"))
         self._section_file.setVisible(False)
         f.addWidget(self._section_file)
         self._drop_file = DropFileEdit(save=True, default_name="converted.docx")

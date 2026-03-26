@@ -9,18 +9,19 @@ from PySide6.QtWidgets import (
 from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
+from app.i18n import t
 from app.utils import section, danger_btn, pick_pdfs
 from app.widgets import DropFileEdit, MultiDropWidget
 
 
 class TabJuntar(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.object-group", "Merge PDFs",
-                         "Combine multiple PDF files into a single document.",
-                         "Merge PDFs", status_fn)
+        super().__init__("fa5s.object-group", t("tool.merge.name"),
+                         t("tool.merge.desc"),
+                         t("tool.merge.btn"), status_fn)
         f = self._form
 
-        grp = QGroupBox("PDFs to merge  (drag to reorder)")
+        grp = QGroupBox(t("tool.merge.list"))
         vl  = QVBoxLayout(grp); vl.setSpacing(8)
         self.drop_multi = MultiDropWidget(self._on_drop)
         self.drop_multi.btn.clicked.connect(self._add_files)
@@ -31,14 +32,14 @@ class TabJuntar(BasePage):
         self.lst.setMinimumHeight(180)
         vl.addWidget(self.lst)
         hb = QHBoxLayout()
-        for txt, slot in [("▲ Up", self._up), ("▼ Down", self._dn),
-                          ("−  Remove", self._remove), ("Clear", self.lst.clear)]:
-            btn = danger_btn(txt) if "Remove" in txt else QPushButton(txt)
+        for txt, slot in [(t("btn.up"), self._up), (t("btn.down"), self._dn),
+                          (t("btn.remove"), self._remove), (t("btn.clear"), self.lst.clear)]:
+            btn = danger_btn(txt) if "Remove" in txt or "Remover" in txt else QPushButton(txt)
             btn.clicked.connect(slot); hb.addWidget(btn)
         hb.addStretch(); vl.addLayout(hb)
         f.addWidget(grp)
 
-        f.addWidget(section("Output file"))
+        f.addWidget(section(t("tool.merge.output")))
         self.drop_out = DropFileEdit(save=True, default_name="merged.pdf")
         f.addWidget(self.drop_out)
         f.addStretch()
@@ -75,14 +76,14 @@ class TabJuntar(BasePage):
         paths = [self.lst.item(i).text() for i in range(self.lst.count())]
         out   = self.drop_out.path()
         if len(paths) < 2:
-            QMessageBox.warning(self, "Warning", "Add at least 2 PDFs."); return
+            QMessageBox.warning(self, t("msg.warning"), t("tool.merge.min2")); return
         if not out:
-            QMessageBox.warning(self, "Warning", "Choose the output file."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
         try:
             w = PdfWriter()
             for p in paths:
                 for page in PdfReader(p).pages: w.add_page(page)
             with open(out, "wb") as f: w.write(f)
-            self._status(f"✔  PDF created: {os.path.basename(out)}")
-            QMessageBox.information(self, "Done", f"PDF created at:\n{out}")
-        except Exception as e: QMessageBox.critical(self, "Error", str(e))
+            self._status(f"✔  PDF → {os.path.basename(out)}")
+            QMessageBox.information(self, t("msg.done"), t("tool.merge.done", path=out))
+        except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))

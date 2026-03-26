@@ -14,6 +14,7 @@ import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC
 from app.utils import ToolHeader, ActionBar, info_lbl, _paint_bg
+from app.i18n import t
 from app.widgets import DropFileEdit
 from app.editor.canvas import PdfEditCanvas
 from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
@@ -22,18 +23,32 @@ from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
 class TabEditar(QWidget):
     """Visual editor: click/drag directly on the rendered PDF."""
 
-    _HI_COLORS  = {"Yellow": (1,1,0), "Green": (0,1,0), "Pink": (1,0.4,0.7), "Light blue": (0.5,0.8,1)}
-    _RED_FILLS  = {"Black": (0,0,0), "White": (1,1,1), "Grey": (0.5,0.5,0.5)}
-    _MODE_DEFS = [
-        ("Redact / Censor",         "fa5s.eraser"),
-        ("Add text",                "fa5s.font"),
-        ("Add image",               "fa5s.image"),
-        ("Highlight",               "fa5s.highlighter"),
-        ("Note / Comment",          "fa5s.sticky-note"),
-        ("Fill forms",              "fa5s.clipboard-list"),
-        ("Edit existing text",      "fa5s.i-cursor"),
-        ("Select / Copy text",      "fa5s.mouse-pointer"),
+    _HI_COLORS_KEYS  = ["color.yellow", "color.green", "color.pink", "color.light_blue"]
+    _HI_COLORS_VALS  = [(1,1,0), (0,1,0), (1,0.4,0.7), (0.5,0.8,1)]
+    _RED_FILLS_KEYS  = ["color.black", "color.white", "color.grey"]
+    _RED_FILLS_VALS  = [(0,0,0), (1,1,1), (0.5,0.5,0.5)]
+    _MODE_KEYS = [
+        ("edit.mode.redact",    "fa5s.eraser"),
+        ("edit.mode.text",      "fa5s.font"),
+        ("edit.mode.image",     "fa5s.image"),
+        ("edit.mode.highlight", "fa5s.highlighter"),
+        ("edit.mode.note",      "fa5s.sticky-note"),
+        ("edit.mode.forms",     "fa5s.clipboard-list"),
+        ("edit.mode.edit_text", "fa5s.i-cursor"),
+        ("edit.mode.select",    "fa5s.mouse-pointer"),
     ]
+
+    @property
+    def _HI_COLORS(self):
+        return {t(k): v for k, v in zip(self._HI_COLORS_KEYS, self._HI_COLORS_VALS)}
+
+    @property
+    def _RED_FILLS(self):
+        return {t(k): v for k, v in zip(self._RED_FILLS_KEYS, self._RED_FILLS_VALS)}
+
+    @property
+    def _MODE_DEFS(self):
+        return [(t(k), icon) for k, icon in self._MODE_KEYS]
 
     def __init__(self, status_fn):
         super().__init__()
@@ -45,8 +60,8 @@ class TabEditar(QWidget):
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0); root.setSpacing(0)
-        root.addWidget(ToolHeader("fa5s.edit", "Edit PDF",
-                                  "Click or drag directly on the PDF to edit."))
+        root.addWidget(ToolHeader("fa5s.edit", t("edit.title"),
+                                  t("edit.subtitle")))
 
         body = QWidget()
         body_h = QHBoxLayout(body)
@@ -69,7 +84,7 @@ class TabEditar(QWidget):
         cv = QVBoxLayout(ctrl_inner); cv.setContentsMargins(10, 10, 10, 10); cv.setSpacing(8)
 
         # -- PDF file --
-        grp_file = QGroupBox("PDF file")
+        grp_file = QGroupBox(t("edit.pdf_file"))
         gf = QVBoxLayout(grp_file); gf.setSpacing(4)
         self._drop_in = DropFileEdit()
         self._drop_in.btn.clicked.disconnect()
@@ -81,7 +96,7 @@ class TabEditar(QWidget):
         cv.addWidget(grp_file)
 
         # -- Page --
-        grp_page = QGroupBox("Page")
+        grp_page = QGroupBox(t("edit.page"))
         gp = QHBoxLayout(grp_page); gp.setSpacing(6)
         self._btn_prev = QPushButton()
         self._btn_prev.setIcon(qta.icon("fa5s.chevron-left", color=TEXT_PRI))
@@ -97,7 +112,7 @@ class TabEditar(QWidget):
         self._page_idx = 0
 
         # -- Edit mode --
-        grp_mode = QGroupBox("Edit mode")
+        grp_mode = QGroupBox(t("edit.mode"))
         gm = QGridLayout(grp_mode); gm.setSpacing(4)
         self._mode_btns: list = []
         self._mode_btn_idx: dict = {}
@@ -119,7 +134,7 @@ class TabEditar(QWidget):
         cv.addWidget(grp_mode)
 
         # -- Options per mode --
-        grp_opts = QGroupBox("Options")
+        grp_opts = QGroupBox(t("edit.options"))
         go = QVBoxLayout(grp_opts); go.setContentsMargins(6, 6, 6, 6)
         self._opt_stack = QStackedWidget()
 
@@ -212,16 +227,16 @@ class TabEditar(QWidget):
         cv.addWidget(grp_opts)
 
         # -- Pending edits --
-        grp_pend = QGroupBox("Pending edits")
+        grp_pend = QGroupBox(t("edit.pending"))
         gpe = QVBoxLayout(grp_pend); gpe.setSpacing(4)
         self._pending_list = QListWidget(); self._pending_list.setMaximumHeight(110)
         gpe.addWidget(self._pending_list)
-        btn_clear = QPushButton("Clear all"); btn_clear.clicked.connect(self._clear_pending)
+        btn_clear = QPushButton(t("btn.clear_all")); btn_clear.clicked.connect(self._clear_pending)
         gpe.addWidget(btn_clear)
         cv.addWidget(grp_pend)
 
         # -- Save --
-        grp_save = QGroupBox("Save to")
+        grp_save = QGroupBox(t("edit.save_to"))
         gs = QVBoxLayout(grp_save)
         self._drop_out = DropFileEdit("output_edited.pdf", save=True, default_name="output_edited.pdf")
         gs.addWidget(self._drop_out)
@@ -238,7 +253,7 @@ class TabEditar(QWidget):
         body_h.addWidget(ctrl_scroll)
         root.addWidget(body, 1)
 
-        action_bar, _ = ActionBar("Apply and Save", self._run)
+        action_bar, _ = ActionBar(t("btn.apply_save"), self._run)
         root.addWidget(action_bar)
 
         self._update_nav()

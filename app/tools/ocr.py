@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
+from app.i18n import t
 from app.utils import section, info_lbl
 from app.constants import TEXT_SEC
 from app.widgets import DropFileEdit
@@ -42,22 +43,26 @@ def _find_tesseract() -> str | None:
 
 
 class TabOCR(BasePage):
-    _LANGS = [
-        ("Portuguese",             "por"),
-        ("English",                "eng"),
-        ("Portuguese + English",   "por+eng"),
-        ("Spanish",                "spa"),
-        ("French",                 "fra"),
-        ("German",                 "deu"),
+    _LANG_KEYS = [
+        ("tool.ocr.lang.pt",    "por"),
+        ("tool.ocr.lang.en",    "eng"),
+        ("tool.ocr.lang.pt_en", "por+eng"),
+        ("tool.ocr.lang.es",    "spa"),
+        ("tool.ocr.lang.fr",    "fra"),
+        ("tool.ocr.lang.de",    "deu"),
     ]
 
+    @property
+    def _LANGS(self):
+        return [(t(k), c) for k, c in self._LANG_KEYS]
+
     def __init__(self, status_fn):
-        super().__init__("fa5s.search", "OCR – Text Recognition",
-                         "Extract text from scanned PDFs using OCR.",
-                         "Run OCR", status_fn)
+        super().__init__("fa5s.search", t("tool.ocr.name"),
+                         t("tool.ocr.desc"),
+                         t("tool.ocr.btn"), status_fn)
         f = self._form
 
-        f.addWidget(section("PDF file (scanned)"))
+        f.addWidget(section(t("tool.ocr.source")))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -65,9 +70,9 @@ class TabOCR(BasePage):
         self.lbl_info = info_lbl()
         f.addWidget(self.drop_in); f.addWidget(self.lbl_info)
 
-        f.addWidget(section("Options"))
+        f.addWidget(section(t("tool.ocr.options")))
         row_lang = QHBoxLayout()
-        lbl_lang = QLabel("Document language:")
+        lbl_lang = QLabel(t("tool.ocr.lang_label"))
         lbl_lang.setStyleSheet(f"color:{TEXT_SEC};")
         self.cmb_lang = QComboBox()
         self._lang_codes = [c for _, c in self._LANGS]
@@ -77,15 +82,15 @@ class TabOCR(BasePage):
         f.addLayout(row_lang)
 
         row_fmt = QHBoxLayout()
-        lbl_fmt = QLabel("Output format:")
+        lbl_fmt = QLabel(t("tool.ocr.format_label"))
         lbl_fmt.setStyleSheet(f"color:{TEXT_SEC};")
         self.cmb_fmt = QComboBox()
-        self.cmb_fmt.addItems(["Searchable PDF (.pdf)", "Plain text (.txt)"])
+        self.cmb_fmt.addItems([t("tool.ocr.format.pdf"), t("tool.ocr.format.txt")])
         self.cmb_fmt.currentIndexChanged.connect(self._on_fmt_change)
         row_fmt.addWidget(lbl_fmt); row_fmt.addWidget(self.cmb_fmt); row_fmt.addStretch()
         f.addLayout(row_fmt)
 
-        f.addWidget(section("Output file"))
+        f.addWidget(section(t("tool.ocr.output")))
         self.drop_out = DropFileEdit("ocr_output.pdf", save=True, default_name="ocr_output.pdf")
         f.addWidget(self.drop_out)
         f.addStretch()

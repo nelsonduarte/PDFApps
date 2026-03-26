@@ -8,17 +8,18 @@ from PySide6.QtWidgets import (
 from pypdf import PdfReader
 
 from app.base import BasePage
+from app.i18n import t
 from app.utils import section
 from app.widgets import DropFileEdit
 
 
 class TabInfo(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.info-circle", "Info",
-                         "Show metadata, dimensions and properties of the PDF.",
-                         "View info", status_fn)
+        super().__init__("fa5s.info-circle", t("tool.info.name"),
+                         t("tool.info.desc"),
+                         t("tool.info.btn"), status_fn)
         f = self._form
-        f.addWidget(section("PDF file"))
+        f.addWidget(section(t("tool.info.source")))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_and_show)
@@ -34,16 +35,16 @@ class TabInfo(BasePage):
             "QTextEdit { background:#0F172A; color:#94A3B8; "
             "border:1px solid #1E293B; border-radius:8px; padding:14px; }")
         f.addWidget(self.txt); f.addStretch()
-        self.action_btn.setText("Open PDF and show info")
+        self.action_btn.setText(t("tool.info.open_show"))
 
     def _pick_and_show(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
         if p: self.drop_in.set_path(p)
 
     def _run(self):
         p = self.drop_in.path()
         if not p or not os.path.isfile(p):
-            p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
+            p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
             if not p: return
             self.drop_in.set_path(p)
         self._show(p)
@@ -57,31 +58,33 @@ class TabInfo(BasePage):
         try:
             reader = PdfReader(path); meta = reader.metadata or {}
             size   = os.path.getsize(path)
+            enc = t("tool.info.yes") if reader.is_encrypted else t("tool.info.no")
             lines  = [
                 f"  📄  {os.path.basename(path)}",
                 f"  📁  {path}",
                 "",
-                f"  Pages          {len(reader.pages)}",
-                f"  Size           {size/1024:.1f} KB  ({size:,} bytes)".replace(",", " "),
-                f"  Encrypted      {'Yes' if reader.is_encrypted else 'No'}",
+                f"  {t('tool.info.pages'):<16}{len(reader.pages)}",
+                f"  {t('tool.info.size'):<16}{size/1024:.1f} KB  ({size:,} bytes)".replace(",", " "),
+                f"  {t('tool.info.encrypted'):<16}{enc}",
                 "",
                 "  " + "─" * 44,
             ]
-            for key, label in {
-                "/Title": "Title", "/Author": "Author", "/Subject": "Subject",
-                "/Creator": "Created by", "/Producer": "Produced by",
-                "/CreationDate": "Created on", "/ModDate": "Modified on",
+            for key, tkey in {
+                "/Title": "tool.info.title", "/Author": "tool.info.author",
+                "/Subject": "tool.info.subject", "/Creator": "tool.info.creator",
+                "/Producer": "tool.info.producer", "/CreationDate": "tool.info.created",
+                "/ModDate": "tool.info.modified",
             }.items():
                 val = meta.get(key, "")
-                if val: lines.append(f"  {label:<16}{val}")
+                if val: lines.append(f"  {t(tkey):<16}{val}")
             if len(reader.pages) > 0:
                 pg = reader.pages[0]
                 w, h = float(pg.mediabox.width), float(pg.mediabox.height)
                 lines += ["",
-                    f"  Page 1 size      {w:.0f} × {h:.0f} pt",
+                    f"  {t('tool.info.page_size')}  {w:.0f} × {h:.0f} pt",
                     f"                   {w/72*25.4:.0f} × {h/72*25.4:.0f} mm",
                 ]
             self.txt.setPlainText("\n".join(lines))
-            self._status(f"ℹ  {os.path.basename(path)}  ·  {len(reader.pages)} pages  ·  {size/1024:.1f} KB")
+            self._status(f"ℹ  {os.path.basename(path)}  ·  {len(reader.pages)} {t('tool.info.pages').lower()}  ·  {size/1024:.1f} KB")
         except Exception as e:
-            self.txt.setPlainText(f"Error reading the PDF:\n{e}")
+            self.txt.setPlainText(t("tool.info.error", e=e))
