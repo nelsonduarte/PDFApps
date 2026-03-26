@@ -85,5 +85,37 @@ def t(key: str, **kwargs) -> str:
     return val
 
 
+# ── Recent files ──────────────────────────────────────────────────────────
+
+_MAX_RECENT = 10
+
+
+def get_recent_files() -> list[str]:
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+            return cfg.get("recent_files", [])
+    except Exception:
+        return []
+
+
+def add_recent_file(path: str):
+    recents = get_recent_files()
+    path = os.path.normpath(path)
+    if path in recents:
+        recents.remove(path)
+    recents.insert(0, path)
+    recents = recents[:_MAX_RECENT]
+    cfg = {}
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except Exception:
+        pass
+    cfg["recent_files"] = recents
+    with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(cfg, f)
+
+
 # Auto-init on import
 init()

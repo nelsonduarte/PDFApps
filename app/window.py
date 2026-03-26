@@ -8,12 +8,12 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QListWidget, QListWidgetItem,
     QStackedWidget, QSplitter, QStatusBar, QFrame,
-    QApplication, QLineEdit,
+    QApplication, QLineEdit, QMenu,
 )
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ
-from app.i18n import t, set_language, get_language
+from app.i18n import t, set_language, get_language, get_recent_files, add_recent_file
 from app.styles import STYLE, STYLE_LIGHT
 from app.utils import resource_path, _make_palette
 from app.widgets import DropFileEdit
@@ -100,6 +100,14 @@ class MainWindow(QMainWindow):
         self._open_pdf_btn.setToolTip(t("btn.open_pdf"))
         self._open_pdf_btn.clicked.connect(self._open_pdf)
         wb_h.addWidget(self._open_pdf_btn)
+
+        self._recent_btn = QPushButton()
+        self._recent_btn.setIcon(qta.icon("fa5s.history", color=TEXT_PRI))
+        self._recent_btn.setObjectName("viewer_nav_btn")
+        self._recent_btn.setFixedSize(28, 28)
+        self._recent_btn.setToolTip(t("recent.title"))
+        self._recent_btn.clicked.connect(self._show_recent_menu)
+        wb_h.addWidget(self._recent_btn)
 
         self._quick_merge_btn = QPushButton(t("btn.merge")); self._quick_merge_btn.setObjectName("quick_btn")
         self._quick_ocr_btn = QPushButton(t("btn.ocr")); self._quick_ocr_btn.setObjectName("quick_btn")
@@ -256,6 +264,8 @@ class MainWindow(QMainWindow):
         original_load = self._viewer.load
         def _wrapped_load(*args, **kwargs):
             original_load(*args, **kwargs)
+            if args:
+                add_recent_file(args[0])
             from PySide6.QtCore import QTimer
             QTimer.singleShot(100, self._update_page_nav)
             if self._current_tool == -1:
@@ -331,7 +341,41 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(
             self, t("btn.open_pdf"), "", t("file_filter.pdf"))
         if path:
-            self._viewer.load(path)
+            self._load_and_track(path)
+
+    def _load_and_track(self, path: str):
+        self._viewer.load(path)
+        add_recent_file(path)
+
+    def _show_recent_menu(self):
+        menu = QMenu(self)
+        recents = get_recent_files()
+        if not recents:
+            action = menu.addAction(t("recent.empty"))
+            action.setEnabled(False)
+        else:
+            for path in recents:
+                import os
+                name = os.path.basename(path)
+                action = menu.addAction(f"  {name}")
+                action.setToolTip(path)
+                action.triggered.connect(lambda checked, p=path: self._load_and_track(p))
+            menu.addSeparator()
+            clear_action = menu.addAction(t("recent.clear"))
+            clear_action.triggered.connect(self._clear_recent)
+        menu.exec(self._recent_btn.mapToGlobal(self._recent_btn.rect().bottomLeft()))
+
+    def _clear_recent(self):
+        import json
+        from app.i18n import _CONFIG_PATH
+        try:
+            with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            cfg["recent_files"] = []
+            with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(cfg, f)
+        except Exception:
+            pass
 
     def _set_status(self, msg: str):
         self._sb.showMessage(msg)

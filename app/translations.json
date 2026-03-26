@@ -363,7 +363,11 @@
     "tool.info.error": "Error reading the PDF:\n{e}",
 
     "lang.selector": "Language",
-    "lang.restart": "Language changed to {lang}. Restart the app to apply."
+    "lang.restart": "Language changed to {lang}. Restart the app to apply.",
+
+    "recent.title": "Recent files",
+    "recent.empty": "No recent files",
+    "recent.clear": "Clear recent files"
   },
 
   "pt": {
@@ -730,6 +734,10 @@
     "tool.info.error": "Erro ao ler o PDF:\n{e}",
 
     "lang.selector": "Idioma",
-    "lang.restart": "Idioma alterado para {lang}. Reinicia a app para aplicar."
+    "lang.restart": "Idioma alterado para {lang}. Reinicia a app para aplicar.",
+
+    "recent.title": "Ficheiros recentes",
+    "recent.empty": "Sem ficheiros recentes",
+    "recent.clear": "Limpar ficheiros recentes"
   }
 }
