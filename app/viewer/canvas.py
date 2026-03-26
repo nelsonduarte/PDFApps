@@ -8,6 +8,7 @@ from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QFont
 import qtawesome as qta
 
 from app.constants import BG_INNER, TEXT_SEC
+from app.i18n import t
 
 _PAGE_GAP       = 12   # px between pages
 _BUFFER_PGS     = 2    # extra pages to pre-render outside the visible area
@@ -326,7 +327,7 @@ class _SelectCanvas(QWidget):
             p.setPen(QColor(TEXT_SEC))
             f = QFont(); f.setPointSize(11); p.setFont(f)
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Open a PDF to view")
+                       t("viewer.open_prompt"))
             return
 
         first, last = self._visible_range()
@@ -339,7 +340,7 @@ class _SelectCanvas(QWidget):
                 p.setPen(QColor(TEXT_SEC))
                 f = QFont(); f.setPointSize(9); p.setFont(f)
                 p.drawText(QRect(0, e.y_off, e.w, e.h),
-                           Qt.AlignmentFlag.AlignCenter, "Loading…")
+                           Qt.AlignmentFlag.AlignCenter, t("viewer.loading"))
             p.setPen(QPen(QColor("#0d0d1a"), 1))
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawRect(0, e.y_off, e.w - 1, e.h - 1)
@@ -501,7 +502,7 @@ class _SelectCanvas(QWidget):
         hit = self._note_icon_at(pos)
         if hit is not None:
             menu = QMenu(self)
-            delete_action = menu.addAction("Delete comment")
+            delete_action = menu.addAction(t("viewer.delete_comment"))
             action = menu.exec(e.globalPos())
             if action == delete_action:
                 page_idx, annot_idx = hit

@@ -14,6 +14,7 @@ import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_SEC, _LQ
 from app.utils import _paint_bg
+from app.i18n import t
 from app.viewer.canvas import _SelectCanvas
 
 
@@ -38,7 +39,7 @@ class PdfViewerPanel(QWidget):
         hdr_lay.setContentsMargins(12, 8, 8, 8)
         hdr_lay.setSpacing(6)
 
-        self._name_lbl = QLabel("PDF Viewer")
+        self._name_lbl = QLabel(t("viewer.title"))
         self._name_lbl.setObjectName("viewer_title")
         hdr_lay.addWidget(self._name_lbl, 1)
 
@@ -52,24 +53,24 @@ class PdfViewerPanel(QWidget):
 
         self._open_btn     = _nav_btn('fa5s.folder-open')
         self._open_btn.setEnabled(True)
-        self._open_btn.setToolTip("Open PDF")
+        self._open_btn.setToolTip(t("btn.open_pdf"))
         self._open_btn.clicked.connect(self._open_dialog)
 
         self._zoom_out_btn = _nav_btn('fa5s.search-minus')
-        self._zoom_out_btn.setToolTip("Zoom out (Ctrl+Scroll)")
+        self._zoom_out_btn.setToolTip(t("zoom.out"))
         self._zoom_out_btn.clicked.connect(lambda: self._canvas.zoom_out())
 
-        self._zoom_lbl = QLabel("Fit")
+        self._zoom_lbl = QLabel(t("zoom.fit"))
         self._zoom_lbl.setObjectName("viewer_page_lbl")
         self._zoom_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._zoom_lbl.setMinimumWidth(52)
 
         self._zoom_in_btn  = _nav_btn('fa5s.search-plus')
-        self._zoom_in_btn.setToolTip("Zoom in (Ctrl+Scroll)")
+        self._zoom_in_btn.setToolTip(t("zoom.in"))
         self._zoom_in_btn.clicked.connect(lambda: self._canvas.zoom_in())
 
         self._fit_btn      = _nav_btn('fa5s.compress-arrows-alt')
-        self._fit_btn.setToolTip("Fit to window")
+        self._fit_btn.setToolTip(t("zoom.fit_tip"))
         self._fit_btn.clicked.connect(self._zoom_fit)
 
         self._prev_btn     = _nav_btn('fa5s.chevron-left')
@@ -105,10 +106,10 @@ class PdfViewerPanel(QWidget):
             _ph_pix = qta.icon('fa5s.file-pdf', color='#2E3A55').pixmap(56, 56)
         ph_icon.setPixmap(_ph_pix)
         ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ph_text = QLabel("Drag a PDF here\nor use the button  to open")
+        ph_text = QLabel(t("viewer.placeholder"))
         ph_text.setObjectName("viewer_placeholder")
         ph_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._ph_btn = QPushButton("  Open PDF")
+        self._ph_btn = QPushButton(t("viewer.open_btn"))
         self._ph_btn.setIcon(qta.icon('fa5s.folder-open', color='#FFFFFF'))
         self._ph_btn.setObjectName("btn_primary")
         self._ph_btn.setFixedWidth(160)
@@ -139,7 +140,7 @@ class PdfViewerPanel(QWidget):
         sb_lay.setContentsMargins(8, 4, 8, 4)
         sb_lay.setSpacing(4)
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText("Search in PDF...")
+        self._search_input.setPlaceholderText(t("search.placeholder"))
         self._search_input.setObjectName("search_input")
         self._search_input.returnPressed.connect(self._search_next)
         self._search_input.textChanged.connect(self._on_search_text_changed)
@@ -149,17 +150,17 @@ class PdfViewerPanel(QWidget):
         _prev_s = QPushButton()
         _prev_s.setIcon(qta.icon("fa5s.chevron-up", color=TEXT_SEC))
         _prev_s.setFixedSize(28, 28); _prev_s.setObjectName("viewer_nav_btn")
-        _prev_s.setToolTip("Previous match")
+        _prev_s.setToolTip(t("search.prev"))
         _prev_s.clicked.connect(self._search_prev)
         _next_s = QPushButton()
         _next_s.setIcon(qta.icon("fa5s.chevron-down", color=TEXT_SEC))
         _next_s.setFixedSize(28, 28); _next_s.setObjectName("viewer_nav_btn")
-        _next_s.setToolTip("Next match")
+        _next_s.setToolTip(t("search.next"))
         _next_s.clicked.connect(self._search_next)
         _close_s = QPushButton()
         _close_s.setIcon(qta.icon("fa5s.times", color=TEXT_SEC))
         _close_s.setFixedSize(28, 28); _close_s.setObjectName("viewer_nav_btn")
-        _close_s.setToolTip("Close search (Esc)")
+        _close_s.setToolTip(t("search.close"))
         _close_s.clicked.connect(self._close_search)
         sb_lay.addWidget(self._search_input, 1)
         sb_lay.addWidget(self._search_lbl)
@@ -174,7 +175,7 @@ class PdfViewerPanel(QWidget):
         QShortcut(QKeySequence("Escape"), self._search_input, self._close_search)
 
         # ── Status bar (text selection) ──────────────────────────────────
-        self._sel_status = QLabel("Drag over text to select and copy")
+        self._sel_status = QLabel(t("viewer.select_copy"))
         self._sel_status.setObjectName("viewer_sel_status")
         self._sel_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._sel_status.setVisible(False)
@@ -192,13 +193,13 @@ class PdfViewerPanel(QWidget):
     def _on_text_copied(self, text: str):
         from PySide6.QtCore import QTimer
         if text:
-            self._sel_status.setText(f"Copied to clipboard  ({len(text)} chars)")
+            self._sel_status.setText(t("viewer.copied", n=len(text)))
             self._sel_status.setStyleSheet("color: #22c55e; padding: 4px;")
         else:
-            self._sel_status.setText("No text found (scanned PDF or no text layer)")
+            self._sel_status.setText(t("viewer.no_text"))
             self._sel_status.setStyleSheet("color: #f59e0b; padding: 4px;")
         QTimer.singleShot(4000, lambda: (
-            self._sel_status.setText("Drag over text to select and copy"),
+            self._sel_status.setText(t("viewer.select_copy")),
             self._sel_status.setStyleSheet(""),
         ))
 
@@ -254,8 +255,8 @@ class PdfViewerPanel(QWidget):
         if not path or not os.path.isfile(path):
             return
         if not path.lower().endswith(".pdf"):
-            QMessageBox.warning(self, "Invalid format",
-                                "Please select a PDF file (.pdf).")
+            QMessageBox.warning(self, t("viewer.invalid_format"),
+                                t("viewer.invalid_msg"))
             return
         import fitz
         if self._fitz_doc:
@@ -264,8 +265,8 @@ class PdfViewerPanel(QWidget):
         try:
             doc = fitz.open(path)
         except Exception as ex:
-            QMessageBox.critical(self, "Error opening PDF",
-                                 f"Could not open the file:\n{ex}")
+            QMessageBox.critical(self, t("viewer.error_open"),
+                                 t("viewer.error_open_msg", ex=ex))
             return
         self._pdf_password = ""
         if doc.needs_pass:
@@ -287,7 +288,7 @@ class PdfViewerPanel(QWidget):
         self._canvas_scroll.setVisible(True)
         self._sel_status.setVisible(True)
         self._name_lbl.setText(os.path.basename(path))
-        self._zoom_lbl.setText("Fit")
+        self._zoom_lbl.setText(t("zoom.fit"))
         for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn):
             btn.setEnabled(True)
 
@@ -419,4 +420,4 @@ class PdfViewerPanel(QWidget):
     # ── Zoom ─────────────────────────────────────────────────────────────────
     def _zoom_fit(self):
         self._canvas.zoom_reset()
-        self._zoom_lbl.setText("Fit")
+        self._zoom_lbl.setText(t("zoom.fit"))

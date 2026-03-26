@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 import qtawesome as qta
 
 from app.constants import ACCENT
+from app.i18n import t
 
 
 class DropFileEdit(QWidget):
@@ -17,15 +18,15 @@ class DropFileEdit(QWidget):
 
     path_changed = Signal(str)
 
-    def __init__(self, placeholder="Drag the PDF file here or use the button →",
-                 filters="PDF Files (*.pdf);;All (*.*)",
+    def __init__(self, placeholder=None,
+                 filters=None,
                  save=False, default_name="result.pdf"):
         super().__init__()
-        self._filters      = filters
+        self._filters      = filters or t("file_filter.pdf")
         self._save         = save
         self._default      = default_name
         self._path_value   = ""
-        self._placeholder  = placeholder
+        self._placeholder  = placeholder or t("widget.drop_hint")
         self.setAcceptDrops(True)
         self.setObjectName("drop_zone")
 
@@ -52,7 +53,7 @@ class DropFileEdit(QWidget):
         self._clr.clicked.connect(self.clear)
         h.addWidget(self._clr)
 
-        self.btn = QPushButton("Save as…" if save else "  Open…  ")
+        self.btn = QPushButton(t("widget.save_as") if save else t("widget.open"))
         self.btn.setFixedWidth(140 if save else 110)
         self.btn.clicked.connect(self._browse)
         h.addWidget(self.btn)
@@ -107,9 +108,9 @@ class DropFileEdit(QWidget):
 
     def _browse(self):
         if self._save:
-            p, _ = QFileDialog.getSaveFileName(self, "Save as", self._default, self._filters)
+            p, _ = QFileDialog.getSaveFileName(self, t("widget.save_as"), self._default, self._filters)
         else:
-            p, _ = QFileDialog.getOpenFileName(self, "Open file", "", self._filters)
+            p, _ = QFileDialog.getOpenFileName(self, t("widget.open_file"), "", self._filters)
         if p:
             self.set_path(p)
 
@@ -131,10 +132,10 @@ class MultiDropWidget(QWidget):
         lbl.setObjectName("drop_icon")
         lbl.setFixedWidth(26)
         h.addWidget(lbl)
-        self._lbl = QLabel("Drag multiple PDFs here  or  use the button →")
+        self._lbl = QLabel(t("widget.drop_multi"))
         self._lbl.setObjectName("drop_zone_lbl")
         h.addWidget(self._lbl, 1)
-        self.btn = QPushButton("  Add…  ")
+        self.btn = QPushButton(t("btn.add"))
         self.btn.setFixedWidth(110)
         h.addWidget(self.btn)
 

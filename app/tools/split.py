@@ -10,19 +10,20 @@ from PySide6.QtWidgets import (
 from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
+from app.i18n import t
 from app.utils import section, info_lbl, danger_btn, pick_folder
 from app.widgets import DropFileEdit
 
 
 class TabDividir(BasePage):
     def __init__(self, status_fn):
-        super().__init__("fa5s.cut", "Split PDF",
-                         "Split the PDF into multiple files by page ranges.",
-                         "Split PDF", status_fn)
+        super().__init__("fa5s.cut", t("tool.split.name"),
+                         t("tool.split.desc"),
+                         t("tool.split.btn"), status_fn)
         self._total = 0
         f = self._form
 
-        f.addWidget(section("Source file"))
+        f.addWidget(section(t("tool.split.source")))
         self.drop_in = DropFileEdit()
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -31,27 +32,27 @@ class TabDividir(BasePage):
         f.addWidget(self.drop_in)
         f.addWidget(self.lbl_info)
 
-        grp = QGroupBox("Page ranges")
+        grp = QGroupBox(t("tool.split.ranges"))
         vt  = QVBoxLayout(grp); vt.setSpacing(8)
         self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Start", "End", "Output file name"])
+        self.table.setHorizontalHeaderLabels([t("tool.split.start"), t("tool.split.end"), t("tool.split.output_name")])
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.setFixedHeight(160)
         vt.addWidget(self.table)
         hb = QHBoxLayout()
-        btn_add = QPushButton("＋  Add row")
-        btn_rem = danger_btn("−  Remove")
+        btn_add = QPushButton(t("btn.add_row"))
+        btn_rem = danger_btn(t("btn.remove"))
         btn_add.clicked.connect(self._add_row)
         btn_rem.clicked.connect(self._remove_row)
         hb.addWidget(btn_add); hb.addWidget(btn_rem); hb.addStretch()
         vt.addLayout(hb)
         f.addWidget(grp)
 
-        f.addWidget(section("Output folder"))
-        self.drop_out = DropFileEdit("Folder where the files will be saved…")
-        self.drop_out.btn.setText("Choose…")
+        f.addWidget(section(t("tool.split.output_folder")))
+        self.drop_out = DropFileEdit(t("tool.split.folder_hint"))
+        self.drop_out.btn.setText(t("btn.choose"))
         self.drop_out.btn.clicked.disconnect()
         self.drop_out.btn.clicked.connect(self._pick_output)
         f.addWidget(self.drop_out)
@@ -59,7 +60,7 @@ class TabDividir(BasePage):
         self._add_row()
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -69,8 +70,8 @@ class TabDividir(BasePage):
         if not self.drop_out.path(): self.drop_out.set_path(os.path.dirname(p))
         try:
             r = PdfReader(p); self._total = len(r.pages)
-            self.lbl_info.setText(f"  {self._total} pages in the file")
-        except Exception as e: self.lbl_info.setText(f"  Error: {e}")
+            self.lbl_info.setText(t("tool.split.pages_info", n=self._total))
+        except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
@@ -94,13 +95,13 @@ class TabDividir(BasePage):
     def _run(self):
         pdf_path = self.drop_in.path(); out_dir = self.drop_out.path()
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Warning", "Select a valid PDF."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
         if not out_dir:
-            QMessageBox.warning(self, "Warning", "Choose the output folder."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_folder")); return
         try:
             reader = PdfReader(pdf_path); total = len(reader.pages)
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e)); return
+            QMessageBox.critical(self, t("msg.error"), str(e)); return
         os.makedirs(out_dir, exist_ok=True)
         errors, generated = [], []
         for r in range(self.table.rowCount()):
@@ -114,8 +115,8 @@ class TabDividir(BasePage):
             for p in range(start - 1, end): w.add_page(reader.pages[p])
             with open(os.path.join(out_dir, name), "wb") as f: w.write(f)
             generated.append(name)
-        if errors: QMessageBox.warning(self, "Warning", "Skipped:\n" + "\n".join(errors))
+        if errors: QMessageBox.warning(self, t("msg.warning"), t("tool.split.skipped", errors="\n".join(errors)))
         if generated:
-            self._status(f"✔  {len(generated)} file(s) created in {out_dir}")
-            QMessageBox.information(self, "Done",
-                f"{len(generated)} file(s) created in:\n{out_dir}\n\n" + "\n".join(generated))
+            self._status(f"✔  {len(generated)} file(s) → {out_dir}")
+            QMessageBox.information(self, t("msg.done"),
+                t("tool.split.done", n=len(generated), folder=out_dir, files="\n".join(generated)))
