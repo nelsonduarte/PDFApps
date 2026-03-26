@@ -272,6 +272,9 @@
     "tool.encrypt.status_enc": "🔒 encrypted",
     "tool.encrypt.status_dec": "🔓 no protection",
     "tool.encrypt.enter_owner": "Enter the owner password.",
+    "tool.encrypt.confirm_label": "Confirm password *:",
+    "tool.encrypt.confirm_hint": "Retype the owner password",
+    "tool.encrypt.mismatch": "Passwords do not match.",
     "tool.encrypt.done_enc": "PDF encrypted:\n{path}",
     "tool.encrypt.wrong_pass": "Incorrect password — could not decrypt the PDF.",
     "tool.encrypt.done_dec": "PDF decrypted:\n{path}",
@@ -363,7 +366,11 @@
     "tool.info.error": "Error reading the PDF:\n{e}",
 
     "lang.selector": "Language",
-    "lang.restart": "Language changed to {lang}. Restart the app to apply."
+    "lang.restart": "Language changed to {lang}. Restart the app to apply.",
+
+    "recent.title": "Recent files",
+    "recent.empty": "No recent files",
+    "recent.clear": "Clear recent files"
   },
 
   "pt": {
@@ -639,6 +646,9 @@
     "tool.encrypt.status_enc": "🔒 encriptado",
     "tool.encrypt.status_dec": "🔓 sem proteção",
     "tool.encrypt.enter_owner": "Introduz a senha do proprietário.",
+    "tool.encrypt.confirm_label": "Confirmar senha *:",
+    "tool.encrypt.confirm_hint": "Repete a senha do proprietário",
+    "tool.encrypt.mismatch": "As senhas não coincidem.",
     "tool.encrypt.done_enc": "PDF encriptado:\n{path}",
     "tool.encrypt.wrong_pass": "Senha incorreta — não foi possível desencriptar o PDF.",
     "tool.encrypt.done_dec": "PDF desencriptado:\n{path}",
@@ -730,6 +740,10 @@
     "tool.info.error": "Erro ao ler o PDF:\n{e}",
 
     "lang.selector": "Idioma",
-    "lang.restart": "Idioma alterado para {lang}. Reinicia a app para aplicar."
+    "lang.restart": "Idioma alterado para {lang}. Reinicia a app para aplicar.",
+
+    "recent.title": "Ficheiros recentes",
+    "recent.empty": "Sem ficheiros recentes",
+    "recent.clear": "Limpar ficheiros recentes"
   }
 }

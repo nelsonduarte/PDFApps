@@ -41,9 +41,12 @@ class TabEncriptar(BasePage):
         fe = QFormLayout(self.grp_enc)
         fe.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.edit_owner = QLineEdit(); self.edit_owner.setEchoMode(QLineEdit.EchoMode.Password)
+        self.edit_owner_confirm = QLineEdit(); self.edit_owner_confirm.setEchoMode(QLineEdit.EchoMode.Password)
+        self.edit_owner_confirm.setPlaceholderText(t("tool.encrypt.confirm_hint"))
         self.edit_user  = QLineEdit(); self.edit_user.setEchoMode(QLineEdit.EchoMode.Password)
         self.edit_user.setPlaceholderText(t("tool.encrypt.user_hint"))
         fe.addRow(t("tool.encrypt.owner_label"), self.edit_owner)
+        fe.addRow(t("tool.encrypt.confirm_label"), self.edit_owner_confirm)
         fe.addRow(t("tool.encrypt.user_label"), self.edit_user)
         f.addWidget(self.grp_enc)
 
@@ -107,6 +110,8 @@ class TabEncriptar(BasePage):
                 owner = self.edit_owner.text()
                 if not owner:
                     QMessageBox.warning(self, t("msg.warning"), t("tool.encrypt.enter_owner")); return
+                if owner != self.edit_owner_confirm.text():
+                    QMessageBox.warning(self, t("msg.warning"), t("tool.encrypt.mismatch")); return
                 user_pwd = self.edit_user.text() or owner
                 w = PdfWriter(); w.append(reader)
                 w.encrypt(user_password=user_pwd,
