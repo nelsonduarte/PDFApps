@@ -18,7 +18,7 @@ if sys.platform == "win32":
     TESSDATA_DIR   = r"C:\Program Files\Tesseract-OCR\tessdata"
     TESSERACT_URL  = (
         "https://github.com/UB-Mannheim/tesseract/releases/download/"
-        "v5.5.0.20241111/tesseract-ocr-w64-setup-5.5.0.20241111.exe"
+        "v5.4.0.20240606/tesseract-ocr-w64-setup-5.4.0.20240606.exe"
     )
 elif sys.platform == "darwin":
     TESSERACT_EXE  = shutil.which("tesseract") or "/opt/homebrew/bin/tesseract"
