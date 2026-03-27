@@ -40,7 +40,7 @@ class TabReordenar(BasePage):
         hb = QHBoxLayout()
         for txt, slot in [(t("btn.up"), self._up), (t("btn.down"), self._dn),
                           (t("btn.delete"), self._del), (t("btn.reset_order"), self._reset)]:
-            btn = danger_btn(txt) if "Delete" in txt or "Apagar" in txt else QPushButton(txt)
+            btn = danger_btn(txt) if slot == self._del else QPushButton(txt)
             btn.clicked.connect(slot); hb.addWidget(btn)
         hb.addStretch(); vl.addLayout(hb)
         f.addWidget(grp)

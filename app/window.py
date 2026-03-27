@@ -279,7 +279,7 @@ class MainWindow(QMainWindow):
         self._collapse_btn.setObjectName("collapse_btn")
         self._collapse_btn.setFixedWidth(18)
         self._collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._collapse_btn.setToolTip("Collapse / Expand")
+        self._collapse_btn.setToolTip(t("sidebar.collapse_expand"))
         self._collapse_btn.clicked.connect(self._toggle_sidebar)
         main_h.addWidget(self._collapse_btn)
 

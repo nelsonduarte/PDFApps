@@ -34,7 +34,7 @@ class TabJuntar(BasePage):
         hb = QHBoxLayout()
         for txt, slot in [(t("btn.up"), self._up), (t("btn.down"), self._dn),
                           (t("btn.remove"), self._remove), (t("btn.clear"), self.lst.clear)]:
-            btn = danger_btn(txt) if "Remove" in txt or "Remover" in txt else QPushButton(txt)
+            btn = danger_btn(txt) if slot == self._remove else QPushButton(txt)
             btn.clicked.connect(slot); hb.addWidget(btn)
         hb.addStretch(); vl.addLayout(hb)
         f.addWidget(grp)

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 import qtawesome as qta
 
+from app.i18n import t
 from app.constants import (
     ACCENT, DESKTOP,
     BG_BASE, BG_CARD, BG_INPUT,
@@ -79,12 +80,12 @@ def parse_pages(text: str, total: int) -> list:
 
 def pick_pdfs(parent: QWidget) -> list:
     paths, _ = QFileDialog.getOpenFileNames(
-        parent, "Select PDFs", DESKTOP, "PDF (*.pdf);;All (*.*)")
+        parent, t("btn.select_pdfs"), DESKTOP, t("file_filter.pdf"))
     return paths
 
 
 def pick_folder(parent: QWidget) -> str:
-    return QFileDialog.getExistingDirectory(parent, "Select folder")
+    return QFileDialog.getExistingDirectory(parent, t("btn.select_folder"))
 
 
 # ── UI factory helpers ────────────────────────────────────────────────────────
