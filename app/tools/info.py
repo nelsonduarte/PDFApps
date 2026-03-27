@@ -14,6 +14,22 @@ from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
 
+def _format_pdf_date(raw: str) -> str:
+    """Convert PDF date 'D:20260213104540Z' → '2026-02-13 10:45:40'."""
+    s = str(raw).strip()
+    if s.startswith("D:"):
+        s = s[2:]
+    # Remove trailing Z, +, - timezone info
+    for ch in ("Z", "'", "+00", "+01", "+02"):
+        s = s.replace(ch, "")
+    s = s.strip()
+    if len(s) >= 14:
+        return f"{s[0:4]}-{s[4:6]}-{s[6:8]} {s[8:10]}:{s[10:12]}:{s[12:14]}"
+    if len(s) >= 8:
+        return f"{s[0:4]}-{s[4:6]}-{s[6:8]}"
+    return str(raw)
+
+
 class TabInfo(BasePage):
     def __init__(self, status_fn):
         super().__init__("fa5s.info-circle", t("tool.info.name"),
@@ -77,7 +93,10 @@ class TabInfo(BasePage):
                 "/ModDate": "tool.info.modified",
             }.items():
                 val = meta.get(key, "")
-                if val: lines.append(f"  {t(tkey):<16}{val}")
+                if val:
+                    if key in ("/CreationDate", "/ModDate"):
+                        val = _format_pdf_date(val)
+                    lines.append(f"  {t(tkey):<16}{val}")
             if len(reader.pages) > 0:
                 pg = reader.pages[0]
                 w, h = float(pg.mediabox.width), float(pg.mediabox.height)
