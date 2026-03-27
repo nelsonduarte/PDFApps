@@ -65,6 +65,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ### Integrated viewer
 
+- **Tabbed viewing** — open multiple PDFs in tabs, switch between them
 - Continuous scroll through all pages (Adobe Acrobat style)
 - **Lazy rendering** — opens instantly; pages rendered in background as they are viewed
 - **PDF search (Ctrl+F)** — search bar with live highlights and navigation between matches
@@ -83,7 +84,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ### Other highlights
 
-- **Multi-language** — auto-detects system language (English / Português), with selector in toolbar
+- **Multi-language** — auto-detects system language (EN, PT, ES, FR, DE, ZH, IT, NL), with selector in toolbar
 - **Recent files** — quick access to the last 10 opened PDFs via history icon
 - **Help guide** — ? button opens the online user guide
 - Modern dark/light theme with collapsible sidebar
@@ -99,7 +100,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 | Platform | How to get it |
 |---|---|
-| **Windows** 10/11 64-bit | Download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps-en/releases) |
+| **Windows** 10/11 64-bit | Download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps/releases) |
 | **macOS** 10.14+ | Build from source (see below) — Tesseract via `brew install tesseract tesseract-lang` |
 | **Linux** | Build from source (see below) — Tesseract via `sudo apt install tesseract-ocr` |
 
@@ -107,8 +108,8 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ```bash
 # Clone the repository
-git clone https://github.com/nelsonduarte/PDFApps-en.git
-cd PDFApps-en
+git clone https://github.com/nelsonduarte/PDFApps.git
+cd PDFApps
 
 # Create virtual environment
 python -m venv venv
@@ -190,7 +191,7 @@ PDFApps/
 │   ├── utils.py            # Shared utilities
 │   ├── widgets.py          # Reusable widgets (DropFileEdit, etc.)
 │   ├── base.py             # Base class for tools (BasePage)
-│   ├── i18n.py             # Internationalization module (EN/PT)
+│   ├── i18n.py             # Internationalization module (8 languages)
 │   ├── translations.json   # All translated UI strings
 │   ├── window.py           # Main window (MainWindow)
 │   ├── tools/              # PDF manipulation tools
