@@ -54,6 +54,7 @@ class TabEditar(QWidget):
         super().__init__()
         self._status   = status_fn
         self._pending  = []
+        self._redo_stack = []
         self._doc_path = None
         self._mode_idx = 0
         self.setObjectName("content_area")
@@ -229,8 +230,18 @@ class TabEditar(QWidget):
         gpe = QVBoxLayout(grp_pend); gpe.setSpacing(4)
         self._pending_list = QListWidget(); self._pending_list.setMaximumHeight(110)
         gpe.addWidget(self._pending_list)
-        btn_clear = QPushButton(t("btn.clear_all")); btn_clear.clicked.connect(self._clear_pending)
-        gpe.addWidget(btn_clear)
+        pend_btns = QHBoxLayout(); pend_btns.setSpacing(4)
+        btn_undo = QPushButton(); btn_undo.setIcon(qta.icon("fa5s.undo", color=TEXT_PRI))
+        btn_undo.setToolTip("Undo (Ctrl+Z)"); btn_undo.setFixedSize(28, 28)
+        btn_undo.clicked.connect(self._undo)
+        btn_redo = QPushButton(); btn_redo.setIcon(qta.icon("fa5s.redo", color=TEXT_PRI))
+        btn_redo.setToolTip("Redo (Ctrl+Y)"); btn_redo.setFixedSize(28, 28)
+        btn_redo.clicked.connect(self._redo)
+        btn_clear = QPushButton(t("btn.clear_all"))
+        btn_clear.clicked.connect(self._clear_pending)
+        pend_btns.addWidget(btn_undo); pend_btns.addWidget(btn_redo)
+        pend_btns.addWidget(btn_clear); pend_btns.addStretch()
+        gpe.addLayout(pend_btns)
         cv.addWidget(grp_pend)
 
         # -- Save --
@@ -253,6 +264,12 @@ class TabEditar(QWidget):
 
         action_bar, _ = ActionBar(t("btn.apply_save"), self._run)
         root.addWidget(action_bar)
+
+        # Keyboard shortcuts
+        from PySide6.QtGui import QShortcut, QKeySequence
+        QShortcut(QKeySequence("Ctrl+Z"), self, self._undo)
+        QShortcut(QKeySequence("Ctrl+Y"), self, self._redo)
+        QShortcut(QKeySequence("Ctrl+Shift+Z"), self, self._redo)
 
         self._update_nav()
 
@@ -476,6 +493,7 @@ class TabEditar(QWidget):
                        "color": found_span.get("color", 0)})
 
     def _add(self, edit: dict):
+        self._redo_stack.clear()
         self._pending.append(edit)
         labels = {
             "redact":    lambda e: f"Redact — p. {e['page']+1}",
@@ -490,8 +508,24 @@ class TabEditar(QWidget):
         self._status(f"✏  {lbl} added — {len(self._pending)} pending edit(s)")
         self._canvas.set_overlays([e for e in self._pending if e["page"] == self._page_idx])
 
+    def _undo(self):
+        if not self._pending:
+            return
+        edit = self._pending.pop()
+        self._redo_stack.append(edit)
+        self._pending_list.takeItem(self._pending_list.count() - 1)
+        self._canvas.set_overlays([e for e in self._pending if e["page"] == self._page_idx])
+        self._status(f"↩  Undo — {len(self._pending)} pending edit(s)")
+
+    def _redo(self):
+        if not self._redo_stack:
+            return
+        edit = self._redo_stack.pop()
+        self._add(edit)
+
     def _clear_pending(self):
         self._pending.clear(); self._pending_list.clear()
+        self._redo_stack.clear()
         self._canvas.set_overlays([])
 
     # ── apply ──────────────────────────────────────────────────────────────
