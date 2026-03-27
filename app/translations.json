@@ -357,7 +357,16 @@
     "progress.compress.passC": "Pass 3: Structural optimization…",
     "sidebar.collapse_expand": "Collapse / Expand",
     "btn.select_pdfs": "Select PDFs",
-    "btn.select_folder": "Select folder"
+    "btn.select_folder": "Select folder",
+    "update.check": "Check for updates",
+    "update.available": "A new version ({version}) is available!",
+    "update.install": "Update now",
+    "update.downloading": "Downloading update...",
+    "update.applying": "Applying update...",
+    "update.restart": "Update complete. The app will restart.",
+    "update.no_asset": "No download available for this platform.",
+    "update.up_to_date": "You are using the latest version.",
+    "update.error": "Could not check for updates."
   },
   "pt": {
     "app.name": "PDFApps",
@@ -717,7 +726,16 @@
     "progress.compress.passC": "Passo 3: Otimização estrutural…",
     "sidebar.collapse_expand": "Recolher / Expandir",
     "btn.select_pdfs": "Selecionar PDFs",
-    "btn.select_folder": "Selecionar pasta"
+    "btn.select_folder": "Selecionar pasta",
+    "update.check": "Verificar atualizações",
+    "update.available": "Uma nova versão ({version}) está disponível!",
+    "update.install": "Atualizar agora",
+    "update.downloading": "A descarregar atualização...",
+    "update.applying": "A aplicar atualização...",
+    "update.restart": "Atualização concluída. A app vai reiniciar.",
+    "update.no_asset": "Sem download disponível para esta plataforma.",
+    "update.up_to_date": "Estás a usar a versão mais recente.",
+    "update.error": "Não foi possível verificar atualizações."
   },
   "es": {
     "app.name": "PDFApps",
@@ -1077,7 +1095,16 @@
     "progress.compress.passC": "Paso 3: Optimización estructural…",
     "sidebar.collapse_expand": "Contraer / Expandir",
     "btn.select_pdfs": "Seleccionar PDFs",
-    "btn.select_folder": "Seleccionar carpeta"
+    "btn.select_folder": "Seleccionar carpeta",
+    "update.check": "Buscar actualizaciones",
+    "update.available": "¡Una nueva versión ({version}) está disponible!",
+    "update.install": "Actualizar ahora",
+    "update.downloading": "Descargando actualización...",
+    "update.applying": "Aplicando actualización...",
+    "update.restart": "Actualización completa. La app se reiniciará.",
+    "update.no_asset": "Sin descarga disponible para esta plataforma.",
+    "update.up_to_date": "Estás usando la versión más reciente.",
+    "update.error": "No se pudo buscar actualizaciones."
   },
   "fr": {
     "app.name": "PDFApps",
@@ -1437,7 +1464,16 @@
     "progress.compress.passC": "Passe 3 : Optimisation structurelle…",
     "sidebar.collapse_expand": "Réduire / Développer",
     "btn.select_pdfs": "Sélectionner des PDF",
-    "btn.select_folder": "Sélectionner un dossier"
+    "btn.select_folder": "Sélectionner un dossier",
+    "update.check": "Vérifier les mises à jour",
+    "update.available": "Une nouvelle version ({version}) est disponible !",
+    "update.install": "Mettre à jour",
+    "update.downloading": "Téléchargement de la mise à jour...",
+    "update.applying": "Application de la mise à jour...",
+    "update.restart": "Mise à jour terminée. L'app va redémarrer.",
+    "update.no_asset": "Pas de téléchargement disponible pour cette plateforme.",
+    "update.up_to_date": "Vous utilisez la dernière version.",
+    "update.error": "Impossible de vérifier les mises à jour."
   },
   "de": {
     "app.name": "PDFApps",
@@ -1797,7 +1833,16 @@
     "progress.compress.passC": "Durchlauf 3: Strukturelle Optimierung…",
     "sidebar.collapse_expand": "Einklappen / Ausklappen",
     "btn.select_pdfs": "PDFs auswählen",
-    "btn.select_folder": "Ordner auswählen"
+    "btn.select_folder": "Ordner auswählen",
+    "update.check": "Nach Updates suchen",
+    "update.available": "Eine neue Version ({version}) ist verfügbar!",
+    "update.install": "Jetzt aktualisieren",
+    "update.downloading": "Update wird heruntergeladen...",
+    "update.applying": "Update wird angewendet...",
+    "update.restart": "Update abgeschlossen. Die App wird neu gestartet.",
+    "update.no_asset": "Kein Download für diese Plattform verfügbar.",
+    "update.up_to_date": "Du verwendest die neueste Version.",
+    "update.error": "Updates konnten nicht geprüft werden."
   },
   "zh": {
     "app.name": "PDFApps",
@@ -2157,7 +2202,16 @@
     "progress.compress.passC": "第 3 步：结构优化…",
     "sidebar.collapse_expand": "折叠 / 展开",
     "btn.select_pdfs": "选择PDF文件",
-    "btn.select_folder": "选择文件夹"
+    "btn.select_folder": "选择文件夹",
+    "update.check": "检查更新",
+    "update.available": "新版本 ({version}) 可用！",
+    "update.install": "立即更新",
+    "update.downloading": "正在下载更新...",
+    "update.applying": "正在应用更新...",
+    "update.restart": "更新完成。应用将重新启动。",
+    "update.no_asset": "此平台无可用下载。",
+    "update.up_to_date": "你正在使用最新版本。",
+    "update.error": "无法检查更新。"
   },
   "it": {
     "app.name": "PDFApps",
@@ -2517,7 +2571,16 @@
     "progress.compress.passC": "Passo 3: Ottimizzazione strutturale…",
     "sidebar.collapse_expand": "Comprimi / Espandi",
     "btn.select_pdfs": "Seleziona PDF",
-    "btn.select_folder": "Seleziona cartella"
+    "btn.select_folder": "Seleziona cartella",
+    "update.check": "Controlla aggiornamenti",
+    "update.available": "Una nuova versione ({version}) è disponibile!",
+    "update.install": "Aggiorna ora",
+    "update.downloading": "Download aggiornamento...",
+    "update.applying": "Applicazione aggiornamento...",
+    "update.restart": "Aggiornamento completato. L'app si riavvierà.",
+    "update.no_asset": "Nessun download disponibile per questa piattaforma.",
+    "update.up_to_date": "Stai usando l'ultima versione.",
+    "update.error": "Impossibile controllare gli aggiornamenti."
   },
   "nl": {
     "app.name": "PDFApps",
@@ -2877,6 +2940,15 @@
     "progress.compress.passC": "Stap 3: Structurele optimalisatie…",
     "sidebar.collapse_expand": "Inklappen / Uitklappen",
     "btn.select_pdfs": "PDF's selecteren",
-    "btn.select_folder": "Map selecteren"
+    "btn.select_folder": "Map selecteren",
+    "update.check": "Controleren op updates",
+    "update.available": "Een nieuwe versie ({version}) is beschikbaar!",
+    "update.install": "Nu bijwerken",
+    "update.downloading": "Update wordt gedownload...",
+    "update.applying": "Update wordt toegepast...",
+    "update.restart": "Update voltooid. De app wordt opnieuw gestart.",
+    "update.no_asset": "Geen download beschikbaar voor dit platform.",
+    "update.up_to_date": "Je gebruikt de nieuwste versie.",
+    "update.error": "Kan niet controleren op updates."
   }
 }

@@ -175,6 +175,22 @@ class MainWindow(QMainWindow):
         self._theme_btn.clicked.connect(self._toggle_theme)
         wb_h.addWidget(self._theme_btn)
 
+        # Update button — hidden by default, shown when update is available
+        self._update_btn = QPushButton()
+        self._update_btn.setIcon(qta.icon("fa5s.arrow-circle-up", color="#10b981"))
+        self._update_btn.setObjectName("viewer_nav_btn")
+        self._update_btn.setFixedSize(28, 28)
+        self._update_btn.setToolTip(t("update.check"))
+        self._update_btn.setVisible(False)
+        self._update_btn.setStyleSheet(
+            "QPushButton { border: 1.5px solid #10b981; border-radius: 6px; }"
+            "QPushButton:hover { background: rgba(16,185,129,0.15); }"
+        )
+        self._update_btn.clicked.connect(self._show_update_dialog)
+        wb_h.addWidget(self._update_btn)
+        self._update_release = None
+        self._check_for_updates_async()
+
         root_v.addWidget(workspace_bar)
 
         body = QWidget(); body.setObjectName("workspace_shell")
@@ -570,3 +586,27 @@ class MainWindow(QMainWindow):
         for i, (_, icon_name, _) in enumerate(NAV_ITEMS):
             self.nav.item(i).setIcon(qta.icon(icon_name, color=icon_color))
         self._viewer.update_theme(self._dark_mode)
+
+    # ── Auto-update ───────────────────────────────────────────────────────
+
+    def _check_for_updates_async(self):
+        from threading import Thread
+
+        def _check():
+            from app.updater import check_for_update
+            release = check_for_update()
+            if release:
+                self._update_release = release
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(0, lambda: self._update_btn.setVisible(True))
+
+        Thread(target=_check, daemon=True).start()
+
+    def _show_update_dialog(self):
+        if self._update_release:
+            from app.updater import UpdateDialog
+            dlg = UpdateDialog(self._update_release, parent=self)
+            dlg.exec()
+        else:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "PDFApps", t("update.up_to_date"))

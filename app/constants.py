@@ -3,6 +3,9 @@
 import os as _os
 DESKTOP = _os.path.join(_os.path.expanduser("~"), "Desktop")
 
+APP_VERSION = "1.5.0"
+GITHUB_REPO = "nelsonduarte/PDFApps"
+
 ACCENT   = "#14B8A6"   # main teal
 ACCENT_H = "#0D9488"   # hover
 ACCENT_P = "#0F766E"   # pressed
