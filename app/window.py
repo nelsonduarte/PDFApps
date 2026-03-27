@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 import qtawesome as qta
 
-from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ
+from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP
 from app.i18n import t, set_language, get_language, get_recent_files, add_recent_file
 from app.styles import STYLE, STYLE_LIGHT
 from app.utils import resource_path, _make_palette
@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
     def _open_pdf(self):
         from PySide6.QtWidgets import QFileDialog
         path, _ = QFileDialog.getOpenFileName(
-            self, t("btn.open_pdf"), "", t("file_filter.pdf"))
+            self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
         if path:
             self._load_and_track(path)
 

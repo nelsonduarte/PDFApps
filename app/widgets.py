@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 import qtawesome as qta
 
-from app.constants import ACCENT
+from app.constants import ACCENT, DESKTOP
 from app.i18n import t
 
 
@@ -110,7 +110,7 @@ class DropFileEdit(QWidget):
         if self._save:
             p, _ = QFileDialog.getSaveFileName(self, t("widget.save_as"), self._default, self._filters)
         else:
-            p, _ = QFileDialog.getOpenFileName(self, t("widget.open_file"), "", self._filters)
+            p, _ = QFileDialog.getOpenFileName(self, t("widget.open_file"), DESKTOP, self._filters)
         if p:
             self.set_path(p)
 

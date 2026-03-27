@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QKeySequence, QShortcut
 import qtawesome as qta
 
-from app.constants import ACCENT, TEXT_SEC, _LQ
+from app.constants import ACCENT, TEXT_SEC, _LQ, DESKTOP
 from app.utils import _paint_bg
 from app.i18n import t
 from app.viewer.canvas import _SelectCanvas
@@ -243,7 +243,7 @@ class PdfViewerPanel(QWidget):
     # ── Open dialog ────────────────────────────────────────────────────────
     def _open_dialog(self):
         path, _ = QFileDialog.getOpenFileName(
-            self.window(), t("btn.open_pdf"), "", t("file_filter.pdf"))
+            self.window(), t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
         if path:
             self.load(path)
 

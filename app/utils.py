@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 import qtawesome as qta
 
 from app.constants import (
-    ACCENT,
+    ACCENT, DESKTOP,
     BG_BASE, BG_CARD, BG_INPUT,
     BORDER, TEXT_PRI, TEXT_SEC,
     _LA, _LB, _LC, _LI, _LN, _LP,
@@ -79,7 +79,7 @@ def parse_pages(text: str, total: int) -> list:
 
 def pick_pdfs(parent: QWidget) -> list:
     paths, _ = QFileDialog.getOpenFileNames(
-        parent, "Select PDFs", "", "PDF (*.pdf);;All (*.*)")
+        parent, "Select PDFs", DESKTOP, "PDF (*.pdf);;All (*.*)")
     return paths
 
 

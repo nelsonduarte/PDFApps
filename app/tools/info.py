@@ -10,6 +10,7 @@ from pypdf import PdfReader
 from app.base import BasePage
 from app.i18n import t
 from app.utils import section
+from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
 
@@ -38,13 +39,13 @@ class TabInfo(BasePage):
         self.action_btn.setText(t("tool.info.open_show"))
 
     def _pick_and_show(self):
-        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
         if p: self.drop_in.set_path(p)
 
     def _run(self):
         p = self.drop_in.path()
         if not p or not os.path.isfile(p):
-            p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
+            p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
             if not p: return
             self.drop_in.set_path(p)
         self._show(p)

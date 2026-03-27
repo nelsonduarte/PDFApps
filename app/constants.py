@@ -1,5 +1,8 @@
 """PDFApps – design system constants (colours / theme)."""
 
+import os as _os
+DESKTOP = _os.path.join(_os.path.expanduser("~"), "Desktop")
+
 ACCENT   = "#14B8A6"   # main teal
 ACCENT_H = "#0D9488"   # hover
 ACCENT_P = "#0F766E"   # pressed

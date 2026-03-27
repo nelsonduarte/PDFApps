@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 import qtawesome as qta
 
-from app.constants import ACCENT, TEXT_PRI, TEXT_SEC
+from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, DESKTOP
 from app.utils import ToolHeader, ActionBar, info_lbl, _paint_bg
 from app.i18n import t
 from app.widgets import DropFileEdit
@@ -327,7 +327,7 @@ class TabEditar(QWidget):
             self._pick_image()
 
     def _pick_pdf(self):
-        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
         if p: self._load_pdf(p)
 
     def _load_pdf(self, p: str):
@@ -398,7 +398,7 @@ class TabEditar(QWidget):
         self._update_nav()
 
     def _pick_image(self):
-        p, _ = QFileDialog.getOpenFileName(self, t("edit.image"), "",
+        p, _ = QFileDialog.getOpenFileName(self, t("edit.image"), DESKTOP,
                                            "Images (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)")
         if p:
             self._img_drop.blockSignals(True)

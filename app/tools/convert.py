@@ -12,6 +12,7 @@ from pypdf import PdfReader
 from app.base import BasePage
 from app.i18n import t
 from app.utils import section, info_lbl, pick_folder
+from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
 
@@ -104,7 +105,7 @@ class TabConverter(BasePage):
                 self._drop_file.set_path(base + ext)
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
         if p:
             self._load_input(p)
 

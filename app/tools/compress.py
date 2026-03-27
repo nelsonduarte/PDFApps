@@ -12,6 +12,7 @@ from pypdf import PdfReader
 from app.base import BasePage
 from app.i18n import t
 from app.utils import section, info_lbl, _compress_pdf, CancelledError
+from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
 
@@ -56,7 +57,7 @@ class TabComprimir(BasePage):
         f.addStretch()
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
