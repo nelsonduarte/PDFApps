@@ -67,13 +67,25 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 - Continuous scroll through all pages (Adobe Acrobat style)
 - **Lazy rendering** — opens instantly; pages rendered in background as they are viewed
-- Zoom with Ctrl+scroll or zoom buttons
+- **PDF search (Ctrl+F)** — search bar with live highlights and navigation between matches
+- Zoom with Ctrl+scroll or toolbar buttons
+- **Page navigation** — jump to any page via input field or prev/next buttons
 - Text selection and copy by dragging
+- **Comment popups** — view and delete annotations with pencil icons and balloon popups
 - Password-protected PDF support
 - Drag & drop file support
 
+### Editor
+
+- **Undo/Redo** — Ctrl+Z / Ctrl+Y with full action history
+- **Password confirmation** — retype password when encrypting PDFs
+- Redact, insert text, images, highlights, notes, forms and edit existing text
+
 ### Other highlights
 
+- **Multi-language** — auto-detects system language (English / Português), with selector in toolbar
+- **Recent files** — quick access to the last 10 opened PDFs via history icon
+- **Help guide** — ? button opens the online user guide
 - Modern dark/light theme with collapsible sidebar
 - Full drag and drop support across all file fields
 - Cross-platform: Windows, macOS and Linux
@@ -178,6 +190,8 @@ PDFApps/
 │   ├── utils.py            # Shared utilities
 │   ├── widgets.py          # Reusable widgets (DropFileEdit, etc.)
 │   ├── base.py             # Base class for tools (BasePage)
+│   ├── i18n.py             # Internationalization module (EN/PT)
+│   ├── translations.json   # All translated UI strings
 │   ├── window.py           # Main window (MainWindow)
 │   ├── tools/              # PDF manipulation tools
 │   │   ├── split.py
