@@ -157,10 +157,10 @@ class MainWindow(QMainWindow):
         self._help_btn.setObjectName("theme_btn")
         self._help_btn.setToolTip(t("help.tip"))
         self._help_btn.setFixedSize(28, 28)
-        self._help_btn.clicked.connect(lambda: __import__('webbrowser').open("https://nelsonduarte.github.io/PDFApps-en/#guide"))
+        self._help_btn.clicked.connect(lambda: __import__('webbrowser').open("https://nelsonduarte.github.io/PDFApps/#guide"))
         wb_h.addWidget(self._help_btn)
 
-        _lang_labels = {"en": "EN", "pt": "PT", "es": "ES", "fr": "FR", "de": "DE"}
+        _lang_labels = {"en": "EN", "pt": "PT", "es": "ES", "fr": "FR", "de": "DE", "zh": "ZH", "it": "IT", "nl": "NL"}
         self._lang_btn = QPushButton(_lang_labels.get(get_language(), "EN"))
         self._lang_btn.setObjectName("theme_btn")
         self._lang_btn.setToolTip(t("lang.selector"))
