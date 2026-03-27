@@ -248,11 +248,9 @@ class MainWindow(QMainWindow):
         # Collapse / expand button (vertical strip between sidebar and content)
         self._collapse_btn = QPushButton("«")
         self._collapse_btn.setObjectName("collapse_btn")
-        self._collapse_btn.setFixedWidth(16)
+        self._collapse_btn.setFixedWidth(18)
         self._collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._collapse_btn.setStyleSheet(
-            "QPushButton { border: none; background: transparent; color: " + TEXT_SEC + "; font-size: 12px; }"
-            "QPushButton:hover { background: rgba(255,255,255,0.05); }")
+        self._collapse_btn.setToolTip("Collapse / Expand")
         self._collapse_btn.clicked.connect(self._toggle_sidebar)
         main_h.addWidget(self._collapse_btn)
 
