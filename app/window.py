@@ -111,12 +111,6 @@ class MainWindow(QMainWindow):
         self._recent_btn.clicked.connect(self._show_recent_menu)
         wb_h.addWidget(self._recent_btn)
 
-        self._quick_merge_btn = QPushButton(t("btn.merge")); self._quick_merge_btn.setObjectName("quick_btn")
-        self._quick_ocr_btn = QPushButton(t("btn.ocr")); self._quick_ocr_btn.setObjectName("quick_btn")
-        self._quick_edit_btn = QPushButton(t("btn.edit")); self._quick_edit_btn.setObjectName("quick_btn")
-        wb_h.addWidget(self._quick_merge_btn)
-        wb_h.addWidget(self._quick_ocr_btn)
-        wb_h.addWidget(self._quick_edit_btn)
 
         # zoom widget
         self._zoom_widget = QWidget()
@@ -301,10 +295,6 @@ class MainWindow(QMainWindow):
 
         self._current_tool = -1
         self.nav.itemClicked.connect(self._on_nav_clicked)
-        self._quick_merge_btn.clicked.connect(lambda: self._open_tool_by_name("Merge"))
-        self._quick_ocr_btn.clicked.connect(lambda: self._open_tool_by_name("OCR"))
-        self._quick_edit_btn.clicked.connect(lambda: self._open_tool_by_name("Edit"))
-
         # Connect all DropFileEdit widgets to load in active viewer
         for i in range(self.stack.count()):
             for dfe in self.stack.widget(i).findChildren(DropFileEdit):
