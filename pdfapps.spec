@@ -5,7 +5,7 @@ a = Analysis(
     ['pdfapps.py'],
     pathex=[],
     binaries=[],
-    datas=[('icon.ico', '.')],
+    datas=[('icon.ico', '.'), ('app/translations.json', 'app')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

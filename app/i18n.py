@@ -3,6 +3,7 @@
 import json
 import locale
 import os
+import sys
 
 _TRANSLATIONS: dict = {}
 _LANG: str = "en"
@@ -11,7 +12,10 @@ _CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".pdfapps_config.json")
 
 def _load_translations():
     global _TRANSLATIONS
-    path = os.path.join(os.path.dirname(__file__), "translations.json")
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(base, "app", "translations.json")
+    if not os.path.isfile(path):
+        path = os.path.join(os.path.dirname(__file__), "translations.json")
     with open(path, "r", encoding="utf-8") as f:
         _TRANSLATIONS = json.load(f)
 
