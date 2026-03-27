@@ -2,6 +2,8 @@
 
 > PDF editor and manager for Windows, macOS and Linux — fast, offline and subscription-free.
 
+[![PDFApps](https://img.shields.io/badge/PDFApps-PDF%20Editor-14B8A6?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik02IDJhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWOGwtNi02SDZ6bTcgMXY1aDVMMTMgM3oiLz48L3N2Zz4=)](https://nelsonduarte.github.io/PDFApps/)
+
 [![Release](https://img.shields.io/github/v/release/nelsonduarte/PDFApps?color=10b981&logo=github)](https://github.com/nelsonduarte/PDFApps/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/nelsonduarte/PDFApps/total?color=2563eb&logo=github)](https://github.com/nelsonduarte/PDFApps/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/nelsonduarte/PDFApps/build.yml?logo=github)](https://github.com/nelsonduarte/PDFApps/actions)
