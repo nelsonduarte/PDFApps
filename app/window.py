@@ -160,11 +160,12 @@ class MainWindow(QMainWindow):
         self._help_btn.clicked.connect(lambda: __import__('webbrowser').open("https://nelsonduarte.github.io/PDFApps-en/#guide"))
         wb_h.addWidget(self._help_btn)
 
-        self._lang_btn = QPushButton("EN" if get_language() == "en" else "PT")
+        _lang_labels = {"en": "EN", "pt": "PT", "es": "ES", "fr": "FR", "de": "DE"}
+        self._lang_btn = QPushButton(_lang_labels.get(get_language(), "EN"))
         self._lang_btn.setObjectName("theme_btn")
         self._lang_btn.setToolTip(t("lang.selector"))
         self._lang_btn.setFixedSize(28, 28)
-        self._lang_btn.clicked.connect(self._toggle_language)
+        self._lang_btn.clicked.connect(self._show_language_menu)
         wb_h.addWidget(self._lang_btn)
 
         self._theme_btn = QPushButton("☀")
@@ -430,14 +431,22 @@ class MainWindow(QMainWindow):
         sb = self._viewer._canvas_scroll.verticalScrollBar()
         sb.setValue(canvas.scroll_to_page(page_num - 1))
 
-    def _toggle_language(self):
+    def _show_language_menu(self):
+        _langs = [("en", "English"), ("pt", "Português"), ("es", "Español"), ("fr", "Français"), ("de", "Deutsch")]
+        menu = QMenu(self)
+        current = get_language()
+        for code, name in _langs:
+            action = menu.addAction(f"  {'● ' if code == current else '  '}{name}")
+            action.triggered.connect(lambda checked, c=code, n=name: self._set_language(c, n))
+        menu.exec(self._lang_btn.mapToGlobal(self._lang_btn.rect().bottomLeft()))
+
+    def _set_language(self, code: str, name: str):
         from PySide6.QtWidgets import QMessageBox
-        new_lang = "pt" if get_language() == "en" else "en"
-        lang_name = "Português" if new_lang == "pt" else "English"
-        set_language(new_lang)
-        self._lang_btn.setText("PT" if new_lang == "pt" else "EN")
+        set_language(code)
+        _labels = {"en": "EN", "pt": "PT", "es": "ES", "fr": "FR", "de": "DE"}
+        self._lang_btn.setText(_labels.get(code, "EN"))
         QMessageBox.information(self, t("lang.selector"),
-                                t("lang.restart", lang=lang_name))
+                                t("lang.restart", lang=name))
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode

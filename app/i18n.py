@@ -23,8 +23,9 @@ def _load_translations():
 def _detect_system_language() -> str:
     try:
         loc = locale.getdefaultlocale()[0] or ""
-        if loc.startswith("pt"):
-            return "pt"
+        for code in ("pt", "es", "fr", "de"):
+            if loc.startswith(code):
+                return code
     except Exception:
         pass
     return "en"
