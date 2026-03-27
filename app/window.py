@@ -30,6 +30,7 @@ from app.tools.ocr import TabOCR
 from app.tools.convert import TabConverter
 from app.editor.tab import TabEditar
 from app.tools.info import TabInfo
+from app.tools.import_pdf import TabImport
 
 
 _NAV_KEYS = [
@@ -44,6 +45,7 @@ _NAV_KEYS = [
     ("nav.ocr",       "fa5s.search",              TabOCR),
     ("nav.convert",   "fa5s.exchange-alt",        TabConverter),
     ("nav.edit",      "fa5s.edit",                TabEditar),
+    ("nav.import",    "fa5s.file-import",          TabImport),
     ("nav.info",      "fa5s.info-circle",         TabInfo),
 ]
 
