@@ -256,15 +256,7 @@ class MainWindow(QMainWindow):
         self._tab_bar.currentChanged.connect(self._on_tab_changed)
         self._tab_bar.tabCloseRequested.connect(self._close_tab)
         self._tab_bar.setVisible(False)
-        self._new_tab_btn = QPushButton("+")
-        self._new_tab_btn.setObjectName("new_tab_btn")
-        self._new_tab_btn.setFixedSize(28, 28)
-        self._new_tab_btn.setToolTip(t("btn.open_pdf"))
-        self._new_tab_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._new_tab_btn.clicked.connect(self._open_in_new_tab)
-        self._new_tab_btn.setVisible(False)
         tab_row.addWidget(self._tab_bar, 1)
-        tab_row.addWidget(self._new_tab_btn)
         tc_lay.addLayout(tab_row)
 
         self._viewer_stack = QStackedWidget()
@@ -349,7 +341,6 @@ class MainWindow(QMainWindow):
     def _update_tab_visibility(self):
         has_doc = any(v.current_path() for v in self._viewers)
         self._tab_bar.setVisible(has_doc)
-        self._new_tab_btn.setVisible(has_doc)
 
     def _on_tab_changed(self, idx: int):
         if idx < 0 or idx >= len(self._viewers):
