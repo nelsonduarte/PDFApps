@@ -374,7 +374,16 @@
 
     "recent.title": "Recent files",
     "recent.empty": "No recent files",
-    "recent.clear": "Clear recent files"
+    "recent.clear": "Clear recent files",
+    "progress.cancel": "Cancel",
+    "progress.cancelled": "Operation cancelled.",
+    "progress.ocr.title": "OCR in progress",
+    "progress.ocr.page": "Processing page {current} of {total}…",
+    "progress.compress.title": "Compressing PDF",
+    "progress.compress.passA": "Pass 1: Optimizing streams…",
+    "progress.compress.passB_setup": "Pass 2: Cleaning metadata and fonts…",
+    "progress.compress.passB_images": "Pass 2: Compressing image {current} of {total}…",
+    "progress.compress.passB_save": "Pass 2: Saving optimized PDF…"
   },
 
   "pt": {
@@ -752,7 +761,16 @@
 
     "recent.title": "Ficheiros recentes",
     "recent.empty": "Sem ficheiros recentes",
-    "recent.clear": "Limpar ficheiros recentes"
+    "recent.clear": "Limpar ficheiros recentes",
+    "progress.cancel": "Cancelar",
+    "progress.cancelled": "Operação cancelada.",
+    "progress.ocr.title": "OCR em progresso",
+    "progress.ocr.page": "A processar página {current} de {total}…",
+    "progress.compress.title": "A comprimir PDF",
+    "progress.compress.passA": "Passo 1: A otimizar streams…",
+    "progress.compress.passB_setup": "Passo 2: A limpar metadados e fontes…",
+    "progress.compress.passB_images": "Passo 2: A comprimir imagem {current} de {total}…",
+    "progress.compress.passB_save": "Passo 2: A guardar PDF otimizado…"
   },
 
   "es": {
@@ -1130,7 +1148,16 @@
 
     "recent.title": "Archivos recientes",
     "recent.empty": "Sin archivos recientes",
-    "recent.clear": "Limpiar archivos recientes"
+    "recent.clear": "Limpiar archivos recientes",
+    "progress.cancel": "Cancelar",
+    "progress.cancelled": "Operación cancelada.",
+    "progress.ocr.title": "OCR en progreso",
+    "progress.ocr.page": "Procesando página {current} de {total}…",
+    "progress.compress.title": "Comprimiendo PDF",
+    "progress.compress.passA": "Paso 1: Optimizando flujos…",
+    "progress.compress.passB_setup": "Paso 2: Limpiando metadatos y fuentes…",
+    "progress.compress.passB_images": "Paso 2: Comprimiendo imagen {current} de {total}…",
+    "progress.compress.passB_save": "Paso 2: Guardando PDF optimizado…"
   },
 
   "fr": {
@@ -1508,7 +1535,16 @@
 
     "recent.title": "Fichiers récents",
     "recent.empty": "Aucun fichier récent",
-    "recent.clear": "Effacer les fichiers récents"
+    "recent.clear": "Effacer les fichiers récents",
+    "progress.cancel": "Annuler",
+    "progress.cancelled": "Opération annulée.",
+    "progress.ocr.title": "OCR en cours",
+    "progress.ocr.page": "Traitement de la page {current} sur {total}…",
+    "progress.compress.title": "Compression du PDF",
+    "progress.compress.passA": "Passe 1 : Optimisation des flux…",
+    "progress.compress.passB_setup": "Passe 2 : Nettoyage des métadonnées et polices…",
+    "progress.compress.passB_images": "Passe 2 : Compression de l'image {current} sur {total}…",
+    "progress.compress.passB_save": "Passe 2 : Enregistrement du PDF optimisé…"
   },
 
   "de": {
@@ -1886,7 +1922,16 @@
 
     "recent.title": "Zuletzt verwendete Dateien",
     "recent.empty": "Keine zuletzt verwendeten Dateien",
-    "recent.clear": "Zuletzt verwendete Dateien löschen"
+    "recent.clear": "Zuletzt verwendete Dateien löschen",
+    "progress.cancel": "Abbrechen",
+    "progress.cancelled": "Vorgang abgebrochen.",
+    "progress.ocr.title": "OCR läuft",
+    "progress.ocr.page": "Verarbeite Seite {current} von {total}…",
+    "progress.compress.title": "PDF wird komprimiert",
+    "progress.compress.passA": "Durchlauf 1: Streams optimieren…",
+    "progress.compress.passB_setup": "Durchlauf 2: Metadaten und Schriften bereinigen…",
+    "progress.compress.passB_images": "Durchlauf 2: Bild {current} von {total} komprimieren…",
+    "progress.compress.passB_save": "Durchlauf 2: Optimierte PDF speichern…"
   },
 
   "zh": {
@@ -2234,7 +2279,16 @@
     "lang.restart": "语言已更改为 {lang}。请重启应用以生效。",
     "recent.title": "最近文件",
     "recent.empty": "无最近文件",
-    "recent.clear": "清除最近文件"
+    "recent.clear": "清除最近文件",
+    "progress.cancel": "取消",
+    "progress.cancelled": "操作已取消。",
+    "progress.ocr.title": "OCR 进行中",
+    "progress.ocr.page": "正在处理第 {current} 页，共 {total} 页…",
+    "progress.compress.title": "正在压缩 PDF",
+    "progress.compress.passA": "第 1 步：优化数据流…",
+    "progress.compress.passB_setup": "第 2 步：清理元数据和字体…",
+    "progress.compress.passB_images": "第 2 步：压缩图片 {current}/{total}…",
+    "progress.compress.passB_save": "第 2 步：保存优化后的 PDF…"
   },
 
   "it": {
@@ -2582,7 +2636,16 @@
     "lang.restart": "Lingua cambiata in {lang}. Riavvia l'app per applicare.",
     "recent.title": "File recenti",
     "recent.empty": "Nessun file recente",
-    "recent.clear": "Cancella file recenti"
+    "recent.clear": "Cancella file recenti",
+    "progress.cancel": "Annulla",
+    "progress.cancelled": "Operazione annullata.",
+    "progress.ocr.title": "OCR in corso",
+    "progress.ocr.page": "Elaborazione pagina {current} di {total}…",
+    "progress.compress.title": "Compressione PDF",
+    "progress.compress.passA": "Passo 1: Ottimizzazione dei flussi…",
+    "progress.compress.passB_setup": "Passo 2: Pulizia metadati e font…",
+    "progress.compress.passB_images": "Passo 2: Compressione immagine {current} di {total}…",
+    "progress.compress.passB_save": "Passo 2: Salvataggio PDF ottimizzato…"
   },
 
   "nl": {
@@ -2930,6 +2993,15 @@
     "lang.restart": "Taal gewijzigd naar {lang}. Herstart de app om toe te passen.",
     "recent.title": "Recente bestanden",
     "recent.empty": "Geen recente bestanden",
-    "recent.clear": "Recente bestanden wissen"
+    "recent.clear": "Recente bestanden wissen",
+    "progress.cancel": "Annuleren",
+    "progress.cancelled": "Bewerking geannuleerd.",
+    "progress.ocr.title": "OCR bezig",
+    "progress.ocr.page": "Pagina {current} van {total} verwerken…",
+    "progress.compress.title": "PDF comprimeren",
+    "progress.compress.passA": "Stap 1: Streams optimaliseren…",
+    "progress.compress.passB_setup": "Stap 2: Metadata en lettertypen opschonen…",
+    "progress.compress.passB_images": "Stap 2: Afbeelding {current} van {total} comprimeren…",
+    "progress.compress.passB_save": "Stap 2: Geoptimaliseerde PDF opslaan…"
   }
 }

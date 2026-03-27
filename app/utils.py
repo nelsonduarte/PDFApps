@@ -143,6 +143,9 @@ def scrolled(widget: QWidget) -> QScrollArea:
 
 # ── Compression helper ────────────────────────────────────────────────────────
 
+class CancelledError(Exception):
+    """Raised when the user cancels a long-running operation."""
+
 # Compression presets (equivalent to ilovepdf's 3 levels)
 _COMPRESS_LEVELS = {
     "extreme":     {"max_px": 600,  "quality": 45},
@@ -151,7 +154,8 @@ _COMPRESS_LEVELS = {
 }
 
 
-def _compress_pdf(src: str, dst: str, level: str = "recommended") -> tuple:
+def _compress_pdf(src: str, dst: str, level: str = "recommended",
+                  progress_fn=None) -> tuple:
     """
     Compression pipeline with 2 independent passes (inspired by ilovepdf):
 
@@ -180,7 +184,15 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended") -> tuple:
     before       = os.path.getsize(src)
     temps: list = []
 
+    def _prog(stage, cur=0, tot=0):
+        if progress_fn and progress_fn(stage, cur, tot) is False:
+            for t in temps:
+                try: os.unlink(t)
+                except Exception: pass
+            raise CancelledError()
+
     # ── Pass A : pypdf — streams + deduplicate objects ─────────────────────
+    _prog("passA")
     try:
         reader = PdfReader(src)
         writer = PdfWriter()
@@ -201,6 +213,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended") -> tuple:
         pass
 
     # ── Pass B : fitz — scrub + subset_fonts + DPI + JPEG ─────────────────
+    _prog("passB_setup")
     try:
         import fitz
 
@@ -219,7 +232,14 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended") -> tuple:
         except Exception:
             pass
 
-        # 3. Resize + re-encode images
+        # 3. Count images for progress, then resize + re-encode
+        all_xrefs = set()
+        for pg in doc:
+            for img_tuple in pg.get_images(full=True):
+                all_xrefs.add(img_tuple[0])
+        total_imgs = len(all_xrefs)
+        img_idx = 0
+
         seen: set = set()
         for pg in doc:
             for img_tuple in pg.get_images(full=True):
@@ -228,6 +248,8 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended") -> tuple:
                 if xref in seen:
                     continue
                 seen.add(xref)
+                img_idx += 1
+                _prog("passB_images", img_idx, total_imgs)
                 if smask != 0:      # has transparency mask → skip
                     continue
                 try:
@@ -274,6 +296,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended") -> tuple:
                     pass
 
         # 4. Save with all compression flags
+        _prog("passB_save")
         fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
         save_kw = dict(garbage=4, deflate=True, deflate_fonts=True, clean=True)
         try:

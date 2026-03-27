@@ -2,8 +2,10 @@
 
 import os
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QComboBox, QFileDialog, QMessageBox, QApplication,
+    QHBoxLayout, QLabel, QComboBox, QFileDialog, QMessageBox,
+    QApplication, QProgressDialog,
 )
 from pypdf import PdfReader, PdfWriter
 
@@ -204,38 +206,56 @@ class TabOCR(BasePage):
             fmt  = self.cmb_fmt.currentIndex()
             doc  = fitz.open(pdf_path)
             n    = doc.page_count
-            self._status(t("tool.ocr.starting", n=n))
-            QApplication.processEvents()
+
+            progress = QProgressDialog(t("progress.ocr.page", current=1, total=n),
+                                       t("progress.cancel"), 0, n, self)
+            progress.setWindowTitle(t("progress.ocr.title"))
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.setMinimumDuration(0)
+            progress.setValue(0)
+            cancelled = False
 
             if fmt == 1:
                 texts = []
                 for i, page in enumerate(doc):
-                    self._status(t("tool.ocr.progress", current=i+1, total=n))
+                    progress.setLabelText(t("progress.ocr.page", current=i+1, total=n))
+                    progress.setValue(i)
                     QApplication.processEvents()
+                    if progress.wasCanceled():
+                        cancelled = True; break
                     pix = page.get_pixmap(dpi=300)
                     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
                     texts.append(pytesseract.image_to_string(img, lang=lang))
                 doc.close()
-                with open(out_path, "w", encoding="utf-8") as fh:
-                    fh.write("\f".join(texts))
+                if not cancelled:
+                    with open(out_path, "w", encoding="utf-8") as fh:
+                        fh.write("\f".join(texts))
             else:
                 pdf_pages = []
                 for i, page in enumerate(doc):
-                    self._status(t("tool.ocr.progress", current=i+1, total=n))
+                    progress.setLabelText(t("progress.ocr.page", current=i+1, total=n))
+                    progress.setValue(i)
                     QApplication.processEvents()
+                    if progress.wasCanceled():
+                        cancelled = True; break
                     pix = page.get_pixmap(dpi=300)
                     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
                     pdf_bytes = pytesseract.image_to_pdf_or_hocr(img, lang=lang, extension="pdf")
                     pdf_pages.append(pdf_bytes)
                 doc.close()
-                writer = PdfWriter()
-                for page_bytes in pdf_pages:
-                    writer.append(PdfReader(_io.BytesIO(page_bytes)))
-                with open(out_path, "wb") as fh:
-                    writer.write(fh)
+                if not cancelled:
+                    writer = PdfWriter()
+                    for page_bytes in pdf_pages:
+                        writer.append(PdfReader(_io.BytesIO(page_bytes)))
+                    with open(out_path, "wb") as fh:
+                        writer.write(fh)
 
-            self._status(f"✔  OCR → {out_path}")
-            QMessageBox.information(self, t("msg.done"),
-                t("tool.ocr.done", path=out_path))
+            progress.setValue(n)
+            if cancelled:
+                self._status(t("progress.cancelled"))
+            else:
+                self._status(f"✔  OCR → {out_path}")
+                QMessageBox.information(self, t("msg.done"),
+                    t("tool.ocr.done", path=out_path))
         except Exception as e:
             QMessageBox.critical(self, t("tool.ocr.error"), str(e))

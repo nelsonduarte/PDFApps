@@ -4,13 +4,14 @@ import os
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QGroupBox, QFormLayout, QComboBox, QLabel, QFileDialog, QMessageBox, QApplication,
+    QGroupBox, QFormLayout, QComboBox, QLabel, QFileDialog, QMessageBox,
+    QApplication, QProgressDialog,
 )
 from pypdf import PdfReader
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl, _compress_pdf
+from app.utils import section, info_lbl, _compress_pdf, CancelledError
 from app.widgets import DropFileEdit
 
 
@@ -81,20 +82,51 @@ class TabComprimir(BasePage):
         if not out_path:
             QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
         level = self._LEVEL_KEYS[self.cmb_level.currentIndex()]
-        self._status(t("tool.compress.compressing", level=level))
-        QApplication.processEvents()
+
+        progress = QProgressDialog(t("progress.compress.passA"),
+                                   t("progress.cancel"), 0, 100, self)
+        progress.setWindowTitle(t("progress.compress.title"))
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+
+        _stage_labels = {
+            "passA":        t("progress.compress.passA"),
+            "passB_setup":  t("progress.compress.passB_setup"),
+            "passB_save":   t("progress.compress.passB_save"),
+        }
+
+        def on_progress(stage, cur=0, tot=0):
+            if stage == "passB_images":
+                pct = 30 + int((cur / max(tot, 1)) * 50)
+                progress.setLabelText(t("progress.compress.passB_images", current=cur, total=tot))
+            else:
+                pct = {"passA": 10, "passB_setup": 25, "passB_save": 85}.get(stage, 0)
+                progress.setLabelText(_stage_labels.get(stage, ""))
+            progress.setValue(pct)
+            QApplication.processEvents()
+            if progress.wasCanceled():
+                return False
+            return True
+
         try:
-            before, after = _compress_pdf(pdf_path, out_path, level)
+            before, after = _compress_pdf(pdf_path, out_path, level, progress_fn=on_progress)
+            progress.setValue(100)
             ratio = (1 - after / before) * 100 if before else 0
             msg = t("tool.compress.done", before=f"{before/1024:.0f}", after=f"{after/1024:.0f}", pct=f"{ratio:.0f}")
             self.lbl_result.setText(msg)
             self._status(f"✔  {msg.strip()}")
             QMessageBox.information(self, t("msg.done"), t("msg.pdf_saved", path=out_path))
+        except CancelledError:
+            progress.setValue(100)
+            self._status(t("progress.cancelled"))
         except ValueError as e:
+            progress.setValue(100)
             before_kb = os.path.getsize(pdf_path) / 1024
             self.lbl_result.setText(f"  {before_kb:.0f} KB")
             self._status(f"ℹ  {t('msg.no_gain')}")
             QMessageBox.information(self, t("msg.no_gain"),
                 t("tool.compress.no_gain", e=e))
         except Exception as e:
+            progress.setValue(100)
             QMessageBox.critical(self, t("msg.error"), str(e))
