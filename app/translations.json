@@ -257,6 +257,7 @@
     "tool.compress.compressing": "Compressing ({level})…",
     "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
     "tool.compress.no_gain": "Could not reduce the file size.\n\n{e}\n\nThe output file was not saved.",
+    "tool.compress.gs_hint": "💡 Install Ghostscript for even better compression results.\nhttps://ghostscript.com",
 
     "tool.encrypt.name": "Encrypt / Decrypt",
     "tool.encrypt.desc": "Protect the PDF with a password or remove existing protection.",
@@ -645,6 +646,7 @@
     "tool.compress.compressing": "A comprimir ({level})…",
     "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
     "tool.compress.no_gain": "Não foi possível reduzir o tamanho.\n\n{e}\n\nO ficheiro de saída não foi guardado.",
+    "tool.compress.gs_hint": "💡 Instale o Ghostscript para resultados de compressão ainda melhores.\nhttps://ghostscript.com",
 
     "tool.encrypt.name": "Encriptar / Desencriptar",
     "tool.encrypt.desc": "Protege o PDF com senha ou remove a proteção existente.",
@@ -1033,6 +1035,7 @@
     "tool.compress.compressing": "Comprimiendo ({level})…",
     "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
     "tool.compress.no_gain": "No se pudo reducir el tamaño.\n\n{e}\n\nEl archivo de salida no fue guardado.",
+    "tool.compress.gs_hint": "💡 Instale Ghostscript para obtener mejores resultados de compresión.\nhttps://ghostscript.com",
 
     "tool.encrypt.name": "Encriptar / Desencriptar",
     "tool.encrypt.desc": "Protege el PDF con contraseña o elimina la protección existente.",
@@ -1421,6 +1424,7 @@
     "tool.compress.compressing": "Compression ({level})…",
     "tool.compress.done": "{before} Ko  →  {after} Ko  (−{pct}%)",
     "tool.compress.no_gain": "Impossible de réduire la taille.\n\n{e}\n\nLe fichier de sortie n'a pas été enregistré.",
+    "tool.compress.gs_hint": "💡 Installez Ghostscript pour de meilleurs résultats de compression.\nhttps://ghostscript.com",
 
     "tool.encrypt.name": "Chiffrer / Déchiffrer",
     "tool.encrypt.desc": "Protège le PDF par mot de passe ou supprime la protection existante.",
@@ -1809,6 +1813,7 @@
     "tool.compress.compressing": "Komprimierung ({level})…",
     "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
     "tool.compress.no_gain": "Die Dateigröße konnte nicht reduziert werden.\n\n{e}\n\nDie Ausgabedatei wurde nicht gespeichert.",
+    "tool.compress.gs_hint": "💡 Installieren Sie Ghostscript für noch bessere Komprimierungsergebnisse.\nhttps://ghostscript.com",
 
     "tool.encrypt.name": "Verschlüsseln / Entschlüsseln",
     "tool.encrypt.desc": "Schützt das PDF mit Passwort oder entfernt den vorhandenen Schutz.",
@@ -2174,6 +2179,7 @@
     "tool.compress.compressing": "正在压缩（{level}）…",
     "tool.compress.done": "{before} KB  →  {after} KB  （−{pct}%）",
     "tool.compress.no_gain": "无法减小文件大小。\n\n{e}\n\n输出文件未保存。",
+    "tool.compress.gs_hint": "💡 安装 Ghostscript 可获得更好的压缩效果。\nhttps://ghostscript.com",
     "tool.encrypt.name": "加密 / 解密",
     "tool.encrypt.desc": "使用密码保护 PDF 或移除现有保护。",
     "tool.encrypt.btn": "执行",
@@ -2532,6 +2538,7 @@
     "tool.compress.compressing": "Compressione in corso ({level})…",
     "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
     "tool.compress.no_gain": "Impossibile ridurre le dimensioni del file.\n\n{e}\n\nIl file di output non è stato salvato.",
+    "tool.compress.gs_hint": "💡 Installa Ghostscript per risultati di compressione ancora migliori.\nhttps://ghostscript.com",
     "tool.encrypt.name": "Crittografa / Decifra",
     "tool.encrypt.desc": "Proteggi il PDF con una password o rimuovi la protezione esistente.",
     "tool.encrypt.btn": "Esegui",
@@ -2890,6 +2897,7 @@
     "tool.compress.compressing": "Comprimeren ({level})…",
     "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
     "tool.compress.no_gain": "Kon de bestandsgrootte niet verkleinen.\n\n{e}\n\nHet uitvoerbestand is niet opgeslagen.",
+    "tool.compress.gs_hint": "💡 Installeer Ghostscript voor nog betere compressieresultaten.\nhttps://ghostscript.com",
     "tool.encrypt.name": "Versleutelen / Ontsleutelen",
     "tool.encrypt.desc": "Beveilig de PDF met een wachtwoord of verwijder bestaande beveiliging.",
     "tool.encrypt.btn": "Uitvoeren",
