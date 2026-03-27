@@ -21,13 +21,36 @@ def _load_translations():
 
 
 def _detect_system_language() -> str:
+    loc = ""
     try:
+        # Windows: use kernel32 API for reliable UI language detection
+        if sys.platform == "win32":
+            import ctypes
+            lang_id = ctypes.windll.kernel32.GetUserDefaultUILanguage()
+            _WIN_LANG = {
+                0x0816: "pt", 0x0416: "pt",  # pt-PT, pt-BR
+                0x0C0A: "es", 0x040A: "es", 0x080A: "es",  # es
+                0x040C: "fr", 0x080C: "fr", 0x0C0C: "fr",  # fr
+                0x0407: "de", 0x0807: "de", 0x0C07: "de",  # de
+                0x0804: "zh", 0x0404: "zh", 0x1004: "zh",  # zh
+                0x0410: "it", 0x0810: "it",  # it
+                0x0413: "nl", 0x0813: "nl",  # nl
+            }
+            primary = lang_id & 0x03FF
+            _WIN_PRIMARY = {
+                0x16: "pt", 0x0A: "es", 0x0C: "fr", 0x07: "de",
+                0x04: "zh", 0x10: "it", 0x13: "nl",
+            }
+            lang = _WIN_LANG.get(lang_id) or _WIN_PRIMARY.get(primary)
+            if lang:
+                return lang
+        # Fallback: locale
         loc = locale.getdefaultlocale()[0] or ""
-        for code in ("pt", "es", "fr", "de", "zh", "it", "nl"):
-            if loc.startswith(code):
-                return code
     except Exception:
         pass
+    for code in ("pt", "es", "fr", "de", "zh", "it", "nl"):
+        if loc.startswith(code):
+            return code
     return "en"
 
 
