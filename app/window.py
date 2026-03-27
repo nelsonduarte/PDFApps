@@ -432,7 +432,7 @@ class MainWindow(QMainWindow):
         sb.setValue(canvas.scroll_to_page(page_num - 1))
 
     def _show_language_menu(self):
-        _langs = [("en", "English"), ("pt", "Português"), ("es", "Español"), ("fr", "Français"), ("de", "Deutsch")]
+        _langs = [("en", "English"), ("pt", "Português"), ("es", "Español"), ("fr", "Français"), ("de", "Deutsch"), ("zh", "中文"), ("it", "Italiano"), ("nl", "Nederlands")]
         menu = QMenu(self)
         current = get_language()
         for code, name in _langs:
@@ -443,7 +443,7 @@ class MainWindow(QMainWindow):
     def _set_language(self, code: str, name: str):
         from PySide6.QtWidgets import QMessageBox
         set_language(code)
-        _labels = {"en": "EN", "pt": "PT", "es": "ES", "fr": "FR", "de": "DE"}
+        _labels = {"en": "EN", "pt": "PT", "es": "ES", "fr": "FR", "de": "DE", "zh": "ZH", "it": "IT", "nl": "NL"}
         self._lang_btn.setText(_labels.get(code, "EN"))
         QMessageBox.information(self, t("lang.selector"),
                                 t("lang.restart", lang=name))

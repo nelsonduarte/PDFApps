@@ -23,7 +23,7 @@ def _load_translations():
 def _detect_system_language() -> str:
     try:
         loc = locale.getdefaultlocale()[0] or ""
-        for code in ("pt", "es", "fr", "de"):
+        for code in ("pt", "es", "fr", "de", "zh", "it", "nl"):
             if loc.startswith(code):
                 return code
     except Exception:
