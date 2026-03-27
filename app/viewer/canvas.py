@@ -291,29 +291,49 @@ class _SelectCanvas(QWidget):
                      max(1, int((x1 - x0) * z)),
                      max(1, int((y1 - y0) * z)))
 
+    def _find_closest_word(self, pos) -> tuple[int, int]:
+        """Return (page_idx, word_idx) for the word closest to screen pos."""
+        z = self._zoom
+        best_page, best_idx, best_dist = -1, -1, float("inf")
+        for pi, e in enumerate(self._entries):
+            if not e.words:
+                continue
+            # Skip pages far from the click
+            if pos.y() < e.y_off - 50 or pos.y() > e.y_off + e.h + 50:
+                continue
+            px = pos.x() / z
+            py = (pos.y() - e.y_off) / z
+            for wi, w in enumerate(e.words):
+                cx = (w[0] + w[2]) / 2
+                cy = (w[1] + w[3]) / 2
+                d = (px - cx) ** 2 + (py - cy) ** 2
+                if d < best_dist:
+                    best_dist = d
+                    best_page = pi
+                    best_idx = wi
+        return best_page, best_idx
+
     def _compute_selection(self):
-        import fitz
         if not self._drag_start or not self._drag_end:
             return
-        sx1 = min(self._drag_start.x(), self._drag_end.x())
-        sy1 = min(self._drag_start.y(), self._drag_end.y())
-        sx2 = max(self._drag_start.x(), self._drag_end.x())
-        sy2 = max(self._drag_start.y(), self._drag_end.y())
+        p1_page, p1_word = self._find_closest_word(self._drag_start)
+        p2_page, p2_word = self._find_closest_word(self._drag_end)
+        if p1_page < 0 or p2_page < 0:
+            return
+        # Ensure start <= end in reading order
+        if (p1_page, p1_word) > (p2_page, p2_word):
+            p1_page, p1_word, p2_page, p2_word = p2_page, p2_word, p1_page, p1_word
         rects, words = [], []
-        for e in self._entries:
-            if e.y_off + e.h < sy1 or e.y_off > sy2 or not e.words:
+        for pi in range(p1_page, p2_page + 1):
+            e = self._entries[pi]
+            if not e.words:
                 continue
-            sel_r = fitz.Rect(
-                sx1 / self._zoom,
-                max(0.0, (sy1 - e.y_off) / self._zoom),
-                sx2 / self._zoom,
-                (sy2 - e.y_off) / self._zoom,
-            )
-            for w in e.words:
-                x0, y0, x1, y1, word = w[0], w[1], w[2], w[3], w[4]
-                if sel_r.intersects(fitz.Rect(x0, y0, x1, y1)):
-                    rects.append(self._page_word_to_screen(e.y_off, x0, y0, x1, y1))
-                    words.append(word)
+            w_start = p1_word if pi == p1_page else 0
+            w_end   = p2_word if pi == p2_page else len(e.words) - 1
+            for wi in range(w_start, w_end + 1):
+                w = e.words[wi]
+                rects.append(self._page_word_to_screen(e.y_off, w[0], w[1], w[2], w[3]))
+                words.append(w[4])
         self._sel_rects = rects
         self._sel_text  = " ".join(words)
 
@@ -407,15 +427,9 @@ class _SelectCanvas(QWidget):
             else:
                 p.fillRect(rx, ry, rw, rh, QColor(250, 204, 21, 100))  # yellow for others
 
-        # ── Selection ──
+        # ── Selection (Acrobat-style word-flow highlight) ──
         for r in self._sel_rects:
             p.fillRect(r, QColor(59, 130, 246, 90))
-
-        if self._drag_start and self._drag_end:
-            drag_r = QRect(self._drag_start, self._drag_end).normalized()
-            p.setPen(QPen(QColor("#3B82F6"), 1))
-            p.setBrush(QColor(59, 130, 246, 25))
-            p.drawRect(drag_r)
 
     # ── Mouse ─────────────────────────────────────────────────────────────────
 
