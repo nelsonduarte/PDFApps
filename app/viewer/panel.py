@@ -83,9 +83,14 @@ class PdfViewerPanel(QWidget):
         self._next_btn     = _nav_btn('fa5s.chevron-right')
         self._next_btn.clicked.connect(self._next_page)
 
+        self._print_btn    = _nav_btn('fa5s.print')
+        self._print_btn.setToolTip(t("viewer.print"))
+        self._print_btn.clicked.connect(self._print_pdf)
+
         for w in (self._open_btn, self._zoom_out_btn, self._zoom_lbl,
                   self._zoom_in_btn, self._fit_btn,
-                  self._prev_btn, self._page_lbl, self._next_btn):
+                  self._prev_btn, self._page_lbl, self._next_btn,
+                  self._print_btn):
             hdr_lay.addWidget(w)
         self._hdr = hdr
         self._hdr.setVisible(False)
@@ -289,7 +294,7 @@ class PdfViewerPanel(QWidget):
         self._sel_status.setVisible(True)
         self._name_lbl.setText(os.path.basename(path))
         self._zoom_lbl.setText(t("zoom.fit"))
-        for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn):
+        for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn, self._print_btn):
             btn.setEnabled(True)
 
     # ── Search ──────────────────────────────────────────────────────────
@@ -421,3 +426,48 @@ class PdfViewerPanel(QWidget):
     def _zoom_fit(self):
         self._canvas.zoom_reset()
         self._zoom_lbl.setText(t("zoom.fit"))
+
+    # ── Print ────────────────────────────────────────────────────────────────
+    def _print_pdf(self):
+        if not self._fitz_doc:
+            return
+        from PySide6.QtPrintSupport import QPrinter, QPrintDialog
+        from PySide6.QtGui import QPainter, QImage
+        from PySide6.QtCore import QRectF
+
+        printer = QPrinter(QPrinter.Mode.HighResolution)
+        printer.setDocName(os.path.basename(self._current_path))
+
+        dlg = QPrintDialog(printer, self)
+        dlg.setWindowTitle(t("viewer.print"))
+        if dlg.exec() != QPrintDialog.DialogCode.Accepted:
+            return
+
+        painter = QPainter()
+        if not painter.begin(printer):
+            return
+
+        page_count = len(self._fitz_doc)
+        for i in range(page_count):
+            if i > 0:
+                printer.newPage()
+            page = self._fitz_doc[i]
+            # Render at high DPI for print quality
+            dpi = printer.resolution()
+            zoom = dpi / 72.0
+            mat = __import__("fitz").Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat)
+            img = QImage(pix.samples, pix.width, pix.height,
+                         pix.stride, QImage.Format.Format_RGB888)
+            target = QRectF(painter.viewport())
+            source = QRectF(0, 0, img.width(), img.height())
+            # Scale to fit page while maintaining aspect ratio
+            scale = min(target.width() / source.width(),
+                        target.height() / source.height())
+            w = source.width() * scale
+            h = source.height() * scale
+            x = (target.width() - w) / 2
+            y = (target.height() - h) / 2
+            painter.drawImage(QRectF(x, y, w, h), img, source)
+
+        painter.end()

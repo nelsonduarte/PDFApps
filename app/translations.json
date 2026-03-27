@@ -366,7 +366,8 @@
     "update.restart": "Update complete. The app will restart.",
     "update.no_asset": "No download available for this platform.",
     "update.up_to_date": "You are using the latest version.",
-    "update.error": "Could not check for updates."
+    "update.error": "Could not check for updates.",
+    "viewer.print": "Print"
   },
   "pt": {
     "app.name": "PDFApps",
@@ -735,7 +736,8 @@
     "update.restart": "Atualização concluída. A app vai reiniciar.",
     "update.no_asset": "Sem download disponível para esta plataforma.",
     "update.up_to_date": "Estás a usar a versão mais recente.",
-    "update.error": "Não foi possível verificar atualizações."
+    "update.error": "Não foi possível verificar atualizações.",
+    "viewer.print": "Imprimir"
   },
   "es": {
     "app.name": "PDFApps",
@@ -1104,7 +1106,8 @@
     "update.restart": "Actualización completa. La app se reiniciará.",
     "update.no_asset": "Sin descarga disponible para esta plataforma.",
     "update.up_to_date": "Estás usando la versión más reciente.",
-    "update.error": "No se pudo buscar actualizaciones."
+    "update.error": "No se pudo buscar actualizaciones.",
+    "viewer.print": "Imprimir"
   },
   "fr": {
     "app.name": "PDFApps",
@@ -1473,7 +1476,8 @@
     "update.restart": "Mise à jour terminée. L'app va redémarrer.",
     "update.no_asset": "Pas de téléchargement disponible pour cette plateforme.",
     "update.up_to_date": "Vous utilisez la dernière version.",
-    "update.error": "Impossible de vérifier les mises à jour."
+    "update.error": "Impossible de vérifier les mises à jour.",
+    "viewer.print": "Imprimer"
   },
   "de": {
     "app.name": "PDFApps",
@@ -1842,7 +1846,8 @@
     "update.restart": "Update abgeschlossen. Die App wird neu gestartet.",
     "update.no_asset": "Kein Download für diese Plattform verfügbar.",
     "update.up_to_date": "Du verwendest die neueste Version.",
-    "update.error": "Updates konnten nicht geprüft werden."
+    "update.error": "Updates konnten nicht geprüft werden.",
+    "viewer.print": "Drucken"
   },
   "zh": {
     "app.name": "PDFApps",
@@ -2211,7 +2216,8 @@
     "update.restart": "更新完成。应用将重新启动。",
     "update.no_asset": "此平台无可用下载。",
     "update.up_to_date": "你正在使用最新版本。",
-    "update.error": "无法检查更新。"
+    "update.error": "无法检查更新。",
+    "viewer.print": "打印"
   },
   "it": {
     "app.name": "PDFApps",
@@ -2580,7 +2586,8 @@
     "update.restart": "Aggiornamento completato. L'app si riavvierà.",
     "update.no_asset": "Nessun download disponibile per questa piattaforma.",
     "update.up_to_date": "Stai usando l'ultima versione.",
-    "update.error": "Impossibile controllare gli aggiornamenti."
+    "update.error": "Impossibile controllare gli aggiornamenti.",
+    "viewer.print": "Stampa"
   },
   "nl": {
     "app.name": "PDFApps",
@@ -2949,6 +2956,7 @@
     "update.restart": "Update voltooid. De app wordt opnieuw gestart.",
     "update.no_asset": "Geen download beschikbaar voor dit platform.",
     "update.up_to_date": "Je gebruikt de nieuwste versie.",
-    "update.error": "Kan niet controleren op updates."
+    "update.error": "Kan niet controleren op updates.",
+    "viewer.print": "Afdrukken"
   }
 }
