@@ -7,6 +7,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#)
 [![License](https://img.shields.io/badge/license-MIT-orange)](LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/sponsor-♥-ea4aaa?logo=github)](https://github.com/sponsors/nelsonduarte)
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/PDFapps)
 
 ---
 
