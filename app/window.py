@@ -217,14 +217,6 @@ class MainWindow(QMainWindow):
             self.nav.addItem(item)
         sb_lay.addWidget(self.nav, 1)
 
-        # Collapse / expand button
-        self._collapse_btn = QPushButton("«")
-        self._collapse_btn.setObjectName("theme_btn")
-        self._collapse_btn.setFixedHeight(28)
-        self._collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._collapse_btn.clicked.connect(self._toggle_sidebar)
-        sb_lay.addWidget(self._collapse_btn)
-
         self._footer_w = QWidget(); self._footer_w.setObjectName("sidebar")
         footer_h = QHBoxLayout(self._footer_w)
         footer_h.setContentsMargins(14, 8, 14, 10); footer_h.setSpacing(0)
@@ -252,6 +244,18 @@ class MainWindow(QMainWindow):
         self._splitter.setCollapsible(1, False)
 
         main_h.addWidget(self._sidebar)
+
+        # Collapse / expand button (vertical strip between sidebar and content)
+        self._collapse_btn = QPushButton("«")
+        self._collapse_btn.setObjectName("collapse_btn")
+        self._collapse_btn.setFixedWidth(16)
+        self._collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._collapse_btn.setStyleSheet(
+            "QPushButton { border: none; background: transparent; color: " + TEXT_SEC + "; font-size: 12px; }"
+            "QPushButton:hover { background: rgba(255,255,255,0.05); }")
+        self._collapse_btn.clicked.connect(self._toggle_sidebar)
+        main_h.addWidget(self._collapse_btn)
+
         main_h.addWidget(self._splitter, 1)
         root_v.addWidget(body, 1)
         self.setCentralWidget(central)
