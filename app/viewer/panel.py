@@ -435,7 +435,7 @@ class PdfViewerPanel(QWidget):
         from PySide6.QtGui import QPainter, QImage
         from PySide6.QtCore import QRectF
 
-        printer = QPrinter(QPrinter.Mode.HighResolution)
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         printer.setDocName(os.path.basename(self._current_path))
 
         dlg = QPrintDialog(printer, self)
