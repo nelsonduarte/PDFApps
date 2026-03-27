@@ -598,15 +598,25 @@ class MainWindow(QMainWindow):
             if release:
                 self._update_release = release
                 from PySide6.QtCore import QTimer
-                QTimer.singleShot(0, lambda: self._update_btn.setVisible(True))
+                QTimer.singleShot(0, self._notify_update)
 
         Thread(target=_check, daemon=True).start()
+
+    def _notify_update(self):
+        """Show update notification dialog automatically."""
+        self._update_btn.setVisible(True)
+        tag = self._update_release.get("tag_name", "?")
+        from PySide6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self, "PDFApps",
+            t("update.available").format(version=tag) + "\n\n" + t("update.install") + "?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._show_update_dialog()
 
     def _show_update_dialog(self):
         if self._update_release:
             from app.updater import UpdateDialog
             dlg = UpdateDialog(self._update_release, parent=self)
             dlg.exec()
-        else:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(self, "PDFApps", t("update.up_to_date"))
