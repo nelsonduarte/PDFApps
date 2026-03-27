@@ -40,37 +40,24 @@ class TabImport(BasePage):
         gf.addRow(t("tool.import.type_label"), self.cmb_type)
         f.addWidget(grp)
 
-        # ── Single file input (TXT / MD) ─────────────────────────────
-        self._section_file = section(t("tool.import.source_file"))
-        f.addWidget(self._section_file)
-        self.drop_in = DropFileEdit(filters=t("tool.import.filter_txt"))
-        self.drop_in.btn.clicked.disconnect()
-        self.drop_in.btn.clicked.connect(self._pick_input_file)
-        f.addWidget(self.drop_in)
+        # ── File list (works for all types) ──────────────────────────
+        f.addWidget(section(t("tool.import.source_file")))
 
-        # ── Multiple images input ────────────────────────────────────
-        self._section_images = section(t("tool.import.source_images"))
-        self._section_images.setVisible(False)
-        f.addWidget(self._section_images)
+        self._file_list = QListWidget()
+        self._file_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self._file_list.setAlternatingRowColors(True)
+        self._file_list.setMinimumHeight(140)
+        f.addWidget(self._file_list)
 
-        self._img_list = QListWidget()
-        self._img_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self._img_list.setAlternatingRowColors(True)
-        self._img_list.setMinimumHeight(140)
-        self._img_list.setVisible(False)
-        f.addWidget(self._img_list)
-
-        img_btns = QHBoxLayout()
-        self._add_img_btn = QPushButton(t("tool.import.add_images"))
-        self._add_img_btn.clicked.connect(self._pick_images)
-        self._add_img_btn.setVisible(False)
-        img_btns.addWidget(self._add_img_btn)
-        self._clear_img_btn = danger_btn(t("btn.clear"))
-        self._clear_img_btn.clicked.connect(self._img_list.clear)
-        self._clear_img_btn.setVisible(False)
-        img_btns.addWidget(self._clear_img_btn)
-        img_btns.addStretch()
-        f.addLayout(img_btns)
+        file_btns = QHBoxLayout()
+        self._add_btn = QPushButton(t("tool.import.add_files"))
+        self._add_btn.clicked.connect(self._pick_files)
+        file_btns.addWidget(self._add_btn)
+        self._remove_btn = danger_btn(t("btn.clear"))
+        self._remove_btn.clicked.connect(self._file_list.clear)
+        file_btns.addWidget(self._remove_btn)
+        file_btns.addStretch()
+        f.addLayout(file_btns)
 
         # ── Output ───────────────────────────────────────────────────
         f.addWidget(section(t("tool.import.output")))
@@ -85,39 +72,28 @@ class TabImport(BasePage):
         f.addStretch()
 
     def _on_type_changed(self, index: int):
-        is_images = index == 1
-        self._section_file.setVisible(not is_images)
-        self.drop_in.setVisible(not is_images)
-        self._section_images.setVisible(is_images)
-        self._img_list.setVisible(is_images)
-        self._add_img_btn.setVisible(is_images)
-        self._clear_img_btn.setVisible(is_images)
-        if index == 0:
-            self.drop_in._filters = t("tool.import.filter_txt")
-        elif index == 2:
-            self.drop_in._filters = t("tool.import.filter_md")
+        self._file_list.clear()
 
-    def _pick_input_file(self):
+    def _get_filter(self) -> str:
         fmt = self.cmb_type.currentIndex()
         if fmt == 0:
-            filt = t("tool.import.filter_txt")
+            return t("tool.import.filter_txt")
+        elif fmt == 1:
+            return t("file_filter.images")
         else:
-            filt = t("tool.import.filter_md")
-        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, filt)
-        if p:
-            self.drop_in.set_path(p)
-            base = os.path.splitext(p)[0]
-            self.drop_out.set_path(base + ".pdf")
+            return t("tool.import.filter_md")
 
-    def _pick_images(self):
+    def _pick_files(self):
         paths, _ = QFileDialog.getOpenFileNames(
-            self, t("tool.import.add_images"), DESKTOP,
-            t("file_filter.images"))
+            self, t("tool.import.add_files"), DESKTOP, self._get_filter())
         for p in paths:
-            self._img_list.addItem(QListWidgetItem(p))
+            self._file_list.addItem(QListWidgetItem(p))
         if paths and not self.drop_out.path():
             base = os.path.splitext(paths[0])[0]
             self.drop_out.set_path(base + ".pdf")
+
+    def _get_files(self) -> list:
+        return [self._file_list.item(i).text() for i in range(self._file_list.count())]
 
     def _run(self):
         fmt = self.cmb_type.currentIndex()
@@ -125,32 +101,34 @@ class TabImport(BasePage):
         if not out:
             QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output"))
             return
-        self.lbl_result.setText("")
-        if fmt == 0:
-            self._convert_txt(out)
-        elif fmt == 1:
-            self._convert_images(out)
-        else:
-            self._convert_md(out)
-
-    def _convert_txt(self, out_path: str):
-        src = self.drop_in.path()
-        if not src or not os.path.isfile(src):
+        files = self._get_files()
+        if not files:
             QMessageBox.warning(self, t("msg.warning"), t("tool.import.select_file"))
             return
+        self.lbl_result.setText("")
+        if fmt == 0:
+            self._convert_txt(files, out)
+        elif fmt == 1:
+            self._convert_images(files, out)
+        else:
+            self._convert_md(files, out)
+
+    def _convert_txt(self, sources: list, out_path: str):
         self._status(t("tool.import.converting"))
         QApplication.processEvents()
         try:
             import fitz
-            with open(src, "r", encoding="utf-8") as f:
-                text = f.read()
+            # Concatenate all text files
+            all_lines = []
+            for src in sources:
+                with open(src, "r", encoding="utf-8") as f:
+                    all_lines.extend(f.read().split("\n"))
+                all_lines.append("")  # separator between files
             doc = fitz.open()
-            # Split text into pages — ~60 lines per page
-            lines = text.split("\n")
             chunk = 60
-            for i in range(0, max(len(lines), 1), chunk):
+            for i in range(0, max(len(all_lines), 1), chunk):
                 page = doc.new_page(width=595, height=842)  # A4
-                block = "\n".join(lines[i:i + chunk])
+                block = "\n".join(all_lines[i:i + chunk])
                 rect = fitz.Rect(50, 50, 545, 792)
                 page.insert_textbox(rect, block, fontsize=10,
                                     fontname="courier", encoding=fitz.TEXT_ENCODING_LATIN)
@@ -160,18 +138,14 @@ class TabImport(BasePage):
         except Exception as e:
             QMessageBox.critical(self, t("msg.error"), str(e))
 
-    def _convert_images(self, out_path: str):
-        count = self._img_list.count()
-        if count == 0:
-            QMessageBox.warning(self, t("msg.warning"), t("tool.import.select_images"))
-            return
+    def _convert_images(self, sources: list, out_path: str):
         self._status(t("tool.import.converting"))
         QApplication.processEvents()
         try:
             import fitz
             doc = fitz.open()
-            for i in range(count):
-                img_path = self._img_list.item(i).text()
+            count = len(sources)
+            for i, img_path in enumerate(sources):
                 img = fitz.open(img_path)
                 # Get image dimensions
                 rect = img[0].rect
@@ -187,18 +161,17 @@ class TabImport(BasePage):
         except Exception as e:
             QMessageBox.critical(self, t("msg.error"), str(e))
 
-    def _convert_md(self, out_path: str):
-        src = self.drop_in.path()
-        if not src or not os.path.isfile(src):
-            QMessageBox.warning(self, t("msg.warning"), t("tool.import.select_file"))
-            return
+    def _convert_md(self, sources: list, out_path: str):
         self._status(t("tool.import.converting"))
         QApplication.processEvents()
         try:
             import fitz
-            with open(src, "r", encoding="utf-8") as f:
-                md_text = f.read()
-            # Convert markdown to simple formatted text
+            # Concatenate all markdown files
+            all_md = []
+            for src in sources:
+                with open(src, "r", encoding="utf-8") as f:
+                    all_md.append(f.read())
+            md_text = "\n\n---\n\n".join(all_md)
             lines = self._md_to_lines(md_text)
             doc = fitz.open()
             chunk = 55

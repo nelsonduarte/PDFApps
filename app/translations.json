@@ -386,7 +386,8 @@
     "tool.import.select_file": "Please select a source file.",
     "tool.import.select_images": "Please add at least one image.",
     "tool.import.converting": "Converting…",
-    "tool.import.done": "PDF created successfully:\n{path}"
+    "tool.import.done": "PDF created successfully:\n{path}",
+    "tool.import.add_files": "+  Add files"
   },
   "pt": {
     "app.name": "PDFApps",
@@ -775,7 +776,8 @@
     "tool.import.select_file": "Seleciona um ficheiro de origem.",
     "tool.import.select_images": "Adiciona pelo menos uma imagem.",
     "tool.import.converting": "A converter…",
-    "tool.import.done": "PDF criado com sucesso:\n{path}"
+    "tool.import.done": "PDF criado com sucesso:\n{path}",
+    "tool.import.add_files": "+  Adicionar ficheiros"
   },
   "es": {
     "app.name": "PDFApps",
@@ -1164,7 +1166,8 @@
     "tool.import.select_file": "Selecciona un archivo de origen.",
     "tool.import.select_images": "Añade al menos una imagen.",
     "tool.import.converting": "Convirtiendo…",
-    "tool.import.done": "PDF creado con éxito:\n{path}"
+    "tool.import.done": "PDF creado con éxito:\n{path}",
+    "tool.import.add_files": "+  Añadir archivos"
   },
   "fr": {
     "app.name": "PDFApps",
@@ -1553,7 +1556,8 @@
     "tool.import.select_file": "Sélectionnez un fichier source.",
     "tool.import.select_images": "Ajoutez au moins une image.",
     "tool.import.converting": "Conversion…",
-    "tool.import.done": "PDF créé avec succès :\n{path}"
+    "tool.import.done": "PDF créé avec succès :\n{path}",
+    "tool.import.add_files": "+  Ajouter des fichiers"
   },
   "de": {
     "app.name": "PDFApps",
@@ -1942,7 +1946,8 @@
     "tool.import.select_file": "Bitte wähle eine Quelldatei.",
     "tool.import.select_images": "Füge mindestens ein Bild hinzu.",
     "tool.import.converting": "Konvertierung…",
-    "tool.import.done": "PDF erfolgreich erstellt:\n{path}"
+    "tool.import.done": "PDF erfolgreich erstellt:\n{path}",
+    "tool.import.add_files": "+  Dateien hinzufügen"
   },
   "zh": {
     "app.name": "PDFApps",
@@ -2331,7 +2336,8 @@
     "tool.import.select_file": "请选择一个源文件。",
     "tool.import.select_images": "请至少添加一张图片。",
     "tool.import.converting": "正在转换…",
-    "tool.import.done": "PDF 创建成功：\n{path}"
+    "tool.import.done": "PDF 创建成功：\n{path}",
+    "tool.import.add_files": "+  添加文件"
   },
   "it": {
     "app.name": "PDFApps",
@@ -2720,7 +2726,8 @@
     "tool.import.select_file": "Seleziona un file di origine.",
     "tool.import.select_images": "Aggiungi almeno un'immagine.",
     "tool.import.converting": "Conversione…",
-    "tool.import.done": "PDF creato con successo:\n{path}"
+    "tool.import.done": "PDF creato con successo:\n{path}",
+    "tool.import.add_files": "+  Aggiungi file"
   },
   "nl": {
     "app.name": "PDFApps",
@@ -3109,6 +3116,7 @@
     "tool.import.select_file": "Selecteer een bronbestand.",
     "tool.import.select_images": "Voeg ten minste één afbeelding toe.",
     "tool.import.converting": "Converteren…",
-    "tool.import.done": "PDF succesvol aangemaakt:\n{path}"
+    "tool.import.done": "PDF succesvol aangemaakt:\n{path}",
+    "tool.import.add_files": "+  Bestanden toevoegen"
   }
 }
