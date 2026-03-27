@@ -239,6 +239,7 @@ class MainWindow(QMainWindow):
         tc_lay.setContentsMargins(0, 0, 0, 0)
         tc_lay.setSpacing(0)
 
+        tab_row = QHBoxLayout(); tab_row.setContentsMargins(0, 0, 0, 0); tab_row.setSpacing(0)
         self._tab_bar = QTabBar()
         self._tab_bar.setTabsClosable(True)
         self._tab_bar.setMovable(True)
@@ -247,7 +248,16 @@ class MainWindow(QMainWindow):
         self._tab_bar.currentChanged.connect(self._on_tab_changed)
         self._tab_bar.tabCloseRequested.connect(self._close_tab)
         self._tab_bar.setVisible(False)
-        tc_lay.addWidget(self._tab_bar)
+        self._new_tab_btn = QPushButton("+")
+        self._new_tab_btn.setObjectName("new_tab_btn")
+        self._new_tab_btn.setFixedSize(28, 28)
+        self._new_tab_btn.setToolTip(t("btn.open_pdf"))
+        self._new_tab_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._new_tab_btn.clicked.connect(self._open_in_new_tab)
+        self._new_tab_btn.setVisible(False)
+        tab_row.addWidget(self._tab_bar, 1)
+        tab_row.addWidget(self._new_tab_btn)
+        tc_lay.addLayout(tab_row)
 
         self._viewer_stack = QStackedWidget()
         self._viewers: list[PdfViewerPanel] = []
@@ -299,7 +309,7 @@ class MainWindow(QMainWindow):
         self._viewer_stack.addWidget(v)
         idx = self._tab_bar.addTab(t("viewer.title"))
         self._tab_bar.setCurrentIndex(idx)
-        self._tab_bar.setVisible(self._tab_bar.count() > 1)
+        self._update_tab_visibility()
         # Wire up scroll → page nav
         v._canvas_scroll.verticalScrollBar().valueChanged.connect(
             lambda _: self._update_page_nav())
@@ -327,6 +337,11 @@ class MainWindow(QMainWindow):
             v.load(path)
         return v
 
+    def _update_tab_visibility(self):
+        show = self._tab_bar.count() > 1
+        self._tab_bar.setVisible(show)
+        self._new_tab_btn.setVisible(show)
+
     def _on_tab_changed(self, idx: int):
         if idx < 0 or idx >= len(self._viewers):
             return
@@ -343,7 +358,7 @@ class MainWindow(QMainWindow):
         self._viewer_stack.removeWidget(viewer)
         viewer._canvas.close_doc()
         viewer.deleteLater()
-        self._tab_bar.setVisible(self._tab_bar.count() > 1)
+        self._update_tab_visibility()
         self._update_page_nav()
 
     def _open_tool_by_name(self, tool_name: str):
@@ -418,12 +433,18 @@ class MainWindow(QMainWindow):
             self._load_and_track(path)
 
     def _load_and_track(self, path: str):
-        # If current tab has a PDF, open in new tab; otherwise reuse
-        if self._viewer.current_path():
-            self._add_viewer_tab(path)
-        else:
-            self._viewer.load(path)
+        """Load PDF in current tab (replaces current document)."""
+        self._viewer.load(path)
         add_recent_file(path)
+
+    def _open_in_new_tab(self):
+        """Open a PDF in a new tab."""
+        from PySide6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
+        if path:
+            self._add_viewer_tab(path)
+            add_recent_file(path)
 
     def _show_recent_menu(self):
         menu = QMenu(self)

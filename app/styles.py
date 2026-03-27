@@ -242,6 +242,12 @@ QSplitter::handle {{ background: {BORDER}; width: 1px; }}
     color: {TEXT_PRI}; border-bottom: 2px solid {ACCENT};
 }}
 #viewer_tabs::tab:hover {{ color: {TEXT_PRI}; background: #253945; }}
+
+#new_tab_btn {{
+    background: {BG_CARD}; border: none; border-bottom: 1px solid {BORDER};
+    color: {TEXT_SEC}; font-size: 14pt; font-weight: bold; padding: 0;
+}}
+#new_tab_btn:hover {{ color: {TEXT_PRI}; background: #253945; }}
 """
 
 STYLE_LIGHT = f"""
@@ -438,4 +444,10 @@ QSplitter::handle {{ background: {_LO}; width: 1px; }}
     color: {_LP}; border-bottom: 2px solid {_LA};
 }}
 #viewer_tabs::tab:hover {{ color: {_LP}; background: #DBEAE5; }}
+
+#new_tab_btn {{
+    background: {_LC}; border: none; border-bottom: 1px solid {_LO};
+    color: {_LQ}; font-size: 14pt; font-weight: bold; padding: 0;
+}}
+#new_tab_btn:hover {{ color: {_LP}; background: #DBEAE5; }}
 """
