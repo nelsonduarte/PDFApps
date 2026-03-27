@@ -94,14 +94,16 @@ class TabComprimir(BasePage):
             "passA":        t("progress.compress.passA"),
             "passB_setup":  t("progress.compress.passB_setup"),
             "passB_save":   t("progress.compress.passB_save"),
+            "passC":        t("progress.compress.passC"),
         }
 
         def on_progress(stage, cur=0, tot=0):
             if stage == "passB_images":
-                pct = 30 + int((cur / max(tot, 1)) * 50)
+                pct = 25 + int((cur / max(tot, 1)) * 40)
                 progress.setLabelText(t("progress.compress.passB_images", current=cur, total=tot))
             else:
-                pct = {"passA": 10, "passB_setup": 25, "passB_save": 85}.get(stage, 0)
+                pct = {"passA": 10, "passB_setup": 20, "passB_save": 70,
+                       "passC": 85}.get(stage, 0)
                 progress.setLabelText(_stage_labels.get(stage, ""))
             progress.setValue(pct)
             QApplication.processEvents()

@@ -383,7 +383,8 @@
     "progress.compress.passA": "Pass 1: Optimizing streams…",
     "progress.compress.passB_setup": "Pass 2: Cleaning metadata and fonts…",
     "progress.compress.passB_images": "Pass 2: Compressing image {current} of {total}…",
-    "progress.compress.passB_save": "Pass 2: Saving optimized PDF…"
+    "progress.compress.passB_save": "Pass 2: Saving optimized PDF…",
+    "progress.compress.passC": "Pass 3: Structural optimization…"
   },
 
   "pt": {
@@ -770,7 +771,8 @@
     "progress.compress.passA": "Passo 1: A otimizar streams…",
     "progress.compress.passB_setup": "Passo 2: A limpar metadados e fontes…",
     "progress.compress.passB_images": "Passo 2: A comprimir imagem {current} de {total}…",
-    "progress.compress.passB_save": "Passo 2: A guardar PDF otimizado…"
+    "progress.compress.passB_save": "Passo 2: A guardar PDF otimizado…",
+    "progress.compress.passC": "Passo 3: Otimização estrutural…"
   },
 
   "es": {
@@ -1157,7 +1159,8 @@
     "progress.compress.passA": "Paso 1: Optimizando flujos…",
     "progress.compress.passB_setup": "Paso 2: Limpiando metadatos y fuentes…",
     "progress.compress.passB_images": "Paso 2: Comprimiendo imagen {current} de {total}…",
-    "progress.compress.passB_save": "Paso 2: Guardando PDF optimizado…"
+    "progress.compress.passB_save": "Paso 2: Guardando PDF optimizado…",
+    "progress.compress.passC": "Paso 3: Optimización estructural…"
   },
 
   "fr": {
@@ -1544,7 +1547,8 @@
     "progress.compress.passA": "Passe 1 : Optimisation des flux…",
     "progress.compress.passB_setup": "Passe 2 : Nettoyage des métadonnées et polices…",
     "progress.compress.passB_images": "Passe 2 : Compression de l'image {current} sur {total}…",
-    "progress.compress.passB_save": "Passe 2 : Enregistrement du PDF optimisé…"
+    "progress.compress.passB_save": "Passe 2 : Enregistrement du PDF optimisé…",
+    "progress.compress.passC": "Passe 3 : Optimisation structurelle…"
   },
 
   "de": {
@@ -1931,7 +1935,8 @@
     "progress.compress.passA": "Durchlauf 1: Streams optimieren…",
     "progress.compress.passB_setup": "Durchlauf 2: Metadaten und Schriften bereinigen…",
     "progress.compress.passB_images": "Durchlauf 2: Bild {current} von {total} komprimieren…",
-    "progress.compress.passB_save": "Durchlauf 2: Optimierte PDF speichern…"
+    "progress.compress.passB_save": "Durchlauf 2: Optimierte PDF speichern…",
+    "progress.compress.passC": "Durchlauf 3: Strukturelle Optimierung…"
   },
 
   "zh": {
@@ -2288,7 +2293,8 @@
     "progress.compress.passA": "第 1 步：优化数据流…",
     "progress.compress.passB_setup": "第 2 步：清理元数据和字体…",
     "progress.compress.passB_images": "第 2 步：压缩图片 {current}/{total}…",
-    "progress.compress.passB_save": "第 2 步：保存优化后的 PDF…"
+    "progress.compress.passB_save": "第 2 步：保存优化后的 PDF…",
+    "progress.compress.passC": "第 3 步：结构优化…"
   },
 
   "it": {
@@ -2645,7 +2651,8 @@
     "progress.compress.passA": "Passo 1: Ottimizzazione dei flussi…",
     "progress.compress.passB_setup": "Passo 2: Pulizia metadati e font…",
     "progress.compress.passB_images": "Passo 2: Compressione immagine {current} di {total}…",
-    "progress.compress.passB_save": "Passo 2: Salvataggio PDF ottimizzato…"
+    "progress.compress.passB_save": "Passo 2: Salvataggio PDF ottimizzato…",
+    "progress.compress.passC": "Passo 3: Ottimizzazione strutturale…"
   },
 
   "nl": {
@@ -3002,6 +3009,7 @@
     "progress.compress.passA": "Stap 1: Streams optimaliseren…",
     "progress.compress.passB_setup": "Stap 2: Metadata en lettertypen opschonen…",
     "progress.compress.passB_images": "Stap 2: Afbeelding {current} van {total} comprimeren…",
-    "progress.compress.passB_save": "Stap 2: Geoptimaliseerde PDF opslaan…"
+    "progress.compress.passB_save": "Stap 2: Geoptimaliseerde PDF opslaan…",
+    "progress.compress.passC": "Stap 3: Structurele optimalisatie…"
   }
 }

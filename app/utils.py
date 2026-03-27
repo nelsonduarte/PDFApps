@@ -146,42 +146,66 @@ def scrolled(widget: QWidget) -> QScrollArea:
 class CancelledError(Exception):
     """Raised when the user cancels a long-running operation."""
 
-# Compression presets (equivalent to ilovepdf's 3 levels)
+# Compression presets — DPI + JPEG quality + grayscale flag
 _COMPRESS_LEVELS = {
-    "extreme":     {"max_px": 600,  "quality": 45},
-    "recommended": {"max_px": 1240, "quality": 70},
-    "low":         {"max_px": 9999, "quality": 85},  # 9999 = no resize
+    "extreme":     {"dpi": 72,  "quality": 40, "grayscale": True},
+    "recommended": {"dpi": 150, "quality": 65, "grayscale": False},
+    "low":         {"dpi": 300, "quality": 80, "grayscale": False},
 }
+
+
+def _find_gs():
+    """Find Ghostscript executable."""
+    import shutil as _sh, platform as _pl
+    names = (["gswin64c", "gswin32c", "gs"]
+             if _pl.system() == "Windows" else ["gs"])
+    for n in names:
+        p = _sh.which(n)
+        if p:
+            return p
+    # Windows: check common install paths
+    if _pl.system() == "Windows":
+        for p in [r"C:\Program Files\gs\gs10.05.0\bin\gswin64c.exe",
+                  r"C:\Program Files\gs\gs10.04.0\bin\gswin64c.exe",
+                  r"C:\Program Files\gs\gs10.03.1\bin\gswin64c.exe",
+                  r"C:\Program Files\gs\gs10.02.1\bin\gswin64c.exe",
+                  r"C:\Program Files (x86)\gs"]:
+            if os.path.isfile(p):
+                return p
+    return None
 
 
 def _compress_pdf(src: str, dst: str, level: str = "recommended",
                   progress_fn=None) -> tuple:
     """
-    Compression pipeline with 2 independent passes (inspired by ilovepdf):
+    3-pass compression pipeline (keeps the smallest result):
 
-      Pass A — pypdf
-        · compress_content_streams(level=9)  →  max zlib on all streams
-        · compress_identical_objects()       →  deduplicate identical objects
+      Pass A — Ghostscript (if installed)
+        · Full PDF re-render with image downsampling + JPEG recompression
+        · Grayscale conversion on extreme level
+        · Best overall compression — same engine used by iLovePDF / SmallPDF
 
-      Pass B — fitz (PyMuPDF)
-        · scrub()          →  remove metadata, thumbnails, attached files
-        · subset_fonts()   →  keep only used glyphs
-        · DPI downsampling →  resize images above target DPI
-                              (via PIL if available, or direct scale factor)
-        · JPEG re-encode   →  re-encode each image with the level's quality
-        · save() with use_objstms=True + garbage=4 + deflate
+      Pass B — PyMuPDF (fitz)
+        · scrub()  →  remove metadata, thumbnails, attached files
+        · subset_fonts()  →  keep only used glyphs
+        · rewrite_images()  →  DPI downsampling + JPEG re-encode
+        · save() with garbage=4 + deflate + use_objstms
 
-    The smallest result from both passes is saved to dst.
+      Pass C — pikepdf (if installed)
+        · recompress_flate  →  re-encode all Flate streams at optimal level
+        · object_stream_mode=generate  →  group small objects for compression
+        · Best structural optimization
+
+    Falls back gracefully if Ghostscript or pikepdf are not available.
     Raises ValueError if no pass reduced the file.
-    Raises RuntimeError if no library is available.
     """
-    import tempfile, shutil, io
-    from pypdf import PdfReader, PdfWriter
+    import tempfile, shutil, subprocess
 
-    cfg          = _COMPRESS_LEVELS.get(level, _COMPRESS_LEVELS["recommended"])
-    max_px       = cfg["max_px"]
-    jpeg_quality = cfg["quality"]
-    before       = os.path.getsize(src)
+    cfg     = _COMPRESS_LEVELS.get(level, _COMPRESS_LEVELS["recommended"])
+    dpi     = cfg["dpi"]
+    quality = cfg["quality"]
+    gray    = cfg["grayscale"]
+    before  = os.path.getsize(src)
     temps: list = []
 
     def _prog(stage, cur=0, tot=0):
@@ -191,32 +215,52 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 except Exception: pass
             raise CancelledError()
 
-    # ── Pass A : pypdf — streams + deduplicate objects ─────────────────────
+    # ── Pass A : Ghostscript — full re-render ────────────────────────────
     _prog("passA")
-    try:
-        reader = PdfReader(src)
-        writer = PdfWriter()
-        for page in reader.pages:
-            page.compress_content_streams(level=9)
-            writer.add_page(page)
-        if reader.metadata:
-            writer.add_metadata(reader.metadata)
+    gs = _find_gs()
+    if gs:
         try:
-            writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+            presets = {
+                "extreme":     "/screen",
+                "recommended": "/ebook",
+                "low":         "/printer",
+            }
+            fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+            cmd = [
+                gs, "-sDEVICE=pdfwrite",
+                "-dCompatibilityLevel=1.4",
+                f"-dPDFSETTINGS={presets[level]}",
+                "-dNOPAUSE", "-dQUIET", "-dBATCH",
+                "-dDownsampleColorImages=true",
+                "-dDownsampleGrayImages=true",
+                "-dDownsampleMonoImages=true",
+                f"-dColorImageResolution={dpi}",
+                f"-dGrayImageResolution={dpi}",
+                f"-dMonoImageResolution={max(dpi, 150)}",
+                "-dColorImageDownsampleThreshold=1.0",
+                "-dGrayImageDownsampleThreshold=1.0",
+                "-dColorImageDownsampleType=/Bicubic",
+                "-dGrayImageDownsampleType=/Bicubic",
+            ]
+            if gray:
+                cmd += ["-sColorConversionStrategy=Gray",
+                        "-dProcessColorModel=/DeviceGray",
+                        "-dOverrideICC"]
+            cmd += [f"-sOutputFile={p}", src]
+            result = subprocess.run(cmd, capture_output=True, timeout=300)
+            if result.returncode == 0 and os.path.isfile(p) and os.path.getsize(p) > 0:
+                temps.append(p)
+            else:
+                try: os.unlink(p)
+                except Exception: pass
         except Exception:
-            pass
-        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
-        with open(p, "wb") as fh:
-            writer.write(fh)
-        temps.append(p)
-    except Exception:
-        pass
+            try: os.unlink(p)
+            except Exception: pass
 
-    # ── Pass B : fitz — scrub + subset_fonts + DPI + JPEG ─────────────────
+    # ── Pass B : PyMuPDF — scrub + rewrite_images ────────────────────────
     _prog("passB_setup")
     try:
         import fitz
-
         doc = fitz.open(src)
 
         # 1. Remove dead weight
@@ -226,74 +270,29 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         except Exception:
             pass
 
-        # 2. Font subsetting (keep only used glyphs)
+        # 2. Font subsetting
         try:
             doc.subset_fonts()
         except Exception:
             pass
 
-        # 3. Count images for progress, then resize + re-encode
-        all_xrefs = set()
-        for pg in doc:
-            for img_tuple in pg.get_images(full=True):
-                all_xrefs.add(img_tuple[0])
-        total_imgs = len(all_xrefs)
-        img_idx = 0
-
-        seen: set = set()
-        for pg in doc:
-            for img_tuple in pg.get_images(full=True):
-                xref  = img_tuple[0]
-                smask = img_tuple[8]
-                if xref in seen:
-                    continue
-                seen.add(xref)
-                img_idx += 1
-                _prog("passB_images", img_idx, total_imgs)
-                if smask != 0:      # has transparency mask → skip
-                    continue
-                try:
-                    pix = fitz.Pixmap(doc, xref)
-                    if pix.width < 32 or pix.height < 32:
-                        continue
-                    if pix.alpha:
-                        pix = fitz.Pixmap(pix, 0)
-                    if pix.n == 4:  # CMYK → RGB
-                        pix = fitz.Pixmap(fitz.csRGB, pix)
-                    if pix.n not in (1, 3):
-                        continue
-
-                    # Resize if the longest side exceeds max_px
-                    longest = max(pix.width, pix.height)
-                    scale = min(1.0, max_px / longest) if longest > max_px else 1.0
-
-                    if scale < 0.99:
-                        nw = max(1, int(pix.width  * scale))
-                        nh = max(1, int(pix.height * scale))
-                        try:
-                            from PIL import Image as _PILImage
-                            mode = "L" if pix.n == 1 else "RGB"
-                            img = _PILImage.frombytes(mode, (pix.width, pix.height),
-                                                      pix.samples)
-                            _lanczos = getattr(
-                                getattr(_PILImage, "Resampling", _PILImage),
-                                "LANCZOS", 1)
-                            img = img.resize((nw, nh), _lanczos)
-                            buf = io.BytesIO()
-                            img.save(buf, format="JPEG", quality=jpeg_quality,
-                                     optimize=True, progressive=True)
-                            jpeg = buf.getvalue()
-                        except ImportError:
-                            # PIL not available — use fitz native shrink
-                            factor = max(1, int(1 / scale))
-                            pix.shrink(factor)
-                            jpeg = pix.tobytes("jpeg", jpg_quality=jpeg_quality)
-                    else:
-                        jpeg = pix.tobytes("jpeg", jpg_quality=jpeg_quality)
-
-                    doc.replace_image(xref, stream=jpeg)
-                except Exception:
-                    pass
+        # 3. Rewrite all images (replaces the old manual loop)
+        _prog("passB_images", 0, 1)
+        try:
+            doc.rewrite_images(
+                dpi_threshold=dpi + 10,
+                dpi_target=dpi,
+                quality=quality,
+                lossy=True,
+                lossless=True,
+                bitonal=True,
+                color=True,
+                gray=True,
+                set_to_gray=gray,
+            )
+        except Exception:
+            pass
+        _prog("passB_images", 1, 1)
 
         # 4. Save with all compression flags
         _prog("passB_save")
@@ -301,10 +300,32 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         save_kw = dict(garbage=4, deflate=True, deflate_fonts=True, clean=True)
         try:
             doc.save(p, **save_kw, use_objstms=True)
-        except TypeError:           # older versions without use_objstms
+        except TypeError:
             doc.save(p, **save_kw)
         doc.close()
         temps.append(p)
+    except Exception:
+        pass
+
+    # ── Pass C : pikepdf — structural optimization ───────────────────────
+    _prog("passC")
+    try:
+        import pikepdf
+        # Optimize the best result so far (or the original)
+        best_so_far = min(temps, key=lambda f: os.path.getsize(f)) if temps else src
+        pdf = pikepdf.open(best_so_far)
+        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+        pdf.save(p,
+                 object_stream_mode=pikepdf.ObjectStreamMode.generate,
+                 compress_streams=True,
+                 recompress_flate=True,
+                 linearize=True)
+        pdf.close()
+        if os.path.isfile(p) and os.path.getsize(p) > 0:
+            temps.append(p)
+        else:
+            try: os.unlink(p)
+            except Exception: pass
     except Exception:
         pass
 
