@@ -183,9 +183,9 @@ class MainWindow(QMainWindow):
         main_h.setSpacing(10)
 
         # ── Sidebar ──────────────────────────────────────────────────────────
-        sidebar = QWidget(); sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(228)
-        sb_lay  = QVBoxLayout(sidebar)
+        self._sidebar = QWidget(); self._sidebar.setObjectName("sidebar")
+        self._sidebar.setFixedWidth(228)
+        sb_lay  = QVBoxLayout(self._sidebar)
         sb_lay.setContentsMargins(0, 0, 0, 0)
         sb_lay.setSpacing(0)
 
@@ -201,9 +201,9 @@ class MainWindow(QMainWindow):
         ico_lbl.setPixmap(_app_pix)
         ico_lbl.setObjectName("app_icon")
         ico_lbl.setContentsMargins(16, 0, 0, 0)
-        ttl_lbl = QLabel(t("app.name")); ttl_lbl.setObjectName("app_title")
-        sub_lbl = QLabel(t("app.subtitle")); sub_lbl.setObjectName("app_sub")
-        bv.addWidget(ico_lbl); bv.addWidget(ttl_lbl); bv.addWidget(sub_lbl)
+        self._brand_title = QLabel(t("app.name")); self._brand_title.setObjectName("app_title")
+        self._brand_sub = QLabel(t("app.subtitle")); self._brand_sub.setObjectName("app_sub")
+        bv.addWidget(ico_lbl); bv.addWidget(self._brand_title); bv.addWidget(self._brand_sub)
         sb_lay.addWidget(brand)
 
         sep = QFrame(); sep.setObjectName("nav_sep"); sep.setFixedHeight(1)
@@ -217,12 +217,21 @@ class MainWindow(QMainWindow):
             self.nav.addItem(item)
         sb_lay.addWidget(self.nav, 1)
 
-        footer_w = QWidget(); footer_w.setObjectName("sidebar")
-        footer_h = QHBoxLayout(footer_w)
+        # Collapse / expand button
+        self._collapse_btn = QPushButton("«")
+        self._collapse_btn.setObjectName("theme_btn")
+        self._collapse_btn.setFixedHeight(28)
+        self._collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._collapse_btn.clicked.connect(self._toggle_sidebar)
+        sb_lay.addWidget(self._collapse_btn)
+
+        self._footer_w = QWidget(); self._footer_w.setObjectName("sidebar")
+        footer_h = QHBoxLayout(self._footer_w)
         footer_h.setContentsMargins(14, 8, 14, 10); footer_h.setSpacing(0)
         footer_lbl = QLabel(t("app.credits")); footer_lbl.setObjectName("sidebar_footer")
         footer_h.addWidget(footer_lbl, 1)
-        sb_lay.addWidget(footer_w)
+        sb_lay.addWidget(self._footer_w)
+        self._sidebar_collapsed = False
         self._dark_mode = True
         self._qapp: QApplication = QApplication.instance()  # type: ignore[assignment]
 
@@ -242,7 +251,7 @@ class MainWindow(QMainWindow):
         self._splitter.setCollapsible(0, True)
         self._splitter.setCollapsible(1, False)
 
-        main_h.addWidget(sidebar)
+        main_h.addWidget(self._sidebar)
         main_h.addWidget(self._splitter, 1)
         root_v.addWidget(body, 1)
         self.setCentralWidget(central)
@@ -447,6 +456,28 @@ class MainWindow(QMainWindow):
         self._lang_btn.setText(_labels.get(code, "EN"))
         QMessageBox.information(self, t("lang.selector"),
                                 t("lang.restart", lang=name))
+
+    def _toggle_sidebar(self):
+        self._sidebar_collapsed = not self._sidebar_collapsed
+        icon_color = TEXT_SEC if self._dark_mode else _LQ
+        if self._sidebar_collapsed:
+            self._sidebar.setFixedWidth(50)
+            self._brand_title.setVisible(False)
+            self._brand_sub.setVisible(False)
+            self._footer_w.setVisible(False)
+            self._collapse_btn.setText("»")
+            for i in range(self.nav.count()):
+                self.nav.item(i).setText("")
+            self.nav.setIconSize(QSize(22, 22))
+        else:
+            self._sidebar.setFixedWidth(228)
+            self._brand_title.setVisible(True)
+            self._brand_sub.setVisible(True)
+            self._footer_w.setVisible(True)
+            self._collapse_btn.setText("«")
+            for i, (_, icon_name, _) in enumerate(NAV_ITEMS):
+                self.nav.item(i).setText(NAV_ITEMS[i][0])
+            self.nav.setIconSize(QSize(18, 18))
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
