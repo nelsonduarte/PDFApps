@@ -68,9 +68,12 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 | **OCR** | Recognise text in scanned PDFs — supports PT, EN, ES, FR and DE |
 | **Convert** | Convert PDF to images (PNG/JPG with DPI control), Word (DOCX) or plain text (TXT) |
 | **Edit** | Inline visual editor: redact, insert text, image, highlight, notes, forms and edit existing text |
+| **Import** | Convert text files (.txt), images (PNG/JPG/BMP) or Markdown (.md) to PDF — batch support |
 | **Info** | Show metadata, page count, size and document properties |
 
 ### Integrated viewer
+
+- **Print** — print any open PDF via system print dialog with high-resolution rendering
 
 - **Tabbed viewing** — open multiple PDFs in tabs, switch between them
 - Continuous scroll through all pages (Adobe Acrobat style)
@@ -213,6 +216,7 @@ PDFApps/
 │   │   ├── encrypt.py
 │   │   ├── watermark.py
 │   │   ├── convert.py
+│   │   ├── import_pdf.py
 │   │   ├── info.py
 │   │   └── ocr.py
 │   ├── viewer/             # Integrated PDF viewer
