@@ -1654,33 +1654,40 @@ const T = {
 };
 
 function detectLang() {
-  const nav = (navigator.language || navigator.userLanguage || "en").toLowerCase().slice(0, 2);
-  return T[nav] ? nav : "en";
+  // Try all browser languages (navigator.languages) before falling back
+  const langs = navigator.languages || [navigator.language || navigator.userLanguage || "en"];
+  for (const raw of langs) {
+    const code = raw.toLowerCase().split("-")[0];
+    if (T[code]) return code;
+  }
+  return "en";
 }
 
 function applyLang(lang) {
   const strings = T[lang] || T.en;
+  const fallback = T.en;
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-i18n]").forEach(el => {
     const key = el.getAttribute("data-i18n");
-    const val = strings[key];
+    const val = strings[key] || fallback[key];
     if (!val) return;
-    if (el.hasAttribute("data-i18n-html")) {
-      el.innerHTML = val;
-    } else {
-      el.innerHTML = val;
-    }
+    el.innerHTML = val;
   });
   document.getElementById("lang-picker").value = lang;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Always detect on first visit; respect manual choice via picker only
   const saved = localStorage.getItem("pdfapps-lang");
-  const lang = saved || detectLang();
+  const detected = detectLang();
+  // If saved lang doesn't match detected AND user never manually picked, use detected
+  const manuallySet = localStorage.getItem("pdfapps-lang-manual");
+  const lang = manuallySet ? (saved || detected) : detected;
   applyLang(lang);
   document.getElementById("lang-picker").addEventListener("change", e => {
     const l = e.target.value;
     localStorage.setItem("pdfapps-lang", l);
+    localStorage.setItem("pdfapps-lang-manual", "1");
     applyLang(l);
   });
 });
