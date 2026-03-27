@@ -332,7 +332,16 @@ class _SelectCanvas(QWidget):
             w_end   = p2_word if pi == p2_page else len(e.words) - 1
             for wi in range(w_start, w_end + 1):
                 w = e.words[wi]
-                rects.append(self._page_word_to_screen(e.y_off, w[0], w[1], w[2], w[3]))
+                # Extend rect to fill gap to next word on same line
+                x0, y0, x1, y1 = w[0], w[1], w[2], w[3]
+                if wi < w_end:
+                    nw = e.words[wi + 1]
+                    # Same line if vertical overlap > 50%
+                    line_h = y1 - y0
+                    overlap = min(y1, nw[3]) - max(y0, nw[1])
+                    if overlap > line_h * 0.5:
+                        x1 = nw[0]  # extend to start of next word
+                rects.append(self._page_word_to_screen(e.y_off, x0, y0, x1, y1))
                 words.append(w[4])
         self._sel_rects = rects
         self._sel_text  = " ".join(words)
