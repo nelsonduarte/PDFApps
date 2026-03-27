@@ -2,6 +2,10 @@
 
 > PDF editor and manager for Windows, macOS and Linux — fast, offline and subscription-free.
 
+[![Release](https://img.shields.io/github/v/release/nelsonduarte/PDFApps?color=10b981&logo=github)](https://github.com/nelsonduarte/PDFApps/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/nelsonduarte/PDFApps/total?color=2563eb&logo=github)](https://github.com/nelsonduarte/PDFApps/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/nelsonduarte/PDFApps/build.yml?logo=github)](https://github.com/nelsonduarte/PDFApps/actions)
+[![Stars](https://img.shields.io/github/stars/nelsonduarte/PDFApps?style=flat&color=f59e0b&logo=github)](https://github.com/nelsonduarte/PDFApps/stargazers)
 [![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![PySide6](https://img.shields.io/badge/PySide6-6.10-green?logo=qt&logoColor=white)](https://doc.qt.io/qtforpython/)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#)
