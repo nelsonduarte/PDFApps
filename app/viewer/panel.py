@@ -243,7 +243,7 @@ class PdfViewerPanel(QWidget):
     # ── Open dialog ────────────────────────────────────────────────────────
     def _open_dialog(self):
         path, _ = QFileDialog.getOpenFileName(
-            self.window(), "Open PDF", "", "PDF Files (*.pdf);;All (*.*)")
+            self.window(), t("btn.open_pdf"), "", t("file_filter.pdf"))
         if path:
             self.load(path)
 

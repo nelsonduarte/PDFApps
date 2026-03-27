@@ -61,9 +61,9 @@ class TabReordenar(BasePage):
             self.drop_out.set_path(base + "_reordered" + ext)
         try:
             reader = PdfReader(p); self._reader = reader
-            n = len(reader.pages); self.lbl_info.setText(f"  {n} pages")
+            n = len(reader.pages); self.lbl_info.setText(t("edit.status.pages", n=n))
             self._populate(list(range(n)))
-        except Exception as e: self.lbl_info.setText(f"  Error: {e}")
+        except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)

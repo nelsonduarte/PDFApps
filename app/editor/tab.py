@@ -232,10 +232,10 @@ class TabEditar(QWidget):
         gpe.addWidget(self._pending_list)
         pend_btns = QHBoxLayout(); pend_btns.setSpacing(4)
         btn_undo = QPushButton(); btn_undo.setIcon(qta.icon("fa5s.undo", color=TEXT_PRI))
-        btn_undo.setToolTip("Undo (Ctrl+Z)"); btn_undo.setFixedSize(28, 28)
+        btn_undo.setToolTip(t("edit.undo_tip")); btn_undo.setFixedSize(28, 28)
         btn_undo.clicked.connect(self._undo)
         btn_redo = QPushButton(); btn_redo.setIcon(qta.icon("fa5s.redo", color=TEXT_PRI))
-        btn_redo.setToolTip("Redo (Ctrl+Y)"); btn_redo.setFixedSize(28, 28)
+        btn_redo.setToolTip(t("edit.redo_tip")); btn_redo.setFixedSize(28, 28)
         btn_redo.clicked.connect(self._redo)
         btn_clear = QPushButton(t("btn.clear_all"))
         btn_clear.clicked.connect(self._clear_pending)
@@ -327,7 +327,7 @@ class TabEditar(QWidget):
             self._pick_image()
 
     def _pick_pdf(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
         if p: self._load_pdf(p)
 
     def _load_pdf(self, p: str):
@@ -462,7 +462,7 @@ class TabEditar(QWidget):
                     if expanded.contains(fitz.Point(pdf_pt.x, pdf_pt.y)):
                         txt = annot.info.get("content", "")
                         if txt:
-                            QMessageBox.information(self, "Note", txt)
+                            QMessageBox.information(self, t("edit.note_popup"), txt)
                             return
         mode = self._mode_idx
         if mode == 1:

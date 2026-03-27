@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt, Signal, QRect, QPoint
 from PySide6.QtWidgets import QWidget
 
 from app.constants import ACCENT, BG_INNER, TEXT_SEC
+from app.i18n import t
 
 # Size of the note icon in pixels
 _NOTE_ICON_SIZE = 22
@@ -153,7 +154,7 @@ class PdfEditCanvas(QWidget):
             p.setPen(QColor(TEXT_SEC))
             f = QFont(); f.setPointSize(11); p.setFont(f)
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Open a PDF to edit")
+                       t("edit.open_prompt"))
         # ── pending edit overlays ─────────────────────────────────────
         z = self._zoom
         for e in self._overlays:
@@ -309,7 +310,7 @@ class PdfEditCanvas(QWidget):
         if hit >= 0:
             from PySide6.QtWidgets import QMenu
             menu = QMenu(self)
-            delete_action = menu.addAction("Delete comment")
+            delete_action = menu.addAction(t("viewer.delete_comment"))
             action = menu.exec(e.globalPos())
             if action == delete_action:
                 overlay = self._overlays[hit]
