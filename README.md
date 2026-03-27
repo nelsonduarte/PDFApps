@@ -84,6 +84,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ### Other highlights
 
+- **Auto-update** — checks for new versions on startup; download and install updates in-app with progress bar
 - **Multi-language** — auto-detects system language (EN, PT, ES, FR, DE, ZH, IT, NL), with selector in toolbar
 - **Recent files** — quick access to the last 10 opened PDFs via history icon
 - **Help guide** — ? button opens the online user guide
@@ -193,6 +194,7 @@ PDFApps/
 │   ├── base.py             # Base class for tools (BasePage)
 │   ├── i18n.py             # Internationalization module (8 languages)
 │   ├── translations.json   # All translated UI strings
+│   ├── updater.py          # Auto-updater (GitHub releases)
 │   ├── window.py           # Main window (MainWindow)
 │   ├── tools/              # PDF manipulation tools
 │   │   ├── split.py
