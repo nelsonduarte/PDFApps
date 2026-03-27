@@ -230,6 +230,18 @@ QSplitter::handle {{ background: {BORDER}; width: 1px; }}
     font-size: 11pt; padding: 0; border-radius: 0;
 }}
 #collapse_btn:hover {{ background: #253945; color: {TEXT_PRI}; }}
+
+#viewer_tabs {{
+    background: {BG_CARD}; border: none; border-bottom: 1px solid {BORDER};
+}}
+#viewer_tabs::tab {{
+    background: {BG_CARD}; color: {TEXT_SEC}; border: none;
+    padding: 6px 14px; margin-right: 1px; border-bottom: 2px solid transparent;
+}}
+#viewer_tabs::tab:selected {{
+    color: {TEXT_PRI}; border-bottom: 2px solid {ACCENT};
+}}
+#viewer_tabs::tab:hover {{ color: {TEXT_PRI}; background: #253945; }}
 """
 
 STYLE_LIGHT = f"""
@@ -414,4 +426,16 @@ QSplitter::handle {{ background: {_LO}; width: 1px; }}
     font-size: 11pt; padding: 0; border-radius: 0;
 }}
 #collapse_btn:hover {{ background: #DBEAE5; color: {_LP}; }}
+
+#viewer_tabs {{
+    background: {_LC}; border: none; border-bottom: 1px solid {_LO};
+}}
+#viewer_tabs::tab {{
+    background: {_LC}; color: {_LQ}; border: none;
+    padding: 6px 14px; margin-right: 1px; border-bottom: 2px solid transparent;
+}}
+#viewer_tabs::tab:selected {{
+    color: {_LP}; border-bottom: 2px solid {_LA};
+}}
+#viewer_tabs::tab:hover {{ color: {_LP}; background: #DBEAE5; }}
 """

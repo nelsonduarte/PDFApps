@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QListWidget, QListWidgetItem,
     QStackedWidget, QSplitter, QStatusBar, QFrame,
-    QApplication, QLineEdit, QMenu,
+    QApplication, QLineEdit, QMenu, QTabBar,
 )
 import qtawesome as qta
 
@@ -233,13 +233,32 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(cls(self._set_status))
         self.stack.setVisible(False)
 
-        # ── Viewer (fills everything when no tool is active) ──────────
-        self._viewer = PdfViewerPanel()
+        # ── Tabbed viewer ──────────────────────────────────────────────
+        self._tab_container = QWidget()
+        tc_lay = QVBoxLayout(self._tab_container)
+        tc_lay.setContentsMargins(0, 0, 0, 0)
+        tc_lay.setSpacing(0)
+
+        self._tab_bar = QTabBar()
+        self._tab_bar.setTabsClosable(True)
+        self._tab_bar.setMovable(True)
+        self._tab_bar.setExpanding(False)
+        self._tab_bar.setObjectName("viewer_tabs")
+        self._tab_bar.currentChanged.connect(self._on_tab_changed)
+        self._tab_bar.tabCloseRequested.connect(self._close_tab)
+        self._tab_bar.setVisible(False)
+        tc_lay.addWidget(self._tab_bar)
+
+        self._viewer_stack = QStackedWidget()
+        self._viewers: list[PdfViewerPanel] = []
+        # Create first empty viewer
+        self._add_viewer_tab()
+        tc_lay.addWidget(self._viewer_stack, 1)
 
         self._splitter = QSplitter(Qt.Orientation.Horizontal)
         self._splitter.setHandleWidth(1)
         self._splitter.addWidget(self.stack)
-        self._splitter.addWidget(self._viewer)
+        self._splitter.addWidget(self._tab_container)
         self._splitter.setCollapsible(0, True)
         self._splitter.setCollapsible(1, False)
 
@@ -264,25 +283,68 @@ class MainWindow(QMainWindow):
         self._quick_ocr_btn.clicked.connect(lambda: self._open_tool_by_name("OCR"))
         self._quick_edit_btn.clicked.connect(lambda: self._open_tool_by_name("Edit"))
 
-        # Connect all DropFileEdit widgets to the viewer
+        # Connect all DropFileEdit widgets to load in active viewer
         for i in range(self.stack.count()):
             for dfe in self.stack.widget(i).findChildren(DropFileEdit):
-                dfe.path_changed.connect(self._viewer.load)
+                dfe.path_changed.connect(lambda p: self._viewer.load(p))
 
-        # Connect viewer scroll to update page nav in workspace bar
-        self._viewer._canvas_scroll.verticalScrollBar().valueChanged.connect(
+    # ── Viewer property (always returns the active tab's viewer) ──────
+    @property
+    def _viewer(self) -> PdfViewerPanel:
+        return self._viewers[self._viewer_stack.currentIndex()] if self._viewers else self._viewers[0]
+
+    def _add_viewer_tab(self, path: str = "") -> PdfViewerPanel:
+        v = PdfViewerPanel()
+        self._viewers.append(v)
+        self._viewer_stack.addWidget(v)
+        idx = self._tab_bar.addTab(t("viewer.title"))
+        self._tab_bar.setCurrentIndex(idx)
+        self._tab_bar.setVisible(self._tab_bar.count() > 1)
+        # Wire up scroll → page nav
+        v._canvas_scroll.verticalScrollBar().valueChanged.connect(
             lambda _: self._update_page_nav())
-        # Update page nav when a PDF is loaded
-        original_load = self._viewer.load
-        def _wrapped_load(*args, **kwargs):
-            original_load(*args, **kwargs)
-            if args:
-                add_recent_file(args[0])
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(100, self._update_page_nav)
-            if self._current_tool == -1:
-                self._setup_zoom_bar(True, canvas=self._viewer._canvas)
-        self._viewer.load = _wrapped_load
+        # Wrap load to update tab title + recent files + page nav
+        original_load = v.load
+        def _make_wrapped(viewer, orig, tab_idx_ref):
+            def _wrapped(*args, **kwargs):
+                orig(*args, **kwargs)
+                if args:
+                    add_recent_file(args[0])
+                    name = os.path.basename(args[0])
+                    # Find this viewer's current tab index
+                    for i in range(len(self._viewers)):
+                        if self._viewers[i] is viewer:
+                            self._tab_bar.setTabText(i, name)
+                            self._tab_bar.setTabToolTip(i, args[0])
+                            break
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(100, self._update_page_nav)
+                if self._current_tool == -1:
+                    self._setup_zoom_bar(True, canvas=viewer._canvas)
+            return _wrapped
+        v.load = _make_wrapped(v, original_load, idx)
+        if path:
+            v.load(path)
+        return v
+
+    def _on_tab_changed(self, idx: int):
+        if idx < 0 or idx >= len(self._viewers):
+            return
+        self._viewer_stack.setCurrentIndex(idx)
+        self._update_page_nav()
+        if self._current_tool == -1:
+            self._setup_zoom_bar(True, canvas=self._viewer._canvas)
+
+    def _close_tab(self, idx: int):
+        if self._tab_bar.count() <= 1:
+            return  # Keep at least one tab
+        viewer = self._viewers.pop(idx)
+        self._tab_bar.removeTab(idx)
+        self._viewer_stack.removeWidget(viewer)
+        viewer._canvas.close_doc()
+        viewer.deleteLater()
+        self._tab_bar.setVisible(self._tab_bar.count() > 1)
+        self._update_page_nav()
 
     def _open_tool_by_name(self, tool_name: str):
         for i, (name, _, _) in enumerate(NAV_ITEMS):
@@ -334,7 +396,7 @@ class MainWindow(QMainWindow):
             self.nav.clearSelection()
             self._current_tool = -1
             self.stack.setVisible(False)
-            self._viewer.setVisible(True)
+            self._tab_container.setVisible(True)
             self._tool_badge.setText(t("workspace.mode_viewer"))
             self._setup_zoom_bar(True, canvas=self._viewer._canvas)
         else:
@@ -342,7 +404,7 @@ class MainWindow(QMainWindow):
             self._current_tool = row
             self.stack.setCurrentIndex(row)
             self.stack.setVisible(True)
-            self._viewer.setVisible(False)
+            self._tab_container.setVisible(False)
             self._tool_badge.setText(t("workspace.mode_tool", name=NAV_ITEMS[row][0]))
             self._try_auto_load(row)
             if row == edit_idx:
@@ -356,7 +418,11 @@ class MainWindow(QMainWindow):
             self._load_and_track(path)
 
     def _load_and_track(self, path: str):
-        self._viewer.load(path)
+        # If current tab has a PDF, open in new tab; otherwise reuse
+        if self._viewer.current_path():
+            self._add_viewer_tab(path)
+        else:
+            self._viewer.load(path)
         add_recent_file(path)
 
     def _show_recent_menu(self):
