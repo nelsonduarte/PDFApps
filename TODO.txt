@@ -1,17 +1,9 @@
 Sugestões Prioritárias (Quick Wins)
-Pesquisa no PDF (Ctrl+F)	
-Ficheiros recentes — menu de acesso rápido	
-Confirmação de password no Encrypt	
-Aviso ao sobrescrever ficheiro de entrada	
-Barra de progresso para operações longas (OCR, compress)	
+Aviso ao sobrescrever ficheiro de entrada
 
 Funcionalidades Maiores
-Feature	Esforço
-Undo/Redo no editor	
-Thumbnails de páginas na sidebar do viewer	
-Operações em batch — processar vários PDFs de uma vez	
-Tabs — múltiplos PDFs abertos em simultâneo	
-Bookmarks/Índice — ver e editar marcadores do PDF	
-Mais cores no highlight — color picker em vez de 4 presets	
-Estilos de texto no editor — tamanho/fonte do texto adicionado	
-Criar varios idiomas na app
+Thumbnails de páginas na sidebar do viewer
+Operações em batch — processar vários PDFs de uma vez
+Bookmarks/Índice — ver e editar marcadores do PDF
+Mais cores no highlight — color picker em vez de 4 presets
+Estilos de texto no editor — tamanho/fonte do texto adicionado

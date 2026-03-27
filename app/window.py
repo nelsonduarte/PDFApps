@@ -101,14 +101,6 @@ class MainWindow(QMainWindow):
         self._open_pdf_btn.clicked.connect(self._open_pdf)
         wb_h.addWidget(self._open_pdf_btn)
 
-        self._new_tab_top_btn = QPushButton()
-        self._new_tab_top_btn.setIcon(qta.icon("fa5s.plus", color=TEXT_PRI))
-        self._new_tab_top_btn.setObjectName("viewer_nav_btn")
-        self._new_tab_top_btn.setFixedSize(28, 28)
-        self._new_tab_top_btn.setToolTip(t("btn.open_pdf") + " (+)")
-        self._new_tab_top_btn.clicked.connect(self._open_in_new_tab)
-        wb_h.addWidget(self._new_tab_top_btn)
-
         self._recent_btn = QPushButton()
         self._recent_btn.setIcon(qta.icon("fa5s.history", color=TEXT_PRI))
         self._recent_btn.setObjectName("viewer_nav_btn")
