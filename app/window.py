@@ -337,6 +337,7 @@ class MainWindow(QMainWindow):
                             break
                 from PySide6.QtCore import QTimer
                 QTimer.singleShot(100, self._update_page_nav)
+                self._update_tab_visibility()
                 if self._current_tool == -1:
                     self._setup_zoom_bar(True, canvas=viewer._canvas)
             return _wrapped
@@ -346,9 +347,9 @@ class MainWindow(QMainWindow):
         return v
 
     def _update_tab_visibility(self):
-        show = self._tab_bar.count() > 1
-        self._tab_bar.setVisible(show)
-        self._new_tab_btn.setVisible(show)
+        has_doc = any(v.current_path() for v in self._viewers)
+        self._tab_bar.setVisible(has_doc)
+        self._new_tab_btn.setVisible(has_doc)
 
     def _on_tab_changed(self, idx: int):
         if idx < 0 or idx >= len(self._viewers):
