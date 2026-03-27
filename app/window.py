@@ -2,7 +2,7 @@
 
 import os
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -54,6 +54,8 @@ NAV_ITEMS = _build_nav_items()
 
 
 class MainWindow(QMainWindow):
+    _update_ready = Signal()
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle(t("app.name"))
@@ -189,6 +191,7 @@ class MainWindow(QMainWindow):
         self._update_btn.clicked.connect(self._show_update_dialog)
         wb_h.addWidget(self._update_btn)
         self._update_release = None
+        self._update_ready.connect(self._notify_update)
         self._check_for_updates_async()
 
         root_v.addWidget(workspace_bar)
@@ -591,17 +594,30 @@ class MainWindow(QMainWindow):
     # ── Auto-update ───────────────────────────────────────────────────────
 
     def _check_for_updates_async(self):
-        from threading import Thread
+        from PySide6.QtCore import QThread, QObject, Signal as _Sig
 
-        def _check():
-            from app.updater import check_for_update
-            release = check_for_update()
-            if release:
-                self._update_release = release
-                from PySide6.QtCore import QTimer
-                QTimer.singleShot(0, self._notify_update)
+        class _Worker(QObject):
+            done = _Sig()
+            def __init__(self):
+                super().__init__()
+                self.release = None
+            def run(self):
+                from app.updater import check_for_update
+                self.release = check_for_update()
+                if self.release:
+                    self.done.emit()
 
-        Thread(target=_check, daemon=True).start()
+        self._update_thread = QThread()
+        self._update_worker = _Worker()
+        self._update_worker.moveToThread(self._update_thread)
+        self._update_thread.started.connect(self._update_worker.run)
+        self._update_worker.done.connect(self._on_update_found)
+        self._update_worker.done.connect(self._update_thread.quit)
+        self._update_thread.start()
+
+    def _on_update_found(self):
+        self._update_release = self._update_worker.release
+        self._notify_update()
 
     def _notify_update(self):
         """Show update notification dialog automatically."""

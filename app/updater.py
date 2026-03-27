@@ -82,20 +82,35 @@ def _download(url: str, dest: str, signals: _Signals):
 
 def _apply_update_windows(downloaded_exe: str):
     """Replace the running exe via a batch script and restart."""
-    current_exe = sys.executable
-    bat = os.path.join(tempfile.gettempdir(), "pdfapps_update.bat")
-    with open(bat, "w") as f:
-        f.write("@echo off\n")
-        f.write("timeout /t 2 /nobreak > nul\n")
-        f.write(f'copy /y "{downloaded_exe}" "{current_exe}"\n')
-        f.write(f'del "{downloaded_exe}"\n')
-        f.write(f'start "" "{current_exe}"\n')
-        f.write('del "%~f0"\n')
-    import subprocess
-    subprocess.Popen(
-        ["cmd", "/c", bat],
-        creationflags=0x08000000,
-    )
+    frozen = getattr(sys, "frozen", False)
+    if frozen:
+        # Running as compiled exe — replace in place and restart
+        current_exe = sys.executable
+        bat = os.path.join(tempfile.gettempdir(), "pdfapps_update.bat")
+        with open(bat, "w") as f:
+            f.write("@echo off\n")
+            f.write("timeout /t 2 /nobreak > nul\n")
+            f.write(f'copy /y "{downloaded_exe}" "{current_exe}"\n')
+            f.write(f'del "{downloaded_exe}"\n')
+            f.write(f'start "" "{current_exe}"\n')
+            f.write('del "%~f0"\n')
+        import subprocess
+        subprocess.Popen(
+            ["cmd", "/c", bat],
+            creationflags=0x08000000,
+        )
+    else:
+        # Running from source — replace the local exe copy if it exists
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        dist_exe = os.path.join(app_dir, "dist", "PDFApps.exe")
+        import shutil
+        if os.path.isdir(os.path.dirname(dist_exe)):
+            shutil.copy2(downloaded_exe, dist_exe)
+        os.remove(downloaded_exe)
+        # Restart via python
+        import subprocess
+        subprocess.Popen([sys.executable] + sys.argv)
+
 
 
 def _apply_update_unix(downloaded: str):
