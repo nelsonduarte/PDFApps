@@ -111,6 +111,21 @@ class MainWindow(QMainWindow):
         self._recent_btn.clicked.connect(self._show_recent_menu)
         wb_h.addWidget(self._recent_btn)
 
+        self._print_top_btn = QPushButton()
+        self._print_top_btn.setIcon(qta.icon("fa5s.print", color=TEXT_PRI))
+        self._print_top_btn.setObjectName("viewer_nav_btn")
+        self._print_top_btn.setFixedSize(28, 28)
+        self._print_top_btn.setToolTip(t("viewer.print"))
+        self._print_top_btn.clicked.connect(lambda: self._viewer._print_pdf())
+        wb_h.addWidget(self._print_top_btn)
+
+        self._search_top_btn = QPushButton()
+        self._search_top_btn.setIcon(qta.icon("fa5s.search", color=TEXT_PRI))
+        self._search_top_btn.setObjectName("viewer_nav_btn")
+        self._search_top_btn.setFixedSize(28, 28)
+        self._search_top_btn.setToolTip(t("search.placeholder") + " (Ctrl+F)")
+        self._search_top_btn.clicked.connect(lambda: self._viewer._toggle_search())
+        wb_h.addWidget(self._search_top_btn)
 
         # zoom widget
         self._zoom_widget = QWidget()
