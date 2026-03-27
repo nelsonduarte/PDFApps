@@ -91,9 +91,9 @@ class TabEncriptar(BasePage):
                 n_pages = len(r.pages)
             except Exception:
                 n_pages = "?"
-            self.lbl_info.setText(f"  {n_pages} pages  ·  {status}")
+            self.lbl_info.setText(t("edit.status.pages", n=n_pages) + f"  ·  {status}")
         except Exception as e:
-            self.lbl_info.setText(f"  Error: {e}")
+            self.lbl_info.setText(t("tool.split.error_info", e=e))
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)

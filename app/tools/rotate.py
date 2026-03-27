@@ -55,8 +55,8 @@ class TabRotar(BasePage):
             base, ext = os.path.splitext(p)
             self.drop_out.set_path(base + "_rotated" + ext)
         try:
-            r = PdfReader(p); self.lbl_info.setText(f"  {len(r.pages)} pages")
-        except Exception as e: self.lbl_info.setText(f"  Error: {e}")
+            r = PdfReader(p); self.lbl_info.setText(t("edit.status.pages", n=len(r.pages)))
+        except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)

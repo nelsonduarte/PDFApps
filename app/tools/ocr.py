@@ -102,7 +102,7 @@ class TabOCR(BasePage):
             self.drop_out.set_path(base + (".pdf" if idx == 0 else ".txt"))
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
         if p: self._load_input(p)
 
     def _load_input(self, p: str):
@@ -116,10 +116,10 @@ class TabOCR(BasePage):
         try:
             import fitz
             doc = fitz.open(p)
-            self.lbl_info.setText(f"  {doc.page_count} pages")
+            self.lbl_info.setText(t("edit.status.pages", n=doc.page_count))
             doc.close()
         except Exception as e:
-            self.lbl_info.setText(f"  Error: {e}")
+            self.lbl_info.setText(t("tool.split.error_info", e=e))
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
@@ -145,9 +145,8 @@ class TabOCR(BasePage):
                 install_hint = "brew install tesseract tesseract-lang"
             else:
                 install_hint = "sudo apt install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng"
-            QMessageBox.critical(self, "Tesseract not found",
-                "The Tesseract OCR engine is not installed or was not found.\n\n"
-                f"Install with:\n{install_hint}")
+            QMessageBox.critical(self, t("tool.ocr.tess_not_found"),
+                t("tool.ocr.tess_msg", hint=install_hint))
             return None
 
         try:
@@ -161,14 +160,14 @@ class TabOCR(BasePage):
     def _update_lang_combo(self, installed: list):
         """Show only installed languages + possible combinations."""
         entries = []
-        label_map = {"por": "Portuguese", "eng": "English", "spa": "Spanish",
-                     "fra": "French",     "deu": "German",  "ita": "Italian"}
+        label_map = {"por": t("tool.ocr.lang.pt"), "eng": t("tool.ocr.lang.en"), "spa": t("tool.ocr.lang.es"),
+                     "fra": t("tool.ocr.lang.fr"),     "deu": t("tool.ocr.lang.de"),  "ita": "Italian"}
         for code, label in [(c, label_map.get(c, c)) for c in installed if c != "osd"]:
             entries.append((label, code))
         if "por" in installed and "eng" in installed:
-            entries.append(("Portuguese + English", "por+eng"))
+            entries.append((t("tool.ocr.lang.pt_en"), "por+eng"))
         if not entries:
-            entries = [("English (default)", "eng")]
+            entries = [(t("tool.ocr.lang.en"), "eng")]
         current_codes = [e[1] for e in entries]
         self.cmb_lang.clear()
         for name, _ in entries:
@@ -179,28 +178,25 @@ class TabOCR(BasePage):
         import io as _io
         pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Warning", "Select a valid PDF."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
         if not out_path:
-            QMessageBox.warning(self, "Warning", "Choose the output file."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
         try:
             import pytesseract
         except ImportError:
-            QMessageBox.critical(self, "Missing dependency",
-                "Install the pytesseract library:\n  pip install pytesseract")
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pytesseract"))
             return
         tess = self._ensure_tesseract()
         if tess is None: return
         try:
             import fitz
         except ImportError:
-            QMessageBox.critical(self, "Missing dependency",
-                "Install the PyMuPDF library:\n\npip install pymupdf")
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pymupdf"))
             return
         try:
             from PIL import Image
         except ImportError:
-            QMessageBox.critical(self, "Missing dependency",
-                "Install the Pillow library:\n\npip install Pillow")
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pillow"))
             return
         try:
             codes = getattr(self, "_lang_codes", [c for _, c in self._LANGS])
@@ -208,13 +204,13 @@ class TabOCR(BasePage):
             fmt  = self.cmb_fmt.currentIndex()
             doc  = fitz.open(pdf_path)
             n    = doc.page_count
-            self._status(f"Starting OCR on {n} page(s)…")
+            self._status(t("tool.ocr.starting", n=n))
             QApplication.processEvents()
 
             if fmt == 1:
                 texts = []
                 for i, page in enumerate(doc):
-                    self._status(f"OCR: page {i+1}/{n}…")
+                    self._status(t("tool.ocr.progress", current=i+1, total=n))
                     QApplication.processEvents()
                     pix = page.get_pixmap(dpi=300)
                     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
@@ -225,7 +221,7 @@ class TabOCR(BasePage):
             else:
                 pdf_pages = []
                 for i, page in enumerate(doc):
-                    self._status(f"OCR: page {i+1}/{n}…")
+                    self._status(t("tool.ocr.progress", current=i+1, total=n))
                     QApplication.processEvents()
                     pix = page.get_pixmap(dpi=300)
                     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
@@ -238,8 +234,8 @@ class TabOCR(BasePage):
                 with open(out_path, "wb") as fh:
                     writer.write(fh)
 
-            self._status(f"✔  OCR complete → {out_path}")
-            QMessageBox.information(self, "Done",
-                f"OCR completed successfully!\n\nFile saved at:\n{out_path}")
+            self._status(f"✔  OCR → {out_path}")
+            QMessageBox.information(self, t("msg.done"),
+                t("tool.ocr.done", path=out_path))
         except Exception as e:
-            QMessageBox.critical(self, "OCR Error", str(e))
+            QMessageBox.critical(self, t("tool.ocr.error"), str(e))

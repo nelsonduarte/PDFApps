@@ -55,8 +55,8 @@ class TabExtrair(BasePage):
             base, ext = os.path.splitext(p)
             self.drop_out.set_path(base + "_extracted" + ext)
         try:
-            r = PdfReader(p); self.lbl_info.setText(f"  {len(r.pages)} pages")
-        except Exception as e: self.lbl_info.setText(f"  Error: {e}")
+            r = PdfReader(p); self.lbl_info.setText(t("edit.status.pages", n=len(r.pages)))
+        except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
@@ -79,4 +79,4 @@ class TabExtrair(BasePage):
             self._status(f"✔  {len(pages)} → {os.path.basename(out_path)}")
             QMessageBox.information(self, t("msg.done"),
                 t("tool.extract.done", n=len(pages), path=out_path))
-        except Exception as e: QMessageBox.critical(self, "Error", str(e))
+        except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))

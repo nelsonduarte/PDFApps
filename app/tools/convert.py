@@ -104,7 +104,7 @@ class TabConverter(BasePage):
                 self._drop_file.set_path(base + ext)
 
     def _pick_input(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Open PDF", "", "PDF (*.pdf)")
+        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), "", t("file_filter.pdf"))
         if p:
             self._load_input(p)
 
@@ -115,9 +115,9 @@ class TabConverter(BasePage):
         size = os.path.getsize(p)
         try:
             r = PdfReader(p)
-            self.lbl_info.setText(f"  {len(r.pages)} pages  ·  {size / 1024:.1f} KB")
+            self.lbl_info.setText(t("tool.compress.pages_info", n=len(r.pages), size=f"{size/1024:.1f}"))
         except Exception as e:
-            self.lbl_info.setText(f"  Error: {e}")
+            self.lbl_info.setText(t("tool.split.error_info", e=e))
         # auto-set output paths
         base = os.path.splitext(p)[0]
         if not self._drop_folder.path():
@@ -145,7 +145,7 @@ class TabConverter(BasePage):
     def _run(self):
         pdf_path = self.drop_in.path()
         if not pdf_path or not os.path.isfile(pdf_path):
-            QMessageBox.warning(self, "Warning", "Select a valid PDF.")
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf"))
             return
 
         fmt = self.cmb_format.currentIndex()
@@ -161,12 +161,12 @@ class TabConverter(BasePage):
     def _convert_images(self, pdf_path: str, fmt: int):
         out_dir = self._drop_folder.path()
         if not out_dir:
-            QMessageBox.warning(self, "Warning", "Choose the output folder.")
+            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_folder"))
             return
         os.makedirs(out_dir, exist_ok=True)
         ext = "png" if fmt == 0 else "jpg"
         dpi = self._DPI_VALUES[self.cmb_dpi.currentIndex()]
-        self._status(f"Converting to {ext.upper()} at {dpi} DPI…")
+        self._status(f"→ {ext.upper()} @ {dpi} DPI…")
         QApplication.processEvents()
         try:
             import fitz
@@ -190,34 +190,32 @@ class TabConverter(BasePage):
                         img.save(out_file, "JPEG", quality=95)
                     except ImportError:
                         pix.save(out_file)
-                self._status(f"Converting… {i + 1}/{total}")
+                self._status(f"{i + 1}/{total}…")
                 QApplication.processEvents()
             doc.close()
-            self.lbl_result.setText(f"  {total} images saved to {out_dir}")
-            self._status(f"✔  {total} images exported")
-            QMessageBox.information(self, "Done",
-                                    f"{total} images saved to:\n{out_dir}")
+            self.lbl_result.setText(f"  {total} → {out_dir}")
+            self._status(f"✔  {total} images")
+            QMessageBox.information(self, t("msg.done"),
+                                    t("tool.convert.done_images", n=total, folder=out_dir))
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            QMessageBox.critical(self, t("msg.error"), str(e))
 
     def _convert_docx(self, pdf_path: str):
         out_path = self._drop_file.path()
         if not out_path:
-            QMessageBox.warning(self, "Warning", "Choose the output file.")
+            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output"))
             return
-        self._status("Converting to DOCX…")
+        self._status("→ DOCX…")
         QApplication.processEvents()
         try:
             import fitz
         except ImportError:
-            QMessageBox.critical(self, "Missing dependency",
-                                 "Install PyMuPDF:\n  pip install pymupdf")
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pymupdf"))
             return
         try:
             from docx import Document
         except ImportError:
-            QMessageBox.critical(self, "Missing dependency",
-                                 "Install python-docx:\n  pip install python-docx")
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_docx"))
             return
         try:
             doc = fitz.open(pdf_path)
@@ -230,19 +228,19 @@ class TabConverter(BasePage):
                     docx_doc.add_paragraph(paragraph)
             docx_doc.save(out_path)
             doc.close()
-            self.lbl_result.setText(f"  Saved → {os.path.basename(out_path)}")
-            self._status(f"✔  DOCX saved → {out_path}")
-            QMessageBox.information(self, "Done",
-                                    f"DOCX saved at:\n{out_path}")
+            self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
+            self._status(f"✔  DOCX → {out_path}")
+            QMessageBox.information(self, t("msg.done"),
+                                    t("tool.convert.done_docx", path=out_path))
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            QMessageBox.critical(self, t("msg.error"), str(e))
 
     def _convert_txt(self, pdf_path: str):
         out_path = self._drop_file.path()
         if not out_path:
-            QMessageBox.warning(self, "Warning", "Choose the output file.")
+            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output"))
             return
-        self._status("Converting to TXT…")
+        self._status("→ TXT…")
         QApplication.processEvents()
         try:
             import fitz
@@ -253,9 +251,9 @@ class TabConverter(BasePage):
                         f.write(f'\n\n--- Page {i + 1} ---\n\n')
                     f.write(page.get_text())
             doc.close()
-            self.lbl_result.setText(f"  Saved → {os.path.basename(out_path)}")
-            self._status(f"✔  TXT saved → {out_path}")
-            QMessageBox.information(self, "Done",
-                                    f"TXT saved at:\n{out_path}")
+            self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
+            self._status(f"✔  TXT → {out_path}")
+            QMessageBox.information(self, t("msg.done"),
+                                    t("tool.convert.done_txt", path=out_path))
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            QMessageBox.critical(self, t("msg.error"), str(e))

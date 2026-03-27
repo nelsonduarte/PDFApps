@@ -140,55 +140,55 @@ class TabEditar(QWidget):
 
         # 0 - Redact
         w0 = QWidget(); v0 = QVBoxLayout(w0); v0.setContentsMargins(0,4,0,0); v0.setSpacing(4)
-        v0.addWidget(QLabel("Color:"))
+        v0.addWidget(QLabel(t("edit.color")))
         self._red_color = QComboBox(); self._red_color.addItems(list(self._RED_FILLS.keys()))
         v0.addWidget(self._red_color)
-        hint0 = QLabel("Drag to select the area."); hint0.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint0 = QLabel(t("edit.hint.redact")); hint0.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v0.addWidget(hint0); v0.addStretch()
         self._opt_stack.addWidget(w0)
 
         # 1 - Text
         w1 = QWidget(); v1 = QVBoxLayout(w1); v1.setContentsMargins(0,4,0,0)
-        hint1 = QLabel("Click on the PDF to position.\nOptions appear in a popup.")
+        hint1 = QLabel(t("edit.hint.text"))
         hint1.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v1.addWidget(hint1); v1.addStretch()
         self._opt_stack.addWidget(w1)
 
         # 2 - Image
         w2 = QWidget(); v2 = QVBoxLayout(w2); v2.setContentsMargins(0,4,0,0); v2.setSpacing(4)
-        v2.addWidget(QLabel("Image:"))
-        self._img_drop = DropFileEdit(placeholder="Drag image here...",
-                                      filters="Images (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)")
+        v2.addWidget(QLabel(t("edit.image")))
+        self._img_drop = DropFileEdit(placeholder=t("edit.image_hint"),
+                                      filters=t("file_filter.images"))
         self._img_drop.btn.clicked.disconnect()
         self._img_drop.btn.clicked.connect(self._pick_image)
         v2.addWidget(self._img_drop)
-        hint2 = QLabel("Drag on the PDF to define the area."); hint2.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint2 = QLabel(t("edit.hint.image")); hint2.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v2.addWidget(hint2); v2.addStretch()
         self._opt_stack.addWidget(w2)
 
         # 3 - Highlight
         w3 = QWidget(); v3 = QVBoxLayout(w3); v3.setContentsMargins(0,4,0,0); v3.setSpacing(4)
-        v3.addWidget(QLabel("Color:"))
+        v3.addWidget(QLabel(t("edit.color")))
         self._hi_color = QComboBox(); self._hi_color.addItems(list(self._HI_COLORS.keys()))
         v3.addWidget(self._hi_color)
-        hint3 = QLabel("Drag to select the text."); hint3.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint3 = QLabel(t("edit.hint.highlight")); hint3.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v3.addWidget(hint3); v3.addStretch()
         self._opt_stack.addWidget(w3)
 
         # 4 - Note
         w4 = QWidget(); v4 = QVBoxLayout(w4); v4.setContentsMargins(0,4,0,0); v4.setSpacing(4)
-        v4.addWidget(QLabel("Note text:"))
+        v4.addWidget(QLabel(t("edit.note_text")))
         self._note_txt = QTextEdit(); self._note_txt.setMaximumHeight(80)
         v4.addWidget(self._note_txt)
-        hint4 = QLabel("Click on the PDF to position."); hint4.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint4 = QLabel(t("edit.hint.note")); hint4.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v4.addWidget(hint4); v4.addStretch()
         self._opt_stack.addWidget(w4)
 
         # 5 - Forms
         w5 = QWidget(); v5 = QVBoxLayout(w5); v5.setContentsMargins(0,4,0,0); v5.setSpacing(4)
-        v5.addWidget(QLabel("Detected fields:"))
+        v5.addWidget(QLabel(t("edit.fields_detected")))
         self._form_table = QTableWidget(0, 2)
-        self._form_table.setHorizontalHeaderLabels(["Field", "Value"])
+        self._form_table.setHorizontalHeaderLabels([t("edit.field"), t("edit.value")])
         self._form_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._form_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self._form_table.setObjectName("pdf_table"); self._form_table.setMinimumHeight(130)
@@ -197,9 +197,7 @@ class TabEditar(QWidget):
 
         # 6 - Edit existing text
         w6 = QWidget(); v6 = QVBoxLayout(w6); v6.setContentsMargins(0,4,0,0)
-        hint6 = QLabel("Click on the text in the PDF to edit it.\n"
-                        "The detected text appears pre-filled.\n"
-                        "Leave blank to delete.")
+        hint6 = QLabel(t("edit.hint.edit_text"))
         hint6.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         hint6.setWordWrap(True)
         v6.addWidget(hint6); v6.addStretch()
@@ -207,14 +205,14 @@ class TabEditar(QWidget):
 
         # 7 - Select / Copy text
         w7 = QWidget(); v7 = QVBoxLayout(w7); v7.setContentsMargins(0,4,0,0); v7.setSpacing(6)
-        hint7 = QLabel("Drag to select text.\nThe text is copied automatically.")
+        hint7 = QLabel(t("edit.hint.select"))
         hint7.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         hint7.setWordWrap(True)
         self._sel_result = QTextEdit()
         self._sel_result.setReadOnly(True)
         self._sel_result.setMaximumHeight(80)
-        self._sel_result.setPlaceholderText("Selected text appears here…")
-        btn_copy7 = QPushButton("  Copy")
+        self._sel_result.setPlaceholderText(t("edit.select_placeholder"))
+        btn_copy7 = QPushButton(t("btn.copy"))
         btn_copy7.setIcon(qta.icon("fa5s.copy", color=TEXT_PRI))
         btn_copy7.clicked.connect(lambda: QApplication.clipboard().setText(self._sel_result.toPlainText()))
         v7.addWidget(hint7)
@@ -328,16 +326,13 @@ class TabEditar(QWidget):
         try:
             self._canvas.load(p)
         except ModuleNotFoundError as ex:
-            QMessageBox.critical(self, "Missing dependency",
-                "The Edit tool requires PyMuPDF.\n\n"
-                "Install with:\n  pip install pymupdf\n\n"
-                f"Detail: {ex}")
+            QMessageBox.critical(self, t("msg.missing_dep"), t("msg.dep_pymupdf", ex=ex))
             return
         except Exception as ex:
-            QMessageBox.critical(self, "Error", f"Could not open the PDF:\n{ex}"); return
+            QMessageBox.critical(self, t("msg.error"), t("msg.pdf_open_error", ex=ex)); return
         self._page_idx = 0
         n = self._canvas.page_count()
-        self._lbl_info.setText(f"  {n} pages")
+        self._lbl_info.setText(t("edit.status.pages", n=n))
         self._update_nav()
         self._load_existing_annotations()
         self._load_form_fields(p)
@@ -347,7 +342,7 @@ class TabEditar(QWidget):
         try:
             doc = self._canvas._doc
             if not doc:
-                self._status("⚠  No doc loaded for annotations")
+                self._status(t("edit.status.no_doc"))
                 return
             import fitz
             count = 0
@@ -386,7 +381,7 @@ class TabEditar(QWidget):
         self._update_nav()
 
     def _pick_image(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Select image", "",
+        p, _ = QFileDialog.getOpenFileName(self, t("edit.image"), "",
                                            "Images (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)")
         if p:
             self._img_drop.blockSignals(True)
@@ -470,7 +465,7 @@ class TabEditar(QWidget):
             if not self._doc_path: return
             found_span = self._canvas.get_span_at(pdf_pt)
             if not found_span:
-                QMessageBox.information(self, "Info", "No text found at that position."); return
+                QMessageBox.information(self, t("msg.info"), t("edit.status.no_text")); return
             dlg = _TextEditDialog(found_span["text"], found_span["size"], self)
             if dlg.exec() != QDialog.DialogCode.Accepted: return
             new_txt = dlg.new_text()
@@ -503,14 +498,14 @@ class TabEditar(QWidget):
 
     def _run(self):
         if not self._doc_path or not os.path.isfile(self._doc_path):
-            QMessageBox.warning(self, "Warning", "Open a PDF first."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.open_pdf_first")); return
         out = self._drop_out.path()
         if not out:
-            QMessageBox.warning(self, "Warning", "Choose the output file."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
         if self._mode_idx == 5:
             self._apply_forms(out); return
         if not self._pending:
-            QMessageBox.warning(self, "Warning", "No pending edits."); return
+            QMessageBox.warning(self, t("msg.warning"), t("msg.no_pending")); return
         try:
             import fitz
             # Release the file lock without resetting the canvas
@@ -546,11 +541,11 @@ class TabEditar(QWidget):
             doc.save(out, garbage=4, deflate=True); doc.close()
             self._pending.clear(); self._pending_list.clear()
             self._status(f"✔  Saved → {out}")
-            QMessageBox.information(self, "Done", f"PDF saved at:\n{out}")
+            QMessageBox.information(self, t("msg.done"), t("msg.pdf_saved", path=out))
             # Reload the saved file
             self._load_pdf(out)
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            QMessageBox.critical(self, t("msg.error"), str(e))
 
     def _apply_forms(self, out):
         try:
@@ -563,6 +558,6 @@ class TabEditar(QWidget):
                 writer.update_page_form_field_values(page, fields, auto_regenerate=False)
             with open(out, "wb") as f: writer.write(f)
             self._status(f"✔  Form saved → {out}")
-            QMessageBox.information(self, "Done", f"Form saved at:\n{out}")
+            QMessageBox.information(self, t("msg.done"), t("msg.form_saved", path=out))
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            QMessageBox.critical(self, t("msg.error"), str(e))
