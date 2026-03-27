@@ -43,7 +43,7 @@ class TabImport(BasePage):
         # ── Single file input (TXT / MD) ─────────────────────────────
         self._section_file = section(t("tool.import.source_file"))
         f.addWidget(self._section_file)
-        self.drop_in = DropFileEdit()
+        self.drop_in = DropFileEdit(filters=t("tool.import.filter_txt"))
         self.drop_in.btn.clicked.disconnect()
         self.drop_in.btn.clicked.connect(self._pick_input_file)
         f.addWidget(self.drop_in)
@@ -92,6 +92,10 @@ class TabImport(BasePage):
         self._img_list.setVisible(is_images)
         self._add_img_btn.setVisible(is_images)
         self._clear_img_btn.setVisible(is_images)
+        if index == 0:
+            self.drop_in._filters = t("tool.import.filter_txt")
+        elif index == 2:
+            self.drop_in._filters = t("tool.import.filter_md")
 
     def _pick_input_file(self):
         fmt = self.cmb_type.currentIndex()
