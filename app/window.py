@@ -261,6 +261,7 @@ class MainWindow(QMainWindow):
         self._tab_bar.setMovable(True)
         self._tab_bar.setExpanding(False)
         self._tab_bar.setObjectName("viewer_tabs")
+        self._current_tool = -1
         self._tab_bar.currentChanged.connect(self._on_tab_changed)
         self._tab_bar.tabCloseRequested.connect(self._close_tab)
         self._tab_bar.setVisible(False)
