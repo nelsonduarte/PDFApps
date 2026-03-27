@@ -31,6 +31,20 @@ else:
 
 LANG_PACKS = ["eng", "por"]
 
+# ── Ghostscript constants ─────────────────────────────────────────────
+if sys.platform == "win32":
+    GHOSTSCRIPT_EXE = r"C:\Program Files\gs\gs10.05.0\bin\gswin64c.exe"
+    GHOSTSCRIPT_URL = (
+        "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/"
+        "gs10050/gs10050w64.exe"
+    )
+elif sys.platform == "darwin":
+    GHOSTSCRIPT_EXE = shutil.which("gs") or "/opt/homebrew/bin/gs"
+    GHOSTSCRIPT_URL = None
+else:
+    GHOSTSCRIPT_EXE = shutil.which("gs") or "/usr/bin/gs"
+    GHOSTSCRIPT_URL = None
+
 
 def resource(rel: str) -> str:
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -288,13 +302,70 @@ def install_lang_packs_windows(step_fn, base_pct: int) -> None:
         download_file(url, dest)
 
 
+# ── Ghostscript ───────────────────────────────────────────────────────────────
+
+def ghostscript_installed() -> bool:
+    if bool(shutil.which("gswin64c")) or bool(shutil.which("gs")):
+        return True
+    if sys.platform == "win32":
+        import glob
+        return bool(glob.glob(r"C:\Program Files\gs\gs*\bin\gswin64c.exe"))
+    return False
+
+
+def install_ghostscript_windows(step_fn) -> None:
+    import tempfile
+    temp = tempfile.gettempdir()
+    installer = os.path.join(temp, "gs_setup.exe")
+    step_fn("Downloading Ghostscript (~35 MB)…", 76)
+    download_file(GHOSTSCRIPT_URL, installer)
+    step_fn("Installing Ghostscript…", 82)
+    subprocess.run([installer, "/S"], check=True)
+    for _ in range(30):
+        if ghostscript_installed():
+            break
+        time.sleep(1)
+    try:
+        os.remove(installer)
+    except Exception:
+        pass
+
+
+def install_ghostscript_macos(step_fn) -> None:
+    step_fn("Installing Ghostscript via Homebrew…", 76)
+    if not shutil.which("brew"):
+        raise RuntimeError(
+            "Homebrew not found.\n"
+            "Install at https://brew.sh then run:\n"
+            "brew install ghostscript"
+        )
+    subprocess.run(["brew", "install", "ghostscript"], check=True)
+
+
+def install_ghostscript_linux(step_fn) -> None:
+    step_fn("Installing Ghostscript via package manager…", 76)
+    pkg_manager = None
+    for pm in [("apt-get", ["-y", "install", "ghostscript"]),
+               ("dnf",     ["-y", "install", "ghostscript"]),
+               ("pacman",  ["-S", "--noconfirm", "ghostscript"])]:
+        if shutil.which(pm[0]):
+            pkg_manager = pm
+            break
+    if not pkg_manager:
+        raise RuntimeError(
+            "Package manager not found.\n"
+            "Install manually:\n  sudo apt install ghostscript"
+        )
+    subprocess.run(["sudo", pkg_manager[0]] + pkg_manager[1], check=True)
+
+
 # ── UI ────────────────────────────────────────────────────────────────────────
 
 class InstallerApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"Install {APP_NAME} {APP_VERSION}")
-        self.geometry("520x440")
+        self.geometry("520x470")
         self.resizable(False, False)
         self.configure(bg=BG)
         try:
@@ -369,8 +440,22 @@ class InstallerApp(tk.Tk):
         if not tesseract_installed():
             self._ocr_chk.pack(anchor="w", pady=(4, 0))
 
-        note = "Tesseract already installed." if tesseract_installed() else ""
-        self._note_var = tk.StringVar(value=note)
+        self._gs_var = tk.BooleanVar(value=True)
+        self._gs_chk = tk.Checkbutton(
+            body,
+            text="Install compression engine — Ghostscript (better PDF compression)",
+            variable=self._gs_var, bg=BG, fg="#0369A1",
+            font=("Segoe UI", 10), activebackground=BG, selectcolor="#EFF6FF",
+        )
+        if not ghostscript_installed():
+            self._gs_chk.pack(anchor="w", pady=(4, 0))
+
+        notes = []
+        if tesseract_installed():
+            notes.append("Tesseract already installed.")
+        if ghostscript_installed():
+            notes.append("Ghostscript already installed.")
+        self._note_var = tk.StringVar(value="  ".join(notes))
         tk.Label(body, textvariable=self._note_var, bg=BG, fg="#10B981",
                  font=("Segoe UI", 9)).pack(anchor="w", pady=(2, 8))
 
@@ -503,6 +588,14 @@ class InstallerApp(tk.Tk):
                     install_tesseract_macos(self._step)
                 else:
                     install_tesseract_linux(self._step)
+
+            if not ghostscript_installed() and self._gs_var.get():
+                if sys.platform == "win32":
+                    install_ghostscript_windows(self._step)
+                elif sys.platform == "darwin":
+                    install_ghostscript_macos(self._step)
+                else:
+                    install_ghostscript_linux(self._step)
 
             self._step("Registering in the system…", 92)
             if sys.platform == "win32":
