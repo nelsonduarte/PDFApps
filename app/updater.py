@@ -86,10 +86,18 @@ def _apply_update_windows(downloaded_exe: str):
     if frozen:
         # Running as compiled exe — replace in place and restart
         current_exe = sys.executable
+        pid = os.getpid()
         bat = os.path.join(tempfile.gettempdir(), "pdfapps_update.bat")
         with open(bat, "w") as f:
             f.write("@echo off\n")
-            f.write("timeout /t 2 /nobreak > nul\n")
+            # Wait for the app process to fully exit
+            f.write(f":wait\n")
+            f.write(f'tasklist /FI "PID eq {pid}" 2>nul | find /i "{pid}" >nul\n')
+            f.write(f"if not errorlevel 1 (\n")
+            f.write(f"  timeout /t 1 /nobreak > nul\n")
+            f.write(f"  goto wait\n")
+            f.write(f")\n")
+            f.write("timeout /t 1 /nobreak > nul\n")
             f.write(f'copy /y "{downloaded_exe}" "{current_exe}"\n')
             f.write(f'del "{downloaded_exe}"\n')
             f.write(f'start "" "{current_exe}"\n')
