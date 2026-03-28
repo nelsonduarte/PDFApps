@@ -270,7 +270,15 @@ class MainWindow(QMainWindow):
         footer_h.addWidget(footer_lbl, 1)
         sb_lay.addWidget(self._footer_w)
         self._sidebar_collapsed = False
+        # Load saved theme preference
         self._dark_mode = True
+        try:
+            from app.i18n import _CONFIG_PATH
+            import json
+            with open(_CONFIG_PATH, "r", encoding="utf-8") as _cf:
+                self._dark_mode = json.load(_cf).get("dark_mode", True)
+        except Exception:
+            pass
         self._qapp: QApplication = QApplication.instance()  # type: ignore[assignment]
 
         # ── Tool stack (hidden by default) ─────────────────────────
@@ -332,6 +340,10 @@ class MainWindow(QMainWindow):
         for i in range(self.stack.count()):
             for dfe in self.stack.widget(i).findChildren(DropFileEdit):
                 dfe.path_changed.connect(lambda p: self._viewer.load(p))
+
+        # Apply saved theme (if light mode was saved)
+        if not self._dark_mode:
+            self._apply_theme()
 
     # ── Viewer property (always returns the active tab's viewer) ──────
     @property
@@ -608,13 +620,39 @@ class MainWindow(QMainWindow):
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
-        style      = STYLE if self._dark_mode else STYLE_LIGHT
-        icon_color = TEXT_SEC if self._dark_mode else _LQ
+        self._apply_theme()
+        # Save preference
+        from app.i18n import _CONFIG_PATH
+        import json
+        cfg = {}
+        try:
+            with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception:
+            pass
+        cfg["dark_mode"] = self._dark_mode
+        with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f)
+
+    def _apply_theme(self):
+        style = STYLE if self._dark_mode else STYLE_LIGHT
+        nav_color = TEXT_SEC if self._dark_mode else _LQ
+        bar_color = TEXT_PRI if self._dark_mode else _LQ
         self._qapp.setPalette(_make_palette(self._dark_mode))
         self._qapp.setStyleSheet(style)
         self._theme_btn.setText("☀" if self._dark_mode else "🌙")
+        # Update sidebar nav icons
         for i, (_, icon_name, _) in enumerate(NAV_ITEMS):
-            self.nav.item(i).setIcon(qta.icon(icon_name, color=icon_color))
+            self.nav.item(i).setIcon(qta.icon(icon_name, color=nav_color))
+        # Update workspace bar icons
+        self._open_pdf_btn.setIcon(qta.icon("fa5s.folder-open", color=bar_color))
+        self._recent_btn.setIcon(qta.icon("fa5s.history", color=bar_color))
+        self._print_top_btn.setIcon(qta.icon("fa5s.print", color=bar_color))
+        self._search_top_btn.setIcon(qta.icon("fa5s.search", color=bar_color))
+        self._zm_btn.setIcon(qta.icon("fa5s.search-minus", color=bar_color))
+        self._zp_btn.setIcon(qta.icon("fa5s.search-plus", color=bar_color))
+        self._prev_pg_btn.setIcon(qta.icon("fa5s.chevron-left", color=bar_color))
+        self._next_pg_btn.setIcon(qta.icon("fa5s.chevron-right", color=bar_color))
         self._viewer.update_theme(self._dark_mode)
 
     # ── Auto-update ───────────────────────────────────────────────────────

@@ -17,13 +17,24 @@ from app.styles import STYLE, STYLE_LIGHT
 from app.utils import _make_palette
 
 
+def _load_dark_pref() -> bool:
+    try:
+        import json
+        from app.i18n import _CONFIG_PATH
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f).get("dark_mode", True)
+    except Exception:
+        return True
+
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName(" ")
     app.setApplicationDisplayName(" ")
     app.setStyle("Fusion")
-    app.setPalette(_make_palette(True))
-    app.setStyleSheet(STYLE)
+    dark = _load_dark_pref()
+    app.setPalette(_make_palette(dark))
+    app.setStyleSheet(STYLE if dark else STYLE_LIGHT)
 
     window = MainWindow()
     window.show()
