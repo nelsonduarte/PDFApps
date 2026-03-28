@@ -3,7 +3,7 @@
 import os as _os
 DESKTOP = _os.path.join(_os.path.expanduser("~"), "Desktop")
 
-APP_VERSION = "1.7.0"
+APP_VERSION = "1.7.1"
 GITHUB_REPO = "nelsonduarte/PDFApps"
 
 ACCENT   = "#14B8A6"   # main teal
