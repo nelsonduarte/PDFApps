@@ -450,6 +450,7 @@
             width: 100%;
             height: auto;
             display: block;
+            cursor: pointer;
         }
 
         .screenshot-item figcaption {
@@ -459,6 +460,49 @@
             color: #334155;
             text-align: center;
             background: #fff;
+        }
+
+        /* ── Lightbox ── */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.85);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 24px;
+        }
+
+        .lightbox-overlay.active {
+            display: flex;
+        }
+
+        .lightbox-overlay img {
+            max-width: 95vw;
+            max-height: 92vh;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.5);
+            object-fit: contain;
+        }
+
+        .lightbox-close {
+            position: fixed;
+            top: 18px;
+            right: 24px;
+            color: #fff;
+            font-size: 2rem;
+            font-weight: 300;
+            cursor: pointer;
+            z-index: 10000;
+            line-height: 1;
+            opacity: .7;
+            transition: opacity .2s;
+        }
+
+        .lightbox-close:hover {
+            opacity: 1;
         }
 
         /* ── Comparison Table ── */
@@ -1776,6 +1820,29 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("pdfapps-lang-manual", "1");
     applyLang(l);
   });
+});
+
+// ── Lightbox ──
+const lbOverlay = document.createElement('div');
+lbOverlay.className = 'lightbox-overlay';
+lbOverlay.innerHTML = '<span class="lightbox-close">&times;</span><img src="" alt="">';
+document.body.appendChild(lbOverlay);
+const lbImg = lbOverlay.querySelector('img');
+const lbClose = lbOverlay.querySelector('.lightbox-close');
+
+document.querySelectorAll('.screenshot-item img').forEach(img => {
+  img.addEventListener('click', () => {
+    lbImg.src = img.src;
+    lbImg.alt = img.alt;
+    lbOverlay.classList.add('active');
+  });
+});
+
+lbOverlay.addEventListener('click', () => lbOverlay.classList.remove('active'));
+lbImg.addEventListener('click', e => e.stopPropagation());
+lbClose.addEventListener('click', () => lbOverlay.classList.remove('active'));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') lbOverlay.classList.remove('active');
 });
 </script>
 
