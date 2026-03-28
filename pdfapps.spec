@@ -11,6 +11,7 @@ a = Analysis(
     datas=[
         ('icon.ico', '.'),
         ('pdfapps_nobg_v1.png', '.'),
+        ('pdfapps.svg', '.'),
         ('app/translations.json', 'app'),
         (os.path.join(_qa, 'fonts'), 'qtawesome/fonts'),
     ],

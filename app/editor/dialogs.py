@@ -24,7 +24,9 @@ class _PdfPasswordDialog(QDialog):
 
         top = QHBoxLayout(); top.setSpacing(14)
         ico = QLabel()
-        ico.setPixmap(qta.icon("fa5s.lock", color=ACCENT).pixmap(36, 36))
+        _pix = qta.icon("fa5s.lock", color=ACCENT).pixmap(72, 72)
+        _pix.setDevicePixelRatio(2.0)
+        ico.setPixmap(_pix)
         ico.setFixedSize(40, 40)
         top.addWidget(ico)
         title_col = QVBoxLayout(); title_col.setSpacing(2)

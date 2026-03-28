@@ -61,18 +61,15 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(t("app.name"))
-        import sys as _sys
-        if _sys.platform == "darwin":
-            candidates = ["icon.icns", "pdfapps_nobg_v1.png", "icon.png", "icon.ico"]
-        elif _sys.platform == "win32":
-            candidates = ["pdfapps_nobg_v1.png", "icon.ico", "icon.png"]
+        _svg = resource_path("pdfapps.svg")
+        if os.path.exists(_svg):
+            self.setWindowIcon(QIcon(_svg))
         else:
-            candidates = ["pdfapps_nobg_v1.png", "icon.png", "icon.ico"]
-        for _ico in candidates:
-            _ico_path = resource_path(_ico)
-            if os.path.exists(_ico_path):
-                self.setWindowIcon(QIcon(_ico_path))
-                break
+            for _ico in ["pdfapps_nobg_v1.png", "icon.ico"]:
+                _ico_path = resource_path(_ico)
+                if os.path.exists(_ico_path):
+                    self.setWindowIcon(QIcon(_ico_path))
+                    break
         self.resize(1220, 700)
         self.showMaximized()
         self.setMinimumSize(860, 540)
@@ -220,22 +217,39 @@ class MainWindow(QMainWindow):
         sb_lay.setSpacing(0)
 
         brand = QWidget(); brand.setObjectName("brand_area")
-        bv = QVBoxLayout(brand); bv.setContentsMargins(0, 0, 0, 0); bv.setSpacing(0)
+        bh = QHBoxLayout(brand); bh.setContentsMargins(14, 12, 12, 12); bh.setSpacing(10)
         ico_lbl = QLabel()
         from PySide6.QtGui import QPixmap as _QPixmap
-        _png = resource_path("pdfapps_nobg_v1.png")
-        _ico_src = _png if os.path.exists(_png) else resource_path("icon.ico")
-        _app_pix = _QPixmap(_ico_src).scaled(
-            28, 28, Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
-        if _app_pix.isNull():
-            _app_pix = qta.icon('fa5s.file-pdf', color=ACCENT).pixmap(28, 28)
+        from PySide6.QtSvg import QSvgRenderer
+        from PySide6.QtGui import QPainter, QImage
+        _svg_path = resource_path("pdfapps.svg")
+        _size = 48
+        if os.path.exists(_svg_path):
+            renderer = QSvgRenderer(_svg_path)
+            img = QImage(_size * 2, _size * 2, QImage.Format.Format_ARGB32_Premultiplied)
+            img.fill(0)
+            p = QPainter(img)
+            renderer.render(p)
+            p.end()
+            _app_pix = _QPixmap.fromImage(img)
+            _app_pix.setDevicePixelRatio(2.0)
+        else:
+            _png = resource_path("pdfapps_nobg_v1.png")
+            _ico_src = _png if os.path.exists(_png) else resource_path("icon.ico")
+            _app_pix = _QPixmap(_ico_src).scaled(
+                _size * 2, _size * 2, Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation)
+            _app_pix.setDevicePixelRatio(2.0)
         ico_lbl.setPixmap(_app_pix)
         ico_lbl.setObjectName("app_icon")
-        ico_lbl.setContentsMargins(16, 0, 0, 0)
+        ico_lbl.setFixedSize(_size, _size)
+        ico_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        bh.addWidget(ico_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
+        brand_text = QVBoxLayout(); brand_text.setContentsMargins(0, 0, 0, 0); brand_text.setSpacing(1)
         self._brand_title = QLabel(t("app.name")); self._brand_title.setObjectName("app_title")
         self._brand_sub = QLabel(t("app.subtitle")); self._brand_sub.setObjectName("app_sub")
-        bv.addWidget(ico_lbl); bv.addWidget(self._brand_title); bv.addWidget(self._brand_sub)
+        brand_text.addWidget(self._brand_title); brand_text.addWidget(self._brand_sub)
+        bh.addLayout(brand_text, 1)
         sb_lay.addWidget(brand)
 
         sep = QFrame(); sep.setObjectName("nav_sep"); sep.setFixedHeight(1)
@@ -243,7 +257,7 @@ class MainWindow(QMainWindow):
 
         self.nav = QListWidget(); self.nav.setObjectName("nav_list")
         self.nav.setSpacing(0)
-        self.nav.setIconSize(QSize(18, 18))
+        self.nav.setIconSize(QSize(22, 22))
         for name, icon_name, _ in NAV_ITEMS:
             item = QListWidgetItem(qta.icon(icon_name, color=TEXT_SEC), name)
             self.nav.addItem(item)
@@ -590,7 +604,7 @@ class MainWindow(QMainWindow):
             self._collapse_btn.setText("«")
             for i, (_, icon_name, _) in enumerate(NAV_ITEMS):
                 self.nav.item(i).setText(NAV_ITEMS[i][0])
-            self.nav.setIconSize(QSize(18, 18))
+            self.nav.setIconSize(QSize(22, 22))
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode

@@ -102,15 +102,27 @@ class PdfViewerPanel(QWidget):
         ph_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_lay.setSpacing(14)
         ph_icon = QLabel()
-        from PySide6.QtGui import QPixmap as _QPixmap
+        from PySide6.QtGui import QPixmap as _QPixmap, QImage as _QImage, QPainter as _QPainter
         from app.utils import resource_path as _rp
-        _png = _rp("pdfapps_nobg_v1.png")
-        _ico_src = _png if os.path.exists(_png) else _rp("icon.ico")
-        _ph_pix = _QPixmap(_ico_src).scaled(
-            56, 56, Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
-        if _ph_pix.isNull():
-            _ph_pix = qta.icon('fa5s.file-pdf', color='#2E3A55').pixmap(56, 56)
+        _svg_path = _rp("pdfapps.svg")
+        _ph_size = 72
+        if os.path.exists(_svg_path):
+            from PySide6.QtSvg import QSvgRenderer as _QSvgRenderer
+            _r = _QSvgRenderer(_svg_path)
+            _img = _QImage(_ph_size * 2, _ph_size * 2, _QImage.Format.Format_ARGB32_Premultiplied)
+            _img.fill(0)
+            _p = _QPainter(_img)
+            _r.render(_p)
+            _p.end()
+            _ph_pix = _QPixmap.fromImage(_img)
+            _ph_pix.setDevicePixelRatio(2.0)
+        else:
+            _png = _rp("pdfapps_nobg_v1.png")
+            _ico_src = _png if os.path.exists(_png) else _rp("icon.ico")
+            _ph_pix = _QPixmap(_ico_src).scaled(
+                _ph_size * 2, _ph_size * 2, Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation)
+            _ph_pix.setDevicePixelRatio(2.0)
         ph_icon.setPixmap(_ph_pix)
         ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_text = QLabel(t("viewer.placeholder"))

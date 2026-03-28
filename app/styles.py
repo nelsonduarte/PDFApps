@@ -18,12 +18,12 @@ QScrollArea > QWidget > QWidget {{ background: transparent; }}
 /* ── Sidebar ─────────────────────────────────────────────────────────── */
 #sidebar    {{ background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #151C22, stop:1 #0F1418);
               border-right: 1px solid {BORDER}; }}
-#brand_area {{ background: {BG_SIDE}; padding: 20px 0 12px 0; }}
+#brand_area {{ background: {BG_SIDE}; padding: 0; }}
 
 #app_title {{ font-size: 15pt; font-weight: 700; color: #FFFFFF;
-             background: transparent; padding: 0 16px 2px 16px; }}
+             background: transparent; padding: 0; }}
 #app_sub   {{ font-size: 10pt; color: #7E9A94;
-             background: transparent; padding: 0 16px 14px 16px; }}
+             background: transparent; padding: 0; }}
 
 #nav_sep   {{ background: {BORDER}; max-height: 1px; margin: 4px 12px 8px 12px; }}
 
@@ -259,11 +259,11 @@ QScrollArea > QWidget > QWidget {{ background: transparent; }}
 
 #sidebar    {{ background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #EEF6F4, stop:1 #E3EEEB);
               border-right: 1px solid {_LO}; }}
-#brand_area {{ background: {_LS}; padding: 20px 0 12px 0; }}
+#brand_area {{ background: {_LS}; padding: 0; }}
 #app_title  {{ font-size: 15pt; font-weight: 700; color: {_LP};
-              background: transparent; padding: 0 16px 2px 16px; }}
+              background: transparent; padding: 0; }}
 #app_sub    {{ font-size: 10pt; color: {_LQ};
-              background: transparent; padding: 0 16px 14px 16px; }}
+              background: transparent; padding: 0; }}
 #nav_sep    {{ background: {_LO}; max-height: 1px; margin: 4px 12px 8px 12px; }}
 #nav_list   {{ background: transparent; border: none; outline: none;
               color: {_LQ}; font-size: 11pt; }}

@@ -13,6 +13,13 @@ from app.constants import ACCENT, DESKTOP
 from app.i18n import t
 
 
+def _hq_pixmap(icon_name: str, size: int, color: str) -> "QPixmap":
+    """Render a qtawesome icon at 2x resolution for high-DPI quality."""
+    pix = qta.icon(icon_name, color=color).pixmap(size * 2, size * 2)
+    pix.setDevicePixelRatio(2.0)
+    return pix
+
+
 class DropFileEdit(QWidget):
     """File field with drag & drop, status icon and clear button."""
 
@@ -35,7 +42,7 @@ class DropFileEdit(QWidget):
         h.setSpacing(10)
 
         self._ico = QLabel()
-        self._ico.setPixmap(qta.icon('fa5s.cloud-upload-alt', color='#4A5568').pixmap(20, 20))
+        self._ico.setPixmap(_hq_pixmap('fa5s.cloud-upload-alt', 22, '#4A5568'))
         self._ico.setObjectName("drop_icon")
         self._ico.setFixedWidth(26)
         h.addWidget(self._ico)
@@ -69,7 +76,7 @@ class DropFileEdit(QWidget):
         self.path_changed.emit(p)
         self._lbl.setToolTip(p)
         self._lbl.setProperty("has_file", "true")
-        self._ico.setPixmap(qta.icon('fa5s.file-pdf', color=ACCENT).pixmap(20, 20))
+        self._ico.setPixmap(_hq_pixmap('fa5s.file-pdf', 22, ACCENT))
         self._ico.setProperty("has_file", "true")
         self._clr.setIcon(qta.icon('fa5s.times', color='#F87171'))
         self._clr.setVisible(True)
@@ -81,7 +88,7 @@ class DropFileEdit(QWidget):
         self._lbl.setText(self._placeholder)
         self._lbl.setToolTip("")
         self._lbl.setProperty("has_file", "false")
-        self._ico.setPixmap(qta.icon('fa5s.cloud-upload-alt', color='#4A5568').pixmap(20, 20))
+        self._ico.setPixmap(_hq_pixmap('fa5s.cloud-upload-alt', 22, '#4A5568'))
         self._ico.setProperty("has_file", "false")
         self._clr.setIcon(qta.icon('fa5s.times', color='#4A5568'))
         self._clr.setVisible(False)
@@ -128,7 +135,7 @@ class MultiDropWidget(QWidget):
         h.setContentsMargins(14, 10, 10, 10)
         h.setSpacing(10)
         lbl = QLabel()
-        lbl.setPixmap(qta.icon('fa5s.folder-open', color='#4A5568').pixmap(20, 20))
+        lbl.setPixmap(_hq_pixmap('fa5s.folder-open', 22, '#4A5568'))
         lbl.setObjectName("drop_icon")
         lbl.setFixedWidth(26)
         h.addWidget(lbl)
