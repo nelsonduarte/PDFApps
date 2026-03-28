@@ -213,6 +213,8 @@ class UpdateDialog(QDialog):
 
     def _start_download(self):
         from app.i18n import t
+        from PySide6.QtCore import QThread
+
         self._update_btn.setEnabled(False)
         self._cancel_btn.setEnabled(False)
         self._progress.setVisible(True)
@@ -222,7 +224,23 @@ class UpdateDialog(QDialog):
             tempfile.gettempdir(), self._asset["name"]
         )
         url = self._asset["browser_download_url"]
-        Thread(target=_download, args=(url, self._dest, self._signals), daemon=True).start()
+
+        class _Worker(QObject):
+            def __init__(self, url, dest, signals):
+                super().__init__()
+                self._url = url
+                self._dest = dest
+                self._signals = signals
+            def run(self):
+                _download(self._url, self._dest, self._signals)
+
+        self._dl_thread = QThread()
+        self._dl_worker = _Worker(url, self._dest, self._signals)
+        self._dl_worker.moveToThread(self._dl_thread)
+        self._dl_thread.started.connect(self._dl_worker.run)
+        self._signals.finished.connect(self._dl_thread.quit)
+        self._signals.error.connect(self._dl_thread.quit)
+        self._dl_thread.start()
 
     def _on_progress(self, pct: int):
         self._progress.setValue(pct)
@@ -250,5 +268,6 @@ class UpdateDialog(QDialog):
     def _on_error(self, msg: str):
         self._cancel_btn.setEnabled(True)
         self._update_btn.setEnabled(True)
-        self._status.setText(f"Error: {msg}")
+        from app.i18n import t
+        self._status.setText(t("update.error") + f" {msg}")
         self._status.setStyleSheet("color: #ef4444; font-size: 12px;")
