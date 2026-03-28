@@ -77,6 +77,11 @@ def _download(url: str, dest: str, signals: _Signals):
                         signals.progress.emit(int(downloaded * 100 / total))
         signals.finished.emit(dest)
     except Exception as exc:
+        try:
+            if os.path.isfile(dest):
+                os.remove(dest)
+        except OSError:
+            pass
         signals.error.emit(str(exc))
 
 

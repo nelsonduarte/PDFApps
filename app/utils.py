@@ -219,6 +219,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     # ── Pass A : Ghostscript — full re-render ────────────────────────────
     _prog("passA")
     gs = _find_gs()
+    p = None
     if gs:
         try:
             presets = {
@@ -255,8 +256,9 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 try: os.unlink(p)
                 except Exception: pass
         except Exception:
-            try: os.unlink(p)
-            except Exception: pass
+            if p:
+                try: os.unlink(p)
+                except Exception: pass
 
     # ── Pass B : PyMuPDF — scrub + rewrite_images ────────────────────────
     _prog("passB_setup")

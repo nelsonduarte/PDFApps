@@ -320,7 +320,10 @@ class MainWindow(QMainWindow):
     # ── Viewer property (always returns the active tab's viewer) ──────
     @property
     def _viewer(self) -> PdfViewerPanel:
-        return self._viewers[self._viewer_stack.currentIndex()] if self._viewers else self._viewers[0]
+        idx = self._viewer_stack.currentIndex()
+        if 0 <= idx < len(self._viewers):
+            return self._viewers[idx]
+        return self._viewers[0]
 
     def _add_viewer_tab(self, path: str = "") -> PdfViewerPanel:
         v = PdfViewerPanel()

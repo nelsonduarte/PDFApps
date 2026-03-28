@@ -71,6 +71,7 @@ class TabEditar(QWidget):
         self._canvas = PdfEditCanvas()
         self._canvas.rect_selected.connect(self._on_rect)
         self._canvas.point_clicked.connect(self._on_point)
+        self._canvas.note_deleted.connect(self._on_note_deleted)
         canvas_scroll = QScrollArea()
         canvas_scroll.setFrameShape(QFrame.Shape.NoFrame)
         canvas_scroll.setWidgetResizable(False)
@@ -522,6 +523,16 @@ class TabEditar(QWidget):
             return
         edit = self._redo_stack.pop()
         self._add(edit)
+
+    def _on_note_deleted(self, overlay: dict):
+        """Remove a deleted note from the pending edits list."""
+        text = overlay.get("text", "").strip()
+        page = overlay.get("page")
+        for i, p in enumerate(self._pending):
+            if p.get("type") == "note" and p.get("text", "").strip() == text and p.get("page") == page:
+                self._pending.pop(i)
+                self._pending_list.takeItem(i)
+                break
 
     def _clear_pending(self):
         self._pending.clear(); self._pending_list.clear()

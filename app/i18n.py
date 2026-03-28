@@ -45,7 +45,10 @@ def _detect_system_language() -> str:
             if lang:
                 return lang
         # Fallback: locale
-        loc = locale.getdefaultlocale()[0] or ""
+        try:
+            loc = locale.getlocale()[0] or ""
+        except Exception:
+            loc = ""
     except Exception:
         pass
     for code in ("pt", "es", "fr", "de", "zh", "it", "nl"):

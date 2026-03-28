@@ -13,6 +13,7 @@ _NOTE_ICON_SIZE = 22
 class PdfEditCanvas(QWidget):
     rect_selected = Signal(object)   # fitz.Rect in PDF coords
     point_clicked = Signal(object)   # fitz.Point in PDF coords
+    note_deleted  = Signal(dict)     # overlay dict of deleted note
 
     zoom_changed = Signal(int)   # current percentage
 
@@ -326,11 +327,9 @@ class PdfEditCanvas(QWidget):
                                 break
                 # Remove from overlays
                 self._overlays.pop(hit)
-                # Remove from pending if it was a pending edit
-                self._pending = [p for p in self._pending
-                                 if not (p.get("type") == "note" and
-                                         p.get("text", "").strip() == overlay.get("text", "").strip() and
-                                         p.get("page") == overlay.get("page", self._page_idx))]
+                # Notify parent (TabEditar) to remove from pending edits
+                if hasattr(self, "note_deleted"):
+                    self.note_deleted.emit(overlay)
                 if self._open_note == hit:
                     self._open_note = None
                 elif self._open_note is not None and self._open_note > hit:
