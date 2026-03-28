@@ -429,8 +429,8 @@
 
         .screenshots-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 24px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
         }
 
         .screenshot-item {
@@ -762,7 +762,7 @@
             }
 
             .screenshots-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
             }
 
             nav ul {
@@ -1016,20 +1016,36 @@
         <p class="section-subtitle" data-i18n="screenshots.subtitle">A clean, modern interface designed for productivity.</p>
         <div class="screenshots-grid">
             <figure class="screenshot-item">
-                <img src="screenshots/viewer.png" alt="PDFApps Viewer" loading="lazy">
-                <figcaption data-i18n="screenshots.viewer">PDF Viewer with continuous scroll</figcaption>
+                <img src="viewer.png" alt="PDFApps Viewer" loading="lazy">
+                <figcaption data-i18n="screenshots.viewer">PDF Viewer</figcaption>
             </figure>
             <figure class="screenshot-item">
-                <img src="screenshots/editor.png" alt="PDFApps Visual Editor" loading="lazy">
-                <figcaption data-i18n="screenshots.editor">Visual Editor with annotations</figcaption>
+                <img src="viewer-light.png" alt="PDFApps Light Theme" loading="lazy">
+                <figcaption data-i18n="screenshots.light">Light Theme</figcaption>
             </figure>
             <figure class="screenshot-item">
-                <img src="screenshots/tools.png" alt="PDFApps Tools" loading="lazy">
-                <figcaption data-i18n="screenshots.tools">Built-in tools sidebar</figcaption>
+                <img src="edit.png" alt="PDFApps Visual Editor" loading="lazy">
+                <figcaption data-i18n="screenshots.editor">Visual Editor</figcaption>
             </figure>
             <figure class="screenshot-item">
-                <img src="screenshots/light-theme.png" alt="PDFApps Light Theme" loading="lazy">
-                <figcaption data-i18n="screenshots.light">Light theme</figcaption>
+                <img src="languages.png" alt="PDFApps Languages" loading="lazy">
+                <figcaption data-i18n="screenshots.languages">8 Languages</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="convert.png" alt="PDFApps Convert" loading="lazy">
+                <figcaption data-i18n="screenshots.convert">Convert PDF</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="encrypt.png" alt="PDFApps Encrypt" loading="lazy">
+                <figcaption data-i18n="screenshots.encrypt">Encrypt PDF</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="import.png" alt="PDFApps Import" loading="lazy">
+                <figcaption data-i18n="screenshots.import">Import to PDF</figcaption>
+            </figure>
+            <figure class="screenshot-item">
+                <img src="OCR.png" alt="PDFApps OCR" loading="lazy">
+                <figcaption data-i18n="screenshots.ocr">OCR Recognition</figcaption>
             </figure>
         </div>
     </div>
@@ -1265,8 +1281,8 @@ const T = {
     "why.update_title": "Auto-Update",
     "why.update_desc": "Always stay up to date. The app checks for new versions automatically and lets you update in one click, with a progress bar — no reinstall needed.",
     "screenshots.title": "See it in action", "screenshots.subtitle": "A clean, modern interface designed for productivity.",
-    "screenshots.viewer": "PDF Viewer with continuous scroll", "screenshots.editor": "Visual Editor with annotations",
-    "screenshots.tools": "Built-in tools sidebar", "screenshots.light": "Light theme",
+    "screenshots.viewer": "PDF Viewer", "screenshots.editor": "Visual Editor",
+    "screenshots.light": "Light Theme", "screenshots.languages": "8 Languages", "screenshots.convert": "Convert PDF", "screenshots.encrypt": "Encrypt PDF", "screenshots.import": "Import to PDF", "screenshots.ocr": "OCR Recognition",
     "guide.title": "How to Use PDFApps", "guide.subtitle": "A quick guide to get you started with every feature.",
     "guide.s1_title": "Open a PDF", "guide.s1_desc": "Click the <strong>folder icon</strong> in the toolbar, drag and drop a file onto the window, or double-click a PDF associated with PDFApps. The viewer loads instantly with continuous scroll.",
     "guide.s2_title": "Navigate Pages", "guide.s2_desc": "Use the <strong>page input field</strong> in the toolbar to jump to any page. Type a number and press Enter. Use the <strong>arrow buttons</strong> to go to the previous or next page.",
@@ -1320,7 +1336,7 @@ const T = {
     "why.update_desc": "Mantém-te sempre atualizado. A app verifica novas versões automaticamente e permite atualizar com um clique, com barra de progresso — sem reinstalar.",
     "screenshots.title": "V\u00ea em a\u00e7\u00e3o", "screenshots.subtitle": "Uma interface limpa e moderna desenhada para produtividade.",
     "screenshots.viewer": "Visualizador PDF com scroll cont\u00ednuo", "screenshots.editor": "Editor Visual com anota\u00e7\u00f5es",
-    "screenshots.tools": "Barra lateral de ferramentas", "screenshots.light": "Tema claro",
+    "screenshots.light": "Tema Claro", "screenshots.languages": "8 Idiomas", "screenshots.convert": "Converter PDF", "screenshots.encrypt": "Encriptar PDF", "screenshots.import": "Importar para PDF", "screenshots.ocr": "Reconhecimento OCR",
     "guide.title": "Como Usar o PDFApps", "guide.subtitle": "Um guia r\u00e1pido para come\u00e7ares a usar todas as funcionalidades.",
     "guide.s1_title": "Abrir um PDF", "guide.s1_desc": "Clica no <strong>\u00edcone de pasta</strong> na barra, arrasta um ficheiro para a janela, ou faz duplo clique num PDF associado ao PDFApps. O visualizador carrega instantaneamente com scroll cont\u00ednuo.",
     "guide.s2_title": "Navegar P\u00e1ginas", "guide.s2_desc": "Usa o <strong>campo de p\u00e1gina</strong> na barra para saltar para qualquer p\u00e1gina. Escreve um n\u00famero e prime Enter. Usa os <strong>bot\u00f5es de seta</strong> para avan\u00e7ar ou recuar.",
@@ -1373,8 +1389,8 @@ const T = {
     "why.update_title": "Actualización Automática",
     "why.update_desc": "Mantente siempre actualizado. La app busca nuevas versiones automáticamente y te permite actualizar con un clic, con barra de progreso — sin reinstalar.",
     "screenshots.title": "Mira c\u00f3mo funciona", "screenshots.subtitle": "Una interfaz limpia y moderna dise\u00f1ada para la productividad.",
-    "screenshots.viewer": "Visor PDF con scroll continuo", "screenshots.editor": "Editor Visual con anotaciones",
-    "screenshots.tools": "Barra lateral de herramientas", "screenshots.light": "Tema claro",
+    "screenshots.viewer": "Visor PDF", "screenshots.editor": "Editor Visual",
+    "screenshots.light": "Tema Claro", "screenshots.languages": "8 Idiomas", "screenshots.convert": "Convertir PDF", "screenshots.encrypt": "Encriptar PDF", "screenshots.import": "Importar a PDF", "screenshots.ocr": "Reconocimiento OCR",
     "guide.title": "C\u00f3mo usar PDFApps", "guide.subtitle": "Una gu\u00eda r\u00e1pida para empezar con todas las funciones.",
     "guide.s1_title": "Abrir un PDF", "guide.s1_desc": "Haz clic en el <strong>icono de carpeta</strong> en la barra, arrastra un archivo a la ventana, o haz doble clic en un PDF asociado a PDFApps.",
     "guide.s2_title": "Navegar P\u00e1ginas", "guide.s2_desc": "Usa el <strong>campo de p\u00e1gina</strong> en la barra para saltar a cualquier p\u00e1gina. Escribe un n\u00famero y pulsa Enter. Usa los <strong>botones de flecha</strong> para avanzar o retroceder.",
@@ -1427,8 +1443,8 @@ const T = {
     "why.update_title": "Mise à Jour Auto",
     "why.update_desc": "Restez toujours à jour. L'app vérifie les nouvelles versions automatiquement et permet de mettre à jour en un clic, avec barre de progression — sans réinstaller.",
     "screenshots.title": "Voyez-le en action", "screenshots.subtitle": "Une interface propre et moderne con\u00e7ue pour la productivit\u00e9.",
-    "screenshots.viewer": "Visionneuse PDF avec d\u00e9filement continu", "screenshots.editor": "\u00c9diteur visuel avec annotations",
-    "screenshots.tools": "Barre lat\u00e9rale d'outils", "screenshots.light": "Th\u00e8me clair",
+    "screenshots.viewer": "Visionneuse PDF", "screenshots.editor": "\u00c9diteur Visuel",
+    "screenshots.light": "Th\u00e8me Clair", "screenshots.languages": "8 Langues", "screenshots.convert": "Convertir PDF", "screenshots.encrypt": "Chiffrer PDF", "screenshots.import": "Importer en PDF", "screenshots.ocr": "Reconnaissance OCR",
     "guide.title": "Comment utiliser PDFApps", "guide.subtitle": "Un guide rapide pour d\u00e9marrer avec toutes les fonctionnalit\u00e9s.",
     "guide.s1_title": "Ouvrir un PDF", "guide.s1_desc": "Cliquez sur l'<strong>ic\u00f4ne de dossier</strong>, glissez un fichier dans la fen\u00eatre, ou double-cliquez sur un PDF associ\u00e9 \u00e0 PDFApps.",
     "guide.s2_title": "Naviguer", "guide.s2_desc": "Utilisez le <strong>champ de page</strong> pour aller \u00e0 n'importe quelle page. Tapez un num\u00e9ro et appuyez sur Entr\u00e9e.",
@@ -1481,8 +1497,8 @@ const T = {
     "why.update_title": "Auto-Update",
     "why.update_desc": "Immer aktuell bleiben. Die App prüft automatisch auf neue Versionen und ermöglicht ein Update mit einem Klick, mit Fortschrittsbalken — ohne Neuinstallation.",
     "screenshots.title": "Sieh es in Aktion", "screenshots.subtitle": "Eine saubere, moderne Oberfl\u00e4che f\u00fcr Produktivit\u00e4t.",
-    "screenshots.viewer": "PDF-Viewer mit kontinuierlichem Scrollen", "screenshots.editor": "Visueller Editor mit Anmerkungen",
-    "screenshots.tools": "Werkzeugleiste", "screenshots.light": "Helles Design",
+    "screenshots.viewer": "PDF-Viewer", "screenshots.editor": "Visueller Editor",
+    "screenshots.light": "Helles Design", "screenshots.languages": "8 Sprachen", "screenshots.convert": "PDF Konvertieren", "screenshots.encrypt": "PDF Verschlüsseln", "screenshots.import": "In PDF Importieren", "screenshots.ocr": "OCR-Erkennung",
     "guide.title": "So verwendest du PDFApps", "guide.subtitle": "Eine Kurzanleitung f\u00fcr alle Funktionen.",
     "guide.s1_title": "PDF \u00f6ffnen", "guide.s1_desc": "Klicke auf das <strong>Ordner-Symbol</strong>, ziehe eine Datei ins Fenster oder doppelklicke auf eine PDF-Datei.",
     "guide.s2_title": "Seiten navigieren", "guide.s2_desc": "Nutze das <strong>Seitenfeld</strong> um zu einer Seite zu springen. Gib eine Nummer ein und dr\u00fccke Enter.",
@@ -1535,8 +1551,8 @@ const T = {
     "why.update_title": "自动更新",
     "why.update_desc": "始终保持最新。应用自动检查新版本，一键更新，带进度条——无需重新安装。",
     "screenshots.title": "\u770b\u5b83\u5982\u4f55\u5de5\u4f5c", "screenshots.subtitle": "\u4e00\u4e2a\u5e72\u51c0\u3001\u73b0\u4ee3\u7684\u754c\u9762\uff0c\u4e13\u4e3a\u751f\u4ea7\u529b\u8bbe\u8ba1\u3002",
-    "screenshots.viewer": "\u8fde\u7eed\u6eda\u52a8\u7684 PDF \u67e5\u770b\u5668", "screenshots.editor": "\u5e26\u6ce8\u91ca\u7684\u53ef\u89c6\u5316\u7f16\u8f91\u5668",
-    "screenshots.tools": "\u5185\u7f6e\u5de5\u5177\u4fa7\u680f", "screenshots.light": "\u6d45\u8272\u4e3b\u9898",
+    "screenshots.viewer": "PDF \u67e5\u770b\u5668", "screenshots.editor": "\u53ef\u89c6\u5316\u7f16\u8f91\u5668",
+    "screenshots.light": "\u6d45\u8272\u4e3b\u9898", "screenshots.languages": "8 \u79cd\u8bed\u8a00", "screenshots.convert": "\u8f6c\u6362 PDF", "screenshots.encrypt": "\u52a0\u5bc6 PDF", "screenshots.import": "\u5bfc\u5165\u4e3a PDF", "screenshots.ocr": "OCR \u8bc6\u522b",
     "guide.title": "\u5982\u4f55\u4f7f\u7528 PDFApps", "guide.subtitle": "\u5feb\u901f\u5165\u95e8\u6307\u5357\u3002",
     "guide.s1_title": "\u6253\u5f00 PDF", "guide.s1_desc": "\u70b9\u51fb\u5de5\u5177\u680f\u4e2d\u7684<strong>\u6587\u4ef6\u5939\u56fe\u6807</strong>\uff0c\u5c06\u6587\u4ef6\u62d6\u5230\u7a97\u53e3\uff0c\u6216\u53cc\u51fb\u5173\u8054\u7684 PDF \u6587\u4ef6\u3002",
     "guide.s2_title": "\u9875\u9762\u5bfc\u822a", "guide.s2_desc": "\u4f7f\u7528\u5de5\u5177\u680f\u4e2d\u7684<strong>\u9875\u7801\u5b57\u6bb5</strong>\u8df3\u8f6c\u5230\u4efb\u610f\u9875\u9762\u3002\u8f93\u5165\u6570\u5b57\u5e76\u6309 Enter\u3002",
@@ -1589,8 +1605,8 @@ const T = {
     "why.update_title": "Aggiornamento Automatico",
     "why.update_desc": "Resta sempre aggiornato. L'app controlla automaticamente le nuove versioni e ti permette di aggiornare con un clic, con barra di progresso — senza reinstallare.",
     "screenshots.title": "Guardalo in azione", "screenshots.subtitle": "Un'interfaccia pulita e moderna progettata per la produttivit\u00e0.",
-    "screenshots.viewer": "Visualizzatore PDF con scorrimento continuo", "screenshots.editor": "Editor visuale con annotazioni",
-    "screenshots.tools": "Barra laterale degli strumenti", "screenshots.light": "Tema chiaro",
+    "screenshots.viewer": "Visualizzatore PDF", "screenshots.editor": "Editor Visuale",
+    "screenshots.light": "Tema Chiaro", "screenshots.languages": "8 Lingue", "screenshots.convert": "Convertire PDF", "screenshots.encrypt": "Crittografare PDF", "screenshots.import": "Importare in PDF", "screenshots.ocr": "Riconoscimento OCR",
     "guide.title": "Come usare PDFApps", "guide.subtitle": "Una guida rapida per iniziare con tutte le funzionalit\u00e0.",
     "guide.s1_title": "Apri un PDF", "guide.s1_desc": "Clicca sull'<strong>icona cartella</strong>, trascina un file nella finestra o fai doppio clic su un PDF associato.",
     "guide.s2_title": "Naviga le pagine", "guide.s2_desc": "Usa il <strong>campo pagina</strong> per saltare a qualsiasi pagina. Digita un numero e premi Invio.",
@@ -1643,8 +1659,8 @@ const T = {
     "why.update_title": "Auto-Update",
     "why.update_desc": "Blijf altijd up-to-date. De app controleert automatisch op nieuwe versies en laat je met één klik updaten, met voortgangsbalk — geen herinstallatie nodig.",
     "screenshots.title": "Bekijk het in actie", "screenshots.subtitle": "Een schone, moderne interface ontworpen voor productiviteit.",
-    "screenshots.viewer": "PDF-viewer met continu scrollen", "screenshots.editor": "Visuele editor met annotaties",
-    "screenshots.tools": "Ingebouwde tools zijbalk", "screenshots.light": "Licht thema",
+    "screenshots.viewer": "PDF-viewer", "screenshots.editor": "Visuele Editor",
+    "screenshots.light": "Licht Thema", "screenshots.languages": "8 Talen", "screenshots.convert": "PDF Converteren", "screenshots.encrypt": "PDF Versleutelen", "screenshots.import": "Importeren naar PDF", "screenshots.ocr": "OCR-herkenning",
     "guide.title": "Hoe PDFApps te gebruiken", "guide.subtitle": "Een snelle gids om aan de slag te gaan met alle functies.",
     "guide.s1_title": "Open een PDF", "guide.s1_desc": "Klik op het <strong>mappictogram</strong>, sleep een bestand naar het venster, of dubbelklik op een gekoppeld PDF-bestand.",
     "guide.s2_title": "Pagina's navigeren", "guide.s2_desc": "Gebruik het <strong>paginaveld</strong> om naar een pagina te springen. Typ een nummer en druk op Enter.",
