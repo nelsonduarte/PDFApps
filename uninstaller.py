@@ -1,9 +1,86 @@
 """PDFApps — Cross-platform Uninstaller (Windows / macOS / Linux)"""
-import os, sys, shutil, subprocess, threading, time
+import os, sys, shutil, subprocess, threading, time, locale
 import tkinter as tk
 from tkinter import messagebox
 
 APP_NAME = "PDFApps"
+
+# ── i18n ──────────────────────────────────────────────────────────────────────
+
+_UNINSTALL_STRINGS = {
+    "en": {
+        "confirm_title": "Uninstall {app}",
+        "confirm_msg": "Are you sure you want to uninstall {app}?",
+        "done_msg": "{app} was uninstalled successfully.",
+    },
+    "pt": {
+        "confirm_title": "Desinstalar {app}",
+        "confirm_msg": "Tem a certeza que deseja desinstalar o {app}?",
+        "done_msg": "{app} foi desinstalado com sucesso.",
+    },
+    "es": {
+        "confirm_title": "Desinstalar {app}",
+        "confirm_msg": "¿Está seguro de que desea desinstalar {app}?",
+        "done_msg": "{app} se desinstaló correctamente.",
+    },
+    "fr": {
+        "confirm_title": "Désinstaller {app}",
+        "confirm_msg": "Êtes-vous sûr de vouloir désinstaller {app} ?",
+        "done_msg": "{app} a été désinstallé avec succès.",
+    },
+    "de": {
+        "confirm_title": "{app} deinstallieren",
+        "confirm_msg": "Sind Sie sicher, dass Sie {app} deinstallieren möchten?",
+        "done_msg": "{app} wurde erfolgreich deinstalliert.",
+    },
+    "zh": {
+        "confirm_title": "卸载 {app}",
+        "confirm_msg": "您确定要卸载 {app} 吗？",
+        "done_msg": "{app} 已成功卸载。",
+    },
+    "it": {
+        "confirm_title": "Disinstalla {app}",
+        "confirm_msg": "Sei sicuro di voler disinstallare {app}?",
+        "done_msg": "{app} è stato disinstallato con successo.",
+    },
+    "nl": {
+        "confirm_title": "{app} verwijderen",
+        "confirm_msg": "Weet u zeker dat u {app} wilt verwijderen?",
+        "done_msg": "{app} is succesvol verwijderd.",
+    },
+}
+
+def _detect_lang() -> str:
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            lang_id = ctypes.windll.kernel32.GetUserDefaultUILanguage()
+            primary = lang_id & 0x03FF
+            _map = {0x16: "pt", 0x0A: "es", 0x0C: "fr", 0x07: "de",
+                     0x04: "zh", 0x10: "it", 0x13: "nl"}
+            lang = _map.get(primary)
+            if lang:
+                return lang
+        loc = locale.getlocale()[0] or ""
+        for code in ("pt", "es", "fr", "de", "zh", "it", "nl"):
+            if loc.startswith(code):
+                return code
+    except Exception:
+        pass
+    return "en"
+
+_LANG = _detect_lang()
+
+def _t(key: str, **kwargs) -> str:
+    val = _UNINSTALL_STRINGS.get(_LANG, {}).get(key)
+    if val is None:
+        val = _UNINSTALL_STRINGS["en"].get(key, key)
+    if kwargs:
+        try:
+            return val.format(**kwargs)
+        except Exception:
+            return val
+    return val
 
 
 def _no_window():
@@ -138,8 +215,8 @@ if __name__ == "__main__":
 
     if not silent:
         if not messagebox.askyesno(
-            f"Uninstall {APP_NAME}",
-            f"Are you sure you want to uninstall {APP_NAME}?",
+            _t("confirm_title", app=APP_NAME),
+            _t("confirm_msg", app=APP_NAME),
         ):
             sys.exit(0)
 
@@ -148,7 +225,7 @@ if __name__ == "__main__":
     remove_registry()
 
     if not silent:
-        messagebox.showinfo(APP_NAME, f"{APP_NAME} was uninstalled successfully.")
+        messagebox.showinfo(APP_NAME, _t("done_msg", app=APP_NAME))
 
     _schedule_dir_removal(install_dir)
     root.destroy()

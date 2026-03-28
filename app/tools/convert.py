@@ -28,7 +28,8 @@ class TabConverter(BasePage):
         # -- Source file --
         f.addWidget(section(t("tool.convert.source")))
         self.drop_in = DropFileEdit()
-        self.drop_in.btn.clicked.disconnect()
+        try: self.drop_in.btn.clicked.disconnect()
+        except RuntimeError: pass
         self.drop_in.btn.clicked.connect(self._pick_input)
         self.drop_in.path_changed.connect(self._load_input)
         self.lbl_info = info_lbl()
@@ -62,7 +63,8 @@ class TabConverter(BasePage):
         # -- Output folder (images) --
         f.addWidget(section(t("tool.convert.output_folder")))
         self._drop_folder = DropFileEdit(placeholder=t("tool.convert.folder_hint"))
-        self._drop_folder.btn.clicked.disconnect()
+        try: self._drop_folder.btn.clicked.disconnect()
+        except RuntimeError: pass
         self._drop_folder.btn.clicked.connect(self._pick_folder)
         f.addWidget(self._drop_folder)
 

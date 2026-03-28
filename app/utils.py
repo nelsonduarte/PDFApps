@@ -3,11 +3,11 @@
 import os
 import sys
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QPalette, QColor, QPainter
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
-    QScrollArea, QFrame, QFileDialog,
+    QScrollArea, QFrame, QFileDialog, QApplication,
 )
 import qtawesome as qta
 
@@ -93,12 +93,13 @@ def pick_folder(parent: QWidget) -> str:
 def ToolHeader(icon_name: str, title: str, desc: str) -> QWidget:
     """Fixed header at the top of each tool."""
     w = QWidget(); w.setObjectName("tool_header")
-    h = QHBoxLayout(w); h.setContentsMargins(24, 14, 24, 14); h.setSpacing(16)
-    ico = QLabel()
-    _pix = qta.icon(icon_name, color=ACCENT).pixmap(60, 60)
-    _pix.setDevicePixelRatio(2.0)
-    ico.setPixmap(_pix)
-    ico.setObjectName("th_icon"); ico.setFixedSize(38, 38)
+    h = QHBoxLayout(w); h.setContentsMargins(24, 14, 24, 14); h.setSpacing(12)
+    ico = QPushButton()
+    ico.setIcon(qta.icon(icon_name, color=ACCENT))
+    ico.setIconSize(QSize(22, 22))
+    ico.setFixedSize(36, 36)
+    ico.setObjectName("th_icon")
+    ico.setFocusPolicy(Qt.FocusPolicy.NoFocus)
     col = QVBoxLayout(); col.setSpacing(3)
     t = QLabel(title); t.setObjectName("th_title")
     d = QLabel(desc);  d.setObjectName("th_desc")

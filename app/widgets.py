@@ -2,7 +2,7 @@
 
 import os
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton, QFileDialog,
@@ -13,11 +13,16 @@ from app.constants import ACCENT, DESKTOP
 from app.i18n import t
 
 
-def _hq_pixmap(icon_name: str, size: int, color: str) -> "QPixmap":
-    """Render a qtawesome icon at 2x resolution for high-DPI quality."""
-    pix = qta.icon(icon_name, color=color).pixmap(size * 2, size * 2)
-    pix.setDevicePixelRatio(2.0)
-    return pix
+def _drop_icon(icon_name: str, color: str) -> QPushButton:
+    """Create a small flat icon button for drop zones."""
+    b = QPushButton()
+    b.setIcon(qta.icon(icon_name, color=color))
+    b.setIconSize(QSize(18, 18))
+    b.setFixedSize(26, 26)
+    b.setObjectName("drop_icon")
+    b.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+    b.setCursor(Qt.CursorShape.ArrowCursor)
+    return b
 
 
 class DropFileEdit(QWidget):
@@ -41,10 +46,7 @@ class DropFileEdit(QWidget):
         h.setContentsMargins(14, 10, 10, 10)
         h.setSpacing(10)
 
-        self._ico = QLabel()
-        self._ico.setPixmap(_hq_pixmap('fa5s.cloud-upload-alt', 22, '#4A5568'))
-        self._ico.setObjectName("drop_icon")
-        self._ico.setFixedWidth(26)
+        self._ico = _drop_icon('fa5s.cloud-upload-alt', '#4A5568')
         h.addWidget(self._ico)
 
         self._lbl = QLabel(placeholder)
@@ -76,7 +78,7 @@ class DropFileEdit(QWidget):
         self.path_changed.emit(p)
         self._lbl.setToolTip(p)
         self._lbl.setProperty("has_file", "true")
-        self._ico.setPixmap(_hq_pixmap('fa5s.file-pdf', 22, ACCENT))
+        self._ico.setIcon(qta.icon('fa5s.file-pdf', color=ACCENT))
         self._ico.setProperty("has_file", "true")
         self._clr.setIcon(qta.icon('fa5s.times', color='#F87171'))
         self._clr.setVisible(True)
@@ -88,7 +90,7 @@ class DropFileEdit(QWidget):
         self._lbl.setText(self._placeholder)
         self._lbl.setToolTip("")
         self._lbl.setProperty("has_file", "false")
-        self._ico.setPixmap(_hq_pixmap('fa5s.cloud-upload-alt', 22, '#4A5568'))
+        self._ico.setIcon(qta.icon('fa5s.cloud-upload-alt', color='#4A5568'))
         self._ico.setProperty("has_file", "false")
         self._clr.setIcon(qta.icon('fa5s.times', color='#4A5568'))
         self._clr.setVisible(False)
@@ -134,11 +136,8 @@ class MultiDropWidget(QWidget):
         h = QHBoxLayout(self)
         h.setContentsMargins(14, 10, 10, 10)
         h.setSpacing(10)
-        lbl = QLabel()
-        lbl.setPixmap(_hq_pixmap('fa5s.folder-open', 22, '#4A5568'))
-        lbl.setObjectName("drop_icon")
-        lbl.setFixedWidth(26)
-        h.addWidget(lbl)
+        ico = _drop_icon('fa5s.folder-open', '#4A5568')
+        h.addWidget(ico)
         self._lbl = QLabel(t("widget.drop_multi"))
         self._lbl.setObjectName("drop_zone_lbl")
         h.addWidget(self._lbl, 1)

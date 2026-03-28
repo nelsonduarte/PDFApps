@@ -26,7 +26,8 @@ class TabDividir(BasePage):
 
         f.addWidget(section(t("tool.split.source")))
         self.drop_in = DropFileEdit()
-        self.drop_in.btn.clicked.disconnect()
+        try: self.drop_in.btn.clicked.disconnect()
+        except RuntimeError: pass
         self.drop_in.btn.clicked.connect(self._pick_input)
         self.drop_in.path_changed.connect(self._load_input)
         self.lbl_info = info_lbl()
@@ -54,7 +55,8 @@ class TabDividir(BasePage):
         f.addWidget(section(t("tool.split.output_folder")))
         self.drop_out = DropFileEdit(t("tool.split.folder_hint"))
         self.drop_out.btn.setText(t("btn.choose"))
-        self.drop_out.btn.clicked.disconnect()
+        try: self.drop_out.btn.clicked.disconnect()
+        except RuntimeError: pass
         self.drop_out.btn.clicked.connect(self._pick_output)
         f.addWidget(self.drop_out)
         f.addStretch()

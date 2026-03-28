@@ -1,5 +1,5 @@
 """PDFApps — Cross-platform Installer (Windows / macOS / Linux)"""
-import os, sys, shutil, subprocess, threading, urllib.request, time
+import os, sys, shutil, subprocess, threading, urllib.request, time, locale
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
@@ -10,6 +10,339 @@ HEADER_BG   = "#1E3A5F"
 ACCENT      = "#3B82F6"
 TEXT        = "#1E293B"
 TEXT_L      = "#64748B"
+
+# ── i18n ──────────────────────────────────────────────────────────────────────
+
+_INSTALLER_STRINGS = {
+    "en": {
+        "title": "Install {app} {ver}",
+        "folder": "Installation folder:",
+        "browse": "  Browse  ",
+        "desktop": "Create Desktop shortcut",
+        "startmenu": "Create Start Menu shortcut",
+        "appmenu": "Register in application menu",
+        "ocr": "Install OCR engine — Tesseract",
+        "gs": "Install compression engine — Ghostscript (better PDF compression)",
+        "tess_ok": "Tesseract already installed.",
+        "gs_ok": "Ghostscript already installed.",
+        "ready": "Ready to install.",
+        "install": "  Install  ",
+        "installing": "  Installing…  ",
+        "cancel": "  Cancel  ",
+        "finish": "  Finish  ",
+        "creating_folder": "Creating installation folder…",
+        "copying_app": "Copying {app}…",
+        "copying_files": "Copying files…",
+        "creating_bundle": "Creating .app bundle…",
+        "desktop_shortcut": "Creating Desktop shortcut…",
+        "startmenu_shortcut": "Creating Start Menu shortcut…",
+        "registering_menu": "Registering in application menu…",
+        "registering": "Registering in the system…",
+        "complete": "Installation complete!",
+        "done_title": "Installation complete",
+        "done_msg": "{app} was installed successfully at:\n{path}\n\nOpen now?",
+        "dl_tesseract": "Downloading Tesseract OCR (~6 MB)…",
+        "inst_tesseract": "Installing Tesseract OCR…",
+        "inst_tess_brew": "Installing Tesseract via Homebrew…",
+        "inst_tess_pkg": "Installing Tesseract via package manager…",
+        "dl_lang": "Downloading OCR language: {lang} (~15 MB)…",
+        "dl_gs": "Downloading Ghostscript (~35 MB)…",
+        "inst_gs": "Installing Ghostscript…",
+        "inst_gs_brew": "Installing Ghostscript via Homebrew…",
+        "inst_gs_pkg": "Installing Ghostscript via package manager…",
+    },
+    "pt": {
+        "title": "Instalar {app} {ver}",
+        "folder": "Pasta de instalação:",
+        "browse": "  Procurar  ",
+        "desktop": "Criar atalho no Ambiente de Trabalho",
+        "startmenu": "Criar atalho no Menu Iniciar",
+        "appmenu": "Registar no menu de aplicações",
+        "ocr": "Instalar motor OCR — Tesseract",
+        "gs": "Instalar motor de compressão — Ghostscript (melhor compressão PDF)",
+        "tess_ok": "Tesseract já instalado.",
+        "gs_ok": "Ghostscript já instalado.",
+        "ready": "Pronto para instalar.",
+        "install": "  Instalar  ",
+        "installing": "  A instalar…  ",
+        "cancel": "  Cancelar  ",
+        "finish": "  Concluir  ",
+        "creating_folder": "A criar pasta de instalação…",
+        "copying_app": "A copiar {app}…",
+        "copying_files": "A copiar ficheiros…",
+        "creating_bundle": "A criar pacote .app…",
+        "desktop_shortcut": "A criar atalho no Ambiente de Trabalho…",
+        "startmenu_shortcut": "A criar atalho no Menu Iniciar…",
+        "registering_menu": "A registar no menu de aplicações…",
+        "registering": "A registar no sistema…",
+        "complete": "Instalação concluída!",
+        "done_title": "Instalação concluída",
+        "done_msg": "{app} foi instalado com sucesso em:\n{path}\n\nAbrir agora?",
+        "dl_tesseract": "A transferir Tesseract OCR (~6 MB)…",
+        "inst_tesseract": "A instalar Tesseract OCR…",
+        "inst_tess_brew": "A instalar Tesseract via Homebrew…",
+        "inst_tess_pkg": "A instalar Tesseract via gestor de pacotes…",
+        "dl_lang": "A transferir idioma OCR: {lang} (~15 MB)…",
+        "dl_gs": "A transferir Ghostscript (~35 MB)…",
+        "inst_gs": "A instalar Ghostscript…",
+        "inst_gs_brew": "A instalar Ghostscript via Homebrew…",
+        "inst_gs_pkg": "A instalar Ghostscript via gestor de pacotes…",
+    },
+    "es": {
+        "title": "Instalar {app} {ver}",
+        "folder": "Carpeta de instalación:",
+        "browse": "  Examinar  ",
+        "desktop": "Crear acceso directo en el Escritorio",
+        "startmenu": "Crear acceso directo en el Menú Inicio",
+        "appmenu": "Registrar en el menú de aplicaciones",
+        "ocr": "Instalar motor OCR — Tesseract",
+        "gs": "Instalar motor de compresión — Ghostscript (mejor compresión PDF)",
+        "tess_ok": "Tesseract ya instalado.",
+        "gs_ok": "Ghostscript ya instalado.",
+        "ready": "Listo para instalar.",
+        "install": "  Instalar  ",
+        "installing": "  Instalando…  ",
+        "cancel": "  Cancelar  ",
+        "finish": "  Finalizar  ",
+        "creating_folder": "Creando carpeta de instalación…",
+        "copying_app": "Copiando {app}…",
+        "copying_files": "Copiando archivos…",
+        "creating_bundle": "Creando paquete .app…",
+        "desktop_shortcut": "Creando acceso directo en el Escritorio…",
+        "startmenu_shortcut": "Creando acceso directo en el Menú Inicio…",
+        "registering_menu": "Registrando en el menú de aplicaciones…",
+        "registering": "Registrando en el sistema…",
+        "complete": "¡Instalación completada!",
+        "done_title": "Instalación completada",
+        "done_msg": "{app} se instaló correctamente en:\n{path}\n\n¿Abrir ahora?",
+        "dl_tesseract": "Descargando Tesseract OCR (~6 MB)…",
+        "inst_tesseract": "Instalando Tesseract OCR…",
+        "inst_tess_brew": "Instalando Tesseract via Homebrew…",
+        "inst_tess_pkg": "Instalando Tesseract via gestor de paquetes…",
+        "dl_lang": "Descargando idioma OCR: {lang} (~15 MB)…",
+        "dl_gs": "Descargando Ghostscript (~35 MB)…",
+        "inst_gs": "Instalando Ghostscript…",
+        "inst_gs_brew": "Instalando Ghostscript via Homebrew…",
+        "inst_gs_pkg": "Instalando Ghostscript via gestor de paquetes…",
+    },
+    "fr": {
+        "title": "Installer {app} {ver}",
+        "folder": "Dossier d'installation :",
+        "browse": "  Parcourir  ",
+        "desktop": "Créer un raccourci sur le Bureau",
+        "startmenu": "Créer un raccourci dans le Menu Démarrer",
+        "appmenu": "Enregistrer dans le menu des applications",
+        "ocr": "Installer le moteur OCR — Tesseract",
+        "gs": "Installer le moteur de compression — Ghostscript (meilleure compression PDF)",
+        "tess_ok": "Tesseract déjà installé.",
+        "gs_ok": "Ghostscript déjà installé.",
+        "ready": "Prêt à installer.",
+        "install": "  Installer  ",
+        "installing": "  Installation…  ",
+        "cancel": "  Annuler  ",
+        "finish": "  Terminer  ",
+        "creating_folder": "Création du dossier d'installation…",
+        "copying_app": "Copie de {app}…",
+        "copying_files": "Copie des fichiers…",
+        "creating_bundle": "Création du paquet .app…",
+        "desktop_shortcut": "Création du raccourci Bureau…",
+        "startmenu_shortcut": "Création du raccourci Menu Démarrer…",
+        "registering_menu": "Enregistrement dans le menu des applications…",
+        "registering": "Enregistrement dans le système…",
+        "complete": "Installation terminée !",
+        "done_title": "Installation terminée",
+        "done_msg": "{app} a été installé avec succès dans :\n{path}\n\nOuvrir maintenant ?",
+        "dl_tesseract": "Téléchargement de Tesseract OCR (~6 Mo)…",
+        "inst_tesseract": "Installation de Tesseract OCR…",
+        "inst_tess_brew": "Installation de Tesseract via Homebrew…",
+        "inst_tess_pkg": "Installation de Tesseract via le gestionnaire de paquets…",
+        "dl_lang": "Téléchargement de la langue OCR : {lang} (~15 Mo)…",
+        "dl_gs": "Téléchargement de Ghostscript (~35 Mo)…",
+        "inst_gs": "Installation de Ghostscript…",
+        "inst_gs_brew": "Installation de Ghostscript via Homebrew…",
+        "inst_gs_pkg": "Installation de Ghostscript via le gestionnaire de paquets…",
+    },
+    "de": {
+        "title": "{app} {ver} installieren",
+        "folder": "Installationsordner:",
+        "browse": "  Durchsuchen  ",
+        "desktop": "Desktopverknüpfung erstellen",
+        "startmenu": "Startmenüverknüpfung erstellen",
+        "appmenu": "Im Anwendungsmenü registrieren",
+        "ocr": "OCR-Engine installieren — Tesseract",
+        "gs": "Komprimierungs-Engine installieren — Ghostscript (bessere PDF-Komprimierung)",
+        "tess_ok": "Tesseract bereits installiert.",
+        "gs_ok": "Ghostscript bereits installiert.",
+        "ready": "Bereit zur Installation.",
+        "install": "  Installieren  ",
+        "installing": "  Wird installiert…  ",
+        "cancel": "  Abbrechen  ",
+        "finish": "  Fertig  ",
+        "creating_folder": "Installationsordner wird erstellt…",
+        "copying_app": "{app} wird kopiert…",
+        "copying_files": "Dateien werden kopiert…",
+        "creating_bundle": ".app-Paket wird erstellt…",
+        "desktop_shortcut": "Desktopverknüpfung wird erstellt…",
+        "startmenu_shortcut": "Startmenüverknüpfung wird erstellt…",
+        "registering_menu": "Im Anwendungsmenü registrieren…",
+        "registering": "Im System registrieren…",
+        "complete": "Installation abgeschlossen!",
+        "done_title": "Installation abgeschlossen",
+        "done_msg": "{app} wurde erfolgreich installiert in:\n{path}\n\nJetzt öffnen?",
+        "dl_tesseract": "Tesseract OCR wird heruntergeladen (~6 MB)…",
+        "inst_tesseract": "Tesseract OCR wird installiert…",
+        "inst_tess_brew": "Tesseract wird über Homebrew installiert…",
+        "inst_tess_pkg": "Tesseract wird über Paketmanager installiert…",
+        "dl_lang": "OCR-Sprache wird heruntergeladen: {lang} (~15 MB)…",
+        "dl_gs": "Ghostscript wird heruntergeladen (~35 MB)…",
+        "inst_gs": "Ghostscript wird installiert…",
+        "inst_gs_brew": "Ghostscript wird über Homebrew installiert…",
+        "inst_gs_pkg": "Ghostscript wird über Paketmanager installiert…",
+    },
+    "zh": {
+        "title": "安装 {app} {ver}",
+        "folder": "安装文件夹：",
+        "browse": "  浏览  ",
+        "desktop": "创建桌面快捷方式",
+        "startmenu": "创建开始菜单快捷方式",
+        "appmenu": "注册到应用程序菜单",
+        "ocr": "安装 OCR 引擎 — Tesseract",
+        "gs": "安装压缩引擎 — Ghostscript（更好的 PDF 压缩）",
+        "tess_ok": "Tesseract 已安装。",
+        "gs_ok": "Ghostscript 已安装。",
+        "ready": "准备安装。",
+        "install": "  安装  ",
+        "installing": "  正在安装…  ",
+        "cancel": "  取消  ",
+        "finish": "  完成  ",
+        "creating_folder": "正在创建安装文件夹…",
+        "copying_app": "正在复制 {app}…",
+        "copying_files": "正在复制文件…",
+        "creating_bundle": "正在创建 .app 包…",
+        "desktop_shortcut": "正在创建桌面快捷方式…",
+        "startmenu_shortcut": "正在创建开始菜单快捷方式…",
+        "registering_menu": "正在注册到应用程序菜单…",
+        "registering": "正在注册到系统…",
+        "complete": "安装完成！",
+        "done_title": "安装完成",
+        "done_msg": "{app} 已成功安装到：\n{path}\n\n现在打开？",
+        "dl_tesseract": "正在下载 Tesseract OCR (~6 MB)…",
+        "inst_tesseract": "正在安装 Tesseract OCR…",
+        "inst_tess_brew": "正在通过 Homebrew 安装 Tesseract…",
+        "inst_tess_pkg": "正在通过包管理器安装 Tesseract…",
+        "dl_lang": "正在下载 OCR 语言：{lang} (~15 MB)…",
+        "dl_gs": "正在下载 Ghostscript (~35 MB)…",
+        "inst_gs": "正在安装 Ghostscript…",
+        "inst_gs_brew": "正在通过 Homebrew 安装 Ghostscript…",
+        "inst_gs_pkg": "正在通过包管理器安装 Ghostscript…",
+    },
+    "it": {
+        "title": "Installa {app} {ver}",
+        "folder": "Cartella di installazione:",
+        "browse": "  Sfoglia  ",
+        "desktop": "Crea collegamento sul Desktop",
+        "startmenu": "Crea collegamento nel Menu Start",
+        "appmenu": "Registra nel menu applicazioni",
+        "ocr": "Installa motore OCR — Tesseract",
+        "gs": "Installa motore di compressione — Ghostscript (migliore compressione PDF)",
+        "tess_ok": "Tesseract già installato.",
+        "gs_ok": "Ghostscript già installato.",
+        "ready": "Pronto per l'installazione.",
+        "install": "  Installa  ",
+        "installing": "  Installazione…  ",
+        "cancel": "  Annulla  ",
+        "finish": "  Fine  ",
+        "creating_folder": "Creazione cartella di installazione…",
+        "copying_app": "Copia di {app}…",
+        "copying_files": "Copia dei file…",
+        "creating_bundle": "Creazione pacchetto .app…",
+        "desktop_shortcut": "Creazione collegamento Desktop…",
+        "startmenu_shortcut": "Creazione collegamento Menu Start…",
+        "registering_menu": "Registrazione nel menu applicazioni…",
+        "registering": "Registrazione nel sistema…",
+        "complete": "Installazione completata!",
+        "done_title": "Installazione completata",
+        "done_msg": "{app} è stato installato con successo in:\n{path}\n\nAprire ora?",
+        "dl_tesseract": "Download di Tesseract OCR (~6 MB)…",
+        "inst_tesseract": "Installazione di Tesseract OCR…",
+        "inst_tess_brew": "Installazione di Tesseract via Homebrew…",
+        "inst_tess_pkg": "Installazione di Tesseract via gestore pacchetti…",
+        "dl_lang": "Download lingua OCR: {lang} (~15 MB)…",
+        "dl_gs": "Download di Ghostscript (~35 MB)…",
+        "inst_gs": "Installazione di Ghostscript…",
+        "inst_gs_brew": "Installazione di Ghostscript via Homebrew…",
+        "inst_gs_pkg": "Installazione di Ghostscript via gestore pacchetti…",
+    },
+    "nl": {
+        "title": "{app} {ver} installeren",
+        "folder": "Installatiemap:",
+        "browse": "  Bladeren  ",
+        "desktop": "Snelkoppeling op bureaublad maken",
+        "startmenu": "Snelkoppeling in Startmenu maken",
+        "appmenu": "Registreren in toepassingsmenu",
+        "ocr": "OCR-engine installeren — Tesseract",
+        "gs": "Compressie-engine installeren — Ghostscript (betere PDF-compressie)",
+        "tess_ok": "Tesseract al geïnstalleerd.",
+        "gs_ok": "Ghostscript al geïnstalleerd.",
+        "ready": "Klaar om te installeren.",
+        "install": "  Installeren  ",
+        "installing": "  Bezig met installeren…  ",
+        "cancel": "  Annuleren  ",
+        "finish": "  Voltooien  ",
+        "creating_folder": "Installatiemap aanmaken…",
+        "copying_app": "{app} kopiëren…",
+        "copying_files": "Bestanden kopiëren…",
+        "creating_bundle": ".app-pakket aanmaken…",
+        "desktop_shortcut": "Bureaublad-snelkoppeling aanmaken…",
+        "startmenu_shortcut": "Startmenu-snelkoppeling aanmaken…",
+        "registering_menu": "Registreren in toepassingsmenu…",
+        "registering": "Registreren in het systeem…",
+        "complete": "Installatie voltooid!",
+        "done_title": "Installatie voltooid",
+        "done_msg": "{app} is succesvol geïnstalleerd in:\n{path}\n\nNu openen?",
+        "dl_tesseract": "Tesseract OCR downloaden (~6 MB)…",
+        "inst_tesseract": "Tesseract OCR installeren…",
+        "inst_tess_brew": "Tesseract installeren via Homebrew…",
+        "inst_tess_pkg": "Tesseract installeren via pakketbeheerder…",
+        "dl_lang": "OCR-taal downloaden: {lang} (~15 MB)…",
+        "dl_gs": "Ghostscript downloaden (~35 MB)…",
+        "inst_gs": "Ghostscript installeren…",
+        "inst_gs_brew": "Ghostscript installeren via Homebrew…",
+        "inst_gs_pkg": "Ghostscript installeren via pakketbeheerder…",
+    },
+}
+
+def _detect_lang() -> str:
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            lang_id = ctypes.windll.kernel32.GetUserDefaultUILanguage()
+            primary = lang_id & 0x03FF
+            _map = {0x16: "pt", 0x0A: "es", 0x0C: "fr", 0x07: "de",
+                     0x04: "zh", 0x10: "it", 0x13: "nl"}
+            lang = _map.get(primary)
+            if lang:
+                return lang
+        loc = locale.getlocale()[0] or ""
+        for code in ("pt", "es", "fr", "de", "zh", "it", "nl"):
+            if loc.startswith(code):
+                return code
+    except Exception:
+        pass
+    return "en"
+
+_LANG = _detect_lang()
+
+def _t(key: str, **kwargs) -> str:
+    val = _INSTALLER_STRINGS.get(_LANG, {}).get(key)
+    if val is None:
+        val = _INSTALLER_STRINGS["en"].get(key, key)
+    if kwargs:
+        try:
+            return val.format(**kwargs)
+        except Exception:
+            return val
+    return val
 
 # ── Platform constants ─────────────────────────────────────────────────
 
@@ -245,9 +578,9 @@ def install_tesseract_windows(step_fn) -> None:
     import tempfile
     temp = tempfile.gettempdir()
     installer = os.path.join(temp, "tesseract_setup.exe")
-    step_fn("Downloading Tesseract OCR (~6 MB)…", 42)
+    step_fn(_t("dl_tesseract"), 42)
     download_file(TESSERACT_URL, installer)
-    step_fn("Installing Tesseract OCR…", 52)
+    step_fn(_t("inst_tesseract"), 52)
     subprocess.run([installer, "/S"], check=True)
     for _ in range(30):
         if os.path.isfile(TESSERACT_EXE):
@@ -260,7 +593,7 @@ def install_tesseract_windows(step_fn) -> None:
 
 
 def install_tesseract_macos(step_fn) -> None:
-    step_fn("Installing Tesseract via Homebrew…", 42)
+    step_fn(_t("inst_tess_brew"), 42)
     if not shutil.which("brew"):
         raise RuntimeError(
             "Homebrew not found.\n"
@@ -271,7 +604,7 @@ def install_tesseract_macos(step_fn) -> None:
 
 
 def install_tesseract_linux(step_fn) -> None:
-    step_fn("Installing Tesseract via package manager…", 42)
+    step_fn(_t("inst_tess_pkg"), 42)
     pkg_manager = None
     for pm in [("apt-get", ["-y", "install", "tesseract-ocr",
                              "tesseract-ocr-por", "tesseract-ocr-eng"]),
@@ -297,7 +630,7 @@ def install_lang_packs_windows(step_fn, base_pct: int) -> None:
         if os.path.isfile(dest):
             continue
         pct = base_pct + i * 8
-        step_fn(f"Downloading OCR language: {lang} (~15 MB)…", pct)
+        step_fn(_t("dl_lang", lang=lang), pct)
         url = f"https://github.com/tesseract-ocr/tessdata/raw/main/{lang}.traineddata"
         download_file(url, dest)
 
@@ -317,9 +650,9 @@ def install_ghostscript_windows(step_fn) -> None:
     import tempfile
     temp = tempfile.gettempdir()
     installer = os.path.join(temp, "gs_setup.exe")
-    step_fn("Downloading Ghostscript (~35 MB)…", 76)
+    step_fn(_t("dl_gs"), 76)
     download_file(GHOSTSCRIPT_URL, installer)
-    step_fn("Installing Ghostscript…", 82)
+    step_fn(_t("inst_gs"), 82)
     subprocess.run([installer, "/S"], check=True)
     for _ in range(30):
         if ghostscript_installed():
@@ -332,7 +665,7 @@ def install_ghostscript_windows(step_fn) -> None:
 
 
 def install_ghostscript_macos(step_fn) -> None:
-    step_fn("Installing Ghostscript via Homebrew…", 76)
+    step_fn(_t("inst_gs_brew"), 76)
     if not shutil.which("brew"):
         raise RuntimeError(
             "Homebrew not found.\n"
@@ -343,7 +676,7 @@ def install_ghostscript_macos(step_fn) -> None:
 
 
 def install_ghostscript_linux(step_fn) -> None:
-    step_fn("Installing Ghostscript via package manager…", 76)
+    step_fn(_t("inst_gs_pkg"), 76)
     pkg_manager = None
     for pm in [("apt-get", ["-y", "install", "ghostscript"]),
                ("dnf",     ["-y", "install", "ghostscript"]),
@@ -364,7 +697,7 @@ def install_ghostscript_linux(step_fn) -> None:
 class InstallerApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f"Install {APP_NAME} {APP_VERSION}")
+        self.title(_t("title", app=APP_NAME, ver=APP_VERSION))
         self.geometry("520x470")
         self.resizable(False, False)
         self.configure(bg=BG)
@@ -387,7 +720,7 @@ class InstallerApp(tk.Tk):
         body = tk.Frame(self, bg=BG, padx=24, pady=16)
         body.pack(fill="both", expand=True)
 
-        tk.Label(body, text="Installation folder:", bg=BG, fg=TEXT,
+        tk.Label(body, text=_t("folder"), bg=BG, fg=TEXT,
                  font=("Segoe UI", 10, "bold")).pack(anchor="w")
         row = tk.Frame(body, bg=BG)
         row.pack(fill="x", pady=(4, 12))
@@ -398,7 +731,7 @@ class InstallerApp(tk.Tk):
                                    highlightbackground="#CBD5E1",
                                    highlightthickness=1)
         self._dir_entry.pack(side="left", fill="x", expand=True, ipady=6)
-        tk.Button(row, text="  Browse  ", command=self._browse,
+        tk.Button(row, text=_t("browse"), command=self._browse,
                   bg="#E2E8F0", fg=TEXT, relief="flat",
                   font=("Segoe UI", 9), cursor="hand2").pack(
                   side="left", padx=(6, 0), ipady=6)
@@ -407,25 +740,25 @@ class InstallerApp(tk.Tk):
         self._startmenu_var = tk.BooleanVar(value=True)
 
         if sys.platform == "win32":
-            tk.Checkbutton(body, text="Create Desktop shortcut",
+            tk.Checkbutton(body, text=_t("desktop"),
                            variable=self._desktop_var, bg=BG, fg=TEXT,
                            font=("Segoe UI", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w")
-            tk.Checkbutton(body, text="Create Start Menu shortcut",
+            tk.Checkbutton(body, text=_t("startmenu"),
                            variable=self._startmenu_var, bg=BG, fg=TEXT,
                            font=("Segoe UI", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w", pady=(4, 0))
         elif sys.platform == "darwin":
-            tk.Checkbutton(body, text="Create Desktop shortcut",
+            tk.Checkbutton(body, text=_t("desktop"),
                            variable=self._desktop_var, bg=BG, fg=TEXT,
                            font=("Helvetica", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w")
         else:
-            tk.Checkbutton(body, text="Create Desktop shortcut",
+            tk.Checkbutton(body, text=_t("desktop"),
                            variable=self._desktop_var, bg=BG, fg=TEXT,
                            font=("Segoe UI", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w")
-            tk.Checkbutton(body, text="Register in application menu",
+            tk.Checkbutton(body, text=_t("appmenu"),
                            variable=self._startmenu_var, bg=BG, fg=TEXT,
                            font=("Segoe UI", 10), activebackground=BG,
                            selectcolor="#EFF6FF").pack(anchor="w", pady=(4, 0))
@@ -433,7 +766,7 @@ class InstallerApp(tk.Tk):
         self._ocr_var = tk.BooleanVar(value=True)
         self._ocr_chk = tk.Checkbutton(
             body,
-            text="Install OCR engine — Tesseract",
+            text=_t("ocr"),
             variable=self._ocr_var, bg=BG, fg="#0369A1",
             font=("Segoe UI", 10), activebackground=BG, selectcolor="#EFF6FF",
         )
@@ -443,7 +776,7 @@ class InstallerApp(tk.Tk):
         self._gs_var = tk.BooleanVar(value=True)
         self._gs_chk = tk.Checkbutton(
             body,
-            text="Install compression engine — Ghostscript (better PDF compression)",
+            text=_t("gs"),
             variable=self._gs_var, bg=BG, fg="#0369A1",
             font=("Segoe UI", 10), activebackground=BG, selectcolor="#EFF6FF",
         )
@@ -452,14 +785,14 @@ class InstallerApp(tk.Tk):
 
         notes = []
         if tesseract_installed():
-            notes.append("Tesseract already installed.")
+            notes.append(_t("tess_ok"))
         if ghostscript_installed():
-            notes.append("Ghostscript already installed.")
+            notes.append(_t("gs_ok"))
         self._note_var = tk.StringVar(value="  ".join(notes))
         tk.Label(body, textvariable=self._note_var, bg=BG, fg="#10B981",
                  font=("Segoe UI", 9)).pack(anchor="w", pady=(2, 8))
 
-        self._status_var = tk.StringVar(value="Ready to install.")
+        self._status_var = tk.StringVar(value=_t("ready"))
         tk.Label(body, textvariable=self._status_var, bg=BG, fg=TEXT_L,
                  font=("Segoe UI", 9)).pack(anchor="w")
         self._pb = ttk.Progressbar(body, mode="determinate", length=472)
@@ -467,13 +800,13 @@ class InstallerApp(tk.Tk):
 
         btn_row = tk.Frame(body, bg=BG)
         btn_row.pack(fill="x")
-        self._btn = tk.Button(btn_row, text="  Install  ",
+        self._btn = tk.Button(btn_row, text=_t("install"),
                               command=self._start,
                               bg=ACCENT, fg="#FFFFFF",
                               font=("Segoe UI", 11, "bold"),
                               relief="flat", cursor="hand2")
         self._btn.pack(side="right", ipady=8, ipadx=8)
-        tk.Button(btn_row, text="  Cancel  ", command=self.destroy,
+        tk.Button(btn_row, text=_t("cancel"), command=self.destroy,
                   bg="#E2E8F0", fg=TEXT, font=("Segoe UI", 10),
                   relief="flat", cursor="hand2").pack(
                   side="right", padx=(0, 8), ipady=8, ipadx=4)
@@ -484,7 +817,7 @@ class InstallerApp(tk.Tk):
             self._dir_var.set(os.path.normpath(d))
 
     def _start(self):
-        self._btn.config(state="disabled", text="  Installing…  ")
+        self._btn.config(state="disabled", text=_t("installing"))
         self._dir_entry.config(state="disabled")
         threading.Thread(target=self._install, daemon=True).start()
 
@@ -496,7 +829,7 @@ class InstallerApp(tk.Tk):
     def _install(self):
         install_dir = self._dir_var.get()
         try:
-            self._step("Creating installation folder…", 8)
+            self._step(_t("creating_folder"), 8)
             try:
                 os.makedirs(install_dir, exist_ok=True)
                 test = os.path.join(install_dir, ".write_test")
@@ -515,17 +848,17 @@ class InstallerApp(tk.Tk):
                 os.makedirs(install_dir, exist_ok=True)
 
             if sys.platform == "win32":
-                self._step("Copying PDFApps.exe…", 18)
+                self._step(_t("copying_app", app="PDFApps.exe"), 18)
                 app_exe = os.path.join(install_dir, "PDFApps.exe")
                 shutil.copy2(resource("PDFApps.exe"), app_exe)
-                self._step("Copying files…", 28)
+                self._step(_t("copying_files"), 28)
                 for f in ("icon.ico", "PDFAppsUninstall.exe"):
                     try:
                         shutil.copy2(resource(f), os.path.join(install_dir, f))
                     except Exception:
                         pass
             elif sys.platform == "darwin":
-                self._step("Creating .app bundle…", 18)
+                self._step(_t("creating_bundle"), 18)
                 app_exe_src = resource("PDFApps")
                 app_dir = install_dir if install_dir.endswith(".app") else \
                           os.path.join(install_dir, f"{APP_NAME}.app")
@@ -533,7 +866,7 @@ class InstallerApp(tk.Tk):
                 create_app_bundle_macos(app_exe_src, app_dir)
                 app_exe = os.path.join(app_dir, "Contents", "MacOS", APP_NAME)
             else:
-                self._step("Copying PDFApps…", 18)
+                self._step(_t("copying_app", app="PDFApps"), 18)
                 app_exe = os.path.join(install_dir, "PDFApps")
                 shutil.copy2(resource("PDFApps"), app_exe)
                 os.chmod(app_exe, 0o755)
@@ -545,7 +878,7 @@ class InstallerApp(tk.Tk):
 
             home = os.path.expanduser("~")
             if self._desktop_var.get():
-                self._step("Creating Desktop shortcut…", 32)
+                self._step(_t("desktop_shortcut"), 32)
                 desktop = os.path.join(home, "Desktop")
                 if sys.platform == "win32":
                     create_shortcut_windows(
@@ -565,7 +898,7 @@ class InstallerApp(tk.Tk):
 
             if self._startmenu_var.get():
                 if sys.platform == "win32":
-                    self._step("Creating Start Menu shortcut…", 36)
+                    self._step(_t("startmenu_shortcut"), 36)
                     start = os.path.join(
                         os.environ.get("APPDATA", ""),
                         "Microsoft", "Windows", "Start Menu", "Programs", APP_NAME,
@@ -574,7 +907,7 @@ class InstallerApp(tk.Tk):
                     create_shortcut_windows(
                         app_exe, os.path.join(start, f"{APP_NAME}.lnk"))
                 elif sys.platform != "darwin":
-                    self._step("Registering in application menu…", 36)
+                    self._step(_t("registering_menu"), 36)
                     apps_dir = os.path.expanduser("~/.local/share/applications")
                     create_desktop_entry_linux(
                         app_exe, os.path.join(apps_dir, f"{APP_NAME}.desktop"))
@@ -597,26 +930,26 @@ class InstallerApp(tk.Tk):
                 else:
                     install_ghostscript_linux(self._step)
 
-            self._step("Registering in the system…", 92)
+            self._step(_t("registering"), 92)
             if sys.platform == "win32":
                 uninstall_exe = os.path.join(install_dir, "PDFAppsUninstall.exe")
                 register_uninstall(install_dir, uninstall_exe)
             register_file_association(app_exe)
 
-            self._step("Installation complete!", 100)
+            self._step(_t("complete"), 100)
             self.after(0, self._done, install_dir, app_exe)
 
         except Exception as exc:
             self.after(0, lambda: messagebox.showerror("Error", str(exc)))
             self.after(0, lambda: self._btn.config(
-                state="normal", text="  Install  "))
+                state="normal", text=_t("install")))
 
     def _done(self, install_dir: str, app_exe: str):
-        self._btn.config(text="  Finish  ", state="normal",
+        self._btn.config(text=_t("finish"), state="normal",
                          command=self.destroy, bg="#10B981")
         if messagebox.askyesno(
-            "Installation complete",
-            f"{APP_NAME} was installed successfully at:\n{install_dir}\n\nOpen now?",
+            _t("done_title"),
+            _t("done_msg", app=APP_NAME, path=install_dir),
         ):
             open_file(app_exe)
         self.destroy()

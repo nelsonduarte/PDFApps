@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from app.constants import APP_VERSION, GITHUB_REPO
+from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_H, TEXT_SEC
 
 
 _API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
@@ -182,7 +182,7 @@ class UpdateDialog(QDialog):
         lay.addWidget(self._progress)
 
         self._status = QLabel("")
-        self._status.setStyleSheet("color: #64748b; font-size: 12px;")
+        self._status.setStyleSheet(f"color: {TEXT_SEC}; font-size: 12px;")
         lay.addWidget(self._status)
 
         btn_row = QHBoxLayout()
@@ -195,8 +195,8 @@ class UpdateDialog(QDialog):
 
         self._update_btn = QPushButton(t("update.install"))
         self._update_btn.setStyleSheet(
-            "background: #10b981; color: white; font-weight: bold; "
-            "padding: 8px 20px; border-radius: 6px; border: none;"
+            f"background: {ACCENT}; color: white; font-weight: bold; "
+            f"padding: 8px 20px; border-radius: 6px; border: none;"
         )
         self._update_btn.clicked.connect(self._start_download)
         btn_row.addWidget(self._update_btn)
@@ -270,4 +270,4 @@ class UpdateDialog(QDialog):
         self._update_btn.setEnabled(True)
         from app.i18n import t
         self._status.setText(t("update.error") + f" {msg}")
-        self._status.setStyleSheet("color: #ef4444; font-size: 12px;")
+        self._status.setStyleSheet("color: #DC2626; font-size: 12px;")

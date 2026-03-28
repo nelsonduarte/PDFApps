@@ -38,7 +38,8 @@ class TabInfo(BasePage):
         f = self._form
         f.addWidget(section(t("tool.info.source")))
         self.drop_in = DropFileEdit()
-        self.drop_in.btn.clicked.disconnect()
+        try: self.drop_in.btn.clicked.disconnect()
+        except RuntimeError: pass
         self.drop_in.btn.clicked.connect(self._pick_and_show)
         self.drop_in.path_changed.connect(self._show)
         f.addWidget(self.drop_in)

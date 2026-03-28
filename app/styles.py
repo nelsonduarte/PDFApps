@@ -56,6 +56,7 @@ QScrollArea > QWidget > QWidget {{ background: transparent; }}
 #tool_header  {{ background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #1C2B34, stop:1 #17242D);
                 border-bottom: 1px solid {BORDER};
                 min-height: 68px; padding: 0 24px; }}
+#th_icon      {{ background: #1A2F38; border: 1px solid {BORDER}; border-radius: 8px; padding: 0; }}
 #th_title     {{ font-size: 15pt; font-weight: 700; background: transparent;
                 color: {TEXT_PRI}; }}
 #th_desc      {{ font-size: 11pt; background: transparent; color: #9AB3AD; }}
@@ -146,6 +147,7 @@ QTextEdit {{
 #drop_zone[drag_active="true"] {{
     background: #0F1D3A; border: 1px dashed {ACCENT};
 }}
+#drop_icon {{ background: transparent; border: none; padding: 0; min-width: 0; }}
 #drop_zone_lbl {{ font-size: 11pt; color: {TEXT_SEC}; background: transparent; }}
 #drop_zone_lbl[has_file="true"] {{ color: {TEXT_PRI}; font-weight: 600; }}
 #drop_clear {{
@@ -291,6 +293,7 @@ QScrollArea > QWidget > QWidget {{ background: transparent; }}
 
 #tool_header  {{ background: {_LC}; border-bottom: 1px solid {_LO};
                 min-height: 68px; padding: 0 24px; }}
+#th_icon      {{ background: #EBF5F3; border: 1px solid {_LO}; border-radius: 8px; padding: 0; }}
 #th_title     {{ font-size: 15pt; font-weight: 700; background: transparent; color: {_LP}; }}
 #th_desc      {{ font-size: 11pt; background: transparent; color: {_LQ}; }}
 
@@ -365,6 +368,7 @@ QTextEdit {{
     border-radius: 8px; min-height: 60px;
 }}
 #drop_zone[drag_active="true"] {{ background: #EBF2FF; border: 1px dashed {_LA}; }}
+#drop_icon {{ background: transparent; border: none; padding: 0; min-width: 0; }}
 #drop_zone_lbl {{ font-size: 11pt; color: {_LQ}; background: transparent; }}
 #drop_zone_lbl[has_file="true"] {{ color: {_LP}; font-weight: 600; }}
 #drop_clear {{

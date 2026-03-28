@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 import qtawesome as qta
 
-from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, DESKTOP
+from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, DESKTOP, _LQ, _LP
 from app.utils import ToolHeader, ActionBar, info_lbl, _paint_bg
 from app.i18n import t
 from app.widgets import DropFileEdit
@@ -57,6 +57,7 @@ class TabEditar(QWidget):
         self._redo_stack = []
         self._doc_path = None
         self._mode_idx = 0
+        self._dark_mode = True
         self.setObjectName("content_area")
 
         root = QVBoxLayout(self)
@@ -89,7 +90,8 @@ class TabEditar(QWidget):
         grp_file = QGroupBox(t("edit.pdf_file"))
         gf = QVBoxLayout(grp_file); gf.setSpacing(4)
         self._drop_in = DropFileEdit()
-        self._drop_in.btn.clicked.disconnect()
+        try: self._drop_in.btn.clicked.disconnect()
+        except RuntimeError: pass
         self._drop_in.btn.clicked.connect(self._pick_pdf)
         self._drop_in.path_changed.connect(self._load_pdf)
         self._drop_in._clr.clicked.connect(self._close_pdf)
@@ -161,7 +163,8 @@ class TabEditar(QWidget):
         v2.addWidget(QLabel(t("edit.image")))
         self._img_drop = DropFileEdit(placeholder=t("edit.image_hint"),
                                       filters=t("file_filter.images"))
-        self._img_drop.btn.clicked.disconnect()
+        try: self._img_drop.btn.clicked.disconnect()
+        except RuntimeError: pass
         self._img_drop.btn.clicked.connect(self._pick_image)
         v2.addWidget(self._img_drop)
         hint2 = QLabel(t("edit.hint.image")); hint2.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
@@ -214,12 +217,12 @@ class TabEditar(QWidget):
         self._sel_result.setReadOnly(True)
         self._sel_result.setMaximumHeight(80)
         self._sel_result.setPlaceholderText(t("edit.select_placeholder"))
-        btn_copy7 = QPushButton(t("btn.copy"))
-        btn_copy7.setIcon(qta.icon("fa5s.copy", color=TEXT_PRI))
-        btn_copy7.clicked.connect(lambda: QApplication.clipboard().setText(self._sel_result.toPlainText()))
+        self._btn_copy = QPushButton(t("btn.copy"))
+        self._btn_copy.setIcon(qta.icon("fa5s.copy", color=TEXT_PRI))
+        self._btn_copy.clicked.connect(lambda: QApplication.clipboard().setText(self._sel_result.toPlainText()))
         v7.addWidget(hint7)
         v7.addWidget(self._sel_result)
-        v7.addWidget(btn_copy7)
+        v7.addWidget(self._btn_copy)
         v7.addStretch()
         self._opt_stack.addWidget(w7)
 
@@ -232,15 +235,15 @@ class TabEditar(QWidget):
         self._pending_list = QListWidget(); self._pending_list.setMaximumHeight(110)
         gpe.addWidget(self._pending_list)
         pend_btns = QHBoxLayout(); pend_btns.setSpacing(4)
-        btn_undo = QPushButton(); btn_undo.setIcon(qta.icon("fa5s.undo", color=TEXT_PRI))
-        btn_undo.setToolTip(t("edit.undo_tip")); btn_undo.setFixedSize(28, 28)
-        btn_undo.clicked.connect(self._undo)
-        btn_redo = QPushButton(); btn_redo.setIcon(qta.icon("fa5s.redo", color=TEXT_PRI))
-        btn_redo.setToolTip(t("edit.redo_tip")); btn_redo.setFixedSize(28, 28)
-        btn_redo.clicked.connect(self._redo)
+        self._btn_undo = QPushButton(); self._btn_undo.setIcon(qta.icon("fa5s.undo", color=TEXT_PRI))
+        self._btn_undo.setToolTip(t("edit.undo_tip")); self._btn_undo.setFixedSize(28, 28)
+        self._btn_undo.clicked.connect(self._undo)
+        self._btn_redo = QPushButton(); self._btn_redo.setIcon(qta.icon("fa5s.redo", color=TEXT_PRI))
+        self._btn_redo.setToolTip(t("edit.redo_tip")); self._btn_redo.setFixedSize(28, 28)
+        self._btn_redo.clicked.connect(self._redo)
         btn_clear = QPushButton(t("btn.clear_all"))
         btn_clear.clicked.connect(self._clear_pending)
-        pend_btns.addWidget(btn_undo); pend_btns.addWidget(btn_redo)
+        pend_btns.addWidget(self._btn_undo); pend_btns.addWidget(self._btn_redo)
         pend_btns.addWidget(btn_clear); pend_btns.addStretch()
         gpe.addLayout(pend_btns)
         cv.addWidget(grp_pend)
@@ -286,6 +289,37 @@ class TabEditar(QWidget):
 
     # ── helpers ──────────────────────────────────────────────────────────────
 
+    def update_theme(self, dark: bool) -> None:
+        self._dark_mode = dark
+        pri = TEXT_PRI if dark else _LP
+        sec = TEXT_SEC if dark else _LQ
+        self._btn_prev.setIcon(qta.icon("fa5s.chevron-left", color=pri))
+        self._btn_next.setIcon(qta.icon("fa5s.chevron-right", color=pri))
+        self._btn_undo.setIcon(qta.icon("fa5s.undo", color=pri))
+        self._btn_redo.setIcon(qta.icon("fa5s.redo", color=pri))
+        self._btn_copy.setIcon(qta.icon("fa5s.copy", color=pri))
+        # Update mode buttons (inactive ones)
+        for i, b in enumerate(self._mode_btns):
+            if not b.isChecked():
+                b.setIcon(qta.icon(self._MODE_DEFS[i][1], color=sec))
+                if dark:
+                    b.setStyleSheet(
+                        "background:#18252E; border:1px solid #2A3944; "
+                        "color:#93A9A3; border-radius:6px; padding:6px 8px; text-align:center;")
+                else:
+                    b.setStyleSheet(
+                        "background:#FFFFFF; border:1px solid #C7D8D3; "
+                        "color:#5D7470; border-radius:6px; padding:6px 8px; text-align:center;")
+            else:
+                if dark:
+                    b.setStyleSheet(
+                        f"background:#0D3D38; border:1px solid {ACCENT}; "
+                        f"color:{ACCENT}; border-radius:6px; padding:6px 8px; text-align:center;")
+                else:
+                    b.setStyleSheet(
+                        f"background:#D6F2EC; border:1px solid #83CABB; "
+                        f"color:#0E5A51; border-radius:6px; padding:6px 8px; text-align:center;")
+
     def _update_nav(self):
         n = self._canvas.page_count()
         self._btn_prev.setEnabled(n > 0 and self._page_idx > 0)
@@ -305,18 +339,29 @@ class TabEditar(QWidget):
     def _on_mode_btn(self, btn):
         idx = self._mode_btn_idx.get(id(btn), 0)
         self._mode_idx = idx
+        sec = TEXT_SEC if self._dark_mode else _LQ
         for i, b in enumerate(self._mode_btns):
             active = b is btn
             b.setChecked(active)
-            b.setIcon(qta.icon(self._MODE_DEFS[i][1], color=ACCENT if active else TEXT_SEC))
+            b.setIcon(qta.icon(self._MODE_DEFS[i][1], color=ACCENT if active else sec))
             if active:
-                b.setStyleSheet(
-                    f"background:#0D3D38; border:1px solid {ACCENT}; "
-                    f"color:{ACCENT}; border-radius:6px; padding:6px 8px; text-align:center;")
+                if self._dark_mode:
+                    b.setStyleSheet(
+                        f"background:#0D3D38; border:1px solid {ACCENT}; "
+                        f"color:{ACCENT}; border-radius:6px; padding:6px 8px; text-align:center;")
+                else:
+                    b.setStyleSheet(
+                        f"background:#D6F2EC; border:1px solid #83CABB; "
+                        f"color:#0E5A51; border-radius:6px; padding:6px 8px; text-align:center;")
             else:
-                b.setStyleSheet(
-                    "background:#18252E; border:1px solid #2A3944; "
-                    "color:#93A9A3; border-radius:6px; padding:6px 8px; text-align:center;")
+                if self._dark_mode:
+                    b.setStyleSheet(
+                        "background:#18252E; border:1px solid #2A3944; "
+                        "color:#93A9A3; border-radius:6px; padding:6px 8px; text-align:center;")
+                else:
+                    b.setStyleSheet(
+                        "background:#FFFFFF; border:1px solid #C7D8D3; "
+                        "color:#5D7470; border-radius:6px; padding:6px 8px; text-align:center;")
         self._opt_stack.setCurrentIndex(idx)
         self._canvas.set_select_mode(idx == 7)
         # Text-related modes get a text cursor

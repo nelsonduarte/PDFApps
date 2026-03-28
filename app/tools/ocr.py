@@ -66,7 +66,8 @@ class TabOCR(BasePage):
 
         f.addWidget(section(t("tool.ocr.source")))
         self.drop_in = DropFileEdit()
-        self.drop_in.btn.clicked.disconnect()
+        try: self.drop_in.btn.clicked.disconnect()
+        except RuntimeError: pass
         self.drop_in.btn.clicked.connect(self._pick_input)
         self.drop_in.path_changed.connect(self._load_input)
         self.lbl_info = info_lbl()

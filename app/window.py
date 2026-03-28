@@ -61,15 +61,13 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(t("app.name"))
-        _svg = resource_path("pdfapps.svg")
-        if os.path.exists(_svg):
-            self.setWindowIcon(QIcon(_svg))
+        _ico_path = resource_path("icon.ico")
+        if os.path.exists(_ico_path):
+            self.setWindowIcon(QIcon(_ico_path))
         else:
-            for _ico in ["icon.ico", "icon.ico"]:
-                _ico_path = resource_path(_ico)
-                if os.path.exists(_ico_path):
-                    self.setWindowIcon(QIcon(_ico_path))
-                    break
+            _svg = resource_path("pdfapps.svg")
+            if os.path.exists(_svg):
+                self.setWindowIcon(QIcon(_svg))
         self.resize(1220, 700)
         self.showMaximized()
         self.setMinimumSize(860, 540)
@@ -187,14 +185,14 @@ class MainWindow(QMainWindow):
 
         # Update button — hidden by default, shown when update is available
         self._update_btn = QPushButton()
-        self._update_btn.setIcon(qta.icon("fa5s.arrow-circle-up", color="#10b981"))
+        self._update_btn.setIcon(qta.icon("fa5s.arrow-circle-up", color=ACCENT))
         self._update_btn.setObjectName("viewer_nav_btn")
         self._update_btn.setFixedSize(28, 28)
         self._update_btn.setToolTip(t("update.check"))
         self._update_btn.setVisible(False)
         self._update_btn.setStyleSheet(
-            "QPushButton { border: 1.5px solid #10b981; border-radius: 6px; }"
-            "QPushButton:hover { background: rgba(16,185,129,0.15); }"
+            f"QPushButton {{ border: 1.5px solid {ACCENT}; border-radius: 6px; }}"
+            f"QPushButton:hover {{ background: rgba(20,184,166,0.15); }}"
         )
         self._update_btn.clicked.connect(self._show_update_dialog)
         wb_h.addWidget(self._update_btn)
@@ -217,16 +215,19 @@ class MainWindow(QMainWindow):
         sb_lay.setSpacing(0)
 
         brand = QWidget(); brand.setObjectName("brand_area")
-        bh = QHBoxLayout(brand); bh.setContentsMargins(14, 12, 12, 12); bh.setSpacing(10)
+        bh = QHBoxLayout(brand); bh.setContentsMargins(12, 10, 10, 10); bh.setSpacing(8)
         ico_lbl = QLabel()
         from PySide6.QtGui import QPixmap as _QPixmap
         from PySide6.QtSvg import QSvgRenderer
         from PySide6.QtGui import QPainter, QImage
         _svg_path = resource_path("pdfapps.svg")
-        _size = 48
+        _h = 36  # target height
         if os.path.exists(_svg_path):
             renderer = QSvgRenderer(_svg_path)
-            img = QImage(_size * 2, _size * 2, QImage.Format.Format_ARGB32_Premultiplied)
+            vb = renderer.viewBox()
+            ratio = vb.width() / vb.height() if vb.height() else 1.0
+            _w = int(_h * ratio)
+            img = QImage(_w * 2, _h * 2, QImage.Format.Format_ARGB32_Premultiplied)
             img.fill(0)
             p = QPainter(img)
             renderer.render(p)
@@ -234,15 +235,15 @@ class MainWindow(QMainWindow):
             _app_pix = _QPixmap.fromImage(img)
             _app_pix.setDevicePixelRatio(2.0)
         else:
-            _png = resource_path("icon.ico")
-            _ico_src = _png if os.path.exists(_png) else resource_path("icon.ico")
-            _app_pix = _QPixmap(_ico_src).scaled(
-                _size * 2, _size * 2, Qt.AspectRatioMode.KeepAspectRatio,
+            _w = _h
+            _ico_path = resource_path("icon.ico")
+            _app_pix = _QPixmap(_ico_path).scaled(
+                _w * 2, _h * 2, Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation)
             _app_pix.setDevicePixelRatio(2.0)
         ico_lbl.setPixmap(_app_pix)
         ico_lbl.setObjectName("app_icon")
-        ico_lbl.setFixedSize(_size, _size)
+        ico_lbl.setFixedSize(_w, _h)
         ico_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bh.addWidget(ico_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
         brand_text = QVBoxLayout(); brand_text.setContentsMargins(0, 0, 0, 0); brand_text.setSpacing(1)
@@ -257,7 +258,7 @@ class MainWindow(QMainWindow):
 
         self.nav = QListWidget(); self.nav.setObjectName("nav_list")
         self.nav.setSpacing(0)
-        self.nav.setIconSize(QSize(22, 22))
+        self.nav.setIconSize(QSize(18, 18))
         for name, icon_name, _ in NAV_ITEMS:
             item = QListWidgetItem(qta.icon(icon_name, color=TEXT_SEC), name)
             self.nav.addItem(item)
@@ -504,7 +505,6 @@ class MainWindow(QMainWindow):
             action.setEnabled(False)
         else:
             for path in recents:
-                import os
                 name = os.path.basename(path)
                 action = menu.addAction(f"  {name}")
                 action.setToolTip(path)
@@ -607,7 +607,7 @@ class MainWindow(QMainWindow):
             self._collapse_btn.setText("»")
             for i in range(self.nav.count()):
                 self.nav.item(i).setText("")
-            self.nav.setIconSize(QSize(22, 22))
+            self.nav.setIconSize(QSize(18, 18))
         else:
             self._sidebar.setFixedWidth(228)
             self._brand_title.setVisible(True)
@@ -616,7 +616,7 @@ class MainWindow(QMainWindow):
             self._collapse_btn.setText("«")
             for i, (_, icon_name, _) in enumerate(NAV_ITEMS):
                 self.nav.item(i).setText(NAV_ITEMS[i][0])
-            self.nav.setIconSize(QSize(22, 22))
+            self.nav.setIconSize(QSize(18, 18))
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
@@ -653,7 +653,12 @@ class MainWindow(QMainWindow):
         self._zp_btn.setIcon(qta.icon("fa5s.search-plus", color=bar_color))
         self._prev_pg_btn.setIcon(qta.icon("fa5s.chevron-left", color=bar_color))
         self._next_pg_btn.setIcon(qta.icon("fa5s.chevron-right", color=bar_color))
-        self._viewer.update_theme(self._dark_mode)
+        for v in self._viewers:
+            v.update_theme(self._dark_mode)
+        # Update editor tool icons
+        edit_widget = self.stack.widget(self._edit_tool_idx())
+        if hasattr(edit_widget, 'update_theme'):
+            edit_widget.update_theme(self._dark_mode)
 
     # ── Auto-update ───────────────────────────────────────────────────────
 

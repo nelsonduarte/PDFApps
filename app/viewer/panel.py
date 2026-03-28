@@ -105,11 +105,14 @@ class PdfViewerPanel(QWidget):
         from PySide6.QtGui import QPixmap as _QPixmap, QImage as _QImage, QPainter as _QPainter
         from app.utils import resource_path as _rp
         _svg_path = _rp("pdfapps.svg")
-        _ph_size = 72
+        _ph_h = 72
         if os.path.exists(_svg_path):
             from PySide6.QtSvg import QSvgRenderer as _QSvgRenderer
             _r = _QSvgRenderer(_svg_path)
-            _img = _QImage(_ph_size * 2, _ph_size * 2, _QImage.Format.Format_ARGB32_Premultiplied)
+            _vb = _r.viewBox()
+            _ratio = _vb.width() / _vb.height() if _vb.height() else 1.0
+            _ph_w = int(_ph_h * _ratio)
+            _img = _QImage(_ph_w * 2, _ph_h * 2, _QImage.Format.Format_ARGB32_Premultiplied)
             _img.fill(0)
             _p = _QPainter(_img)
             _r.render(_p)
@@ -117,10 +120,9 @@ class PdfViewerPanel(QWidget):
             _ph_pix = _QPixmap.fromImage(_img)
             _ph_pix.setDevicePixelRatio(2.0)
         else:
-            _png = _rp("icon.ico")
-            _ico_src = _png if os.path.exists(_png) else _rp("icon.ico")
+            _ico_src = _rp("icon.ico")
             _ph_pix = _QPixmap(_ico_src).scaled(
-                _ph_size * 2, _ph_size * 2, Qt.AspectRatioMode.KeepAspectRatio,
+                _ph_h * 2, _ph_h * 2, Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation)
             _ph_pix.setDevicePixelRatio(2.0)
         ph_icon.setPixmap(_ph_pix)
@@ -166,24 +168,24 @@ class PdfViewerPanel(QWidget):
         self._search_lbl = QLabel("")
         self._search_lbl.setMinimumWidth(60)
         self._search_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        _prev_s = QPushButton()
-        _prev_s.setIcon(qta.icon("fa5s.chevron-up", color=TEXT_SEC))
-        _prev_s.setFixedSize(28, 28); _prev_s.setObjectName("viewer_nav_btn")
-        _prev_s.setToolTip(t("search.prev"))
-        _prev_s.clicked.connect(self._search_prev)
-        _next_s = QPushButton()
-        _next_s.setIcon(qta.icon("fa5s.chevron-down", color=TEXT_SEC))
-        _next_s.setFixedSize(28, 28); _next_s.setObjectName("viewer_nav_btn")
-        _next_s.setToolTip(t("search.next"))
-        _next_s.clicked.connect(self._search_next)
-        _close_s = QPushButton()
-        _close_s.setIcon(qta.icon("fa5s.times", color=TEXT_SEC))
-        _close_s.setFixedSize(28, 28); _close_s.setObjectName("viewer_nav_btn")
-        _close_s.setToolTip(t("search.close"))
-        _close_s.clicked.connect(self._close_search)
+        self._search_prev_btn = QPushButton()
+        self._search_prev_btn.setIcon(qta.icon("fa5s.chevron-up", color=TEXT_SEC))
+        self._search_prev_btn.setFixedSize(28, 28); self._search_prev_btn.setObjectName("viewer_nav_btn")
+        self._search_prev_btn.setToolTip(t("search.prev"))
+        self._search_prev_btn.clicked.connect(self._search_prev)
+        self._search_next_btn = QPushButton()
+        self._search_next_btn.setIcon(qta.icon("fa5s.chevron-down", color=TEXT_SEC))
+        self._search_next_btn.setFixedSize(28, 28); self._search_next_btn.setObjectName("viewer_nav_btn")
+        self._search_next_btn.setToolTip(t("search.next"))
+        self._search_next_btn.clicked.connect(self._search_next)
+        self._search_close_btn = QPushButton()
+        self._search_close_btn.setIcon(qta.icon("fa5s.times", color=TEXT_SEC))
+        self._search_close_btn.setFixedSize(28, 28); self._search_close_btn.setObjectName("viewer_nav_btn")
+        self._search_close_btn.setToolTip(t("search.close"))
+        self._search_close_btn.clicked.connect(self._close_search)
         sb_lay.addWidget(self._search_input, 1)
         sb_lay.addWidget(self._search_lbl)
-        sb_lay.addWidget(_prev_s); sb_lay.addWidget(_next_s); sb_lay.addWidget(_close_s)
+        sb_lay.addWidget(self._search_prev_btn); sb_lay.addWidget(self._search_next_btn); sb_lay.addWidget(self._search_close_btn)
         self._search_bar.setVisible(False)
         layout.addWidget(self._search_bar)
         self._search_results: list[tuple[int, list]] = []  # [(page_idx, [fitz_rects]), ...]
@@ -213,10 +215,10 @@ class PdfViewerPanel(QWidget):
         from PySide6.QtCore import QTimer
         if text:
             self._sel_status.setText(t("viewer.copied", n=len(text)))
-            self._sel_status.setStyleSheet("color: #22c55e; padding: 4px;")
+            self._sel_status.setStyleSheet("color: #0D9488; padding: 4px;")
         else:
             self._sel_status.setText(t("viewer.no_text"))
-            self._sel_status.setStyleSheet("color: #f59e0b; padding: 4px;")
+            self._sel_status.setStyleSheet("color: #D97706; padding: 4px;")
         QTimer.singleShot(4000, lambda: (
             self._sel_status.setText(t("viewer.select_copy")),
             self._sel_status.setStyleSheet(""),
@@ -248,6 +250,10 @@ class PdfViewerPanel(QWidget):
         self._zoom_out_btn.setIcon(qta.icon('fa5s.search-minus',      color=c))
         self._zoom_in_btn.setIcon(qta.icon('fa5s.search-plus',        color=c))
         self._fit_btn.setIcon(qta.icon('fa5s.compress-arrows-alt',    color=c))
+        self._print_btn.setIcon(qta.icon('fa5s.print',                color=c))
+        self._search_prev_btn.setIcon(qta.icon('fa5s.chevron-up',     color=c))
+        self._search_next_btn.setIcon(qta.icon('fa5s.chevron-down',   color=c))
+        self._search_close_btn.setIcon(qta.icon('fa5s.times',         color=c))
 
     # ── Drag & drop ──────────────────────────────────────────────────────────
     def dragEnterEvent(self, e: QDragEnterEvent):
