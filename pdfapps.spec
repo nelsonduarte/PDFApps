@@ -1,11 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
+import importlib, os
+_qa = os.path.dirname(importlib.import_module('qtawesome').__file__)
+
 a = Analysis(
     ['pdfapps.py'],
     pathex=[],
     binaries=[],
-    datas=[('icon.ico', '.'), ('app/translations.json', 'app')],
+    datas=[
+        ('icon.ico', '.'),
+        ('pdfapps_nobg_v1.png', '.'),
+        ('app/translations.json', 'app'),
+        (os.path.join(_qa, 'fonts'), 'qtawesome/fonts'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

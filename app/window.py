@@ -63,11 +63,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(t("app.name"))
         import sys as _sys
         if _sys.platform == "darwin":
-            candidates = ["icon.icns", "icon.png", "icon.ico"]
+            candidates = ["icon.icns", "pdfapps_nobg_v1.png", "icon.png", "icon.ico"]
         elif _sys.platform == "win32":
-            candidates = ["icon.ico", "icon.png"]
+            candidates = ["pdfapps_nobg_v1.png", "icon.ico", "icon.png"]
         else:
-            candidates = ["icon.png", "icon.ico"]
+            candidates = ["pdfapps_nobg_v1.png", "icon.png", "icon.ico"]
         for _ico in candidates:
             _ico_path = resource_path(_ico)
             if os.path.exists(_ico_path):
