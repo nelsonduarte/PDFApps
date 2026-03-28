@@ -36,25 +36,16 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ## Screenshots
 
-<p align="center">
-  <img src="screenshots/viewer.png" alt="PDF Viewer" width="800">
-  <br><em>Integrated PDF viewer with continuous scroll and lazy rendering</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/editor.png" alt="Visual PDF Editor" width="800">
-  <br><em>Visual PDF editor — redact, insert text, images, highlights and notes</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/tools.png" alt="PDF Tools" width="800">
-  <br><em>All-in-one PDF tools — split, merge, compress, encrypt, OCR and more</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/light-theme.png" alt="Light Theme" width="800">
-  <br><em>Light theme support</em>
-</p>
+| | |
+|---|---|
+| ![Viewer](screenshots/viewer.png) | ![Light Theme](screenshots/viewer-light.png) |
+| *PDF Viewer — dark theme* | *PDF Viewer — light theme* |
+| ![Editor](screenshots/edit.png) | ![Languages](screenshots/languages.png) |
+| *Visual editor — redact, text, images, highlights* | *8 languages with auto-detection* |
+| ![Convert](screenshots/convert.png) | ![Encrypt](screenshots/encrypt.png) |
+| *Convert PDF to PNG, JPG, DOCX, TXT* | *Encrypt / decrypt PDFs* |
+| ![Import](screenshots/import.png) | ![OCR](screenshots/OCR.png) |
+| *Import TXT, images, Markdown to PDF* | *OCR text recognition* |
 
 ---
 
