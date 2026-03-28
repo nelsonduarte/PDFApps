@@ -2,6 +2,10 @@
 
 > PDF editor and manager for Windows, macOS and Linux — fast, offline and subscription-free.
 
+<p align="center">
+  <img src="icon_512.png" alt="PDFApps Icon" width="128">
+</p>
+
 [![PDFApps](https://img.shields.io/badge/PDFApps-PDF%20Editor-14B8A6?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik02IDJhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWOGwtNi02SDZ6bTcgMXY1aDVMMTMgM3oiLz48L3N2Zz4=)](https://nelsonduarte.github.io/PDFApps/)
 
 [![Release](https://img.shields.io/github/v/release/nelsonduarte/PDFApps?color=10b981&logo=github)](https://github.com/nelsonduarte/PDFApps/releases/latest)
@@ -23,9 +27,10 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 - **100% offline** — your files never leave your computer
 - **No subscriptions** — free and open source, forever
-- **All-in-one** — split, merge, compress, encrypt, OCR, convert, edit and more in a single app
+- **All-in-one** — 13 tools: split, merge, compress, encrypt, OCR, convert, edit and more in a single app
 - **Cross-platform** — works on Windows, macOS and Linux
 - **Fast** — lazy rendering opens large PDFs instantly
+- **Multi-language** — auto-detects your system language (EN, PT, ES, FR, DE, ZH, IT, NL)
 
 ---
 
@@ -74,7 +79,6 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 ### Integrated viewer
 
 - **Print** — print any open PDF via system print dialog with high-resolution rendering
-
 - **Tabbed viewing** — open multiple PDFs in tabs, switch between them
 - Continuous scroll through all pages (Adobe Acrobat style)
 - **Lazy rendering** — opens instantly; pages rendered in background as they are viewed
@@ -96,12 +100,13 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 - **Auto-update** — checks for new versions on startup; download and install updates in-app with progress bar
 - **Multi-language** — auto-detects system language (EN, PT, ES, FR, DE, ZH, IT, NL), with selector in toolbar
+- **Localized installer** — installer and uninstaller detect the OS language and display in the user's language
 - **Recent files** — quick access to the last 10 opened PDFs via history icon
 - **Help guide** — ? button opens the online user guide
 - Modern dark/light theme with collapsible sidebar
 - Full drag and drop support across all file fields
 - Cross-platform: Windows, macOS and Linux
-- Installer with automatic OCR engine (Tesseract) detection and installation — Windows
+- Installer with automatic OCR engine (Tesseract) and Ghostscript detection and installation
 
 ---
 
@@ -111,7 +116,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 | Platform | How to get it |
 |---|---|
-| **Windows** 10/11 64-bit | Download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps/releases) |
+| **Windows** 10/11 64-bit | Download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest) |
 | **macOS** 10.14+ | Build from source (see below) — Tesseract via `brew install tesseract tesseract-lang` |
 | **Linux** | Build from source (see below) — Tesseract via `sudo apt install tesseract-ocr` |
 
@@ -150,20 +155,20 @@ The build process generates three executables in the `dist/` folder:
 
 ```bash
 # 1. Main application
-python -m PyInstaller --noconfirm pdfapps.spec
+python -m PyInstaller --clean pdfapps.spec
 
 # 2. Uninstaller
-python -m PyInstaller --noconfirm uninstaller.spec
+python -m PyInstaller --clean uninstaller.spec
 
 # 3. Installer (bundles the two above)
-python -m PyInstaller --noconfirm installer.spec
+python -m PyInstaller --clean installer.spec
 ```
 
 | File | Description |
 |---|---|
-| `dist/PDFApps.exe` | Main application (~78 MB) |
+| `dist/PDFApps.exe` | Main application (~82 MB) |
 | `dist/PDFAppsUninstall.exe` | Standalone uninstaller (~11 MB) |
-| `dist/PDFAppsSetup.exe` | **Installer for distribution** (~99 MB) |
+| `dist/PDFAppsSetup.exe` | **Installer for distribution** (~104 MB) |
 
 > PyInstaller does not cross-compile — the binary must be built on the target platform.
 
@@ -189,13 +194,19 @@ python -m PyInstaller --noconfirm installer.spec
 ```
 PDFApps/
 ├── pdfapps.py              # Application entry point
-├── installer.py            # Installer (tkinter UI)
-├── uninstaller.py          # Uninstaller
+├── installer.py            # Installer (tkinter UI, 8 languages)
+├── uninstaller.py          # Uninstaller (8 languages)
 ├── pdfapps.spec            # PyInstaller config — app
 ├── installer.spec          # PyInstaller config — installer
 ├── uninstaller.spec        # PyInstaller config — uninstaller
-├── icon.ico                # Application icon
+├── icon.ico                # Application icon (multi-size, square)
+├── icon_512.png            # Source icon (512x512 PNG)
+├── pdfapps.svg             # Logo SVG (used in sidebar/viewer)
 ├── requirements.txt        # Python dependencies
+├── docs/                   # GitHub Pages website
+│   ├── index.html          # Single-page site with JS-based i18n
+│   ├── icon.png            # App icon for website
+│   └── favicon.ico         # Browser favicon
 ├── app/                    # Modular source code
 │   ├── constants.py        # Colours and design constants
 │   ├── styles.py           # Qt stylesheet (dark/light theme)
