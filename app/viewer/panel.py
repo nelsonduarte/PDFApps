@@ -104,7 +104,9 @@ class PdfViewerPanel(QWidget):
         ph_icon = QLabel()
         from PySide6.QtGui import QPixmap as _QPixmap
         from app.utils import resource_path as _rp
-        _ph_pix = _QPixmap(_rp("icon.ico")).scaled(
+        _png = _rp("pdfapps_nobg_v1.png")
+        _ico_src = _png if os.path.exists(_png) else _rp("icon.ico")
+        _ph_pix = _QPixmap(_ico_src).scaled(
             56, 56, Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation)
         if _ph_pix.isNull():

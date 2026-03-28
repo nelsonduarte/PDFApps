@@ -223,7 +223,9 @@ class MainWindow(QMainWindow):
         bv = QVBoxLayout(brand); bv.setContentsMargins(0, 0, 0, 0); bv.setSpacing(0)
         ico_lbl = QLabel()
         from PySide6.QtGui import QPixmap as _QPixmap
-        _app_pix = _QPixmap(resource_path("icon.ico")).scaled(
+        _png = resource_path("pdfapps_nobg_v1.png")
+        _ico_src = _png if os.path.exists(_png) else resource_path("icon.ico")
+        _app_pix = _QPixmap(_ico_src).scaled(
             28, 28, Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation)
         if _app_pix.isNull():
