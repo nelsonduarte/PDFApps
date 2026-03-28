@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
         if os.path.exists(_svg):
             self.setWindowIcon(QIcon(_svg))
         else:
-            for _ico in ["pdfapps_nobg_v1.png", "icon.ico"]:
+            for _ico in ["icon.ico", "icon.ico"]:
                 _ico_path = resource_path(_ico)
                 if os.path.exists(_ico_path):
                     self.setWindowIcon(QIcon(_ico_path))
@@ -234,7 +234,7 @@ class MainWindow(QMainWindow):
             _app_pix = _QPixmap.fromImage(img)
             _app_pix.setDevicePixelRatio(2.0)
         else:
-            _png = resource_path("pdfapps_nobg_v1.png")
+            _png = resource_path("icon.ico")
             _ico_src = _png if os.path.exists(_png) else resource_path("icon.ico")
             _app_pix = _QPixmap(_ico_src).scaled(
                 _size * 2, _size * 2, Qt.AspectRatioMode.KeepAspectRatio,

@@ -117,7 +117,7 @@ class PdfViewerPanel(QWidget):
             _ph_pix = _QPixmap.fromImage(_img)
             _ph_pix.setDevicePixelRatio(2.0)
         else:
-            _png = _rp("pdfapps_nobg_v1.png")
+            _png = _rp("icon.ico")
             _ico_src = _png if os.path.exists(_png) else _rp("icon.ico")
             _ph_pix = _QPixmap(_ico_src).scaled(
                 _ph_size * 2, _ph_size * 2, Qt.AspectRatioMode.KeepAspectRatio,
