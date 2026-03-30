@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 APP_NAME    = "PDFApps"
-APP_VERSION = "1.7.8"
+APP_VERSION = "1.7.9"
 BG          = "#FFFFFF"
 HEADER_BG   = "#1E3A5F"
 ACCENT      = "#3B82F6"
@@ -955,5 +955,19 @@ class InstallerApp(tk.Tk):
         self.destroy()
 
 
+def _self_elevate():
+    """Re-launch this exe as admin if not already elevated (Windows only)."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+    if ctypes.windll.shell32.IsUserAnAdmin():
+        return
+    ctypes.windll.shell32.ShellExecuteW(
+        None, "runas", sys.executable, " ".join(sys.argv[1:]), None, 1
+    )
+    sys.exit(0)
+
+
 if __name__ == "__main__":
+    _self_elevate()
     InstallerApp().mainloop()

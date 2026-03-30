@@ -19,6 +19,6 @@ exe = EXE(
     name='PDFAppsSetup',
     debug=False, strip=False, upx=True,
     console=False,
-    uac_admin=True,
+    uac_admin=False,
     icon=['icon.ico'],
 )
