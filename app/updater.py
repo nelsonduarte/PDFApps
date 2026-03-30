@@ -48,7 +48,7 @@ def check_for_update() -> dict | None:
 def _find_asset(release: dict) -> dict | None:
     """Find the correct asset for the current platform."""
     if sys.platform == "win32":
-        name = "PDFApps.exe"
+        name = "PDFAppsSetup.exe"
     elif sys.platform == "darwin":
         name = "PDFApps-macOS.zip"
     else:
@@ -85,44 +85,19 @@ def _download(url: str, dest: str, signals: _Signals):
         signals.error.emit(str(exc))
 
 
-def _apply_update_windows(downloaded_exe: str):
-    """Replace the running exe via a batch script and restart."""
+def _apply_update_windows(downloaded_installer: str):
+    """Run the downloaded installer and close the app."""
+    import subprocess
     frozen = getattr(sys, "frozen", False)
     if frozen:
-        # Running as compiled exe — replace in place and restart
-        current_exe = sys.executable
-        pid = os.getpid()
-        bat = os.path.join(tempfile.gettempdir(), "pdfapps_update.bat")
-        with open(bat, "w") as f:
-            f.write("@echo off\n")
-            # Wait for the app process to fully exit
-            f.write(f":wait\n")
-            f.write(f'tasklist /FI "PID eq {pid}" 2>nul | find /i "{pid}" >nul\n')
-            f.write(f"if not errorlevel 1 (\n")
-            f.write(f"  timeout /t 1 /nobreak > nul\n")
-            f.write(f"  goto wait\n")
-            f.write(f")\n")
-            f.write("timeout /t 1 /nobreak > nul\n")
-            f.write(f'copy /y "{downloaded_exe}" "{current_exe}"\n')
-            f.write(f'del "{downloaded_exe}"\n')
-            f.write(f'start "" "{current_exe}"\n')
-            f.write('del "%~f0"\n')
-        import subprocess
+        # Launch the installer and quit — installer handles everything
         subprocess.Popen(
-            ["cmd", "/c", bat],
+            [downloaded_installer],
             creationflags=0x08000000,
         )
     else:
-        # Running from source — replace the local exe copy if it exists
-        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        dist_exe = os.path.join(app_dir, "dist", "PDFApps.exe")
-        import shutil
-        if os.path.isdir(os.path.dirname(dist_exe)):
-            shutil.copy2(downloaded_exe, dist_exe)
-        os.remove(downloaded_exe)
-        # Restart via python
-        import subprocess
-        subprocess.Popen([sys.executable] + sys.argv)
+        # Running from source — run installer normally
+        subprocess.Popen([downloaded_installer])
 
 
 
