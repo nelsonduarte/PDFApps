@@ -715,9 +715,11 @@ class MainWindow(QMainWindow):
         self._update_btn.setVisible(True)
         tag = self._update_release.get("tag_name", "?")
         from PySide6.QtWidgets import QMessageBox
+        msg = t("update.available").format(version=tag)
+        msg += "\n\n" + t("update.installer_info")
+        msg += "\n\n" + t("update.install") + "?"
         reply = QMessageBox.question(
-            self, "PDFApps",
-            t("update.available").format(version=tag) + "\n\n" + t("update.install") + "?",
+            self, "PDFApps", msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
