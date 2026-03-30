@@ -403,7 +403,23 @@ class MainWindow(QMainWindow):
 
     def _close_tab(self, idx: int):
         if self._tab_bar.count() <= 1:
-            return  # Keep at least one tab
+            # Last tab — close document and reset to placeholder
+            viewer = self._viewers[0]
+            viewer._canvas.close_doc()
+            viewer._fitz_doc = None
+            viewer._current_path = ""
+            viewer._canvas_scroll.setVisible(False)
+            viewer._sel_status.setVisible(False)
+            viewer._placeholder.setVisible(True)
+            viewer._hdr.setVisible(False)
+            viewer._name_lbl.setText(t("viewer.title"))
+            self._tab_bar.setTabText(0, t("viewer.title"))
+            self._tab_bar.setTabToolTip(0, "")
+            self._update_tab_visibility()
+            self._update_page_nav()
+            self._setup_zoom_bar(False)
+            self._page_nav_widget.setVisible(False)
+            return
         viewer = self._viewers.pop(idx)
         self._tab_bar.removeTab(idx)
         self._viewer_stack.removeWidget(viewer)

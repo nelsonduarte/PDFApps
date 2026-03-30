@@ -160,8 +160,11 @@ class _SelectCanvas(QWidget):
     def close_doc(self):
         self._gen += 1
         self._pending.clear()
-        if self._doc:
-            self._doc.close()
+        if self._doc is not None:
+            try:
+                self._doc.close()
+            except ValueError:
+                pass
             self._doc = None
         self._entries = []
         self._clear_selection()
