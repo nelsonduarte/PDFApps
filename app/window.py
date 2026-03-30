@@ -453,13 +453,15 @@ class MainWindow(QMainWindow):
 
     def _setup_zoom_bar(self, active: bool, canvas=None):
         self._zoom_widget.setVisible(active)
-        # Disconnect previous connections
-        try:
-            self._zm_btn.clicked.disconnect()
-            self._zp_btn.clicked.disconnect()
-            self._z0_btn.clicked.disconnect()
-        except Exception:
-            pass
+        # Disconnect previous connections safely
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            for btn in (self._zm_btn, self._zp_btn, self._z0_btn):
+                try:
+                    btn.clicked.disconnect()
+                except (RuntimeError, TypeError):
+                    pass
         if canvas is None:
             canvas = getattr(self.stack.widget(self._edit_tool_idx()), '_canvas', None)
         if canvas is None:
@@ -500,8 +502,11 @@ class MainWindow(QMainWindow):
             self._load_and_track(path)
 
     def _load_and_track(self, path: str):
-        """Load PDF in current tab (replaces current document)."""
-        self._viewer.load(path)
+        """Load PDF — opens in new tab if current tab already has a document."""
+        if self._viewer.current_path():
+            self._add_viewer_tab(path)
+        else:
+            self._viewer.load(path)
         add_recent_file(path)
 
     def _open_in_new_tab(self):
@@ -691,13 +696,14 @@ class MainWindow(QMainWindow):
                 self.release = check_for_update()
                 if self.release:
                     self.done.emit()
+                self.thread().quit()
 
         self._update_thread = QThread()
         self._update_worker = _Worker()
         self._update_worker.moveToThread(self._update_thread)
         self._update_thread.started.connect(self._update_worker.run)
         self._update_worker.done.connect(self._on_update_found)
-        self._update_worker.done.connect(self._update_thread.quit)
+        self._update_thread.finished.connect(self._update_thread.deleteLater)
         self._update_thread.start()
 
     def _on_update_found(self):
