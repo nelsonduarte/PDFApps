@@ -86,18 +86,12 @@ def _download(url: str, dest: str, signals: _Signals):
 
 
 def _apply_update_windows(downloaded_installer: str):
-    """Run the downloaded installer and close the app."""
-    import subprocess
-    frozen = getattr(sys, "frozen", False)
-    if frozen:
-        # Launch the installer and quit — installer handles everything
-        subprocess.Popen(
-            [downloaded_installer],
-            creationflags=0x08000000,
-        )
-    else:
-        # Running from source — run installer normally
-        subprocess.Popen([downloaded_installer])
+    """Run the downloaded installer with admin elevation and close the app."""
+    import ctypes
+    # ShellExecuteW with "runas" triggers the UAC elevation prompt
+    ctypes.windll.shell32.ShellExecuteW(
+        None, "runas", downloaded_installer, None, None, 1
+    )
 
 
 
