@@ -86,12 +86,14 @@ def _download(url: str, dest: str, signals: _Signals):
 
 
 def _apply_update_windows(downloaded_installer: str):
-    """Run the downloaded installer with admin elevation and close the app."""
+    """Run the downloaded installer with admin elevation (UAC prompt)."""
     import ctypes
-    # ShellExecuteW with "runas" triggers the UAC elevation prompt
-    ctypes.windll.shell32.ShellExecuteW(
+    ret = ctypes.windll.shell32.ShellExecuteW(
         None, "runas", downloaded_installer, None, None, 1
     )
+    # ShellExecuteW returns > 32 on success; <= 32 is an error code
+    if ret <= 32:
+        raise OSError(f"ShellExecuteW failed (code {ret})")
 
 
 
@@ -222,7 +224,6 @@ class UpdateDialog(QDialog):
         try:
             if sys.platform == "win32":
                 _apply_update_windows(path)
-                # App will close and restart via batch script
                 QMessageBox.information(
                     self, "PDFApps",
                     t("update.restart"),
