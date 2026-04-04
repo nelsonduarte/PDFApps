@@ -85,6 +85,16 @@ class MainWindow(QMainWindow):
         wb_h.setContentsMargins(16, 10, 16, 10)
         wb_h.setSpacing(8)
 
+        self._sidebar_toggle_btn = QPushButton()
+        self._ico_bars = qta.icon("fa5s.bars", color=TEXT_PRI)
+        self._ico_times = qta.icon("fa5s.times", color=TEXT_PRI)
+        self._sidebar_toggle_btn.setIcon(self._ico_bars)
+        self._sidebar_toggle_btn.setObjectName("viewer_nav_btn")
+        self._sidebar_toggle_btn.setFixedSize(28, 28)
+        self._sidebar_toggle_btn.setToolTip(t("sidebar.collapse_expand"))
+        self._sidebar_toggle_btn.clicked.connect(self._toggle_sidebar)
+        wb_h.addWidget(self._sidebar_toggle_btn)
+
         wb_col = QVBoxLayout(); wb_col.setContentsMargins(0, 0, 0, 0); wb_col.setSpacing(1)
         wb_title = QLabel(t("workspace.title")); wb_title.setObjectName("workspace_title")
         wb_hint = QLabel(t("workspace.subtitle"))
@@ -204,8 +214,8 @@ class MainWindow(QMainWindow):
 
         body = QWidget(); body.setObjectName("workspace_shell")
         main_h = QHBoxLayout(body)
-        main_h.setContentsMargins(10, 10, 10, 8)
-        main_h.setSpacing(10)
+        main_h.setContentsMargins(10, 10, 10, 0)
+        main_h.setSpacing(0)
 
         # ── Sidebar ──────────────────────────────────────────────────────────
         self._sidebar = QWidget(); self._sidebar.setObjectName("sidebar")
@@ -321,16 +331,6 @@ class MainWindow(QMainWindow):
         self._splitter.setCollapsible(1, False)
 
         main_h.addWidget(self._sidebar)
-
-        # Collapse / expand button (vertical strip between sidebar and content)
-        self._collapse_btn = QPushButton("«")
-        self._collapse_btn.setObjectName("collapse_btn")
-        self._collapse_btn.setFixedWidth(18)
-        self._collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._collapse_btn.setToolTip(t("sidebar.collapse_expand"))
-        self._collapse_btn.clicked.connect(self._toggle_sidebar)
-        main_h.addWidget(self._collapse_btn)
-
         main_h.addWidget(self._splitter, 1)
         root_v.addWidget(body, 1)
         self.setCentralWidget(central)
@@ -435,7 +435,7 @@ class MainWindow(QMainWindow):
                 self._current_tool = i
                 self.stack.setCurrentIndex(i)
                 self.stack.setVisible(True)
-                self._viewer.setVisible(False)
+                self._tab_container.setVisible(False)
                 self._tool_badge.setText(t("workspace.mode_tool", name=name))
                 self._try_auto_load(i)
                 return
@@ -619,25 +619,9 @@ class MainWindow(QMainWindow):
 
     def _toggle_sidebar(self):
         self._sidebar_collapsed = not self._sidebar_collapsed
-        icon_color = TEXT_SEC if self._dark_mode else _LQ
-        if self._sidebar_collapsed:
-            self._sidebar.setFixedWidth(50)
-            self._brand_title.setVisible(False)
-            self._brand_sub.setVisible(False)
-            self._footer_w.setVisible(False)
-            self._collapse_btn.setText("»")
-            for i in range(self.nav.count()):
-                self.nav.item(i).setText("")
-            self.nav.setIconSize(QSize(18, 18))
-        else:
-            self._sidebar.setFixedWidth(228)
-            self._brand_title.setVisible(True)
-            self._brand_sub.setVisible(True)
-            self._footer_w.setVisible(True)
-            self._collapse_btn.setText("«")
-            for i, (_, icon_name, _) in enumerate(NAV_ITEMS):
-                self.nav.item(i).setText(NAV_ITEMS[i][0])
-            self.nav.setIconSize(QSize(18, 18))
+        self._sidebar.setVisible(not self._sidebar_collapsed)
+        self._sidebar_toggle_btn.setIcon(
+            self._ico_bars if self._sidebar_collapsed else self._ico_times)
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
@@ -666,6 +650,10 @@ class MainWindow(QMainWindow):
         for i, (_, icon_name, _) in enumerate(NAV_ITEMS):
             self.nav.item(i).setIcon(qta.icon(icon_name, color=nav_color))
         # Update workspace bar icons
+        self._ico_bars = qta.icon("fa5s.bars", color=bar_color)
+        self._ico_times = qta.icon("fa5s.times", color=bar_color)
+        self._sidebar_toggle_btn.setIcon(
+            self._ico_bars if self._sidebar_collapsed else self._ico_times)
         self._open_pdf_btn.setIcon(qta.icon("fa5s.folder-open", color=bar_color))
         self._recent_btn.setIcon(qta.icon("fa5s.history", color=bar_color))
         self._print_top_btn.setIcon(qta.icon("fa5s.print", color=bar_color))

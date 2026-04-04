@@ -227,11 +227,6 @@ QSplitter::handle {{ background: {BORDER}; width: 1px; }}
 }}
 #theme_btn:hover {{ background: #253945; border-color: #476573; }}
 
-#collapse_btn {{
-    background: {BG_SIDE}; border: none; color: {TEXT_SEC};
-    font-size: 11pt; padding: 0; border-radius: 0;
-}}
-#collapse_btn:hover {{ background: #253945; color: {TEXT_PRI}; }}
 
 #viewer_tabs {{
     background: {BG_CARD}; border: none; border-bottom: 1px solid {BORDER};
@@ -431,11 +426,6 @@ QSplitter::handle {{ background: {_LO}; width: 1px; }}
 }}
 #theme_btn:hover {{ background: #DBEAE5; border-color: #9FC2B8; }}
 
-#collapse_btn {{
-    background: {_LS}; border: none; color: {_LQ};
-    font-size: 11pt; padding: 0; border-radius: 0;
-}}
-#collapse_btn:hover {{ background: #DBEAE5; color: {_LP}; }}
 
 #viewer_tabs {{
     background: {_LC}; border: none; border-bottom: 1px solid {_LO};

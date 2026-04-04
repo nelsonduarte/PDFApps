@@ -1,7 +1,7 @@
 """PDFApps – PdfEditCanvas: visual PDF edit canvas with fitz rendering."""
 
 from PySide6.QtCore import Qt, Signal, QRect, QPoint
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QSizePolicy
 
 from app.constants import ACCENT, BG_INNER, TEXT_SEC
 from app.i18n import t
@@ -33,6 +33,7 @@ class PdfEditCanvas(QWidget):
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.CrossCursor)
         self.setMinimumSize(300, 400)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def set_select_mode(self, active: bool):
         self._select_mode = active
@@ -109,7 +110,9 @@ class PdfEditCanvas(QWidget):
         """Fully close and reset the canvas."""
         self.release_doc()
         self._qpix = None; self._overlays = []; self._open_note = None
-        self.setFixedSize(300, 400); self.update()
+        self.setMinimumSize(300, 400)
+        self.setMaximumSize(16777215, 16777215)  # remove fixed size constraint
+        self.update()
 
     def _render(self):
         if not self._doc: return
@@ -159,24 +162,24 @@ class PdfEditCanvas(QWidget):
         # ── pending edit overlays ─────────────────────────────────────
         z = self._zoom
         for e in self._overlays:
-            t = e["type"]
-            if t == "redact":
+            etype = e["type"]
+            if etype == "redact":
                 r = e["rect"]
                 fill = e["fill"]
                 qr = QRect(int(r.x0*z), int(r.y0*z), max(1,int(r.width*z)), max(1,int(r.height*z)))
                 p.fillRect(qr, QColor(int(fill[0]*255), int(fill[1]*255), int(fill[2]*255), 210))
                 p.setPen(QPen(QColor("#EF4444"), 1)); p.setBrush(Qt.BrushStyle.NoBrush)
                 p.drawRect(qr)
-            elif t == "highlight":
+            elif etype == "highlight":
                 r = e["rect"]; c = e["color"]
                 qr = QRect(int(r.x0*z), int(r.y0*z), max(1,int(r.width*z)), max(1,int(r.height*z)))
                 p.fillRect(qr, QColor(int(c[0]*255), int(c[1]*255), int(c[2]*255), 120))
-            elif t == "text":
+            elif etype == "text":
                 pt = e["point"]; c = e["color"]
                 p.setPen(QColor(int(c[0]*255), int(c[1]*255), int(c[2]*255)))
                 f2 = QFont(); f2.setPointSize(max(4, int(e["size"] * z * 0.75))); p.setFont(f2)
                 p.drawText(int(pt.x*z), int(pt.y*z), e["text"])
-            elif t == "image":
+            elif etype == "image":
                 r = e["rect"]
                 qr = QRect(int(r.x0*z), int(r.y0*z), max(1,int(r.width*z)), max(1,int(r.height*z)))
                 from PySide6.QtGui import QPixmap as _QPixmap
@@ -185,7 +188,7 @@ class PdfEditCanvas(QWidget):
                     p.drawPixmap(qr, img_px)
                 p.setPen(QPen(QColor(ACCENT), 2, Qt.PenStyle.DashLine))
                 p.setBrush(Qt.BrushStyle.NoBrush); p.drawRect(qr)
-            elif t == "note":
+            elif etype == "note":
                 pt = e["point"]
                 px, py = int(pt.x*z), int(pt.y*z)
                 note_idx = self._overlays.index(e) if e in self._overlays else -1
@@ -221,7 +224,7 @@ class PdfEditCanvas(QWidget):
                     p.drawText(text_rect,
                                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
                                e["text"])
-            elif t == "text_edit":
+            elif etype == "text_edit":
                 r = e["bbox"]
                 qr = QRect(int(r[0]*z), int(r[1]*z),
                            max(1, int((r[2]-r[0])*z)), max(1, int((r[3]-r[1])*z)))

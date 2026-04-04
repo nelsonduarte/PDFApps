@@ -75,7 +75,7 @@ class TabEditar(QWidget):
         self._canvas.note_deleted.connect(self._on_note_deleted)
         canvas_scroll = QScrollArea()
         canvas_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        canvas_scroll.setWidgetResizable(False)
+        canvas_scroll.setWidgetResizable(True)
         canvas_scroll.setWidget(self._canvas)
         canvas_scroll.setMinimumWidth(320)
         canvas_scroll.viewport().installEventFilter(self)

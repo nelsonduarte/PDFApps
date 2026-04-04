@@ -10,7 +10,7 @@ import qtawesome as qta
 from app.constants import BG_INNER, TEXT_SEC
 from app.i18n import t
 
-_PAGE_GAP       = 12   # px between pages
+_PAGE_GAP       = 4    # px between pages
 _BUFFER_PGS     = 2    # extra pages to pre-render outside the visible area
 _MAX_THREADS    = 2    # simultaneous render workers
 _NOTE_ICON_SIZE = 22   # note icon size in pixels
