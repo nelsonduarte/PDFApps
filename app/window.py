@@ -515,9 +515,9 @@ class MainWindow(QMainWindow):
 
     def _open_pdf(self):
         from PySide6.QtWidgets import QFileDialog
-        path, _ = QFileDialog.getOpenFileName(
+        paths, _ = QFileDialog.getOpenFileNames(
             self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
-        if path:
+        for path in paths:
             self._load_and_track(path)
 
     def _load_and_track(self, path: str):
@@ -644,9 +644,10 @@ class MainWindow(QMainWindow):
                 e.acceptProposedAction()
 
     def dropEvent(self, e):
-        path = e.mimeData().urls()[0].toLocalFile()
-        if path.lower().endswith(".pdf"):
-            self._load_and_track(path)
+        for url in e.mimeData().urls():
+            path = url.toLocalFile()
+            if path.lower().endswith(".pdf"):
+                self._load_and_track(path)
 
     # ── Keyboard shortcut helpers ────────────────────────────────────────
     def _close_current_tab(self):

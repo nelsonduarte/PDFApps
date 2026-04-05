@@ -4,6 +4,7 @@ Alta prioridade (UX diário)
 Bookmarks/Índice — painel lateral com o índice do PDF (TOC), clicável para navegar
 Anotações com caneta — desenho livre no editor (freehand drawing direto no PDF)
 Dark mode no canvas do viewer — inverter cores do PDF para leitura noturna
+[DONE] Selecionar e abrir varios pdfs de uma vez
 
 Média prioridade (funcionalidades úteis)
 Comparar PDFs — vista lado a lado com diferenças destacadas
