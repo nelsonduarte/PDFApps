@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_H, TEXT_SEC
+from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_H, TEXT_SEC, _LQ
 
 
 _API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
@@ -158,7 +158,9 @@ class UpdateDialog(QDialog):
         lay.addWidget(self._progress)
 
         self._status = QLabel("")
-        self._status.setStyleSheet(f"color: {TEXT_SEC}; font-size: 12px;")
+        _dark = parent._dark_mode if parent and hasattr(parent, '_dark_mode') else True
+        _sec = TEXT_SEC if _dark else _LQ
+        self._status.setStyleSheet(f"color: {_sec}; font-size: 12px;")
         lay.addWidget(self._status)
 
         btn_row = QHBoxLayout()

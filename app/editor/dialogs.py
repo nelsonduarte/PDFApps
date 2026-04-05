@@ -12,8 +12,19 @@ from PySide6.QtWidgets import (
 )
 import qtawesome as qta
 
-from app.constants import ACCENT, BORDER, TEXT_PRI, TEXT_SEC, BG_INNER
+from app.constants import (
+    ACCENT, BORDER, TEXT_PRI, TEXT_SEC, BG_INNER,
+    _LO, _LP, _LQ, _LN,
+)
 from app.i18n import t
+
+
+def _theme_colors(parent):
+    """Return (pri, sec, bg, border) based on parent's dark mode."""
+    dark = parent._dark_mode if parent and hasattr(parent, '_dark_mode') else True
+    if dark:
+        return TEXT_PRI, TEXT_SEC, BG_INNER, BORDER
+    return _LP, _LQ, _LN, _LO
 
 
 class _PdfPasswordDialog(QDialog):
@@ -23,6 +34,7 @@ class _PdfPasswordDialog(QDialog):
         self.setWindowTitle(t("dialog.password_title"))
         self.setModal(True)
         self.setMinimumWidth(400)
+        pri, sec, bg, brd = _theme_colors(parent)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(24, 24, 24, 20)
@@ -37,19 +49,19 @@ class _PdfPasswordDialog(QDialog):
         top.addWidget(ico)
         title_col = QVBoxLayout(); title_col.setSpacing(2)
         lbl_title = QLabel(t("dialog.password_header"))
-        lbl_title.setStyleSheet(f"font-size:13pt; font-weight:700; color:{TEXT_PRI};")
+        lbl_title.setStyleSheet(f"font-size:13pt; font-weight:700; color:{pri};")
         lbl_file  = QLabel(filename)
-        lbl_file.setStyleSheet(f"font-size:9pt; color:{TEXT_SEC};")
+        lbl_file.setStyleSheet(f"font-size:9pt; color:{sec};")
         lbl_file.setWordWrap(True)
         title_col.addWidget(lbl_title); title_col.addWidget(lbl_file)
         top.addLayout(title_col, 1)
         v.addLayout(top)
 
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(f"color:{BORDER};"); v.addWidget(sep)
+        sep.setStyleSheet(f"color:{brd};"); v.addWidget(sep)
 
         lbl_pwd = QLabel(t("dialog.password_label"))
-        lbl_pwd.setStyleSheet(f"color:{TEXT_SEC}; font-size:10pt;")
+        lbl_pwd.setStyleSheet(f"color:{sec}; font-size:10pt;")
         v.addWidget(lbl_pwd)
         self._edit = QLineEdit()
         self._edit.setEchoMode(QLineEdit.EchoMode.Password)
@@ -81,21 +93,22 @@ class _TextEditDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(t("dialog.edit_text_title")); self.setModal(True)
         self.setMinimumWidth(420)
+        pri, sec, bg, brd = _theme_colors(parent)
         v = QVBoxLayout(self); v.setContentsMargins(20, 20, 20, 16); v.setSpacing(10)
 
         lbl_orig = QLabel(t("dialog.edit_text_detected", size=f"{font_size:.1f}"))
-        lbl_orig.setStyleSheet(f"color:{TEXT_SEC}; font-size:10pt;")
+        lbl_orig.setStyleSheet(f"color:{sec}; font-size:10pt;")
         v.addWidget(lbl_orig)
 
         orig_box = QLabel(old_text or t("dialog.edit_text_notext"))
         orig_box.setWordWrap(True)
         orig_box.setStyleSheet(
-            f"color:{TEXT_SEC}; font-size:9pt; padding:6px 8px;"
-            f"background:{BG_INNER}; border:1px solid {BORDER}; border-radius:4px;")
+            f"color:{sec}; font-size:9pt; padding:6px 8px;"
+            f"background:{bg}; border:1px solid {brd}; border-radius:4px;")
         v.addWidget(orig_box)
 
         lbl_new = QLabel(t("dialog.edit_text_new"))
-        lbl_new.setStyleSheet(f"color:{TEXT_PRI}; font-size:10pt;")
+        lbl_new.setStyleSheet(f"color:{pri}; font-size:10pt;")
         v.addWidget(lbl_new)
 
         self._edit = QTextEdit()
@@ -253,6 +266,7 @@ class _SignatureDialog(QDialog):
         self.setModal(True)
         self.setMinimumWidth(460)
         self._result_path = None
+        _, sec, _, _ = _theme_colors(parent)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(20, 20, 20, 16)
@@ -265,7 +279,7 @@ class _SignatureDialog(QDialog):
         draw_w = QWidget()
         dv = QVBoxLayout(draw_w); dv.setContentsMargins(0, 8, 0, 0)
         hint_d = QLabel(t("edit.signature.draw_hint"))
-        hint_d.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint_d.setStyleSheet(f"color:{sec}; font-size:11px;")
         dv.addWidget(hint_d)
         self._draw_canvas = _SignatureCanvas()
         dv.addWidget(self._draw_canvas)
@@ -278,7 +292,7 @@ class _SignatureDialog(QDialog):
         type_w = QWidget()
         tv = QVBoxLayout(type_w); tv.setContentsMargins(0, 8, 0, 0); tv.setSpacing(8)
         hint_t = QLabel(t("edit.signature.type_hint"))
-        hint_t.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint_t.setStyleSheet(f"color:{sec}; font-size:11px;")
         tv.addWidget(hint_t)
         self._type_input = QLineEdit()
         self._type_input.setPlaceholderText(t("edit.signature.type_hint"))
