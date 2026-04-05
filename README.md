@@ -241,12 +241,16 @@ PDFApps/
 
 | Shortcut | Action |
 |---|---|
-| **F5** | Start presentation mode |
-| **F11** | Toggle fullscreen |
+| **Ctrl+O** | Open PDF (multi-select) |
+| **Ctrl+S** | Save / apply active tool |
+| **Ctrl+P** | Print current PDF |
+| **Ctrl+W** | Close current tab |
 | **Ctrl+F** | Search text in PDF |
 | **Ctrl+Z** | Undo (editor) |
 | **Ctrl+Y** | Redo (editor) |
 | **Ctrl+Scroll** | Zoom in/out |
+| **F5** | Start presentation mode |
+| **F11** | Toggle fullscreen |
 | **Escape** | Exit presentation / close search |
 
 ---

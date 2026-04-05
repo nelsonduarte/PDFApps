@@ -1410,6 +1410,8 @@ User clicks update button → UpdateDialog
 
 - Use color constants from `app.constants` — never hardcode hex in `setStyleSheet()`
 - After adding any icon button, verify it updates in `_apply_theme()` / `update_theme()`
+- **Dialogs:** Use `_theme_colors(parent)` from `editor/dialogs.py` to get `(pri, sec, bg, border)` based on the parent's `_dark_mode`. Never use `TEXT_PRI` / `TEXT_SEC` directly in dialog `setStyleSheet()` — those are always dark.
+- **Canvas:** Both viewer and editor canvas use `_bg_color` updated via `set_dark_mode(dark)` — never hardcode `BG_INNER` in `paintEvent()`
 - Test every UI change in both dark and light mode
 
 ### Security
