@@ -1016,7 +1016,7 @@
             <div class="feature-card">
                 <div class="feature-icon feature-icon-rose">&#9998;</div>
                 <h3 data-i18n="features.editor">Visual Editor</h3>
-                <p data-i18n="features.editor_desc">Redact, text, images</p>
+                <p data-i18n="features.editor_desc">Redact, text, images, signatures</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon feature-icon-cyan">&#128229;</div>
@@ -1143,8 +1143,10 @@
                     <li><strong>Note / Comment</strong> &mdash; click to add a note; click the icon to show/hide the popup</li>
                     <li><strong>Edit Existing Text</strong> &mdash; click on text to modify it inline</li>
                     <li><strong>Forms</strong> &mdash; fill in PDF form fields</li>
-                    <li><strong>Select</strong> &mdash; select and move existing annotations</li>
+                    <li><strong>Signature</strong> &mdash; draw, type, or import a signature; drag to place on the PDF</li>
+                    <li><strong>Select</strong> &mdash; select and copy text</li>
                 </ul>
+                <p>The editor shows all pages with continuous scroll.</p>
                 <p>Use <strong>Ctrl+Z / Ctrl+Y</strong> to undo/redo. Click <strong>Save</strong> to apply all edits.</p></div>
             </div>
             <div class="guide-step">
@@ -1166,12 +1168,13 @@
                 <div class="guide-number">9</div>
                 <h3 data-i18n="guide.s9_title">Keyboard Shortcuts</h3>
                 <div data-i18n="guide.s9_desc" data-i18n-html="true"><ul>
-                    <li><strong>Ctrl + Scroll</strong> &mdash; Zoom in/out</li>
-                    <li><strong>Ctrl + O</strong> &mdash; Open file</li>
+                    <li><strong>F5</strong> &mdash; Presentation mode</li>
+                    <li><strong>F11</strong> &mdash; Fullscreen</li>
                     <li><strong>Ctrl + F</strong> &mdash; Search in PDF</li>
+                    <li><strong>Ctrl + Scroll</strong> &mdash; Zoom in/out</li>
                     <li><strong>Ctrl + Z</strong> &mdash; Undo (editor)</li>
                     <li><strong>Ctrl + Y</strong> &mdash; Redo (editor)</li>
-                    <li><strong>Enter</strong> (in page field) &mdash; Go to page</li>
+                    <li><strong>Escape</strong> &mdash; Exit presentation / close search</li>
                     <li><strong>Right-click</strong> on note &mdash; Delete comment</li>
                 </ul></div>
             </div>
@@ -1278,6 +1281,20 @@
                         <td class="cross">&#10007;</td>
                         <td class="cross">&#10007;</td>
                     </tr>
+                    <tr>
+                        <td data-i18n="compare.signature">Signature</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                        <td class="check">&#10003;</td>
+                    </tr>
+                    <tr>
+                        <td data-i18n="compare.presentation">Presentation Mode</td>
+                        <td class="check">&#10003;</td>
+                        <td class="cross">&#10007;</td>
+                        <td class="cross">&#10007;</td>
+                        <td class="cross">&#10007;</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -1352,7 +1369,7 @@ const T = {
     "features.watermark": "Watermark", "features.watermark_desc": "Stamp overlay",
     "features.ocr_desc": "5 languages supported",
     "features.convert": "Convert",
-    "features.editor": "Visual Editor", "features.editor_desc": "Redact, text, images",
+    "features.editor": "Visual Editor", "features.editor_desc": "Redact, text, images, signatures",
     "features.info": "Info", "features.info_desc": "PDF metadata & properties",
     "features.import": "Import", "features.import_desc": "TXT, images & Markdown to PDF", "hero.stat_langs": "Languages",
     "why.title": "Why PDFApps?",
@@ -1380,7 +1397,7 @@ const T = {
     "compare.feature": "Feature", "compare.offline": "Works Offline", "compare.free": "Completely Free",
     "compare.opensource": "Open Source", "compare.noaccount": "No Account Required",
     "compare.visual_editor": "Visual Editor", "compare.crossplatform": "Cross-Platform",
-    "compare.multilang": "Multi-Language (8)", "compare.autoupdate": "Auto-Update", "compare.import": "Import (TXT/IMG/MD)", "compare.print": "Print",
+    "compare.multilang": "Multi-Language (8)", "compare.autoupdate": "Auto-Update", "compare.import": "Import (TXT/IMG/MD)", "compare.print": "Print", "compare.signature": "Signature", "compare.presentation": "Presentation Mode",
     "compare.yes": "Yes", "compare.partial": "Partial / Limited", "compare.no": "No",
     "cta.title": "Ready to take control of your PDFs?", "cta.desc": "Download PDFApps for free and start working with your documents offline.",
     "cta.download": "Download PDFApps", "cta.github": "View on GitHub",
@@ -1408,7 +1425,7 @@ const T = {
     "features.watermark": "Marca d'\u00e1gua", "features.watermark_desc": "Carimbo sobreposto",
     "features.ocr_desc": "5 idiomas suportados",
     "features.convert": "Converter",
-    "features.editor": "Editor Visual", "features.editor_desc": "Censurar, texto, imagens",
+    "features.editor": "Editor Visual", "features.editor_desc": "Censurar, texto, imagens, assinaturas",
     "features.info": "Info", "features.info_desc": "Metadados e propriedades do PDF",
     "features.import": "Importar", "features.import_desc": "TXT, imagens e Markdown para PDF", "hero.stat_langs": "Idiomas",
     "why.title": "Porqu\u00ea PDFApps?",
@@ -1436,7 +1453,7 @@ const T = {
     "compare.feature": "Funcionalidade", "compare.offline": "Funciona Offline", "compare.free": "Completamente Gr\u00e1tis",
     "compare.opensource": "C\u00f3digo Aberto", "compare.noaccount": "Sem Conta Necess\u00e1ria",
     "compare.visual_editor": "Editor Visual", "compare.crossplatform": "Multiplataforma",
-    "compare.multilang": "Multi-Idioma (8)", "compare.autoupdate": "Atualiza\u00e7\u00e3o Autom\u00e1tica", "compare.import": "Importar (TXT/IMG/MD)", "compare.print": "Imprimir",
+    "compare.multilang": "Multi-Idioma (8)", "compare.autoupdate": "Atualiza\u00e7\u00e3o Autom\u00e1tica", "compare.import": "Importar (TXT/IMG/MD)", "compare.print": "Imprimir", "compare.signature": "Assinatura", "compare.presentation": "Modo Apresenta\u00e7\u00e3o",
     "compare.yes": "Sim", "compare.partial": "Parcial / Limitado", "compare.no": "N\u00e3o",
     "cta.title": "Pronto para controlar os teus PDFs?", "cta.desc": "Descarrega o PDFApps gratuitamente e come\u00e7a a trabalhar com os teus documentos offline.",
     "cta.download": "Descarregar PDFApps", "cta.github": "Ver no GitHub",
@@ -1464,7 +1481,7 @@ const T = {
     "features.watermark": "Marca de agua", "features.watermark_desc": "Sello superpuesto",
     "features.ocr_desc": "5 idiomas soportados",
     "features.convert": "Convertir",
-    "features.editor": "Editor Visual", "features.editor_desc": "Censurar, texto, im\u00e1genes",
+    "features.editor": "Editor Visual", "features.editor_desc": "Censurar, texto, im\u00e1genes, firmas",
     "features.info": "Info", "features.info_desc": "Metadatos y propiedades del PDF",
     "features.import": "Importar", "features.import_desc": "TXT, imágenes y Markdown a PDF", "hero.stat_langs": "Idiomas",
     "why.title": "\u00bfPor qu\u00e9 PDFApps?",
@@ -1492,7 +1509,7 @@ const T = {
     "compare.feature": "Funci\u00f3n", "compare.offline": "Funciona Offline", "compare.free": "Completamente Gratis",
     "compare.opensource": "C\u00f3digo Abierto", "compare.noaccount": "Sin Cuenta Necesaria",
     "compare.visual_editor": "Editor Visual", "compare.crossplatform": "Multiplataforma",
-    "compare.multilang": "Multi-Idioma (8)", "compare.autoupdate": "Actualizaci\u00f3n Autom\u00e1tica", "compare.import": "Importar (TXT/IMG/MD)", "compare.print": "Imprimir",
+    "compare.multilang": "Multi-Idioma (8)", "compare.autoupdate": "Actualizaci\u00f3n Autom\u00e1tica", "compare.import": "Importar (TXT/IMG/MD)", "compare.print": "Imprimir", "compare.signature": "Firma", "compare.presentation": "Modo Presentaci\u00f3n",
     "compare.yes": "S\u00ed", "compare.partial": "Parcial / Limitado", "compare.no": "No",
     "cta.title": "\u00bfListo para controlar tus PDFs?", "cta.desc": "Descarga PDFApps gratis y empieza a trabajar con tus documentos offline.",
     "cta.download": "Descargar PDFApps", "cta.github": "Ver en GitHub",
@@ -1520,7 +1537,7 @@ const T = {
     "features.watermark": "Filigrane", "features.watermark_desc": "Tampon superpos\u00e9",
     "features.ocr_desc": "5 langues support\u00e9es",
     "features.convert": "Convertir",
-    "features.editor": "\u00c9diteur Visuel", "features.editor_desc": "Censurer, texte, images",
+    "features.editor": "\u00c9diteur Visuel", "features.editor_desc": "Censurer, texte, images, signatures",
     "features.info": "Info", "features.info_desc": "Métadonnées et propriétés du PDF",
     "features.import": "Importer", "features.import_desc": "TXT, images et Markdown en PDF", "hero.stat_langs": "Langues",
     "why.title": "Pourquoi PDFApps ?",
@@ -1548,7 +1565,7 @@ const T = {
     "compare.feature": "Fonction", "compare.offline": "Fonctionne hors ligne", "compare.free": "Enti\u00e8rement gratuit",
     "compare.opensource": "Open Source", "compare.noaccount": "Sans compte requis",
     "compare.visual_editor": "\u00c9diteur Visuel", "compare.crossplatform": "Multiplateforme",
-    "compare.multilang": "Multi-Langue (8)", "compare.autoupdate": "Mise à jour auto", "compare.import": "Importer (TXT/IMG/MD)", "compare.print": "Imprimer",
+    "compare.multilang": "Multi-Langue (8)", "compare.autoupdate": "Mise \u00e0 jour auto", "compare.import": "Importer (TXT/IMG/MD)", "compare.print": "Imprimer", "compare.signature": "Signature", "compare.presentation": "Mode Pr\u00e9sentation",
     "compare.yes": "Oui", "compare.partial": "Partiel / Limit\u00e9", "compare.no": "Non",
     "cta.title": "Pr\u00eat \u00e0 reprendre le contr\u00f4le de vos PDF ?", "cta.desc": "T\u00e9l\u00e9chargez PDFApps gratuitement et travaillez avec vos documents hors ligne.",
     "cta.download": "T\u00e9l\u00e9charger PDFApps", "cta.github": "Voir sur GitHub",
@@ -1576,7 +1593,7 @@ const T = {
     "features.watermark": "Wasserzeichen", "features.watermark_desc": "Stempel\u00fcberlagerung",
     "features.ocr_desc": "5 Sprachen unterst\u00fctzt",
     "features.convert": "Konvertieren",
-    "features.editor": "Visueller Editor", "features.editor_desc": "Schw\u00e4rzen, Text, Bilder",
+    "features.editor": "Visueller Editor", "features.editor_desc": "Schw\u00e4rzen, Text, Bilder, Unterschriften",
     "features.info": "Info", "features.info_desc": "PDF-Metadaten & Eigenschaften",
     "features.import": "Importieren", "features.import_desc": "TXT, Bilder & Markdown zu PDF", "hero.stat_langs": "Sprachen",
     "why.title": "Warum PDFApps?",
@@ -1604,7 +1621,7 @@ const T = {
     "compare.feature": "Funktion", "compare.offline": "Offline nutzbar", "compare.free": "Komplett kostenlos",
     "compare.opensource": "Open Source", "compare.noaccount": "Kein Konto n\u00f6tig",
     "compare.visual_editor": "Visueller Editor", "compare.crossplatform": "Plattform\u00fcbergreifend",
-    "compare.multilang": "Mehrsprachig (8)", "compare.autoupdate": "Auto-Update", "compare.import": "Importieren (TXT/IMG/MD)", "compare.print": "Drucken",
+    "compare.multilang": "Mehrsprachig (8)", "compare.autoupdate": "Auto-Update", "compare.import": "Importieren (TXT/IMG/MD)", "compare.print": "Drucken", "compare.signature": "Unterschrift", "compare.presentation": "Pr\u00e4sentationsmodus",
     "compare.yes": "Ja", "compare.partial": "Teilweise / Begrenzt", "compare.no": "Nein",
     "cta.title": "Bereit, deine PDFs zu kontrollieren?", "cta.desc": "Lade PDFApps kostenlos herunter und arbeite offline mit deinen Dokumenten.",
     "cta.download": "PDFApps herunterladen", "cta.github": "Auf GitHub ansehen",
@@ -1632,7 +1649,7 @@ const T = {
     "features.watermark": "\u6c34\u5370", "features.watermark_desc": "\u8986\u76d6\u5370\u7ae0",
     "features.ocr_desc": "\u652f\u63015\u79cd\u8bed\u8a00",
     "features.convert": "\u8f6c\u6362",
-    "features.editor": "\u53ef\u89c6\u5316\u7f16\u8f91\u5668", "features.editor_desc": "\u6d82\u9ed1\u3001\u6587\u5b57\u3001\u56fe\u7247",
+    "features.editor": "\u53ef\u89c6\u5316\u7f16\u8f91\u5668", "features.editor_desc": "\u6d82\u9ed1\u3001\u6587\u5b57\u3001\u56fe\u7247\u3001\u7b7e\u540d",
     "features.info": "信息", "features.info_desc": "PDF 元数据和属性",
     "features.import": "导入", "features.import_desc": "TXT、图片和 Markdown 转 PDF", "hero.stat_langs": "种语言",
     "why.title": "\u4e3a\u4ec0\u4e48\u9009\u62e9 PDFApps\uff1f",
@@ -1660,7 +1677,7 @@ const T = {
     "compare.feature": "\u529f\u80fd", "compare.offline": "\u79bb\u7ebf\u5de5\u4f5c", "compare.free": "\u5b8c\u5168\u514d\u8d39",
     "compare.opensource": "\u5f00\u6e90", "compare.noaccount": "\u65e0\u9700\u8d26\u53f7",
     "compare.visual_editor": "\u53ef\u89c6\u5316\u7f16\u8f91\u5668", "compare.crossplatform": "\u8de8\u5e73\u53f0",
-    "compare.multilang": "\u591a\u8bed\u8a00 (8)", "compare.autoupdate": "\u81ea\u52a8\u66f4\u65b0", "compare.import": "\u5bfc\u5165 (TXT/IMG/MD)", "compare.print": "\u6253\u5370",
+    "compare.multilang": "\u591a\u8bed\u8a00 (8)", "compare.autoupdate": "\u81ea\u52a8\u66f4\u65b0", "compare.import": "\u5bfc\u5165 (TXT/IMG/MD)", "compare.print": "\u6253\u5370", "compare.signature": "\u7b7e\u540d", "compare.presentation": "\u6f14\u793a\u6a21\u5f0f",
     "compare.yes": "\u662f", "compare.partial": "\u90e8\u5206 / \u6709\u9650", "compare.no": "\u5426",
     "cta.title": "\u51c6\u5907\u597d\u63a7\u5236\u4f60\u7684 PDF \u4e86\u5417\uff1f", "cta.desc": "\u514d\u8d39\u4e0b\u8f7d PDFApps\uff0c\u5f00\u59cb\u79bb\u7ebf\u5904\u7406\u4f60\u7684\u6587\u6863\u3002",
     "cta.download": "\u4e0b\u8f7d PDFApps", "cta.github": "\u5728 GitHub \u67e5\u770b",
@@ -1688,7 +1705,7 @@ const T = {
     "features.watermark": "Filigrana", "features.watermark_desc": "Timbro sovrapposto",
     "features.ocr_desc": "5 lingue supportate",
     "features.convert": "Converti",
-    "features.editor": "Editor Visuale", "features.editor_desc": "Censura, testo, immagini",
+    "features.editor": "Editor Visuale", "features.editor_desc": "Censura, testo, immagini, firme",
     "features.info": "Info", "features.info_desc": "Metadati e proprietà del PDF",
     "features.import": "Importare", "features.import_desc": "TXT, immagini e Markdown in PDF", "hero.stat_langs": "Lingue",
     "why.title": "Perch\u00e9 PDFApps?",
@@ -1716,7 +1733,7 @@ const T = {
     "compare.feature": "Funzione", "compare.offline": "Funziona Offline", "compare.free": "Completamente Gratuito",
     "compare.opensource": "Open Source", "compare.noaccount": "Senza Account",
     "compare.visual_editor": "Editor Visuale", "compare.crossplatform": "Multipiattaforma",
-    "compare.multilang": "Multi-Lingua (8)", "compare.autoupdate": "Aggiornamento Auto", "compare.import": "Importare (TXT/IMG/MD)", "compare.print": "Stampare",
+    "compare.multilang": "Multi-Lingua (8)", "compare.autoupdate": "Aggiornamento Auto", "compare.import": "Importare (TXT/IMG/MD)", "compare.print": "Stampare", "compare.signature": "Firma", "compare.presentation": "Modalit\u00e0 Presentazione",
     "compare.yes": "S\u00ec", "compare.partial": "Parziale / Limitato", "compare.no": "No",
     "cta.title": "Pronto a controllare i tuoi PDF?", "cta.desc": "Scarica PDFApps gratis e inizia a lavorare con i tuoi documenti offline.",
     "cta.download": "Scarica PDFApps", "cta.github": "Vedi su GitHub",
@@ -1744,7 +1761,7 @@ const T = {
     "features.watermark": "Watermerk", "features.watermark_desc": "Stempeloverlay",
     "features.ocr_desc": "5 talen ondersteund",
     "features.convert": "Converteren",
-    "features.editor": "Visuele Editor", "features.editor_desc": "Censureren, tekst, afbeeldingen",
+    "features.editor": "Visuele Editor", "features.editor_desc": "Censureren, tekst, afbeeldingen, handtekeningen",
     "features.info": "Info", "features.info_desc": "PDF-metadata en eigenschappen",
     "features.import": "Importeren", "features.import_desc": "TXT, afbeeldingen & Markdown naar PDF", "hero.stat_langs": "Talen",
     "why.title": "Waarom PDFApps?",
@@ -1772,7 +1789,7 @@ const T = {
     "compare.feature": "Functie", "compare.offline": "Werkt Offline", "compare.free": "Volledig Gratis",
     "compare.opensource": "Open Source", "compare.noaccount": "Geen Account Nodig",
     "compare.visual_editor": "Visuele Editor", "compare.crossplatform": "Cross-platform",
-    "compare.multilang": "Meertalig (8)", "compare.autoupdate": "Auto-update", "compare.import": "Importeren (TXT/IMG/MD)", "compare.print": "Afdrukken",
+    "compare.multilang": "Meertalig (8)", "compare.autoupdate": "Auto-update", "compare.import": "Importeren (TXT/IMG/MD)", "compare.print": "Afdrukken", "compare.signature": "Handtekening", "compare.presentation": "Presentatiemodus",
     "compare.yes": "Ja", "compare.partial": "Gedeeltelijk / Beperkt", "compare.no": "Nee",
     "cta.title": "Klaar om je PDF's te beheren?", "cta.desc": "Download PDFApps gratis en begin offline met je documenten te werken.",
     "cta.download": "Download PDFApps", "cta.github": "Bekijk op GitHub",
