@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QWidget, QApplication
 from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QFont
 import qtawesome as qta
 
-from app.constants import BG_INNER, TEXT_SEC
+from app.constants import BG_INNER, TEXT_SEC, _LN
 from app.i18n import t
 
 _PAGE_GAP       = 4    # px between pages
@@ -109,6 +109,7 @@ class _SelectCanvas(QWidget):
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.IBeamCursor)
         self.setMinimumSize(300, 400)
+        self._bg_color = BG_INNER
 
     # ── Public API ───────────────────────────────────────────────────────────
 
@@ -156,6 +157,10 @@ class _SelectCanvas(QWidget):
     def zoom_reset(self):
         self._zoom_factor = 1.0
         self._invalidate_and_relayout()
+
+    def set_dark_mode(self, dark: bool):
+        self._bg_color = BG_INNER if dark else _LN
+        self.update()
 
     def close_doc(self):
         self._gen += 1
@@ -353,7 +358,7 @@ class _SelectCanvas(QWidget):
 
     def paintEvent(self, _):
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor(BG_INNER))
+        p.fillRect(self.rect(), QColor(self._bg_color))
 
         if not self._entries:
             p.setPen(QColor(TEXT_SEC))

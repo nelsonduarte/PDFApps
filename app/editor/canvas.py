@@ -3,7 +3,7 @@
 from PySide6.QtCore import Qt, Signal, QRect, QPoint
 from PySide6.QtWidgets import QWidget, QSizePolicy
 
-from app.constants import ACCENT, BG_INNER, TEXT_SEC
+from app.constants import ACCENT, BG_INNER, TEXT_SEC, _LN
 from app.i18n import t
 
 _NOTE_ICON_SIZE = 22
@@ -34,6 +34,11 @@ class PdfEditCanvas(QWidget):
         self.setCursor(Qt.CursorShape.CrossCursor)
         self.setMinimumSize(300, 400)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._bg_color = BG_INNER
+
+    def set_dark_mode(self, dark: bool):
+        self._bg_color = BG_INNER if dark else _LN
+        self.update()
 
     def set_select_mode(self, active: bool):
         self._select_mode = active
@@ -188,7 +193,7 @@ class PdfEditCanvas(QWidget):
     def paintEvent(self, _):
         from PySide6.QtGui import QPainter, QColor, QPen, QFont
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor(BG_INNER))
+        p.fillRect(self.rect(), QColor(self._bg_color))
 
         if not self._page_pixmaps:
             p.setPen(QColor(TEXT_SEC))

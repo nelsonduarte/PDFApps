@@ -328,6 +328,10 @@ class TabEditar(QWidget):
 
     def update_theme(self, dark: bool) -> None:
         self._dark_mode = dark
+        from app.constants import BG_INNER, _LN
+        bg = BG_INNER if dark else _LN
+        self._canvas.set_dark_mode(dark)
+        self._canvas_scroll.setStyleSheet(f"QScrollArea {{ background: {bg}; }}")
         pri = TEXT_PRI if dark else _LP
         sec = TEXT_SEC if dark else _LQ
         self._btn_prev.setIcon(qta.icon("fa5s.chevron-left", color=pri))

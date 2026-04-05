@@ -243,6 +243,7 @@ class PdfViewerPanel(QWidget):
         return super().eventFilter(obj, event)
 
     def update_theme(self, dark: bool) -> None:
+        self._canvas.set_dark_mode(dark)
         c = TEXT_SEC if dark else _LQ
         self._open_btn.setIcon(qta.icon('fa5s.folder-open',          color=c))
         self._prev_btn.setIcon(qta.icon('fa5s.chevron-left',          color=c))
