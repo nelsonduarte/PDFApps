@@ -70,6 +70,8 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 ### Integrated viewer
 
 - **Print** — print any open PDF via system print dialog with high-resolution rendering
+- **Presentation mode (F5)** — fullscreen slideshow with keyboard navigation (arrows, Space, PgUp/PgDn, Home/End)
+- **Fullscreen (F11)** — distraction-free viewing with hidden toolbars
 - **Tabbed viewing** — open multiple PDFs in tabs, switch between them
 - Continuous scroll through all pages (Adobe Acrobat style)
 - **Lazy rendering** — opens instantly; pages rendered in background as they are viewed
@@ -79,7 +81,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 - Text selection and copy by dragging
 - **Comment popups** — view and delete annotations with pencil icons and balloon popups
 - Password-protected PDF support
-- Drag & drop file support
+- **Drag & drop** — drop a PDF anywhere in the window to open it
 
 ### Editor
 
@@ -94,7 +96,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 - **Localized installer** — installer and uninstaller detect the OS language and display in the user's language
 - **Recent files** — quick access to the last 10 opened PDFs via history icon
 - **Help guide** — ? button opens the online user guide
-- Modern dark/light theme with collapsible sidebar
+- Modern dark/light theme with toggle sidebar
 - Full drag and drop support across all file fields
 - Cross-platform: Windows, macOS and Linux
 - Installer with automatic OCR engine (Tesseract) and Ghostscript detection and installation
@@ -223,7 +225,8 @@ PDFApps/
 │   │   └── ocr.py
 │   ├── viewer/             # Integrated PDF viewer
 │   │   ├── canvas.py       # Lazy page rendering in background threads (fitz)
-│   │   └── panel.py        # Viewer panel with controls
+│   │   ├── panel.py        # Viewer panel with controls
+│   │   └── presentation.py # Fullscreen presentation mode (F5)
 │   └── editor/             # Visual PDF editor
 │       ├── canvas.py       # Edit canvas (PdfEditCanvas)
 │       ├── tab.py          # Edit tab (TabEditar)
@@ -233,9 +236,23 @@ PDFApps/
 
 ---
 
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| **F5** | Start presentation mode |
+| **F11** | Toggle fullscreen |
+| **Ctrl+F** | Search text in PDF |
+| **Ctrl+Z** | Undo (editor) |
+| **Ctrl+Y** | Redo (editor) |
+| **Ctrl+Scroll** | Zoom in/out |
+| **Escape** | Exit presentation / close search |
+
+---
+
 ## Contributing
 
-Contributions are welcome! Feel free to open issues or submit pull requests.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer guide — architecture, modules, functions, and how to add new tools.
 
 ---
 

@@ -136,7 +136,8 @@ PDFApps/
 │   ├── viewer/             # ── PDF viewer subsystem ──
 │   │   ├── __init__.py
 │   │   ├── panel.py        # PdfViewerPanel — viewer UI (header, search, print)
-│   │   └── canvas.py       # _SelectCanvas — threaded continuous-scroll renderer (~450 lines)
+│   │   ├── canvas.py       # _SelectCanvas — threaded continuous-scroll renderer (~450 lines)
+│   │   └── presentation.py # PresentationWidget — fullscreen slideshow (F5)
 │   │
 │   ├── editor/             # ── PDF editor subsystem ──
 │   │   ├── __init__.py
@@ -301,11 +302,20 @@ Each tuple maps a translated name, a Font Awesome icon, and a Tab class. The sid
 | Method | Parameters | Description |
 |--------|-----------|-------------|
 | `_toggle_sidebar()` | — | Toggles sidebar visibility (fully hides/shows) |
+| `_toggle_fullscreen()` | — | Toggles fullscreen (F11): hides/shows workspace bar, sidebar, status bar |
+| `_start_presentation()` | — | Starts presentation mode (F5): opens `PresentationWidget` fullscreen |
 | `_toggle_theme()` | — | Switches dark↔light mode and saves preference |
 | `_apply_theme()` | — | Reapplies QSS, palette, and all icon colors |
 | `_set_status(msg)` | `msg: str` | Shows message in status bar |
 | `_show_language_menu()` | — | Shows language selection popup |
 | `_set_language(code, name)` | `code: str, name: str` | Changes language, shows restart message |
+
+**Drag & Drop:**
+
+| Method | Parameters | Description |
+|--------|-----------|-------------|
+| `dragEnterEvent(e)` | `QDragEnterEvent` | Accepts drop if dragged file is a PDF |
+| `dropEvent(e)` | `QDropEvent` | Opens dropped PDF via `_load_and_track()` |
 
 **Auto-Update:**
 
@@ -835,6 +845,48 @@ Runs in `QThreadPool`. Each job:
 4. Emits `page_ready(generation, page_index, pixmap, words)`
 
 The `generation` counter prevents stale results from a previous zoom level being applied.
+
+### `app/viewer/presentation.py` — `PresentationWidget(QWidget)`
+
+A standalone fullscreen widget for slideshow-style PDF viewing. Launched via F5 or the toolbar button.
+
+- Opens as a **top-level window** (`Qt.WindowType.Window`) in fullscreen state
+- Renders one page at a time, scaled to fit the screen
+- Black background with the page centered
+- Cursor hidden for a clean presentation look
+
+**Keyboard Navigation:**
+
+| Key | Action |
+|-----|--------|
+| `Right`, `Down`, `Space`, `PageDown` | Next page |
+| `Left`, `Up`, `Backspace`, `PageUp` | Previous page |
+| `Home` | First page |
+| `End` | Last page |
+| `Escape` | Close presentation |
+
+**Page counter overlay:** Shows `"3 / 15"` at the bottom center, auto-hides after 3 seconds via `QTimer`, re-shown on every page change.
+
+**Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `__init__(path, password, start_page, total_pages)` | Creates widget, initialises all attributes before `setWindowState` (avoids `resizeEvent` crash) |
+| `_render()` | Opens fitz doc, renders current page at screen-fit zoom × DPR, stores pixmap |
+| `_update_counter()` | Updates counter label text and position, starts hide timer |
+| `paintEvent(_)` | Fills black, draws centered pixmap |
+| `keyPressEvent(e)` | Handles all navigation keys |
+| `resizeEvent(_)` | Repositions counter and re-renders (guarded by `_ready` flag) |
+
+**Important implementation detail:** All instance attributes (`_counter`, `_hide_timer`, etc.) must be created **before** calling `setWindowState(WindowFullScreen)`, because Qt fires `resizeEvent` immediately during that call.
+
+### Fullscreen Mode (F11)
+
+Fullscreen is handled directly in `MainWindow._toggle_fullscreen()`:
+
+- **Enter:** Hides `_workspace_bar`, `_sidebar`, and status bar; calls `showFullScreen()`
+- **Exit:** Restores visibility (respecting `_sidebar_collapsed` state); calls `showMaximized()`
+- Bound to F11 via `QShortcut`
 
 ---
 
