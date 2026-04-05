@@ -142,7 +142,7 @@ PDFApps/
 │   ├── editor/             # ── PDF editor subsystem ──
 │   │   ├── __init__.py
 │   │   ├── tab.py          # TabEditar — editor tool with 8 modes (~650 lines)
-│   │   ├── canvas.py       # PdfEditCanvas — single-page edit canvas with overlays
+│   │   ├── canvas.py       # PdfEditCanvas — continuous-scroll edit canvas with overlays
 │   │   └── dialogs.py      # Text, note, password, text-edit dialogs
 │   │
 │   └── tools/              # ── 13 tool tabs ──
@@ -926,7 +926,7 @@ The visual PDF editor tool (~650 lines). Does **not** inherit from `BasePage` �
 └──────────────────────────────────────────────────────────┘
 ```
 
-#### 8 Editing Modes
+#### 9 Editing Modes
 
 | # | Mode | Mouse Action | Creates Overlay | Dialog |
 |---|------|-------------|----------------|--------|
@@ -937,7 +937,8 @@ The visual PDF editor tool (~650 lines). Does **not** inherit from `BasePage` �
 | 5 | Note/Comment | Click point | `{type: "note", point, text, page}` | `_NoteDialog` |
 | 6 | Fill Forms | Auto-detect | Form field table | — |
 | 7 | Edit Text | Click on text | `{type: "text_edit", bbox, old, new, page}` | `_TextEditDialog` |
-| 8 | Select | Text selection | — | — |
+| 8 | Signature | Draw rectangle | `{type: "signature", rect, path, page}` | `_SignatureDialog` |
+| 9 | Select | Text selection | — | — |
 
 #### Overlay System
 
@@ -1003,14 +1004,14 @@ Overlays are painted by `PdfEditCanvas.paintEvent()` on top of the PDF pixmap. W
 
 ### `app/editor/canvas.py` — `PdfEditCanvas(QWidget)`
 
-Single-page canvas for the editor. Simpler than the viewer canvas — no threading, no continuous scroll.
+Continuous-scroll canvas for the editor. Renders all pages vertically with a 4px gap. Overlays are drawn at the correct page offset.
 
 #### Signals
 
 | Signal | Type | Description |
 |--------|------|-------------|
-| `rect_selected` | `Signal(object)` | User finished drawing a rectangle (fitz.Rect in PDF coords) |
-| `point_clicked` | `Signal(object)` | User clicked a point (fitz.Point in PDF coords) |
+| `rect_selected` | `Signal(int, object)` | User finished drawing a rectangle (page_idx, fitz.Rect in PDF coords) |
+| `point_clicked` | `Signal(int, object)` | User clicked a point (page_idx, fitz.Point in PDF coords) |
 | `note_deleted` | `Signal(dict)` | User deleted a note overlay via context menu |
 | `zoom_changed` | `Signal(int)` | Zoom percentage changed |
 
@@ -1019,18 +1020,21 @@ Single-page canvas for the editor. Simpler than the viewer canvas — no threadi
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `load` | `(path: str)` | Opens PDF with fitz, renders first page |
-| `set_page` | `(idx: int)` | Switches to page and re-renders |
-| `set_overlays` | `(overlays: list)` | Sets overlay list to paint on canvas |
+| `set_page` | `(idx: int)` | Sets current page index (used by tab navigation) |
+| `set_overlays` | `(overlays: list)` | Sets ALL overlay dicts to paint (all pages) |
 | `set_select_mode` | `(active: bool)` | Toggles text selection cursor |
-| `get_span_at` | `(pdf_pt) -> dict\|None` | Returns closest text span to a PDF point |
+| `get_span_at` | `(page_idx, pdf_pt) -> dict\|None` | Returns closest text span on given page |
 | `close_doc` | `()` | Fully closes document and resets canvas |
 | `release_doc` | `()` | Closes fitz doc to release file lock |
 | `zoom_in` / `zoom_out` / `zoom_reset` | `()` | Zoom controls (1.25× steps) |
 | `page_count` | `() -> int` | Total pages |
-| `_render` | `()` | Renders current page at zoom × DPR |
-| `_to_pdf` | `(sx, sy) -> (float, float)` | Converts screen → PDF coordinates |
-| `paintEvent` | `(_)` | Paints page pixmap + all overlay types |
-| `mouseReleaseEvent` | `(e)` | Emits `rect_selected` or `point_clicked` depending on drag vs click |
+| `scroll_to_page` | `(idx: int) -> int` | Returns Y offset for a page index |
+| `page_at_y` | `(y: int) -> int` | Returns page index at Y position |
+| `_render` | `()` | Renders ALL pages at zoom × DPR, stacked vertically |
+| `_page_and_local` | `(sx, sy) -> (page_idx, lx, ly)` | Converts screen coords to page-local coords |
+| `_to_pdf` | `(page_idx, sx, sy)` | Converts page-local screen → PDF coordinates |
+| `paintEvent` | `(_)` | Paints all page pixmaps + overlays with page Y offsets |
+| `mouseReleaseEvent` | `(e)` | Emits `rect_selected(page_idx, rect)` or `point_clicked(page_idx, point)` |
 | `contextMenuEvent` | `(e)` | Right-click menu to delete note annotations |
 
 ### `app/editor/dialogs.py` — Editor Dialogs
@@ -1041,6 +1045,8 @@ Single-page canvas for the editor. Simpler than the viewer canvas — no threadi
 | `_TextDialog` | New text insertion (text, size, color) | `.edit` (QLineEdit), `.font_size` (QSpinBox), `.color_tuple()` → RGB |
 | `_TextEditDialog` | Edit existing text (shows original) | `.new_text()` → str |
 | `_NoteDialog` | Note/comment input | `.edit` (QTextEdit) |
+| `_SignatureDialog` | Create signature (3 tabs: draw/type/import) | `.result_path()` → str (PNG path) |
+| `_SignatureCanvas` | Freehand drawing widget (used inside `_SignatureDialog`) | `.to_image()` → QImage, `.is_empty()`, `.clear()` |
 
 ---
 

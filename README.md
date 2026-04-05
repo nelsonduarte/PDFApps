@@ -63,7 +63,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 | **Watermark** | Overlay a watermark/stamp PDF on pages with opacity and position control |
 | **OCR** | Recognise text in scanned PDFs — supports PT, EN, ES, FR and DE |
 | **Convert** | Convert PDF to images (PNG/JPG with DPI control), Word (DOCX) or plain text (TXT) |
-| **Edit** | Inline visual editor: redact, insert text, image, highlight, notes, forms and edit existing text |
+| **Edit** | Inline visual editor: redact, insert text, image, signature, highlight, notes, forms and edit existing text |
 | **Import** | Convert text files (.txt), images (PNG/JPG/BMP) or Markdown (.md) to PDF — batch support |
 | **Info** | Show metadata, page count, size and document properties |
 
@@ -85,8 +85,9 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ### Editor
 
+- **Continuous scroll** — all pages visible at once, scroll through the entire document
+- **Signature** — draw, type (cursive fonts), or import an image signature; save for reuse; drag to place on PDF
 - **Undo/Redo** — Ctrl+Z / Ctrl+Y with full action history
-- **Password confirmation** — retype password when encrypting PDFs
 - Redact, insert text, images, highlights, notes, forms and edit existing text
 
 ### Other highlights
