@@ -1,5 +1,5 @@
 PySide6>=6.10.2
-pypdf>=6.8.0
+pypdf>=6.9.2
 qtawesome>=1.4.1
 pillow>=12.1.1
 pymupdf>=1.27.2
