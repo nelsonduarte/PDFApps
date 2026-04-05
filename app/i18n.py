@@ -148,5 +148,29 @@ def add_recent_file(path: str):
         json.dump(cfg, f)
 
 
+_SIGNATURE_PATH = os.path.join(os.path.expanduser("~"), ".pdfapps_signature.png")
+
+
+def get_saved_signature() -> str | None:
+    """Return path to saved signature image, or None."""
+    if os.path.isfile(_SIGNATURE_PATH):
+        return _SIGNATURE_PATH
+    return None
+
+
+def save_signature(img_path: str):
+    """Copy signature image to persistent location."""
+    import shutil
+    shutil.copy2(img_path, _SIGNATURE_PATH)
+
+
+def clear_saved_signature():
+    """Remove saved signature."""
+    try:
+        os.remove(_SIGNATURE_PATH)
+    except OSError:
+        pass
+
+
 # Auto-init on import
 init()

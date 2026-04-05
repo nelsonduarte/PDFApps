@@ -35,6 +35,7 @@ class TabEditar(QWidget):
         ("edit.mode.note",      "fa5s.sticky-note"),
         ("edit.mode.forms",     "fa5s.clipboard-list"),
         ("edit.mode.edit_text", "fa5s.i-cursor"),
+        ("edit.mode.signature", "fa5s.signature"),
         ("edit.mode.select",    "fa5s.mouse-pointer"),
     ]
 
@@ -72,10 +73,14 @@ class TabEditar(QWidget):
         self._canvas = PdfEditCanvas()
         self._canvas.rect_selected.connect(self._on_rect)
         self._canvas.point_clicked.connect(self._on_point)
+        # Scroll to page when arrows are used
+        self._canvas_scroll_to_page = None  # set after canvas_scroll is created
         self._canvas.note_deleted.connect(self._on_note_deleted)
+        from app.constants import BG_INNER
         canvas_scroll = QScrollArea()
         canvas_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        canvas_scroll.setWidgetResizable(True)
+        canvas_scroll.setWidgetResizable(False)
+        canvas_scroll.setStyleSheet(f"QScrollArea {{ background: {BG_INNER}; }}")
         canvas_scroll.setWidget(self._canvas)
         canvas_scroll.setMinimumWidth(320)
         canvas_scroll.viewport().installEventFilter(self)
@@ -208,7 +213,39 @@ class TabEditar(QWidget):
         v6.addWidget(hint6); v6.addStretch()
         self._opt_stack.addWidget(w6)
 
-        # 7 - Select / Copy text
+        # 7 - Signature
+        w7 = QWidget(); v7s = QVBoxLayout(w7); v7s.setContentsMargins(0,4,0,0); v7s.setSpacing(6)
+        self._sig_preview = QLabel(t("edit.signature.none"))
+        self._sig_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._sig_preview.setMinimumHeight(50)
+        self._sig_preview.setStyleSheet("background: white; border: 1px solid #ccc; border-radius: 4px;")
+        v7s.addWidget(self._sig_preview)
+        sig_choose = QPushButton(t("edit.signature.choose"))
+        sig_choose.setIcon(qta.icon("fa5s.signature", color=TEXT_PRI))
+        sig_choose.clicked.connect(self._pick_signature)
+        v7s.addWidget(sig_choose)
+        sig_clear = QPushButton(t("edit.signature.clear"))
+        sig_clear.clicked.connect(self._clear_signature)
+        v7s.addWidget(sig_clear)
+        hint7s = QLabel(t("edit.hint.signature"))
+        hint7s.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        hint7s.setWordWrap(True)
+        v7s.addWidget(hint7s); v7s.addStretch()
+        self._opt_stack.addWidget(w7)
+        self._signature_path = None
+        # Load saved signature
+        from app.i18n import get_saved_signature
+        saved = get_saved_signature()
+        if saved:
+            self._signature_path = saved
+            from PySide6.QtGui import QPixmap
+            pix = QPixmap(saved)
+            if not pix.isNull():
+                self._sig_preview.setPixmap(pix.scaled(
+                    200, 50, Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation))
+
+        # 8 - Select / Copy text
         w7 = QWidget(); v7 = QVBoxLayout(w7); v7.setContentsMargins(0,4,0,0); v7.setSpacing(6)
         hint7 = QLabel(t("edit.hint.select"))
         hint7.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
@@ -326,15 +363,19 @@ class TabEditar(QWidget):
         self._btn_next.setEnabled(n > 0 and self._page_idx < n - 1)
         self._lbl_page.setText(f"{self._page_idx+1} / {n}" if n else "—")
 
+    def _scroll_to(self, idx):
+        self._page_idx = idx
+        y = self._canvas.scroll_to_page(idx)
+        self._canvas_scroll.verticalScrollBar().setValue(y)
+        self._update_nav()
+
     def _prev_page(self):
         if self._page_idx > 0:
-            self._page_idx -= 1; self._canvas.set_page(self._page_idx); self._update_nav()
-            self._canvas.set_overlays([e for e in self._pending if e["page"] == self._page_idx])
+            self._scroll_to(self._page_idx - 1)
 
     def _next_page(self):
         if self._page_idx < self._canvas.page_count() - 1:
-            self._page_idx += 1; self._canvas.set_page(self._page_idx); self._update_nav()
-            self._canvas.set_overlays([e for e in self._pending if e["page"] == self._page_idx])
+            self._scroll_to(self._page_idx + 1)
 
     def _on_mode_btn(self, btn):
         idx = self._mode_btn_idx.get(id(btn), 0)
@@ -363,14 +404,17 @@ class TabEditar(QWidget):
                         "background:#FFFFFF; border:1px solid #C7D8D3; "
                         "color:#5D7470; border-radius:6px; padding:6px 8px; text-align:center;")
         self._opt_stack.setCurrentIndex(idx)
-        self._canvas.set_select_mode(idx == 7)
+        self._canvas.set_select_mode(idx == 8)
         # Text-related modes get a text cursor
         if idx in (1, 4, 6):
             self._canvas.setCursor(Qt.CursorShape.IBeamCursor)
-        elif idx != 7:
+        elif idx != 8:
             self._canvas.setCursor(Qt.CursorShape.CrossCursor)
         if idx == 2:
             self._pick_image()
+        elif idx == 7:
+            if not self._signature_path or not os.path.isfile(self._signature_path):
+                self._pick_signature()
 
     def _pick_pdf(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
@@ -427,7 +471,7 @@ class TabEditar(QWidget):
                             self._pending_list.addItem(f"Note — p. {page_idx+1}")
                             count += 1
             self._status(f"ℹ  {count} note(s) loaded ({total_annots} total annots)")
-            self._canvas.set_overlays([e for e in self._pending if e["page"] == self._page_idx])
+            self._canvas.set_overlays(self._pending)
         except Exception as ex:
             self._status(f"⚠  Annotation load error: {ex}")
 
@@ -451,6 +495,28 @@ class TabEditar(QWidget):
             self._img_drop.set_path(p)
             self._img_drop.blockSignals(False)
 
+    def _pick_signature(self):
+        from app.editor.dialogs import _SignatureDialog
+        dlg = _SignatureDialog(self)
+        if dlg.exec() == _SignatureDialog.DialogCode.Accepted:
+            path = dlg.result_path()
+            if path and os.path.isfile(path):
+                self._signature_path = path
+                from PySide6.QtGui import QPixmap
+                pix = QPixmap(path)
+                if not pix.isNull():
+                    self._sig_preview.setPixmap(pix.scaled(
+                        200, 50, Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation))
+
+    def _clear_signature(self):
+        from PySide6.QtGui import QPixmap
+        self._signature_path = None
+        self._sig_preview.setText(t("edit.signature.none"))
+        self._sig_preview.setPixmap(QPixmap())
+        from app.i18n import clear_saved_signature
+        clear_saved_signature()
+
     def _load_form_fields(self, path):
         self._form_table.setRowCount(0)
         try:
@@ -464,12 +530,14 @@ class TabEditar(QWidget):
 
     # ── canvas callbacks ─────────────────────────────────────────────────────
 
-    def _on_rect(self, pdf_rect):
+    def _on_rect(self, page_idx, pdf_rect):
+        self._page_idx = page_idx
+        self._update_nav()
         mode = self._mode_idx
-        if mode == 7:
+        if mode == 8:
             doc = self._canvas._doc
             if not doc: return
-            text = doc[self._page_idx].get_text("text", clip=pdf_rect).strip()
+            text = doc[page_idx].get_text("text", clip=pdf_rect).strip()
             self._sel_result.setPlainText(text)
             if text:
                 QApplication.clipboard().setText(text)
@@ -481,7 +549,7 @@ class TabEditar(QWidget):
             import fitz
             center = fitz.Point((pdf_rect.x0 + pdf_rect.x1) / 2,
                                 (pdf_rect.y0 + pdf_rect.y1) / 2)
-            self._on_point(center); return
+            self._on_point(page_idx, center); return
         if mode == 0:
             self._add({"type": "redact", "page": self._page_idx, "rect": pdf_rect,
                        "fill": self._RED_FILLS[self._red_color.currentText()]})
@@ -492,16 +560,24 @@ class TabEditar(QWidget):
                 img = self._img_drop.path()
                 if not img or not os.path.isfile(img): return
             self._add({"type": "image", "page": self._page_idx, "rect": pdf_rect, "path": img})
+        elif mode == 7:
+            sig = self._signature_path
+            if not sig or not os.path.isfile(sig):
+                self._pick_signature()
+                sig = self._signature_path
+                if not sig or not os.path.isfile(sig): return
+            self._add({"type": "signature", "page": self._page_idx, "rect": pdf_rect, "path": sig})
         elif mode == 3:
             self._add({"type": "highlight", "page": self._page_idx, "rect": pdf_rect,
                        "color": self._HI_COLORS[self._hi_color.currentText()]})
 
-    def _on_point(self, pdf_pt):
-        # Check if clicking on an existing annotation in the document
+    def _on_point(self, page_idx, pdf_pt):
+        self._page_idx = page_idx
+        self._update_nav()
         doc = self._canvas._doc
         if doc:
             import fitz
-            page = doc[self._page_idx]
+            page = doc[page_idx]
             for annot in page.annots():
                 if annot.type[0] == fitz.PDF_ANNOT_TEXT:
                     expanded = annot.rect + fitz.Rect(-10, -10, 10, 10)
@@ -526,7 +602,7 @@ class TabEditar(QWidget):
             self._add({"type": "note", "page": self._page_idx, "point": pdf_pt, "text": txt})
         elif mode == 6:
             if not self._doc_path: return
-            found_span = self._canvas.get_span_at(pdf_pt)
+            found_span = self._canvas.get_span_at(page_idx, pdf_pt)
             if not found_span:
                 QMessageBox.information(self, t("msg.info"), t("edit.status.no_text")); return
             dlg = _TextEditDialog(found_span["text"], found_span["size"], self)
@@ -548,11 +624,12 @@ class TabEditar(QWidget):
             "highlight": lambda e: f"Highlight — p. {e['page']+1}",
             "note":      lambda e: f"Note — p. {e['page']+1}",
             "text_edit": lambda e: f"Edit '{e['old_text'][:15]}' → '{e['new_text'][:15]}' — p. {e['page']+1}",
+            "signature": lambda e: f"Signature — p. {e['page']+1}",
         }
         lbl = labels[edit["type"]](edit)
         self._pending_list.addItem(lbl)
         self._status(f"✏  {lbl} added — {len(self._pending)} pending edit(s)")
-        self._canvas.set_overlays([e for e in self._pending if e["page"] == self._page_idx])
+        self._canvas.set_overlays(self._pending)
 
     def _undo(self):
         if not self._pending:
@@ -560,7 +637,7 @@ class TabEditar(QWidget):
         edit = self._pending.pop()
         self._redo_stack.append(edit)
         self._pending_list.takeItem(self._pending_list.count() - 1)
-        self._canvas.set_overlays([e for e in self._pending if e["page"] == self._page_idx])
+        self._canvas.set_overlays(self._pending)
         self._status(f"↩  Undo — {len(self._pending)} pending edit(s)")
 
     def _redo(self):
@@ -609,7 +686,7 @@ class TabEditar(QWidget):
                     pg.add_redact_annot(e["rect"], fill=e["fill"]); pg.apply_redactions()
                 elif e["type"] == "text":
                     pg.insert_text(e["point"], e["text"], fontsize=e["size"], color=e["color"])
-                elif e["type"] == "image":
+                elif e["type"] in ("image", "signature"):
                     pg.insert_image(e["rect"], filename=e["path"])
                 elif e["type"] == "highlight":
                     a = pg.add_highlight_annot(e["rect"]); a.set_colors(stroke=e["color"]); a.update()
