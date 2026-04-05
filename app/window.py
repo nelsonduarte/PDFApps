@@ -355,6 +355,10 @@ class MainWindow(QMainWindow):
         from PySide6.QtGui import QShortcut, QKeySequence
         QShortcut(QKeySequence("F5"), self, self._start_presentation)
         QShortcut(QKeySequence("F11"), self, self._toggle_fullscreen)
+        QShortcut(QKeySequence("Ctrl+O"), self, self._open_pdf)
+        QShortcut(QKeySequence("Ctrl+P"), self, lambda: self._viewer._print_pdf())
+        QShortcut(QKeySequence("Ctrl+W"), self, self._close_current_tab)
+        QShortcut(QKeySequence("Ctrl+S"), self, self._save_current_tool)
         self._fullscreen = False
 
         # Apply saved theme (if light mode was saved)
@@ -643,6 +647,18 @@ class MainWindow(QMainWindow):
         path = e.mimeData().urls()[0].toLocalFile()
         if path.lower().endswith(".pdf"):
             self._load_and_track(path)
+
+    # ── Keyboard shortcut helpers ────────────────────────────────────────
+    def _close_current_tab(self):
+        idx = self._tab_bar.currentIndex()
+        if idx >= 0:
+            self._close_tab(idx)
+
+    def _save_current_tool(self):
+        if self._current_tool >= 0:
+            w = self.stack.widget(self._current_tool)
+            if hasattr(w, '_run'):
+                w._run()
 
     # ── Fullscreen & Presentation ──────────────────────────────────────────
     def _toggle_fullscreen(self):

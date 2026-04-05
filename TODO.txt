@@ -1,9 +1,21 @@
-Sugestões Prioritárias (Quick Wins)
-Aviso ao sobrescrever ficheiro de entrada
+Alta prioridade (UX diário)
+[DONE] Assinatura digital — desenhar/importar assinatura e colocar no PDF
+[DONE] Atalhos de teclado globais — Ctrl+O (abrir), Ctrl+S (guardar), Ctrl+P (imprimir), Ctrl+W (fechar tab)
+Bookmarks/Índice — painel lateral com o índice do PDF (TOC), clicável para navegar
+Anotações com caneta — desenho livre no editor (freehand drawing direto no PDF)
+Dark mode no canvas do viewer — inverter cores do PDF para leitura noturna
 
-Funcionalidades Maiores
-Thumbnails de páginas na sidebar do viewer
-Operações em batch — processar vários PDFs de uma vez
-Bookmarks/Índice — ver e editar marcadores do PDF
-Mais cores no highlight — color picker em vez de 4 presets
-Estilos de texto no editor — tamanho/fonte do texto adicionado
+Média prioridade (funcionalidades úteis)
+Comparar PDFs — vista lado a lado com diferenças destacadas
+Preencher formulários — melhor suporte a PDF forms (checkboxes, dropdowns, radio buttons)
+Batch processing — aplicar uma operação (comprimir, watermark, etc.) a vários PDFs de uma vez
+Crop/Trim páginas — cortar margens brancas ou redimensionar páginas
+Número de páginas — adicionar numeração (header/footer) a um PDF
+Juntar páginas lado a lado — 2 páginas por folha (N-up printing)
+
+Baixa prioridade (nice to have)
+Plugins/extensões — sistema para adicionar tools custom
+Auto-save de sessão — reabrir os PDFs que estavam abertos quando a app fechou
+Thumbnails na sidebar — pré-visualização de páginas ao lado do viewer
+Export para PDF/A — formato de arquivo para preservação a longo prazo
+Speech-to-text — ler o PDF em voz alta (acessibilidade)
