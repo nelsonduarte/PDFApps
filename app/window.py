@@ -81,8 +81,8 @@ class MainWindow(QMainWindow):
         root_v.setContentsMargins(0, 0, 0, 0)
         root_v.setSpacing(0)
 
-        workspace_bar = QWidget(); workspace_bar.setObjectName("workspace_bar")
-        wb_h = QHBoxLayout(workspace_bar)
+        self._workspace_bar = QWidget(); self._workspace_bar.setObjectName("workspace_bar")
+        wb_h = QHBoxLayout(self._workspace_bar)
         wb_h.setContentsMargins(16, 10, 16, 10)
         wb_h.setSpacing(8)
 
@@ -126,6 +126,14 @@ class MainWindow(QMainWindow):
         self._print_top_btn.setToolTip(t("viewer.print"))
         self._print_top_btn.clicked.connect(lambda: self._viewer._print_pdf())
         wb_h.addWidget(self._print_top_btn)
+
+        self._present_btn = QPushButton()
+        self._present_btn.setIcon(qta.icon("fa5s.tv", color=TEXT_PRI))
+        self._present_btn.setObjectName("viewer_nav_btn")
+        self._present_btn.setFixedSize(28, 28)
+        self._present_btn.setToolTip(t("viewer.presentation") + " (F5)")
+        self._present_btn.clicked.connect(self._start_presentation)
+        wb_h.addWidget(self._present_btn)
 
         self._search_top_btn = QPushButton()
         self._search_top_btn.setIcon(qta.icon("fa5s.search", color=TEXT_PRI))
@@ -211,7 +219,7 @@ class MainWindow(QMainWindow):
         self._update_ready.connect(self._notify_update)
         self._check_for_updates_async()
 
-        root_v.addWidget(workspace_bar)
+        root_v.addWidget(self._workspace_bar)
 
         body = QWidget(); body.setObjectName("workspace_shell")
         main_h = QHBoxLayout(body)
@@ -342,6 +350,12 @@ class MainWindow(QMainWindow):
         for i in range(self.stack.count()):
             for dfe in self.stack.widget(i).findChildren(DropFileEdit):
                 dfe.path_changed.connect(lambda p: self._viewer.load(p))
+
+        # Keyboard shortcuts
+        from PySide6.QtGui import QShortcut, QKeySequence
+        QShortcut(QKeySequence("F5"), self, self._start_presentation)
+        QShortcut(QKeySequence("F11"), self, self._toggle_fullscreen)
+        self._fullscreen = False
 
         # Apply saved theme (if light mode was saved)
         if not self._dark_mode:
@@ -630,6 +644,37 @@ class MainWindow(QMainWindow):
         if path.lower().endswith(".pdf"):
             self._load_and_track(path)
 
+    # ── Fullscreen & Presentation ──────────────────────────────────────────
+    def _toggle_fullscreen(self):
+        self._fullscreen = not self._fullscreen
+        if self._fullscreen:
+            self._workspace_bar.setVisible(False)
+            self._sidebar.setVisible(False)
+            self._sb.setVisible(False)
+            self.showFullScreen()
+        else:
+            self._workspace_bar.setVisible(True)
+            if not self._sidebar_collapsed:
+                self._sidebar.setVisible(True)
+            self._sb.setVisible(True)
+            self.showMaximized()
+
+    def _start_presentation(self):
+        viewer = self._viewer
+        if not viewer._current_path:
+            return
+        canvas = viewer._canvas
+        sb = viewer._canvas_scroll.verticalScrollBar()
+        start_page = canvas.page_at_y(sb.value()) if canvas.page_count() > 0 else 0
+        from app.viewer.presentation import PresentationWidget
+        self._presentation = PresentationWidget(
+            viewer._current_path,
+            getattr(viewer, "_pdf_password", ""),
+            start_page,
+            canvas.page_count(),
+        )
+        self._presentation.show()
+
     def _toggle_sidebar(self):
         self._sidebar_collapsed = not self._sidebar_collapsed
         self._sidebar.setVisible(not self._sidebar_collapsed)
@@ -670,6 +715,7 @@ class MainWindow(QMainWindow):
         self._open_pdf_btn.setIcon(qta.icon("fa5s.folder-open", color=bar_color))
         self._recent_btn.setIcon(qta.icon("fa5s.history", color=bar_color))
         self._print_top_btn.setIcon(qta.icon("fa5s.print", color=bar_color))
+        self._present_btn.setIcon(qta.icon("fa5s.tv", color=bar_color))
         self._search_top_btn.setIcon(qta.icon("fa5s.search", color=bar_color))
         self._zm_btn.setIcon(qta.icon("fa5s.search-minus", color=bar_color))
         self._zp_btn.setIcon(qta.icon("fa5s.search-plus", color=bar_color))
