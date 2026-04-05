@@ -1406,6 +1406,29 @@ User clicks update button → UpdateDialog
 - After adding any icon button, verify it updates in `_apply_theme()` / `update_theme()`
 - Test every UI change in both dark and light mode
 
+### Security
+
+When writing code that handles files, user input, or external processes, follow these rules:
+
+**File operations:**
+- Always sanitize user-provided filenames with `os.path.basename()` before joining to an output directory — prevents path traversal (`../../etc/evil`)
+- Never use `tar.extractall()` or `zip.extractall()` without validating member paths — prevents ZIP slip attacks
+- Reject archive members that contain `..`, start with `/`, or are symlinks/hardlinks
+
+**Subprocess calls:**
+- Never use `shell=True` with user-controlled input
+- Use list form (`["cmd", "arg"]`), not string form (`"cmd arg"`)
+- Escape parameters when constructing PowerShell or shell commands (use single quotes with `''` escaping)
+- Don't forward `sys.argv` to elevated processes — pass empty string or validated args only
+
+**Installer:**
+- The installer spec must have `uac_admin=False` — it self-elevates via `ShellExecuteW("runas")`
+- This ensures backward compatibility with old updaters using `subprocess.Popen`
+
+**Dependencies:**
+- Run `pip-audit` before releases to check for known CVEs
+- Keep minimum versions in `requirements.txt` updated when vulnerabilities are patched
+
 ### Before a Release
 
 - [ ] Version bumped in all 3 locations (`constants.py`, `installer.py`, `docs/index.html`)
@@ -1414,6 +1437,7 @@ User clicks update button → UpdateDialog
 - [ ] Tested tool execution with real PDFs
 - [ ] Tested failure paths (invalid input, missing files, cancelled operations)
 - [ ] Tested backward compatibility (old updater versions can launch the new installer)
+- [ ] Run `pip-audit` — zero known vulnerabilities
 - [ ] Run the app from source: `python pdfapps.py`
 
 ---
