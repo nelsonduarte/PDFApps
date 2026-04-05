@@ -105,14 +105,19 @@ def _apply_update_unix(downloaded: str):
     backup = current + ".bak"
     try:
         shutil.move(current, backup)
+        dest_dir = os.path.dirname(current)
         if downloaded.endswith(".tar.gz"):
             import tarfile
             with tarfile.open(downloaded, "r:gz") as tar:
-                tar.extract("PDFApps", os.path.dirname(current))
+                for m in tar.getmembers():
+                    if m.name != "PDFApps" or m.issym() or m.islnk():
+                        continue
+                    tar.extract(m, dest_dir)
         elif downloaded.endswith(".zip"):
             import zipfile
             with zipfile.ZipFile(downloaded, "r") as zf:
-                zf.extract("PDFApps", os.path.dirname(current))
+                info = zf.getinfo("PDFApps")
+                zf.extract(info, dest_dir)
         else:
             shutil.copy2(downloaded, current)
         os.chmod(current, os.stat(current).st_mode | stat.S_IEXEC)

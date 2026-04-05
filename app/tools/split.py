@@ -111,6 +111,7 @@ class TabDividir(BasePage):
             start = self.table.cellWidget(r, 0).value()
             end   = self.table.cellWidget(r, 1).value()
             name  = self.table.item(r, 2).text().strip() or f"part_{r+1}.pdf"
+            name = os.path.basename(name)  # prevent path traversal
             if not name.lower().endswith(".pdf"): name += ".pdf"
             if start < 1 or end < start or end > total:
                 errors.append(f"Row {r+1}: {start}–{end} invalid"); continue

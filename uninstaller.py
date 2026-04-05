@@ -193,7 +193,8 @@ def _schedule_dir_removal(install_dir: str) -> None:
     """Delete the installation folder after the process exits."""
     if sys.platform == "win32":
         import tempfile
-        bat = os.path.join(tempfile.gettempdir(), "pdfapps_uninstall.bat")
+        fd, bat = tempfile.mkstemp(prefix="pdfapps_", suffix=".bat")
+        os.close(fd)
         with open(bat, "w") as f:
             f.write("@echo off\n")
             f.write("timeout /t 5 /nobreak > nul\n")

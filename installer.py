@@ -412,9 +412,12 @@ def _no_window():
 # ── Shortcuts / launchers ───────────────────────────────────────────────────────
 
 def create_shortcut_windows(target: str, lnk: str) -> None:
+    # Escape single quotes for PowerShell here-strings
+    t_safe = target.replace("'", "''")
+    l_safe = lnk.replace("'", "''")
     ps = (
-        f'$s=(New-Object -COM WScript.Shell).CreateShortcut("{lnk}");'
-        f'$s.TargetPath="{target}";$s.IconLocation="{target}";$s.Save()'
+        f"$s=(New-Object -COM WScript.Shell).CreateShortcut('{l_safe}');"
+        f"$s.TargetPath='{t_safe}';$s.IconLocation='{t_safe}';$s.Save()"
     )
     subprocess.run(
         ["powershell", "-NoProfile", "-Command", ps],
@@ -963,7 +966,7 @@ def _self_elevate():
     if ctypes.windll.shell32.IsUserAnAdmin():
         return
     ctypes.windll.shell32.ShellExecuteW(
-        None, "runas", sys.executable, " ".join(sys.argv[1:]), None, 1
+        None, "runas", sys.executable, "", None, 1
     )
     sys.exit(0)
 

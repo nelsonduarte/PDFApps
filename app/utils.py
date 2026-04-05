@@ -252,7 +252,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                         "-dProcessColorModel=/DeviceGray",
                         "-dOverrideICC"]
             cmd += [f"-sOutputFile={p}", src]
-            result = subprocess.run(cmd, capture_output=True, timeout=300)
+            result = subprocess.run(cmd, capture_output=True, timeout=120)
             if result.returncode == 0 and os.path.isfile(p) and os.path.getsize(p) > 0:
                 temps.append(p)
             else:
