@@ -25,7 +25,7 @@ class PdfViewerPanel(QWidget):
         super().__init__()
         self.setObjectName("viewer_panel")
         self.setMinimumWidth(260)
-        self.setAcceptDrops(True)
+        self.setAcceptDrops(False)
         self._current_path = ""
         self._fitz_doc     = None
 

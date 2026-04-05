@@ -74,6 +74,7 @@ class MainWindow(QMainWindow):
 
         self._sb = QStatusBar(); self.setStatusBar(self._sb)
         self._sb.showMessage(t("app.ready"))
+        self.setAcceptDrops(True)
 
         central = QWidget()
         root_v = QVBoxLayout(central)
@@ -616,6 +617,18 @@ class MainWindow(QMainWindow):
         self._lang_btn.setText(_labels.get(code, "EN"))
         QMessageBox.information(self, t("lang.selector"),
                                 t("lang.restart", lang=name))
+
+    # ── Drag & drop PDF on window ──────────────────────────────────────────
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls():
+            urls = e.mimeData().urls()
+            if urls and urls[0].toLocalFile().lower().endswith(".pdf"):
+                e.acceptProposedAction()
+
+    def dropEvent(self, e):
+        path = e.mimeData().urls()[0].toLocalFile()
+        if path.lower().endswith(".pdf"):
+            self._load_and_track(path)
 
     def _toggle_sidebar(self):
         self._sidebar_collapsed = not self._sidebar_collapsed
