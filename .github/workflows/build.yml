@@ -90,8 +90,30 @@ jobs:
           name: ${{ matrix.artifact }}
           path: dist/PDFApps-macOS.zip
 
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install AppImage build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 libegl1 libxkbcommon0 libxcb-cursor0 wget
+      - name: Build AppImage
+        run: |
+          chmod +x appimage/build.sh
+          ./appimage/build.sh
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: PDFApps-AppImage
+          path: PDFApps-*.AppImage
+
   release:
-    needs: build
+    needs: [build, appimage]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
 
@@ -110,3 +132,4 @@ jobs:
             artifacts/PDFApps-Windows/PDFApps.exe
             artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz
             artifacts/PDFApps-macOS/PDFApps-macOS.zip
+            artifacts/PDFApps-AppImage/PDFApps-*.AppImage
