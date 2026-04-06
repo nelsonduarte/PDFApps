@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=PDFApps
+GenericName=PDF Editor
+Comment=Fast, offline, subscription-free PDF editor
+Exec=pdfapps %F
+Icon=io.github.nelsonduarte.PDFApps
+Terminal=false
+Type=Application
+Categories=Office;Viewer;
+MimeType=application/pdf;
+Keywords=PDF;Editor;Viewer;Split;Merge;OCR;Compress;
+StartupNotify=true
+StartupWMClass=PDFApps

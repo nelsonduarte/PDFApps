@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.nelsonduarte.PDFApps</id>
+  <name>PDFApps</name>
+  <summary>Fast, offline, subscription-free PDF editor</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      PDFApps is a fast, offline, all-in-one PDF editor and manager. No subscriptions,
+      no cloud uploads, no account required — your files never leave your computer.
+    </p>
+    <p>13 built-in tools:</p>
+    <ul>
+      <li>Split PDFs by page ranges</li>
+      <li>Merge multiple PDFs with drag-and-drop ordering</li>
+      <li>Rotate, extract, and reorder pages</li>
+      <li>Compress with three quality levels</li>
+      <li>Encrypt and decrypt with passwords</li>
+      <li>Add watermarks and stamps</li>
+      <li>OCR for scanned documents (5 languages)</li>
+      <li>Convert to PNG, JPG, DOCX, or TXT</li>
+      <li>Visual editor: redact, text, images, signatures, highlights, notes</li>
+      <li>Import TXT, images, or Markdown to PDF</li>
+      <li>View document metadata</li>
+    </ul>
+    <p>Features include continuous scroll viewer, presentation mode (F5), fullscreen
+       (F11), search, tabbed viewing, dark/light themes, and 8 language interface.</p>
+  </description>
+
+  <launchable type="desktop-id">io.github.nelsonduarte.PDFApps.desktop</launchable>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://nelsonduarte.github.io/PDFApps/viewer.png</image>
+      <caption>PDF Viewer with continuous scroll</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://nelsonduarte.github.io/PDFApps/viewer-light.png</image>
+      <caption>Light theme</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://nelsonduarte.github.io/PDFApps/edit.png</image>
+      <caption>Visual PDF editor</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://nelsonduarte.github.io/PDFApps/convert.png</image>
+      <caption>Convert PDF to images, Word, or text</caption>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://nelsonduarte.github.io/PDFApps/</url>
+  <url type="bugtracker">https://github.com/nelsonduarte/PDFApps/issues</url>
+  <url type="vcs-browser">https://github.com/nelsonduarte/PDFApps</url>
+  <url type="donation">https://github.com/sponsors/nelsonduarte</url>
+
+  <developer id="io.github.nelsonduarte">
+    <name>Nelson Duarte</name>
+  </developer>
+
+  <content_rating type="oars-1.1" />
+
+  <categories>
+    <category>Office</category>
+    <category>Viewer</category>
+  </categories>
+
+  <provides>
+    <mediatype>application/pdf</mediatype>
+  </provides>
+
+  <releases>
+    <release version="1.8.3" date="2026-04-05">
+      <description>
+        <p>New features and fixes:</p>
+        <ul>
+          <li>Global keyboard shortcuts (Ctrl+O/S/P/W)</li>
+          <li>Multi-select PDFs in file dialog and drag &amp; drop</li>
+          <li>Canvas background adapts to light/dark theme</li>
+          <li>Theme-aware dialogs in light mode</li>
+        </ul>
+      </description>
+    </release>
+    <release version="1.8.2" date="2026-04-05">
+      <description>
+        <p>Digital signature tool, continuous scroll editor, and security hardening.</p>
+      </description>
+    </release>
+  </releases>
+</component>

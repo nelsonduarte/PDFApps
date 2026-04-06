@@ -28,6 +28,8 @@ test_ctrl_scroll.py
 .idea/
 *.swp
 *.swo
+TODO.txt
+
 
 # Claude Code
 .claude/settings.local.json
