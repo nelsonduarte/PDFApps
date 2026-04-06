@@ -49,6 +49,7 @@ apps:
       PYTHONPATH: "$SNAP/lib/python3.10/site-packages:$SNAP/usr/lib/python3/dist-packages"
       QT_PLUGIN_PATH: "$SNAP/lib/python3.10/site-packages/PySide6/Qt/plugins"
       QT_QPA_PLATFORM_PLUGIN_PATH: "$SNAP/lib/python3.10/site-packages/PySide6/Qt/plugins/platforms"
+      QT_QPA_PLATFORM: "xcb;wayland"
       LD_LIBRARY_PATH: "$SNAP/lib/python3.10/site-packages/PySide6/Qt/lib:$LD_LIBRARY_PATH"
       FONTCONFIG_PATH: "$SNAP/etc/fonts"
 
