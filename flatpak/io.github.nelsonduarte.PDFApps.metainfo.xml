@@ -61,10 +61,35 @@
 
   <content_rating type="oars-1.1" />
 
+  <branding>
+    <color type="primary" scheme_preference="light">#A8E6DD</color>
+    <color type="primary" scheme_preference="dark">#0F3D38</color>
+  </branding>
+
   <categories>
     <category>Office</category>
     <category>Viewer</category>
   </categories>
+
+  <keywords>
+    <keyword>PDF</keyword>
+    <keyword>Editor</keyword>
+    <keyword>Viewer</keyword>
+    <keyword>OCR</keyword>
+    <keyword>Split</keyword>
+    <keyword>Merge</keyword>
+    <keyword>Compress</keyword>
+  </keywords>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
 
   <provides>
     <mediatype>application/pdf</mediatype>
