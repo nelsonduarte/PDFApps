@@ -1,4 +1,5 @@
 name: pdfapps
+title: PDFApps
 base: core22
 version: '1.8.3'
 summary: Fast, offline, subscription-free PDF editor
@@ -22,6 +23,7 @@ website: https://nelsonduarte.github.io/PDFApps/
 source-code: https://github.com/nelsonduarte/PDFApps
 issues: https://github.com/nelsonduarte/PDFApps/issues
 contact: https://github.com/nelsonduarte/PDFApps/issues
+donation: https://github.com/sponsors/nelsonduarte
 icon: snap/gui/pdfapps.png
 
 architectures:
