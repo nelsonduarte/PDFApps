@@ -53,8 +53,7 @@ apps:
 parts:
   pdfapps:
     plugin: python
-    source: https://github.com/nelsonduarte/PDFApps.git
-    source-tag: v1.8.3
+    source: .
     python-requirements:
       - requirements.txt
     stage-packages:
