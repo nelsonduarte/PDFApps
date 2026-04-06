@@ -27,12 +27,9 @@ icon: snap/gui/pdfapps.png
 architectures:
   - build-on: amd64
 
-# Use the KDE-Neon Qt6 extension — provides Qt6 + KDE frameworks
 apps:
   pdfapps:
     command: bin/pdfapps
-    extensions:
-      - kde-neon-6
     common-id: io.github.nelsonduarte.PDFApps
     desktop: usr/share/applications/io.github.nelsonduarte.PDFApps.desktop
     plugs:
@@ -47,8 +44,11 @@ apps:
       - opengl
       - audio-playback
     environment:
-      PYTHONPATH: "$SNAP/usr/lib/python3/dist-packages:$SNAP/lib/python3.10/site-packages"
-      QT_QPA_PLATFORMTHEME: kde
+      PYTHONPATH: "$SNAP/lib/python3.10/site-packages:$SNAP/usr/lib/python3/dist-packages"
+      QT_PLUGIN_PATH: "$SNAP/lib/python3.10/site-packages/PySide6/Qt/plugins"
+      QT_QPA_PLATFORM_PLUGIN_PATH: "$SNAP/lib/python3.10/site-packages/PySide6/Qt/plugins/platforms"
+      LD_LIBRARY_PATH: "$SNAP/lib/python3.10/site-packages/PySide6/Qt/lib:$LD_LIBRARY_PATH"
+      FONTCONFIG_PATH: "$SNAP/etc/fonts"
 
 parts:
   pdfapps:
@@ -56,21 +56,41 @@ parts:
     source: .
     python-requirements:
       - requirements.txt
+    build-packages:
+      - python3-dev
+      - libgl1-mesa-dev
     stage-packages:
       - libxkbcommon0
       - libegl1
       - libgl1
+      - libglib2.0-0
+      - libxcb1
       - libxcb-cursor0
       - libxcb-icccm4
       - libxcb-image0
       - libxcb-keysyms1
       - libxcb-randr0
+      - libxcb-render0
       - libxcb-render-util0
       - libxcb-shape0
+      - libxcb-shm0
+      - libxcb-sync1
+      - libxcb-xfixes0
       - libxcb-xinerama0
       - libxcb-xkb1
+      - libxkbcommon-x11-0
       - libdbus-1-3
       - libfontconfig1
+      - libfreetype6
+      - libxrender1
+      - libxext6
+      - libxi6
+      - libxrandr2
+      - libxss1
+      - libxtst6
+      - libwayland-client0
+      - libwayland-cursor0
+      - libwayland-egl1
       - tesseract-ocr
       - tesseract-ocr-eng
       - tesseract-ocr-por
@@ -80,11 +100,9 @@ parts:
       - ghostscript
     override-build: |
       craftctl default
-      # Install the app package
       install -d $CRAFT_PART_INSTALL/usr/lib/pdfapps
       cp -r app pdfapps.py icon.ico icon_512.png pdfapps.svg \
         $CRAFT_PART_INSTALL/usr/lib/pdfapps/
-      # Launcher script
       install -d $CRAFT_PART_INSTALL/bin
       cat > $CRAFT_PART_INSTALL/bin/pdfapps <<'EOF'
       #!/bin/sh
@@ -92,15 +110,12 @@ parts:
       exec python3 pdfapps.py "$@"
       EOF
       chmod +x $CRAFT_PART_INSTALL/bin/pdfapps
-      # Desktop file
       install -d $CRAFT_PART_INSTALL/usr/share/applications
       cp flatpak/io.github.nelsonduarte.PDFApps.desktop \
         $CRAFT_PART_INSTALL/usr/share/applications/
-      # AppStream metadata
       install -d $CRAFT_PART_INSTALL/usr/share/metainfo
       cp flatpak/io.github.nelsonduarte.PDFApps.metainfo.xml \
         $CRAFT_PART_INSTALL/usr/share/metainfo/
-      # Icons
       install -Dm644 icon_512.png \
         $CRAFT_PART_INSTALL/usr/share/icons/hicolor/512x512/apps/io.github.nelsonduarte.PDFApps.png
       install -Dm644 pdfapps.svg \
