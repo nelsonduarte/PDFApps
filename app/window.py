@@ -748,8 +748,8 @@ class MainWindow(QMainWindow):
     # ── Auto-update ───────────────────────────────────────────────────────
 
     def _check_for_updates_async(self):
-        # Skip auto-update inside Flatpak (app cannot self-modify)
-        if os.environ.get("FLATPAK_ID"):
+        # Skip auto-update inside Flatpak/Snap (package manager handles updates)
+        if os.environ.get("FLATPAK_ID") or os.environ.get("SNAP"):
             return
         from PySide6.QtCore import QThread, QObject, Signal as _Sig
 
