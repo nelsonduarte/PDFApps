@@ -10,7 +10,7 @@ from threading import Thread
 from PySide6.QtCore import Qt, Signal, QObject
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QProgressBar,
-    QMessageBox,
+    QMessageBox, QTextEdit,
 )
 
 from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_H, TEXT_SEC, _LQ
@@ -140,7 +140,7 @@ class UpdateDialog(QDialog):
         tag = release.get("tag_name", "?")
 
         self.setWindowTitle(f"PDFApps — Update")
-        self.setFixedSize(420, 180)
+        self.setMinimumSize(520, 420)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
 
         lay = QVBoxLayout(self)
@@ -149,7 +149,22 @@ class UpdateDialog(QDialog):
         from app.i18n import t
         self._info = QLabel(t("update.available").format(version=tag))
         self._info.setWordWrap(True)
+        self._info.setStyleSheet("font-size: 13pt; font-weight: 600;")
         lay.addWidget(self._info)
+
+        # Release notes (auto-generated body from GitHub release)
+        _dark = parent._dark_mode if parent and hasattr(parent, '_dark_mode') else True
+        _sec = TEXT_SEC if _dark else _LQ
+        notes_lbl = QLabel(t("update.changes"))
+        notes_lbl.setStyleSheet(f"color: {_sec}; font-size: 10pt;")
+        lay.addWidget(notes_lbl)
+
+        notes = (release.get("body") or "").strip() or t("update.no_notes")
+        self._notes = QTextEdit()
+        self._notes.setReadOnly(True)
+        self._notes.setPlainText(notes)
+        self._notes.setMinimumHeight(180)
+        lay.addWidget(self._notes, 1)
 
         self._progress = QProgressBar()
         self._progress.setRange(0, 100)
@@ -158,8 +173,6 @@ class UpdateDialog(QDialog):
         lay.addWidget(self._progress)
 
         self._status = QLabel("")
-        _dark = parent._dark_mode if parent and hasattr(parent, '_dark_mode') else True
-        _sec = TEXT_SEC if _dark else _LQ
         self._status.setStyleSheet(f"color: {_sec}; font-size: 12px;")
         lay.addWidget(self._status)
 
