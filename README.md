@@ -70,6 +70,8 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 ### Integrated viewer
 
 - **Print** — print any open PDF via system print dialog with high-resolution rendering
+- **Bookmarks / TOC** — clickable side panel with the PDF outline (chapters, sections); jumps to any heading
+- **Night reading mode** — invert PDF colors (white→dark, dark→light) for comfortable reading at night, independent from the app theme
 - **Presentation mode (F5)** — fullscreen slideshow with keyboard navigation (arrows, Space, PgUp/PgDn, Home/End)
 - **Fullscreen (F11)** — distraction-free viewing with hidden toolbars
 - **Tabbed viewing** — open multiple PDFs in tabs, switch between them

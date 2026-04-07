@@ -694,19 +694,43 @@ The viewer UI wrapper. Each open tab in the viewer holds one `PdfViewerPanel`.
 #### Layout
 
 ```
-┌──────────────────────────────────────────────┐
-│ Header: filename  │  ‹  ›  │  −  %  +  fit  │  ← hidden when no PDF
-├──────────────────────────────────────────────┤
-│                                              │
-│              _SelectCanvas                   │  ← scroll area
-│           (continuous page scroll)           │
-│                                              │
-├──────────────────────────────────────────────┤
-│ [🔍 Search input] [▲] [▼] [✕]  n/m results  │  ← hidden by default
-├──────────────────────────────────────────────┤
-│ Selection status: "Drag to select and copy"  │
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│ QSplitter (horizontal)                           │
+│ ┌──────────┬──────────────────────────────────┐  │
+│ │ TOC tree │ _SelectCanvas (scroll area)      │  │
+│ │ (hidden  │ continuous page scroll           │  │
+│ │  if no   │                                  │  │
+│ │  outline)│                                  │  │
+│ └──────────┴──────────────────────────────────┘  │
+├──────────────────────────────────────────────────┤
+│ [🔍 Search input] [▲] [▼] [✕]  n/m results      │  ← hidden by default
+├──────────────────────────────────────────────────┤
+│ Selection status: "Drag to select and copy"      │
+└──────────────────────────────────────────────────┘
 ```
+
+> The viewer's own header (`_hdr`) exists but is permanently hidden — all viewer
+> controls (open, bookmarks, zoom, page nav, night mode, print, search) live in
+> the `MainWindow` workspace bar at the top. `_refresh_viewer_top_buttons()` is
+> called whenever a tab changes to sync the bookmark/night-mode buttons to the
+> active viewer.
+
+#### Bookmarks panel
+
+`_populate_toc(doc)` reads `doc.get_toc()` (PyMuPDF) which returns
+`[[level, title, page], ...]`. Builds a `QTreeWidget` hierarchy using a stack to
+track levels. Each item stores the 0-indexed page in `Qt.ItemDataRole.UserRole`.
+On click, `_on_toc_clicked` calls `_canvas.scroll_to_page(idx)` and sets the
+scrollbar value. The panel and `_toc_top_btn` (in MainWindow) are hidden if the
+PDF has no outline.
+
+#### Night reading mode
+
+`_canvas.set_night_mode(active)` toggles a flag, forces the canvas background to
+black, and invalidates the page cache so all pages re-render through `_PageJob`
+with `night_mode=True`. The job calls `pix.invert_irect()` after `get_pixmap()`
+but before PNG conversion. **Independent from the app theme** — works with light
+app + night-mode PDF or vice versa. State is per-`_SelectCanvas` (per tab).
 
 #### Methods
 

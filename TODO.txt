@@ -1,9 +1,9 @@
 Alta prioridade (UX diário)
 [DONE] Assinatura digital — desenhar/importar assinatura e colocar no PDF
 [DONE] Atalhos de teclado globais — Ctrl+O (abrir), Ctrl+S (guardar), Ctrl+P (imprimir), Ctrl+W (fechar tab)
-Bookmarks/Índice — painel lateral com o índice do PDF (TOC), clicável para navegar
+[DONE] Bookmarks/Índice — painel lateral com o índice do PDF (TOC), clicável para navegar
 Anotações com caneta — desenho livre no editor (freehand drawing direto no PDF)
-Dark mode no canvas do viewer — inverter cores do PDF para leitura noturna
+[DONE] Dark mode no canvas do viewer — inverter cores do PDF para leitura noturna
 [DONE] Selecionar e abrir varios pdfs de uma vez
 
 Média prioridade (funcionalidades úteis)
