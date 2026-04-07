@@ -26,15 +26,17 @@ class _PageJob(QRunnable):
     """Renders a fitz page in a background thread."""
 
     def __init__(self, path: str, password: str, idx: int,
-                 zoom: float, dpr: float, gen: int, signals: _RenderSignals):
+                 zoom: float, dpr: float, gen: int, signals: _RenderSignals,
+                 night_mode: bool = False):
         super().__init__()
-        self._path     = path
-        self._password = password
-        self._idx      = idx
-        self._zoom     = zoom
-        self._dpr      = dpr
-        self._gen      = gen
-        self.signals   = signals
+        self._path       = path
+        self._password   = password
+        self._idx        = idx
+        self._zoom       = zoom
+        self._dpr        = dpr
+        self._gen        = gen
+        self._night_mode = night_mode
+        self.signals     = signals
         self.setAutoDelete(True)
 
     def run(self):
@@ -47,6 +49,8 @@ class _PageJob(QRunnable):
             page  = doc[self._idx]
             rz    = self._zoom * self._dpr
             pix   = page.get_pixmap(matrix=fitz.Matrix(rz, rz), annots=False)
+            if self._night_mode:
+                pix.invert_irect()
             words = page.get_text("words")
             img   = pix.tobytes("png")
             doc.close()
@@ -98,6 +102,7 @@ class _SelectCanvas(QWidget):
         self._pending: set[int] = set()
         self._signals     = _RenderSignals()
         self._signals.page_ready.connect(self._on_page_ready)
+        self._night_mode  = False
         self._drag_start  = None
         self._drag_end    = None
         self._sel_rects: list[QRect] = []
@@ -159,8 +164,20 @@ class _SelectCanvas(QWidget):
         self._invalidate_and_relayout()
 
     def set_dark_mode(self, dark: bool):
-        self._bg_color = BG_INNER if dark else _LN
+        # Force dark bg in night mode regardless of app theme
+        if self._night_mode:
+            self._bg_color = "#000000"
+        else:
+            self._bg_color = BG_INNER if dark else _LN
         self.update()
+
+    def set_night_mode(self, active: bool):
+        if self._night_mode == active:
+            return
+        self._night_mode = active
+        self._bg_color = "#000000" if active else BG_INNER
+        # Invalidate cached pixmaps and re-render with new flag
+        self._invalidate_and_relayout()
 
     def close_doc(self):
         self._gen += 1
@@ -274,7 +291,8 @@ class _SelectCanvas(QWidget):
             if e.pixmap is None and i not in self._pending:
                 self._pending.add(i)
                 pool.start(_PageJob(self._path, self._password, i,
-                                    self._zoom, dpr, gen, self._signals))
+                                    self._zoom, dpr, gen, self._signals,
+                                    night_mode=self._night_mode))
 
     def _on_page_ready(self, gen: int, idx: int, pixmap, words):
         if gen != self._gen:

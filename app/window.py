@@ -119,6 +119,24 @@ class MainWindow(QMainWindow):
         self._recent_btn.clicked.connect(self._show_recent_menu)
         wb_h.addWidget(self._recent_btn)
 
+        self._toc_top_btn = QPushButton()
+        self._toc_top_btn.setIcon(qta.icon("fa5s.bookmark", color=TEXT_PRI))
+        self._toc_top_btn.setObjectName("viewer_nav_btn")
+        self._toc_top_btn.setFixedSize(28, 28)
+        self._toc_top_btn.setToolTip(t("viewer.toc"))
+        self._toc_top_btn.setVisible(False)
+        self._toc_top_btn.clicked.connect(lambda: self._viewer._toggle_toc())
+        wb_h.addWidget(self._toc_top_btn)
+
+        self._night_top_btn = QPushButton()
+        self._night_top_btn.setIcon(qta.icon("fa5s.moon", color=TEXT_PRI))
+        self._night_top_btn.setObjectName("viewer_nav_btn")
+        self._night_top_btn.setFixedSize(28, 28)
+        self._night_top_btn.setToolTip(t("viewer.night_mode"))
+        self._night_top_btn.setCheckable(True)
+        self._night_top_btn.clicked.connect(self._toggle_night_mode_top)
+        wb_h.addWidget(self._night_top_btn)
+
         self._print_top_btn = QPushButton()
         self._print_top_btn.setIcon(qta.icon("fa5s.print", color=TEXT_PRI))
         self._print_top_btn.setObjectName("viewer_nav_btn")
@@ -419,6 +437,7 @@ class MainWindow(QMainWindow):
         self._update_page_nav()
         if self._current_tool == -1:
             self._setup_zoom_bar(True, canvas=self._viewer._canvas)
+        self._refresh_viewer_top_buttons()
 
     def _close_tab(self, idx: int):
         if self._tab_bar.count() <= 1:
@@ -441,6 +460,7 @@ class MainWindow(QMainWindow):
             self._update_page_nav()
             self._setup_zoom_bar(False)
             self._page_nav_widget.setVisible(False)
+            self._refresh_viewer_top_buttons()
             return
         viewer = self._viewers.pop(idx)
         self._tab_bar.removeTab(idx)
@@ -530,6 +550,7 @@ class MainWindow(QMainWindow):
         else:
             self._viewer.load(path)
         add_recent_file(path)
+        self._refresh_viewer_top_buttons()
 
     def _open_in_new_tab(self):
         """Open a PDF in a new tab."""
@@ -652,6 +673,20 @@ class MainWindow(QMainWindow):
             if path.lower().endswith(".pdf"):
                 self._load_and_track(path)
 
+    def _toggle_night_mode_top(self):
+        active = self._night_top_btn.isChecked()
+        self._viewer._canvas.set_night_mode(active)
+
+    def _refresh_viewer_top_buttons(self):
+        """Show/hide TOC button and sync night btn for the active viewer."""
+        try:
+            v = self._viewer
+            self._toc_top_btn.setVisible(v._toc_tree.topLevelItemCount() > 0)
+            self._night_top_btn.setChecked(v._canvas._night_mode)
+        except Exception:
+            self._toc_top_btn.setVisible(False)
+            self._night_top_btn.setChecked(False)
+
     # ── Keyboard shortcut helpers ────────────────────────────────────────
     def _close_current_tab(self):
         idx = self._tab_bar.currentIndex()
@@ -734,6 +769,8 @@ class MainWindow(QMainWindow):
             self._ico_bars if self._sidebar_collapsed else self._ico_times)
         self._open_pdf_btn.setIcon(qta.icon("fa5s.folder-open", color=bar_color))
         self._recent_btn.setIcon(qta.icon("fa5s.history", color=bar_color))
+        self._toc_top_btn.setIcon(qta.icon("fa5s.bookmark", color=bar_color))
+        self._night_top_btn.setIcon(qta.icon("fa5s.moon", color=bar_color))
         self._print_top_btn.setIcon(qta.icon("fa5s.print", color=bar_color))
         self._present_btn.setIcon(qta.icon("fa5s.tv", color=bar_color))
         self._search_top_btn.setIcon(qta.icon("fa5s.search", color=bar_color))

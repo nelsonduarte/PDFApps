@@ -61,6 +61,11 @@ class PdfViewerPanel(QWidget):
         self._toc_btn.clicked.connect(self._toggle_toc)
         self._toc_btn.setVisible(False)  # only visible when PDF has TOC
 
+        self._night_btn    = _nav_btn('fa5s.moon')
+        self._night_btn.setToolTip(t("viewer.night_mode"))
+        self._night_btn.setCheckable(True)
+        self._night_btn.clicked.connect(self._toggle_night_mode)
+
         self._zoom_out_btn = _nav_btn('fa5s.search-minus')
         self._zoom_out_btn.setToolTip(t("zoom.out"))
         self._zoom_out_btn.clicked.connect(lambda: self._canvas.zoom_out())
@@ -95,7 +100,7 @@ class PdfViewerPanel(QWidget):
         for w in (self._open_btn, self._toc_btn, self._zoom_out_btn, self._zoom_lbl,
                   self._zoom_in_btn, self._fit_btn,
                   self._prev_btn, self._page_lbl, self._next_btn,
-                  self._print_btn):
+                  self._night_btn, self._print_btn):
             hdr_lay.addWidget(w)
         self._hdr = hdr
         self._hdr.setVisible(False)
@@ -270,6 +275,7 @@ class PdfViewerPanel(QWidget):
         c = TEXT_SEC if dark else _LQ
         self._open_btn.setIcon(qta.icon('fa5s.folder-open',          color=c))
         self._toc_btn.setIcon(qta.icon('fa5s.bookmark',              color=c))
+        self._night_btn.setIcon(qta.icon('fa5s.moon',                color=c))
         self._prev_btn.setIcon(qta.icon('fa5s.chevron-left',          color=c))
         self._next_btn.setIcon(qta.icon('fa5s.chevron-right',         color=c))
         self._zoom_out_btn.setIcon(qta.icon('fa5s.search-minus',      color=c))
@@ -341,6 +347,9 @@ class PdfViewerPanel(QWidget):
         if not visible:
             self._viewer_splitter.setSizes([220, max(800, self._viewer_splitter.width() - 220)])
 
+    def _toggle_night_mode(self):
+        self._canvas.set_night_mode(self._night_btn.isChecked())
+
     def load(self, path: str):
         if not path or not os.path.isfile(path):
             return
@@ -379,7 +388,8 @@ class PdfViewerPanel(QWidget):
         self._sel_status.setVisible(True)
         self._name_lbl.setText(os.path.basename(path))
         self._zoom_lbl.setText(t("zoom.fit"))
-        for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn, self._print_btn):
+        for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn,
+                    self._print_btn, self._night_btn):
             btn.setEnabled(True)
         self._populate_toc(doc)
 
