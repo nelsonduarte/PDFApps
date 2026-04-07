@@ -163,8 +163,17 @@ PDFApps/
 │   ├── index.html          # Landing page (JS-based i18n, 8 languages)
 │   └── *.png               # Screenshots
 │
+├── flatpak/                # Flathub submission (manifest, metainfo, desktop)
+├── winget/                 # Windows winget manifests (3 YAMLs per version)
+├── snap/                   # Snap Store (snapcraft.yaml + gui/banner)
+├── rpm/                    # Fedora Copr RPM spec
+├── aur/
+│   ├── pdfapps/            # AUR source PKGBUILD
+│   └── pdfapps-bin/        # AUR binary PKGBUILD
+├── appimage/               # AppImage build script + AppRun launcher
+│
 └── .github/workflows/
-    └── build.yml           # CI/CD — build on 3 platforms + create GitHub Release
+    └── build.yml           # CI/CD — Win/Linux/macOS + AppImage + Release
 ```
 
 ---
