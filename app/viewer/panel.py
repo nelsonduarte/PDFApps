@@ -7,7 +7,7 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QFileDialog, QMessageBox, QDialog,
-    QLineEdit,
+    QLineEdit, QSplitter, QTreeWidget, QTreeWidgetItem,
 )
 from PySide6.QtGui import QKeySequence, QShortcut
 import qtawesome as qta
@@ -56,6 +56,11 @@ class PdfViewerPanel(QWidget):
         self._open_btn.setToolTip(t("btn.open_pdf"))
         self._open_btn.clicked.connect(self._open_dialog)
 
+        self._toc_btn      = _nav_btn('fa5s.bookmark')
+        self._toc_btn.setToolTip(t("viewer.toc"))
+        self._toc_btn.clicked.connect(self._toggle_toc)
+        self._toc_btn.setVisible(False)  # only visible when PDF has TOC
+
         self._zoom_out_btn = _nav_btn('fa5s.search-minus')
         self._zoom_out_btn.setToolTip(t("zoom.out"))
         self._zoom_out_btn.clicked.connect(lambda: self._canvas.zoom_out())
@@ -87,7 +92,7 @@ class PdfViewerPanel(QWidget):
         self._print_btn.setToolTip(t("viewer.print"))
         self._print_btn.clicked.connect(self._print_pdf)
 
-        for w in (self._open_btn, self._zoom_out_btn, self._zoom_lbl,
+        for w in (self._open_btn, self._toc_btn, self._zoom_out_btn, self._zoom_lbl,
                   self._zoom_in_btn, self._fit_btn,
                   self._prev_btn, self._page_lbl, self._next_btn,
                   self._print_btn):
@@ -140,6 +145,13 @@ class PdfViewerPanel(QWidget):
         self._placeholder = ph_widget
         layout.addWidget(self._placeholder, 1)
 
+        # ── TOC tree (left of canvas) ──────────────────────────────────
+        self._toc_tree = QTreeWidget()
+        self._toc_tree.setObjectName("toc_tree")
+        self._toc_tree.setHeaderHidden(True)
+        self._toc_tree.setMinimumWidth(180)
+        self._toc_tree.itemClicked.connect(self._on_toc_clicked)
+
         # ── Canvas with continuous scroll of all pages ──────────────────
         self._canvas = _SelectCanvas()
         self._canvas.zoom_changed.connect(self._on_zoom_changed)
@@ -149,10 +161,21 @@ class PdfViewerPanel(QWidget):
         self._canvas_scroll.setWidget(self._canvas)
         self._canvas_scroll.setAlignment(
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        self._canvas_scroll.setVisible(False)
         self._canvas_scroll.viewport().installEventFilter(self)
         self._canvas_scroll.verticalScrollBar().valueChanged.connect(self._on_scroll)
-        layout.addWidget(self._canvas_scroll, 1)
+
+        # Splitter: TOC | canvas
+        self._viewer_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._viewer_splitter.addWidget(self._toc_tree)
+        self._viewer_splitter.addWidget(self._canvas_scroll)
+        self._viewer_splitter.setStretchFactor(0, 0)
+        self._viewer_splitter.setStretchFactor(1, 1)
+        self._viewer_splitter.setSizes([220, 800])
+        self._viewer_splitter.setCollapsible(0, True)
+        self._viewer_splitter.setCollapsible(1, False)
+        self._viewer_splitter.setVisible(False)
+        self._toc_tree.setVisible(False)  # hidden until a PDF with TOC is loaded
+        layout.addWidget(self._viewer_splitter, 1)
 
         # ── Search bar (Ctrl+F) ───────────────────────────────────────────
         self._search_bar = QWidget()
@@ -246,6 +269,7 @@ class PdfViewerPanel(QWidget):
         self._canvas.set_dark_mode(dark)
         c = TEXT_SEC if dark else _LQ
         self._open_btn.setIcon(qta.icon('fa5s.folder-open',          color=c))
+        self._toc_btn.setIcon(qta.icon('fa5s.bookmark',              color=c))
         self._prev_btn.setIcon(qta.icon('fa5s.chevron-left',          color=c))
         self._next_btn.setIcon(qta.icon('fa5s.chevron-right',         color=c))
         self._zoom_out_btn.setIcon(qta.icon('fa5s.search-minus',      color=c))
@@ -276,6 +300,46 @@ class PdfViewerPanel(QWidget):
     # ── API ──────────────────────────────────────────────────────────────────
     def current_path(self) -> str:
         return self._current_path
+
+    # ── TOC / Bookmarks ─────────────────────────────────────────────────
+    def _populate_toc(self, doc):
+        """Read the PDF outline and build the tree. Hides the panel if empty."""
+        self._toc_tree.clear()
+        try:
+            toc = doc.get_toc()
+        except Exception:
+            toc = []
+        if not toc:
+            self._toc_tree.setVisible(False)
+            self._toc_btn.setVisible(False)
+            return
+        # toc is a list of [level, title, page] (page is 1-indexed)
+        stack = [(0, self._toc_tree.invisibleRootItem())]
+        for level, title, page in toc:
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+            parent = stack[-1][1] if stack else self._toc_tree.invisibleRootItem()
+            item = QTreeWidgetItem(parent, [title])
+            item.setData(0, Qt.ItemDataRole.UserRole, max(0, page - 1))
+            item.setToolTip(0, title)
+            stack.append((level, item))
+        self._toc_tree.expandToDepth(1)
+        self._toc_tree.setVisible(True)
+        self._toc_btn.setVisible(True)
+        self._toc_btn.setEnabled(True)
+
+    def _on_toc_clicked(self, item, column):
+        page_idx = item.data(0, Qt.ItemDataRole.UserRole)
+        if page_idx is None:
+            return
+        y = self._canvas.scroll_to_page(int(page_idx))
+        self._canvas_scroll.verticalScrollBar().setValue(y)
+
+    def _toggle_toc(self):
+        visible = self._toc_tree.isVisible()
+        self._toc_tree.setVisible(not visible)
+        if not visible:
+            self._viewer_splitter.setSizes([220, max(800, self._viewer_splitter.width() - 220)])
 
     def load(self, path: str):
         if not path or not os.path.isfile(path):
@@ -311,12 +375,13 @@ class PdfViewerPanel(QWidget):
         self._canvas.load(doc, 0, path=path, password=getattr(self, "_pdf_password", ""))
         self._canvas_scroll.verticalScrollBar().setValue(0)
         self._placeholder.setVisible(False)
-        self._canvas_scroll.setVisible(True)
+        self._viewer_splitter.setVisible(True)
         self._sel_status.setVisible(True)
         self._name_lbl.setText(os.path.basename(path))
         self._zoom_lbl.setText(t("zoom.fit"))
         for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn, self._print_btn):
             btn.setEnabled(True)
+        self._populate_toc(doc)
 
     # ── Search ──────────────────────────────────────────────────────────
     def _toggle_search(self):

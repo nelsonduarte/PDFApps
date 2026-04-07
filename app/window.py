@@ -427,7 +427,10 @@ class MainWindow(QMainWindow):
             viewer._canvas.close_doc()
             viewer._fitz_doc = None
             viewer._current_path = ""
-            viewer._canvas_scroll.setVisible(False)
+            viewer._viewer_splitter.setVisible(False)
+            viewer._toc_tree.clear()
+            viewer._toc_tree.setVisible(False)
+            viewer._toc_btn.setVisible(False)
             viewer._sel_status.setVisible(False)
             viewer._placeholder.setVisible(True)
             viewer._hdr.setVisible(False)

@@ -200,6 +200,13 @@ QPushButton:checkable:pressed {{ background: #0A2E2A; }}
 QStatusBar {{ background: {BG_SIDE}; border-top: 1px solid {BORDER};
              color: #8899BB; font-size: 10pt; padding: 4px 14px; }}
 
+/* ── TOC tree (PDF bookmarks panel) ──────────────────────────────────── */
+#toc_tree {{ background: {BG_SIDE}; border: none; border-right: 1px solid {BORDER};
+            color: {TEXT_PRI}; font-size: 10pt; outline: 0; padding: 4px; }}
+#toc_tree::item {{ padding: 4px 6px; border: none; }}
+#toc_tree::item:hover {{ background: #1D2A33; }}
+#toc_tree::item:selected {{ background: {ACCENT}; color: white; }}
+
 /* ── PDF Viewer panel ────────────────────────────────────────────────── */
 #viewer_panel  {{ background: {BG_SIDE}; border-left: 1px solid {BORDER}; }}
 #viewer_header {{ background: {BG_CARD}; border-bottom: 1px solid {BORDER}; }}
@@ -401,6 +408,12 @@ QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
 
 QStatusBar {{ background: {_LS}; border-top: 1px solid {_LO};
              color: {_LQ}; font-size: 10pt; padding: 4px 14px; }}
+
+#toc_tree {{ background: {_LS}; border: none; border-right: 1px solid {_LO};
+            color: {_LP}; font-size: 10pt; outline: 0; padding: 4px; }}
+#toc_tree::item {{ padding: 4px 6px; border: none; }}
+#toc_tree::item:hover {{ background: #DBEAE5; }}
+#toc_tree::item:selected {{ background: {_LA}; color: white; }}
 
 #viewer_panel  {{ background: {_LN}; border-left: 1px solid {_LO}; }}
 #viewer_header {{ background: {_LC}; border-bottom: 1px solid {_LO}; }}
