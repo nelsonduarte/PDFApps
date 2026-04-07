@@ -1,5 +1,5 @@
 PackageIdentifier: nelsonduarte.PDFApps
-PackageVersion: 1.8.3
+PackageVersion: 1.9.0
 PackageLocale: en-US
 Publisher: Nelson Duarte
 PublisherUrl: https://github.com/nelsonduarte
@@ -37,13 +37,10 @@ Tags:
   - encrypt
   - watermark
 ReleaseNotes: |-
-  - Global keyboard shortcuts (Ctrl+O/S/P/W)
-  - Multi-select PDFs in file dialog and drag and drop
-  - Canvas background adapts to light/dark theme
-  - Theme-aware dialogs in light mode
-  - Digital signature tool (draw, type, or import)
-  - Continuous scroll editor
-  - Presentation mode (F5) and fullscreen (F11)
-ReleaseNotesUrl: https://github.com/nelsonduarte/PDFApps/releases/tag/v1.8.3
+  - Bookmarks/TOC clickable side panel
+  - Night reading mode (invert PDF colors)
+  - Release notes shown in update dialog
+  - TOC and night mode buttons in workspace bar
+ReleaseNotesUrl: https://github.com/nelsonduarte/PDFApps/releases/tag/v1.9.0
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

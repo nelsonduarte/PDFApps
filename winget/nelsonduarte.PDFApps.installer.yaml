@@ -1,13 +1,13 @@
 PackageIdentifier: nelsonduarte.PDFApps
-PackageVersion: 1.8.3
+PackageVersion: 1.9.0
 InstallerType: portable
 Scope: user
 Commands:
   - pdfapps
-ReleaseDate: 2026-04-05
+ReleaseDate: 2026-04-07
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/nelsonduarte/PDFApps/releases/download/v1.8.3/PDFApps.exe
-    InstallerSha256: FF2E97AEF39FB44D785256BB85C0F42331BE8B99A103B985BACC1271EA3D6390
+    InstallerUrl: https://github.com/nelsonduarte/PDFApps/releases/download/v1.9.0/PDFApps.exe
+    InstallerSha256: C0933BA16FB85FCAC43F3FBA59DFFFE295E6EC9A5D3DC7A94CA26FE4D0E9EF96
 ManifestType: installer
 ManifestVersion: 1.6.0
