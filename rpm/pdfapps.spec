@@ -1,5 +1,5 @@
 Name:           pdfapps
-Version:        1.8.3
+Version:        1.9.0
 Release:        1%{?dist}
 Summary:        Fast, offline, subscription-free PDF editor
 
@@ -94,5 +94,10 @@ install -Dm644 LICENSE %{buildroot}%{_datadir}/licenses/%{name}/LICENSE
 %{_datadir}/icons/hicolor/scalable/apps/io.github.nelsonduarte.PDFApps.svg
 
 %changelog
+* Tue Apr 07 2026 Nelson Duarte <nelson@example.com> - 1.9.0-1
+- Add bookmarks/TOC panel
+- Add night reading mode (invert PDF colors)
+- Show release notes in update dialog
+
 * Mon Apr 06 2026 Nelson Duarte <nelson@example.com> - 1.8.3-1
 - Initial Copr release
