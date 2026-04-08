@@ -1,0 +1,207 @@
+name: Publish downstream packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 1.10.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # Resolve which version to publish
+  # ─────────────────────────────────────────────────────────────────
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - id: v
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="v${{ inputs.version }}"
+          fi
+          VER="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Publishing $TAG ($VER)"
+
+  # ─────────────────────────────────────────────────────────────────
+  # AUR — push updated PKGBUILDs for both source and binary packages
+  # Requires: AUR_SSH_KEY (private key registered on aur.archlinux.org)
+  # ─────────────────────────────────────────────────────────────────
+  aur:
+    needs: resolve
+    runs-on: ubuntu-latest
+    if: ${{ vars.ENABLE_AUR != 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.resolve.outputs.version }}
+
+      - name: Configure SSH for AUR
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        run: |
+          if [ -z "$AUR_SSH_KEY" ]; then
+            echo "::warning::AUR_SSH_KEY not set — skipping AUR push"
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_KEY" > ~/.ssh/aur_key
+          chmod 600 ~/.ssh/aur_key
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur_key
+            User aur
+            StrictHostKeyChecking no
+          EOF
+
+      - name: Install makepkg (for .SRCINFO regeneration)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pacman-package-manager || true
+
+      - name: Push pdfapps (source)
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        if: env.AUR_SSH_KEY != ''
+        run: |
+          set -e
+          VER="${{ needs.resolve.outputs.version }}"
+          git config --global user.name "Nelson Duarte"
+          git config --global user.email "noreply@github.com"
+          rm -rf /tmp/aur-pdfapps
+          git clone ssh://aur@aur.archlinux.org/pdfapps.git /tmp/aur-pdfapps
+          cp aur/pdfapps/PKGBUILD aur/pdfapps/.SRCINFO /tmp/aur-pdfapps/
+          cd /tmp/aur-pdfapps
+          if git diff --quiet; then
+            echo "no changes — nothing to push"
+          else
+            git add PKGBUILD .SRCINFO
+            git commit -m "Update to ${VER}"
+            git push
+          fi
+
+      - name: Push pdfapps-bin (binary)
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        if: env.AUR_SSH_KEY != ''
+        run: |
+          set -e
+          VER="${{ needs.resolve.outputs.version }}"
+          rm -rf /tmp/aur-pdfapps-bin
+          git clone ssh://aur@aur.archlinux.org/pdfapps-bin.git /tmp/aur-pdfapps-bin
+          cp aur/pdfapps-bin/PKGBUILD aur/pdfapps-bin/.SRCINFO /tmp/aur-pdfapps-bin/
+          cd /tmp/aur-pdfapps-bin
+          if git diff --quiet; then
+            echo "no changes — nothing to push"
+          else
+            git add PKGBUILD .SRCINFO
+            git commit -m "Update to ${VER}"
+            git push
+          fi
+
+  # ─────────────────────────────────────────────────────────────────
+  # Fedora Copr — trigger a rebuild from the new git tag
+  # Requires: COPR_API_TOKEN (full ~/.config/copr file content)
+  # ─────────────────────────────────────────────────────────────────
+  copr:
+    needs: resolve
+    runs-on: ubuntu-latest
+    if: ${{ vars.ENABLE_COPR != 'false' }}
+    container: fedora:latest
+    steps:
+      - name: Install copr-cli
+        run: dnf install -y copr-cli git
+
+      - name: Configure copr-cli
+        env:
+          COPR_API_TOKEN: ${{ secrets.COPR_API_TOKEN }}
+        run: |
+          if [ -z "$COPR_API_TOKEN" ]; then
+            echo "::warning::COPR_API_TOKEN not set — skipping Copr build"
+            exit 0
+          fi
+          mkdir -p ~/.config
+          echo "$COPR_API_TOKEN" > ~/.config/copr
+
+      - name: Trigger Copr build from SCM
+        env:
+          COPR_API_TOKEN: ${{ secrets.COPR_API_TOKEN }}
+        if: env.COPR_API_TOKEN != ''
+        run: |
+          set -e
+          VER="${{ needs.resolve.outputs.version }}"
+          copr-cli buildscm \
+            --clone-url https://github.com/nelsonduarte/PDFApps.git \
+            --commit "v${VER}" \
+            --spec rpm/pdfapps.spec \
+            --type git \
+            --nowait \
+            nelsonduarte/PDFApps
+
+  # ─────────────────────────────────────────────────────────────────
+  # Snap Store — build and upload the snap
+  # Requires: SNAPCRAFT_TOKEN (from `snapcraft export-login`)
+  # ─────────────────────────────────────────────────────────────────
+  snap:
+    needs: resolve
+    runs-on: ubuntu-22.04
+    if: ${{ vars.ENABLE_SNAP != 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.resolve.outputs.version }}
+
+      - name: Build snap
+        id: build
+        uses: snapcore/action-build@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+
+      - name: Upload to Snap Store
+        if: env.SNAPCRAFT_STORE_CREDENTIALS != ''
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        uses: snapcore/action-publish@v1
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
+
+  # ─────────────────────────────────────────────────────────────────
+  # winget — submit a PR to microsoft/winget-pkgs via wingetcreate
+  # Requires: WINGET_PAT (GitHub PAT with public_repo scope)
+  # ─────────────────────────────────────────────────────────────────
+  winget:
+    needs: resolve
+    runs-on: windows-latest
+    if: ${{ vars.ENABLE_WINGET != 'false' }}
+    steps:
+      - name: Submit winget PR
+        env:
+          WINGET_PAT: ${{ secrets.WINGET_PAT }}
+        shell: pwsh
+        run: |
+          if (-not $env:WINGET_PAT) {
+            Write-Host "::warning::WINGET_PAT not set — skipping winget PR"
+            exit 0
+          }
+          $ver = "${{ needs.resolve.outputs.version }}"
+          $url = "https://github.com/nelsonduarte/PDFApps/releases/download/v$ver/PDFAppsSetup.exe"
+          iwr https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          ./wingetcreate.exe update nelsonduarte.PDFApps `
+            --version $ver `
+            --urls $url `
+            --submit `
+            --token $env:WINGET_PAT
