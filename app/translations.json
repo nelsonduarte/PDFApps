@@ -114,7 +114,7 @@
         "edit.mode.edit_text": "Edit existing text",
         "edit.mode.signature": "Signature",
         "edit.hint.signature": "Drag on the PDF to place your signature.",
-        "edit.signature.choose": "Choose signature\u2026",
+        "edit.signature.choose": "Choose signature…",
         "edit.signature.clear": "Clear saved",
         "edit.signature.none": "No signature selected",
         "edit.signature.draw": "Draw",
@@ -408,7 +408,10 @@
         "tool.import.converting": "Converting…",
         "tool.import.done": "PDF created successfully:\n{path}",
         "tool.import.add_files": "+  Add files",
-        "update.installer_info": "A new version is available. The update will download and run the installer automatically. Your settings and files are preserved."
+        "update.installer_info": "A new version is available. The update will download and run the installer automatically. Your settings and files are preserved.",
+        "edit.mode.draw": "Draw",
+        "edit.draw.width": "Width",
+        "edit.hint.draw": "Click and drag to draw freehand on the page."
     },
     "pt": {
         "app.name": "PDFApps",
@@ -525,7 +528,7 @@
         "edit.mode.edit_text": "Editar texto existente",
         "edit.mode.signature": "Assinatura",
         "edit.hint.signature": "Arrasta no PDF para colocar a assinatura.",
-        "edit.signature.choose": "Escolher assinatura\u2026",
+        "edit.signature.choose": "Escolher assinatura…",
         "edit.signature.clear": "Limpar guardada",
         "edit.signature.none": "Nenhuma assinatura selecionada",
         "edit.signature.draw": "Desenhar",
@@ -819,7 +822,10 @@
         "tool.import.converting": "A converter…",
         "tool.import.done": "PDF criado com sucesso:\n{path}",
         "tool.import.add_files": "+  Adicionar ficheiros",
-        "update.installer_info": "Uma nova versão está disponível. A atualização vai descarregar e executar o instalador automaticamente. As tuas definições e ficheiros são preservados."
+        "update.installer_info": "Uma nova versão está disponível. A atualização vai descarregar e executar o instalador automaticamente. As tuas definições e ficheiros são preservados.",
+        "edit.mode.draw": "Desenhar",
+        "edit.draw.width": "Espessura",
+        "edit.hint.draw": "Clica e arrasta para desenhar livremente na página."
     },
     "es": {
         "app.name": "PDFApps",
@@ -936,7 +942,7 @@
         "edit.mode.edit_text": "Editar texto existente",
         "edit.mode.signature": "Firma",
         "edit.hint.signature": "Arrastra en el PDF para colocar tu firma.",
-        "edit.signature.choose": "Elegir firma\u2026",
+        "edit.signature.choose": "Elegir firma…",
         "edit.signature.clear": "Borrar guardada",
         "edit.signature.none": "Ninguna firma seleccionada",
         "edit.signature.draw": "Dibujar",
@@ -1230,7 +1236,10 @@
         "tool.import.converting": "Convirtiendo…",
         "tool.import.done": "PDF creado con éxito:\n{path}",
         "tool.import.add_files": "+  Añadir archivos",
-        "update.installer_info": "Una nueva versión está disponible. La actualización descargará y ejecutará el instalador automáticamente. Tus configuraciones y archivos se conservan."
+        "update.installer_info": "Una nueva versión está disponible. La actualización descargará y ejecutará el instalador automáticamente. Tus configuraciones y archivos se conservan.",
+        "edit.mode.draw": "Dibujar",
+        "edit.draw.width": "Grosor",
+        "edit.hint.draw": "Haz clic y arrastra para dibujar libremente en la página."
     },
     "fr": {
         "app.name": "PDFApps",
@@ -1347,7 +1356,7 @@
         "edit.mode.edit_text": "Modifier le texte existant",
         "edit.mode.signature": "Signature",
         "edit.hint.signature": "Glissez sur le PDF pour placer votre signature.",
-        "edit.signature.choose": "Choisir la signature\u2026",
+        "edit.signature.choose": "Choisir la signature…",
         "edit.signature.clear": "Effacer sauvegardée",
         "edit.signature.none": "Aucune signature sélectionnée",
         "edit.signature.draw": "Dessiner",
@@ -1641,7 +1650,10 @@
         "tool.import.converting": "Conversion…",
         "tool.import.done": "PDF créé avec succès :\n{path}",
         "tool.import.add_files": "+  Ajouter des fichiers",
-        "update.installer_info": "Une nouvelle version est disponible. La mise à jour téléchargera et exécutera l'installateur automatiquement. Vos paramètres et fichiers sont préservés."
+        "update.installer_info": "Une nouvelle version est disponible. La mise à jour téléchargera et exécutera l'installateur automatiquement. Vos paramètres et fichiers sont préservés.",
+        "edit.mode.draw": "Dessiner",
+        "edit.draw.width": "Épaisseur",
+        "edit.hint.draw": "Cliquez et glissez pour dessiner à main levée sur la page."
     },
     "de": {
         "app.name": "PDFApps",
@@ -1758,7 +1770,7 @@
         "edit.mode.edit_text": "Vorhandenen Text bearbeiten",
         "edit.mode.signature": "Unterschrift",
         "edit.hint.signature": "Ziehen Sie auf dem PDF, um Ihre Unterschrift zu platzieren.",
-        "edit.signature.choose": "Unterschrift wählen\u2026",
+        "edit.signature.choose": "Unterschrift wählen…",
         "edit.signature.clear": "Gespeicherte löschen",
         "edit.signature.none": "Keine Unterschrift ausgewählt",
         "edit.signature.draw": "Zeichnen",
@@ -2052,7 +2064,10 @@
         "tool.import.converting": "Konvertierung…",
         "tool.import.done": "PDF erfolgreich erstellt:\n{path}",
         "tool.import.add_files": "+  Dateien hinzufügen",
-        "update.installer_info": "Eine neue Version ist verfügbar. Das Update wird den Installer automatisch herunterladen und ausführen. Ihre Einstellungen und Dateien bleiben erhalten."
+        "update.installer_info": "Eine neue Version ist verfügbar. Das Update wird den Installer automatisch herunterladen und ausführen. Ihre Einstellungen und Dateien bleiben erhalten.",
+        "edit.mode.draw": "Zeichnen",
+        "edit.draw.width": "Stärke",
+        "edit.hint.draw": "Klicken und ziehen, um frei auf der Seite zu zeichnen."
     },
     "zh": {
         "app.name": "PDFApps",
@@ -2169,7 +2184,7 @@
         "edit.mode.edit_text": "编辑现有文字",
         "edit.mode.signature": "签名",
         "edit.hint.signature": "在PDF上拖动以放置签名。",
-        "edit.signature.choose": "选择签名\u2026",
+        "edit.signature.choose": "选择签名…",
         "edit.signature.clear": "清除已保存",
         "edit.signature.none": "未选择签名",
         "edit.signature.draw": "手绘",
@@ -2463,7 +2478,10 @@
         "tool.import.converting": "正在转换…",
         "tool.import.done": "PDF 创建成功：\n{path}",
         "tool.import.add_files": "+  添加文件",
-        "update.installer_info": "有新版本可用。更新将自动下载并运行安装程序。您的设置和文件将被保留。"
+        "update.installer_info": "有新版本可用。更新将自动下载并运行安装程序。您的设置和文件将被保留。",
+        "edit.mode.draw": "绘制",
+        "edit.draw.width": "粗细",
+        "edit.hint.draw": "点击并拖动以在页面上自由绘制。"
     },
     "it": {
         "app.name": "PDFApps",
@@ -2580,7 +2598,7 @@
         "edit.mode.edit_text": "Modifica testo esistente",
         "edit.mode.signature": "Firma",
         "edit.hint.signature": "Trascina sul PDF per posizionare la firma.",
-        "edit.signature.choose": "Scegli firma\u2026",
+        "edit.signature.choose": "Scegli firma…",
         "edit.signature.clear": "Cancella salvata",
         "edit.signature.none": "Nessuna firma selezionata",
         "edit.signature.draw": "Disegna",
@@ -2874,7 +2892,10 @@
         "tool.import.converting": "Conversione…",
         "tool.import.done": "PDF creato con successo:\n{path}",
         "tool.import.add_files": "+  Aggiungi file",
-        "update.installer_info": "Una nuova versione è disponibile. L'aggiornamento scaricherà ed eseguirà l'installer automaticamente. Le tue impostazioni e i file vengono preservati."
+        "update.installer_info": "Una nuova versione è disponibile. L'aggiornamento scaricherà ed eseguirà l'installer automaticamente. Le tue impostazioni e i file vengono preservati.",
+        "edit.mode.draw": "Disegna",
+        "edit.draw.width": "Spessore",
+        "edit.hint.draw": "Clicca e trascina per disegnare a mano libera sulla pagina."
     },
     "nl": {
         "app.name": "PDFApps",
@@ -2991,7 +3012,7 @@
         "edit.mode.edit_text": "Bestaande tekst bewerken",
         "edit.mode.signature": "Handtekening",
         "edit.hint.signature": "Sleep op de PDF om uw handtekening te plaatsen.",
-        "edit.signature.choose": "Handtekening kiezen\u2026",
+        "edit.signature.choose": "Handtekening kiezen…",
         "edit.signature.clear": "Opgeslagen wissen",
         "edit.signature.none": "Geen handtekening geselecteerd",
         "edit.signature.draw": "Tekenen",
@@ -3285,6 +3306,9 @@
         "tool.import.converting": "Converteren…",
         "tool.import.done": "PDF succesvol aangemaakt:\n{path}",
         "tool.import.add_files": "+  Bestanden toevoegen",
-        "update.installer_info": "Een nieuwe versie is beschikbaar. De update zal het installatieprogramma automatisch downloaden en uitvoeren. Uw instellingen en bestanden blijven behouden."
+        "update.installer_info": "Een nieuwe versie is beschikbaar. De update zal het installatieprogramma automatisch downloaden en uitvoeren. Uw instellingen en bestanden blijven behouden.",
+        "edit.mode.draw": "Tekenen",
+        "edit.draw.width": "Dikte",
+        "edit.hint.draw": "Klik en sleep om vrij op de pagina te tekenen."
     }
 }

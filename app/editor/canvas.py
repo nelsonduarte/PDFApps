@@ -11,10 +11,11 @@ _PAGE_GAP = 4
 
 
 class PdfEditCanvas(QWidget):
-    rect_selected = Signal(int, object)   # (page_idx, fitz.Rect)
-    point_clicked = Signal(int, object)   # (page_idx, fitz.Point)
-    note_deleted  = Signal(dict)
-    zoom_changed  = Signal(int)
+    rect_selected   = Signal(int, object)        # (page_idx, fitz.Rect)
+    point_clicked   = Signal(int, object)        # (page_idx, fitz.Point)
+    stroke_finished = Signal(int, object)        # (page_idx, list[fitz.Point])
+    note_deleted    = Signal(dict)
+    zoom_changed    = Signal(int)
 
     def __init__(self):
         super().__init__()
@@ -29,6 +30,11 @@ class PdfEditCanvas(QWidget):
         self._drag_rect   = None
         self._overlays    = []    # ALL overlays (all pages)
         self._select_mode = False
+        self._draw_mode   = False
+        self._draw_color  = (1.0, 0.0, 0.0)
+        self._draw_width  = 2
+        self._current_stroke = None   # list of (sx, sy) screen coords while drawing
+        self._stroke_page = -1
         self._open_note   = None
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.CrossCursor)
@@ -42,6 +48,17 @@ class PdfEditCanvas(QWidget):
 
     def set_select_mode(self, active: bool):
         self._select_mode = active
+
+    def set_draw_mode(self, active: bool, color=None, width=None):
+        self._draw_mode = active
+        if color is not None:
+            self._draw_color = color
+        if width is not None:
+            self._draw_width = max(1, int(width))
+        if not active:
+            self._current_stroke = None
+            self._stroke_page = -1
+            self.update()
 
     def set_overlays(self, overlays: list):
         self._overlays = overlays
@@ -268,6 +285,21 @@ class PdfEditCanvas(QWidget):
                     p.drawText(QRect(bx+10, by+8, bw-20, bh-16),
                                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
                                e["text"])
+            elif etype == "draw":
+                pts = e.get("points", [])
+                if len(pts) >= 2:
+                    col = e.get("color", (1, 0, 0))
+                    w = max(1, int(e.get("width", 2)))
+                    pen = QPen(QColor(int(col[0]*255), int(col[1]*255), int(col[2]*255)),
+                               max(1, int(w * z)))
+                    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+                    p.setPen(pen); p.setBrush(Qt.BrushStyle.NoBrush)
+                    prev = pts[0]
+                    for cur in pts[1:]:
+                        p.drawLine(int(prev[0]*z), yo+int(prev[1]*z),
+                                   int(cur[0]*z),  yo+int(cur[1]*z))
+                        prev = cur
             elif etype == "text_edit":
                 r = e["bbox"]
                 qr = QRect(int(r[0]*z), yo+int(r[1]*z),
@@ -283,6 +315,19 @@ class PdfEditCanvas(QWidget):
                     fn = QFont(); fn.setPointSize(max(4, int(e["size"] * z * 0.75))); p.setFont(fn)
                     p.drawText(int(r[0]*z), yo+int(r[3]*z) + max(10, int(e["size"]*z*0.85)), new_txt)
 
+        # In-progress freehand stroke preview
+        if self._draw_mode and self._current_stroke and len(self._current_stroke) >= 2:
+            col = self._draw_color
+            pen = QPen(QColor(int(col[0]*255), int(col[1]*255), int(col[2]*255)),
+                       max(1, int(self._draw_width * self._zoom)))
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            p.setPen(pen); p.setBrush(Qt.BrushStyle.NoBrush)
+            prev = self._current_stroke[0]
+            for cur in self._current_stroke[1:]:
+                p.drawLine(int(prev[0]), int(prev[1]), int(cur[0]), int(cur[1]))
+                prev = cur
+
         # Drag rect
         if self._drag_rect:
             if self._select_mode:
@@ -295,11 +340,31 @@ class PdfEditCanvas(QWidget):
         p.end()
 
     def mousePressEvent(self, e):
-        if e.button() == Qt.MouseButton.LeftButton:
-            self._drag_start = e.position().toPoint()
-            self._drag_rect = None
+        if e.button() != Qt.MouseButton.LeftButton:
+            return
+        pos = e.position().toPoint()
+        if self._draw_mode and self._page_offsets:
+            page_idx, _lx, _ly = self._page_and_local(pos.x(), pos.y())
+            self._stroke_page = page_idx
+            self._current_stroke = [(pos.x(), pos.y())]
+            self.update()
+            return
+        self._drag_start = pos
+        self._drag_rect = None
 
     def mouseMoveEvent(self, e):
+        if self._draw_mode and self._current_stroke is not None and (e.buttons() & Qt.MouseButton.LeftButton):
+            pos = e.position().toPoint()
+            if self._stroke_page < 0 or self._stroke_page >= len(self._page_offsets):
+                return
+            yo, pw, ph = self._page_offsets[self._stroke_page]
+            sx = max(0, min(pos.x(), pw))
+            sy = max(yo, min(pos.y(), yo + ph))
+            last = self._current_stroke[-1]
+            if (sx - last[0]) ** 2 + (sy - last[1]) ** 2 >= 4:
+                self._current_stroke.append((sx, sy))
+                self.update()
+            return
         if self._drag_start and (e.buttons() & Qt.MouseButton.LeftButton):
             self._drag_rect = QRect(self._drag_start, e.position().toPoint()).normalized()
             self.update()
@@ -380,6 +445,18 @@ class PdfEditCanvas(QWidget):
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.MouseButton.LeftButton: return
         pos = e.position().toPoint()
+        if self._draw_mode and self._current_stroke is not None:
+            if len(self._current_stroke) >= 2 and self._stroke_page >= 0:
+                z = self._zoom or 1.0
+                yo = self._page_offsets[self._stroke_page][0]
+                pdf_points = [(round(x / z, 2), round((y - yo) / z, 2))
+                              for x, y in self._current_stroke]
+                self._page_idx = self._stroke_page
+                self.stroke_finished.emit(self._stroke_page, pdf_points)
+            self._current_stroke = None
+            self._stroke_page = -1
+            self.update()
+            return
         if self._drag_rect and self._drag_rect.width() > 3 and self._drag_rect.height() > 3:
             # Convert drag rect to page-local PDF coords
             page_idx, lx, ly = self._page_and_local(

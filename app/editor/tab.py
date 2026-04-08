@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QStackedWidget, QGroupBox,
     QGridLayout, QLayout, QSizePolicy, QListWidget, QTableWidget,
     QTableWidgetItem, QHeaderView, QTextEdit, QComboBox, QFileDialog,
-    QMessageBox, QDialog, QApplication,
+    QMessageBox, QDialog, QApplication, QSlider,
 )
 import qtawesome as qta
 
@@ -36,8 +36,12 @@ class TabEditar(QWidget):
         ("edit.mode.forms",     "fa5s.clipboard-list"),
         ("edit.mode.edit_text", "fa5s.i-cursor"),
         ("edit.mode.signature", "fa5s.signature"),
+        ("edit.mode.draw",      "fa5s.pencil-alt"),
         ("edit.mode.select",    "fa5s.mouse-pointer"),
     ]
+
+    _DRAW_COLORS_KEYS = ["color.red", "color.black", "color.blue", "color.green", "color.yellow"]
+    _DRAW_COLORS_VALS = [(1,0,0), (0,0,0), (0.1,0.4,1), (0,0.7,0.2), (1,0.85,0)]
 
     @property
     def _HI_COLORS(self):
@@ -50,6 +54,10 @@ class TabEditar(QWidget):
     @property
     def _MODE_DEFS(self):
         return [(t(k), icon) for k, icon in self._MODE_KEYS]
+
+    @property
+    def _DRAW_COLORS(self):
+        return {t(k): v for k, v in zip(self._DRAW_COLORS_KEYS, self._DRAW_COLORS_VALS)}
 
     def __init__(self, status_fn):
         super().__init__()
@@ -73,6 +81,7 @@ class TabEditar(QWidget):
         self._canvas = PdfEditCanvas()
         self._canvas.rect_selected.connect(self._on_rect)
         self._canvas.point_clicked.connect(self._on_point)
+        self._canvas.stroke_finished.connect(self._on_stroke)
         # Scroll to page when arrows are used
         self._canvas_scroll_to_page = None  # set after canvas_scroll is created
         self._canvas.note_deleted.connect(self._on_note_deleted)
@@ -245,7 +254,27 @@ class TabEditar(QWidget):
                     200, 50, Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation))
 
-        # 8 - Select / Copy text
+        # 8 - Draw (freehand ink)
+        w_draw = QWidget(); v_d = QVBoxLayout(w_draw); v_d.setContentsMargins(0,4,0,0); v_d.setSpacing(4)
+        v_d.addWidget(QLabel(t("edit.color")))
+        self._draw_color_cb = QComboBox()
+        self._draw_color_cb.addItems(list(self._DRAW_COLORS.keys()))
+        self._draw_color_cb.currentTextChanged.connect(self._on_draw_color_changed)
+        v_d.addWidget(self._draw_color_cb)
+        v_d.addWidget(QLabel(t("edit.draw.width")))
+        self._draw_width_slider = QSlider(Qt.Orientation.Horizontal)
+        self._draw_width_slider.setMinimum(1); self._draw_width_slider.setMaximum(12)
+        self._draw_width_slider.setValue(2)
+        self._draw_width_lbl = QLabel("2")
+        self._draw_width_slider.valueChanged.connect(self._on_draw_width_changed)
+        wrow = QHBoxLayout(); wrow.addWidget(self._draw_width_slider, 1); wrow.addWidget(self._draw_width_lbl)
+        v_d.addLayout(wrow)
+        hint_d = QLabel(t("edit.hint.draw"))
+        hint_d.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;"); hint_d.setWordWrap(True)
+        v_d.addWidget(hint_d); v_d.addStretch()
+        self._opt_stack.addWidget(w_draw)
+
+        # 9 - Select / Copy text
         w7 = QWidget(); v7 = QVBoxLayout(w7); v7.setContentsMargins(0,4,0,0); v7.setSpacing(6)
         hint7 = QLabel(t("edit.hint.select"))
         hint7.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
@@ -408,11 +437,19 @@ class TabEditar(QWidget):
                         "background:#FFFFFF; border:1px solid #C7D8D3; "
                         "color:#5D7470; border-radius:6px; padding:6px 8px; text-align:center;")
         self._opt_stack.setCurrentIndex(idx)
-        self._canvas.set_select_mode(idx == 8)
+        self._canvas.set_select_mode(idx == 9)
+        is_draw = (idx == 8)
+        self._canvas.set_draw_mode(
+            is_draw,
+            color=self._DRAW_COLORS[self._draw_color_cb.currentText()] if is_draw else None,
+            width=self._draw_width_slider.value() if is_draw else None,
+        )
         # Text-related modes get a text cursor
         if idx in (1, 4, 6):
             self._canvas.setCursor(Qt.CursorShape.IBeamCursor)
-        elif idx != 8:
+        elif idx == 9:
+            pass  # default arrow handled by select mode
+        else:
             self._canvas.setCursor(Qt.CursorShape.CrossCursor)
         if idx == 2:
             self._pick_image()
@@ -534,11 +571,33 @@ class TabEditar(QWidget):
 
     # ── canvas callbacks ─────────────────────────────────────────────────────
 
+    def _on_draw_color_changed(self, _txt):
+        self._canvas.set_draw_mode(self._mode_idx == 8,
+                                   color=self._DRAW_COLORS[self._draw_color_cb.currentText()],
+                                   width=self._draw_width_slider.value())
+
+    def _on_draw_width_changed(self, v):
+        self._draw_width_lbl.setText(str(v))
+        self._canvas.set_draw_mode(self._mode_idx == 8,
+                                   color=self._DRAW_COLORS[self._draw_color_cb.currentText()],
+                                   width=v)
+
+    def _on_stroke(self, page_idx, pdf_points):
+        self._page_idx = page_idx
+        self._update_nav()
+        self._add({
+            "type": "draw",
+            "page": page_idx,
+            "points": pdf_points,
+            "color": self._DRAW_COLORS[self._draw_color_cb.currentText()],
+            "width": self._draw_width_slider.value(),
+        })
+
     def _on_rect(self, page_idx, pdf_rect):
         self._page_idx = page_idx
         self._update_nav()
         mode = self._mode_idx
-        if mode == 8:
+        if mode == 9:
             doc = self._canvas._doc
             if not doc: return
             text = doc[page_idx].get_text("text", clip=pdf_rect).strip()
@@ -629,6 +688,7 @@ class TabEditar(QWidget):
             "note":      lambda e: f"Note — p. {e['page']+1}",
             "text_edit": lambda e: f"Edit '{e['old_text'][:15]}' → '{e['new_text'][:15]}' — p. {e['page']+1}",
             "signature": lambda e: f"Signature — p. {e['page']+1}",
+            "draw":      lambda e: f"Drawing — p. {e['page']+1}",
         }
         lbl = labels[edit["type"]](edit)
         self._pending_list.addItem(lbl)
@@ -696,6 +756,13 @@ class TabEditar(QWidget):
                     a = pg.add_highlight_annot(e["rect"]); a.set_colors(stroke=e["color"]); a.update()
                 elif e["type"] == "note":
                     pg.add_text_annot(e["point"], e["text"])
+                elif e["type"] == "draw":
+                    stroke = [fitz.Point(x, y) for x, y in e.get("points", [])]
+                    if len(stroke) >= 2:
+                        annot = pg.add_ink_annot([stroke])
+                        annot.set_colors(stroke=e.get("color", (1, 0, 0)))
+                        annot.set_border(width=max(1, int(e.get("width", 2))))
+                        annot.update()
                 elif e["type"] == "text_edit":
                     bbox = fitz.Rect(e["bbox"])
                     pg.add_redact_annot(bbox, fill=(1, 1, 1))
