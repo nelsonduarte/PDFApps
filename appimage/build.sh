@@ -3,7 +3,10 @@
 # Run on Ubuntu 22.04 (oldest target glibc)
 set -e
 
-VERSION="${VERSION:-1.8.3}"
+# Read version from app/constants.py if not provided as env var
+if [ -z "$VERSION" ]; then
+    VERSION=$(grep -oP 'APP_VERSION\s*=\s*"\K[^"]+' app/constants.py)
+fi
 ARCH="${ARCH:-x86_64}"
 APPDIR="$(pwd)/AppDir"
 APP_ID="io.github.nelsonduarte.PDFApps"

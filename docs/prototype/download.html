@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download — PDFApps</title>
+    <meta name="description" content="Download PDFApps for Windows, macOS, or Linux. Available on Snap Store, Flathub, AUR, Fedora Copr, AppImage, and winget.">
+    <link rel="icon" type="image/x-icon" href="../favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container">
+        <a href="index.html" class="brand">
+            <img src="../icon.png" alt="">
+            PDFApps
+        </a>
+        <ul class="nav-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="download.html" class="active">Download</a></li>
+            <li><a href="docs.html">Docs</a></li>
+            <li><a href="changelog.html">Changelog</a></li>
+        </ul>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme"></button>
+            <a href="https://github.com/nelsonduarte/PDFApps" class="icon-btn" aria-label="GitHub">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            </a>
+        </div>
+    </div>
+</header>
+
+<div class="page-header">
+    <div class="container">
+        <span class="eyebrow">v1.9.0 · Latest release</span>
+        <h1>Download PDFApps</h1>
+        <p>Free forever, open source. Choose your platform below — installation takes less than a minute.</p>
+    </div>
+</div>
+
+<section>
+    <div class="container">
+        <div class="os-grid">
+            <div class="os-card">
+                <img class="os-icon" src="icons/windows.svg" alt="Windows">
+                <h3>Windows</h3>
+                <div class="os-version">Windows 10 / 11 · 64-bit</div>
+                <a href="https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFAppsSetup.exe" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download installer
+                </a>
+            </div>
+            <div class="os-card">
+                <img class="os-icon" src="icons/apple.svg" alt="macOS">
+                <h3>macOS</h3>
+                <div class="os-version">macOS 10.14+ · Intel / Apple Silicon</div>
+                <a href="https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFApps-macOS.zip" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download zip
+                </a>
+            </div>
+            <div class="os-card">
+                <img class="os-icon" src="icons/ubuntu.svg" alt="Linux">
+                <h3>Linux</h3>
+                <div class="os-version">Multiple package managers below</div>
+                <a href="#linux-distros" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    See options
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="linux-distros" style="background: var(--bg-elevated); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+    <div class="container">
+        <div class="section-header">
+            <span class="eyebrow">Linux</span>
+            <h2>Pick your distro</h2>
+            <p>Native packages for the most popular distributions, plus a portable AppImage that runs everywhere.</p>
+        </div>
+
+        <div class="distro-grid">
+            <div class="distro-card">
+                <img class="distro-icon" src="icons/ubuntu.svg" alt="Ubuntu">
+                <div style="flex: 1;">
+                    <h4>Ubuntu / Debian / Snap</h4>
+                    <div class="distro-desc">Snap Store package, auto-updates handled by snapd</div>
+                    <code>sudo snap install pdfapps</code>
+                </div>
+            </div>
+            <div class="distro-card">
+                <img class="distro-icon" src="icons/fedora.svg" alt="Fedora">
+                <div style="flex: 1;">
+                    <h4>Fedora</h4>
+                    <div class="distro-desc">From the Copr repository, native RPM</div>
+                    <code>sudo dnf copr enable nelsonduarte2809/pdfapps && sudo dnf install pdfapps</code>
+                </div>
+            </div>
+            <div class="distro-card">
+                <img class="distro-icon" src="icons/archlinux.svg" alt="Arch Linux">
+                <div style="flex: 1;">
+                    <h4>Arch / Manjaro</h4>
+                    <div class="distro-desc">From the AUR. Source build (lightweight) or pre-compiled binary.</div>
+                    <code>yay -S pdfapps        # source</code>
+                    <code style="margin-top: 6px;">yay -S pdfapps-bin    # binary</code>
+                </div>
+            </div>
+            <div class="distro-card">
+                <img class="distro-icon" src="icons/appimage.svg" alt="AppImage">
+                <div style="flex: 1;">
+                    <h4>AppImage (any distro)</h4>
+                    <div class="distro-desc">Portable, no installation. Works on any modern Linux.</div>
+                    <code>chmod +x PDFApps-*.AppImage && ./PDFApps-*.AppImage</code>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="https://github.com/nelsonduarte/PDFApps/releases/latest" class="btn btn-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download AppImage
+            </a>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="section-header">
+            <span class="eyebrow">Optional</span>
+            <h2>External tools</h2>
+            <p>For OCR and advanced compression. PDFApps works without these but two tools require them.</p>
+        </div>
+
+        <div class="distro-grid" style="max-width: 720px; margin: 0 auto;">
+            <div class="distro-card">
+                <svg class="distro-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <div style="flex: 1;">
+                    <h4>Tesseract OCR</h4>
+                    <div class="distro-desc">Required by the OCR tool to recognize text in scanned PDFs.</div>
+                </div>
+            </div>
+            <div class="distro-card">
+                <svg class="distro-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <div style="flex: 1;">
+                    <h4>Ghostscript</h4>
+                    <div class="distro-desc">Used by the &quot;extreme&quot; compression level for maximum file size reduction.</div>
+                </div>
+            </div>
+        </div>
+
+        <p style="text-align: center; color: var(--text-muted); margin-top: 24px; font-size: 0.875rem;">
+            The Windows installer offers to install both automatically. On Linux, install from your package manager.
+        </p>
+    </div>
+</section>
+
+<footer class="site-footer">
+    <div class="container">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <a href="index.html" class="brand"><img src="../icon.png" alt="">PDFApps</a>
+                <p>Fast, offline, subscription-free PDF editor. Open source under the MIT license.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Product</h4>
+                <ul>
+                    <li><a href="features.html">Features</a></li>
+                    <li><a href="download.html">Download</a></li>
+                    <li><a href="changelog.html">Changelog</a></li>
+                    <li><a href="docs.html">Documentation</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/CONTRIBUTING.md">Contributing</a></li>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/issues">Issues</a></li>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/discussions">Discussions</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Community</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps">GitHub</a></li>
+                    <li><a href="https://github.com/sponsors/nelsonduarte">Sponsor</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/LICENSE">MIT License</a></li>
+                    <li><a href="#">Privacy</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2026 Nelson Duarte · Made with ♥ for the open web</span>
+            <div class="footer-bottom-links">
+                <a href="https://github.com/nelsonduarte/PDFApps">GitHub</a>
+                <a href="changelog.html">v1.9.0</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
