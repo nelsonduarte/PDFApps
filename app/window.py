@@ -31,6 +31,7 @@ from app.tools.convert import TabConverter
 from app.editor.tab import TabEditar
 from app.tools.info import TabInfo
 from app.tools.import_pdf import TabImport
+from app.tools.page_numbers import TabPageNumbers
 
 
 _NAV_KEYS = [
@@ -42,6 +43,7 @@ _NAV_KEYS = [
     ("nav.compress",  "fa5s.compress-arrows-alt", TabComprimir),
     ("nav.encrypt",   "fa5s.lock",                TabEncriptar),
     ("nav.watermark", "fa5s.stamp",               TabMarcaDagua),
+    ("nav.page_numbers", "fa5s.list-ol",          TabPageNumbers),
     ("nav.ocr",       "fa5s.search",              TabOCR),
     ("nav.convert",   "fa5s.exchange-alt",        TabConverter),
     ("nav.edit",      "fa5s.edit",                TabEditar),
