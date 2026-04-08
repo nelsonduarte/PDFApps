@@ -1,0 +1,144 @@
+name: Release (bump version & tag)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version (e.g. 1.10.0 — without the leading v)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  bump-and-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate version format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Invalid version '${{ inputs.version }}' — expected MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+
+      - name: Read current version
+        id: current
+        run: |
+          OLD=$(grep -oP 'APP_VERSION\s*=\s*"\K[^"]+' app/constants.py)
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          echo "Old version: $OLD"
+          echo "New version: ${{ inputs.version }}"
+
+      - name: Abort if tag already exists
+        run: |
+          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Tag v${{ inputs.version }} already exists"
+            exit 1
+          fi
+
+      - name: Bump version everywhere
+        env:
+          OLD: ${{ steps.current.outputs.old }}
+          NEW: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import os, re
+          from pathlib import Path
+
+          old = os.environ["OLD"]
+          new = os.environ["NEW"]
+          old_re = re.escape(old)
+
+          # (path, list of (regex, replacement)) pairs.
+          # Each replacement uses {new} as the new version.
+          targets = [
+              ("app/constants.py", [
+                  (rf'APP_VERSION\s*=\s*"{old_re}"', f'APP_VERSION = "{new}"'),
+              ]),
+              ("installer.py", [
+                  (rf'APP_VERSION\s*=\s*"{old_re}"', f'APP_VERSION = "{new}"'),
+              ]),
+              ("docs/index.html", [
+                  (rf'"softwareVersion":\s*"{old_re}"', f'"softwareVersion": "{new}"'),
+                  (rf'v{old_re}', f'v{new}'),
+              ]),
+              ("docs/changelog.html", [
+                  (rf'v{old_re}', f'v{new}'),
+              ]),
+              ("snap/snapcraft.yaml", [
+                  (rf"version:\s*'{old_re}'", f"version: '{new}'"),
+              ]),
+              ("rpm/pdfapps.spec", [
+                  (rf'^Version:\s+{old_re}', f'Version:        {new}'),
+              ]),
+              ("aur/pdfapps/PKGBUILD", [
+                  (rf'pkgver={old_re}', f'pkgver={new}'),
+              ]),
+              ("aur/pdfapps/.SRCINFO", [
+                  (rf'pkgver = {old_re}', f'pkgver = {new}'),
+                  (rf'{old_re}', new),
+              ]),
+              ("aur/pdfapps-bin/PKGBUILD", [
+                  (rf'pkgver={old_re}', f'pkgver={new}'),
+              ]),
+              ("aur/pdfapps-bin/.SRCINFO", [
+                  (rf'pkgver = {old_re}', f'pkgver = {new}'),
+                  (rf'provides = pdfapps={old_re}', f'provides = pdfapps={new}'),
+                  (rf'v{old_re}', f'v{new}'),
+                  (rf'pdfapps-{old_re}', f'pdfapps-{new}'),
+              ]),
+              ("winget/nelsonduarte.PDFApps.installer.yaml", [
+                  (rf'PackageVersion:\s*{old_re}', f'PackageVersion: {new}'),
+                  (rf'v{old_re}', f'v{new}'),
+              ]),
+              ("winget/nelsonduarte.PDFApps.locale.en-US.yaml", [
+                  (rf'PackageVersion:\s*{old_re}', f'PackageVersion: {new}'),
+                  (rf'v{old_re}', f'v{new}'),
+              ]),
+              ("winget/nelsonduarte.PDFApps.yaml", [
+                  (rf'PackageVersion:\s*{old_re}', f'PackageVersion: {new}'),
+              ]),
+          ]
+
+          for path_str, subs in targets:
+              p = Path(path_str)
+              if not p.exists():
+                  print(f"skip (missing): {path_str}")
+                  continue
+              text = p.read_text(encoding="utf-8")
+              original = text
+              for pattern, repl in subs:
+                  text = re.sub(pattern, repl, text, flags=re.MULTILINE)
+              if text != original:
+                  p.write_text(text, encoding="utf-8")
+                  print(f"updated: {path_str}")
+              else:
+                  print(f"unchanged: {path_str}")
+          PY
+
+      - name: Show diff
+        run: git --no-pager diff --stat
+
+      - name: Commit, tag and push
+        env:
+          NEW: ${{ inputs.version }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: bump version to ${NEW}"
+          git tag -a "v${NEW}" -m "Release v${NEW}"
+          git push origin HEAD
+          git push origin "v${NEW}"
+
+      - name: Summary
+        run: |
+          echo "### ✅ Bumped to v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tag \`v${{ inputs.version }}\` was pushed — \`build.yml\` will now build and publish the release." >> $GITHUB_STEP_SUMMARY
