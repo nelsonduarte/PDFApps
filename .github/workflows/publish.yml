@@ -190,7 +190,7 @@ jobs:
     steps:
       - name: Submit winget PR
         env:
-          WINGET_PAT: ${{ secrets.WINGET_PAT }}
+          WINGET_PAT: ${{ secrets.WINGET_PAT_TOKEN }}
         shell: pwsh
         run: |
           if (-not $env:WINGET_PAT) {
