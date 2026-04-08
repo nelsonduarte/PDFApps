@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changelog — PDFApps</title>
+    <meta name="description" content="PDFApps release history. Every version with what changed.">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container">
+        <a href="index.html" class="brand">
+            <img src="icon.png" alt="">
+            PDFApps
+        </a>
+        <ul class="nav-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="download.html">Download</a></li>
+            <li><a href="docs.html">Docs</a></li>
+            <li><a href="changelog.html" class="active">Changelog</a></li>
+        </ul>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme"></button>
+            <a href="https://github.com/nelsonduarte/PDFApps" class="icon-btn" aria-label="GitHub">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            </a>
+            <a href="download.html" class="btn btn-primary btn-sm">Download</a>
+        </div>
+    </div>
+</header>
+
+<div class="page-header">
+    <div class="container">
+        <span class="eyebrow">Release history</span>
+        <h1>Changelog</h1>
+        <p>Every version of PDFApps and what's new in each. The latest release is always available on the <a href="download.html">Download page</a>.</p>
+    </div>
+</div>
+
+<section>
+    <div class="container" style="max-width: 880px;">
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.9.0</span>
+                <span class="release-date">April 7, 2026</span>
+                <span class="release-badge">Latest</span>
+            </div>
+            <h3>Bookmarks, night mode, and release notes in updater</h3>
+            <ul class="docs-list">
+                <li><strong>Bookmarks / TOC panel</strong> — clickable side panel showing the PDF outline. Hidden for PDFs without bookmarks.</li>
+                <li><strong>Night reading mode</strong> — invert PDF colors for comfortable reading at night, independent from the app theme.</li>
+                <li><strong>Release notes in update dialog</strong> — see what's new before clicking install.</li>
+                <li><strong>TOC and night mode buttons</strong> moved to the workspace bar where all viewer controls live.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.8.3</span>
+                <span class="release-date">April 6, 2026</span>
+            </div>
+            <h3>Theme-aware dialogs and security hardening</h3>
+            <ul class="docs-list">
+                <li>Dialogs (password, text edit, signature) now adapt to light/dark theme</li>
+                <li>Canvas background adapts to the active theme</li>
+                <li>Security audit fixes: path traversal, ZIP slip, PowerShell escaping</li>
+                <li>pypdf bumped to 6.9.2 (CVE patches)</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.8.2</span>
+                <span class="release-date">April 5, 2026</span>
+            </div>
+            <h3>Digital signature and continuous scroll editor</h3>
+            <ul class="docs-list">
+                <li><strong>Digital signature tool</strong> — draw, type with cursive fonts, or import an image; save and reuse</li>
+                <li>Editor now uses continuous scroll across all pages instead of single-page view</li>
+                <li>Drag &amp; drop a PDF anywhere in the window to open it</li>
+                <li>Multi-select PDFs in the file dialog</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.8.1</span>
+                <span class="release-date">April 5, 2026</span>
+            </div>
+            <h3>Presentation mode and fullscreen</h3>
+            <ul class="docs-list">
+                <li><strong>Presentation mode (F5)</strong> — fullscreen slideshow with keyboard navigation</li>
+                <li><strong>Fullscreen (F11)</strong> — distraction-free viewing with hidden toolbars</li>
+                <li>Sidebar collapse strip replaced with a hamburger toggle in the workspace bar</li>
+                <li>Reduced viewer page gap from 12px to 4px</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.8.0</span>
+                <span class="release-date">April 5, 2026</span>
+            </div>
+            <h3>Global keyboard shortcuts</h3>
+            <ul class="docs-list">
+                <li>Ctrl+O — open PDF</li>
+                <li>Ctrl+S — save / apply active tool</li>
+                <li>Ctrl+P — print current PDF</li>
+                <li>Ctrl+W — close current tab</li>
+                <li>Drag &amp; drop opens PDFs anywhere in the window</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.7.9</span>
+                <span class="release-date">March 30, 2026</span>
+            </div>
+            <h3>Installer self-elevation</h3>
+            <ul class="docs-list">
+                <li>Installer now self-elevates via ShellExecuteW instead of requiring uac_admin in the manifest</li>
+                <li>Fixes WinError 740 when launching the installer from old updater versions</li>
+                <li>Update dialog handles ShellExecuteW failures gracefully</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.7.4</span>
+                <span class="release-date">March 30, 2026</span>
+            </div>
+            <h3>Translation system and localized installers</h3>
+            <ul class="docs-list">
+                <li>8 languages: English, Português, Español, Français, Deutsch, 中文, Italiano, Nederlands</li>
+                <li>Auto-detection of system language at startup</li>
+                <li>Installer and uninstaller localized in all 8 languages</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.0.0</span>
+                <span class="release-date">March 23, 2026</span>
+            </div>
+            <h3>Initial release</h3>
+            <ul class="docs-list">
+                <li>13 PDF tools: Split, Merge, Rotate, Extract, Reorder, Compress, Encrypt, Watermark, OCR, Convert, Edit, Import, Info</li>
+                <li>Integrated PDF viewer with continuous scroll, search, and tabs</li>
+                <li>Visual editor with redact, text, image, highlight, notes, and form filling</li>
+                <li>Cross-platform: Windows, macOS, Linux</li>
+            </ul>
+        </div>
+
+        <p style="text-align: center; margin-top: 48px; color: var(--text-muted); font-size: 0.875rem;">
+            Full release history with auto-generated notes is available on
+            <a href="https://github.com/nelsonduarte/PDFApps/releases" style="color: var(--accent);">GitHub Releases</a>.
+        </p>
+    </div>
+</section>
+
+<footer class="site-footer">
+    <div class="container">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <a href="index.html" class="brand"><img src="icon.png" alt="">PDFApps</a>
+                <p>Fast, offline, subscription-free PDF editor. Open source under the MIT license.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Product</h4>
+                <ul>
+                    <li><a href="features.html">Features</a></li>
+                    <li><a href="download.html">Download</a></li>
+                    <li><a href="changelog.html">Changelog</a></li>
+                    <li><a href="docs.html">Documentation</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/CONTRIBUTING.md">Contributing</a></li>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/issues">Issues</a></li>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/discussions">Discussions</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Community</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps">GitHub</a></li>
+                    <li><a href="https://github.com/sponsors/nelsonduarte">Sponsor</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/LICENSE">MIT License</a></li>
+                    <li><a href="#">Privacy</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2026 Nelson Duarte · Made with ♥ for the open web</span>
+            <div class="footer-bottom-links">
+                <a href="https://github.com/nelsonduarte/PDFApps">GitHub</a>
+                <a href="changelog.html">v1.9.0</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

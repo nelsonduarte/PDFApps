@@ -3,1865 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDFApps — Fast, Offline, Subscription-Free PDF Editor</title>
-    <meta name="description" content="PDFApps is a fast, offline, subscription-free PDF editor. Split, merge, rotate, compress, encrypt, watermark, OCR, convert, and visually edit PDFs. Open source, cross-platform.">
-    <meta name="keywords" content="PDF editor, offline PDF, free PDF tool, open source, split PDF, merge PDF, compress PDF, OCR, watermark, encrypt PDF">
-    <meta property="og:title" content="PDFApps — Fast, Offline PDF Editor">
-    <meta property="og:description" content="13 PDF tools in one app. 100% offline, free forever, open source.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://nelsonduarte.github.io/PDFApps/">
-    <meta property="og:image" content="https://nelsonduarte.github.io/PDFApps/icon.png">
+    <title>PDFApps — Fast, offline, subscription-free PDF editor</title>
+    <meta name="description" content="The PDF editor that respects your privacy. 13 built-in tools, runs offline, free forever, open source. Windows, macOS, and Linux.">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <style>
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            color: #1e293b;
-            background: #ffffff;
-            line-height: 1.6;
-            -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
-        }
-
-        /* ── Layout ── */
-        .container {
-            max-width: 1140px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-
-        section {
-            padding: 96px 0;
-        }
-
-        h2 {
-            font-size: 2.25rem;
-            font-weight: 800;
-            text-align: center;
-            margin-bottom: 16px;
-            color: #0f172a;
-            letter-spacing: -0.02em;
-        }
-
-        .section-subtitle {
-            text-align: center;
-            color: #64748b;
-            font-size: 1.1rem;
-            max-width: 560px;
-            margin: 0 auto 56px;
-        }
-
-        /* ── Navbar ── */
-        nav {
-            position: sticky;
-            top: 0;
-            background: rgba(255,255,255,.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid rgba(0,0,0,.06);
-            z-index: 100;
-            padding: 0;
-            height: 64px;
-            display: flex;
-            align-items: center;
-        }
-
-        nav .container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-        }
-
-        nav .logo {
-            font-size: 1.3rem;
-            font-weight: 800;
-            color: #2563eb;
-            text-decoration: none;
-            letter-spacing: -0.02em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        nav .logo-icon {
-            width: 28px;
-            height: 28px;
-            border-radius: 7px;
-            object-fit: contain;
-        }
-
-        nav ul {
-            list-style: none;
-            display: flex;
-            gap: 32px;
-            align-items: center;
-        }
-
-        nav a {
-            color: #64748b;
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: color .2s;
-        }
-
-        nav a:hover {
-            color: #2563eb;
-        }
-
-        .nav-cta {
-            background: #2563eb;
-            color: #fff !important;
-            padding: 8px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.875rem;
-            transition: background .2s, transform .15s;
-        }
-
-        .nav-cta:hover {
-            background: #1d4ed8;
-            color: #fff !important;
-            transform: translateY(-1px);
-        }
-
-        /* ── Language selector ── */
-        .lang-select {
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 4px 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #475569;
-            cursor: pointer;
-            outline: none;
-            font-family: inherit;
-        }
-
-        .lang-select:hover {
-            border-color: #2563eb;
-        }
-
-        /* ── Hero ── */
-        .hero {
-            text-align: center;
-            padding: 120px 0 100px;
-            background: linear-gradient(180deg, #f8faff 0%, #eef2ff 40%, #ffffff 100%);
-            position: relative;
-        }
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 800px;
-            height: 800px;
-            background: radial-gradient(circle, rgba(37,99,235,.06) 0%, transparent 70%);
-            pointer-events: none;
-        }
-
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-            color: #2563eb;
-            padding: 6px 16px;
-            border-radius: 100px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 28px;
-        }
-
-        .hero h1 {
-            font-size: 4rem;
-            font-weight: 900;
-            letter-spacing: -0.03em;
-            color: #0f172a;
-            margin-bottom: 20px;
-            line-height: 1.1;
-        }
-
-        .hero h1 span {
-            background: linear-gradient(135deg, #2563eb, #7c3aed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .hero .tagline {
-            font-size: 1.35rem;
-            color: #64748b;
-            margin-bottom: 44px;
-            max-width: 520px;
-            margin-left: auto;
-            margin-right: auto;
-            line-height: 1.5;
-        }
-
-        .btn-group {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 12px;
-            margin-bottom: 32px;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 15px 30px;
-            border-radius: 12px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all .2s;
-            border: none;
-            cursor: pointer;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-        }
-
-        .btn-download {
-            background: #10b981;
-            color: #fff;
-            box-shadow: 0 4px 14px rgba(16,185,129,.3);
-        }
-
-        .btn-download:hover {
-            background: #059669;
-            box-shadow: 0 8px 24px rgba(16,185,129,.35);
-        }
-
-        .btn-download svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        .btn-outline {
-            background: #fff;
-            color: #1e293b;
-            border: 1.5px solid #e2e8f0;
-            box-shadow: 0 2px 8px rgba(0,0,0,.04);
-        }
-
-        .btn-outline:hover {
-            border-color: #2563eb;
-            color: #2563eb;
-            box-shadow: 0 4px 14px rgba(37,99,235,.1);
-        }
-
-        .hero-sub {
-            font-size: 0.9rem;
-            color: #94a3b8;
-        }
-
-        .hero-sub a {
-            color: #2563eb;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .hero-sub a:hover {
-            text-decoration: underline;
-        }
-
-        .hero-stats {
-            display: flex;
-            justify-content: center;
-            gap: 48px;
-            margin-top: 56px;
-            padding-top: 40px;
-            border-top: 1px solid #e2e8f0;
-            max-width: 480px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .hero-stat {
-            text-align: center;
-        }
-
-        .hero-stat-value {
-            font-size: 1.75rem;
-            font-weight: 800;
-            color: #0f172a;
-        }
-
-        .hero-stat-label {
-            font-size: 0.85rem;
-            color: #94a3b8;
-            font-weight: 500;
-        }
-
-        /* ── Features Grid ── */
-        #features {
-            background: #ffffff;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-        }
-
-        .feature-card {
-            background: #f8fafc;
-            border: 1px solid #f1f5f9;
-            border-radius: 16px;
-            padding: 32px 24px;
-            text-align: center;
-            transition: all .25s;
-            position: relative;
-        }
-
-        .feature-card:hover {
-            background: #ffffff;
-            border-color: #e2e8f0;
-            box-shadow: 0 12px 32px rgba(0,0,0,.06);
-            transform: translateY(-4px);
-        }
-
-        .feature-icon {
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin: 0 auto 16px;
-        }
-
-        .feature-icon-blue { background: #eff6ff; }
-        .feature-icon-green { background: #ecfdf5; }
-        .feature-icon-purple { background: #f5f3ff; }
-        .feature-icon-amber { background: #fffbeb; }
-        .feature-icon-rose { background: #fff1f2; }
-        .feature-icon-cyan { background: #ecfeff; }
-
-        .feature-card h3 {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #0f172a;
-            margin-bottom: 6px;
-        }
-
-        .feature-card p {
-            font-size: 0.82rem;
-            color: #94a3b8;
-            line-height: 1.4;
-        }
-
-        /* ── Why PDFApps ── */
-        #why {
-            background: #f8fafc;
-        }
-
-        .why-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 28px;
-        }
-
-        .why-card {
-            text-align: left;
-            padding: 40px 32px;
-            border-radius: 20px;
-            background: #ffffff;
-            border: 1px solid #f1f5f9;
-            transition: all .25s;
-        }
-
-        .why-card:hover {
-            box-shadow: 0 16px 40px rgba(0,0,0,.06);
-            transform: translateY(-3px);
-        }
-
-        .why-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.6rem;
-            margin-bottom: 20px;
-        }
-
-        .why-card h3 {
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #0f172a;
-        }
-
-        .why-card p {
-            color: #64748b;
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-
-        /* ── Screenshots ── */
-        #screenshots {
-            background: #ffffff;
-        }
-
-        .screenshots-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-        }
-
-        .screenshot-item {
-            border-radius: 16px;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-            background: #f8fafc;
-            transition: all .25s;
-        }
-
-        .screenshot-item:hover {
-            box-shadow: 0 16px 40px rgba(0,0,0,.08);
-            transform: translateY(-3px);
-        }
-
-        .screenshot-item img {
-            width: 100%;
-            height: auto;
-            display: block;
-            cursor: pointer;
-        }
-
-        .screenshot-item figcaption {
-            padding: 14px 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #334155;
-            text-align: center;
-            background: #fff;
-        }
-
-        /* ── Lightbox ── */
-        .lightbox-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,.85);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            padding: 24px;
-        }
-
-        .lightbox-overlay.active {
-            display: flex;
-        }
-
-        .lightbox-overlay img {
-            max-width: 95vw;
-            max-height: 92vh;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,.5);
-            object-fit: contain;
-        }
-
-        .lightbox-close {
-            position: fixed;
-            top: 18px;
-            right: 24px;
-            color: #fff;
-            font-size: 2rem;
-            font-weight: 300;
-            cursor: pointer;
-            z-index: 10000;
-            line-height: 1;
-            opacity: .7;
-            transition: opacity .2s;
-        }
-
-        .lightbox-close:hover {
-            opacity: 1;
-        }
-
-        /* ── Comparison Table ── */
-        #compare {
-            background: #f8fafc;
-        }
-
-        .table-wrap {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            border-radius: 16px;
-            border: 1px solid #e2e8f0;
-            background: #fff;
-            box-shadow: 0 4px 16px rgba(0,0,0,.04);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 640px;
-            font-size: 0.925rem;
-        }
-
-        thead {
-            background: #0f172a;
-            color: #fff;
-        }
-
-        th, td {
-            padding: 16px 20px;
-            text-align: center;
-        }
-
-        th:first-child, td:first-child {
-            text-align: left;
-        }
-
-        th {
-            font-weight: 600;
-            font-size: 0.9rem;
-            letter-spacing: 0.01em;
-        }
-
-        thead th:nth-child(2) {
-            background: #2563eb;
-        }
-
-        tbody tr {
-            border-bottom: 1px solid #f1f5f9;
-            transition: background .15s;
-        }
-
-        tbody tr:hover {
-            background: #f8fafc;
-        }
-
-        td:nth-child(2) {
-            font-weight: 600;
-            color: #2563eb;
-        }
-
-        .check { color: #10b981; font-weight: 700; font-size: 1.1rem; }
-        .cross { color: #ef4444; font-weight: 700; font-size: 1.1rem; }
-        .partial { color: #f59e0b; font-weight: 700; font-size: 1.1rem; }
-
-        .table-legend {
-            text-align: center;
-            margin-top: 16px;
-            font-size: 0.85rem;
-            color: #94a3b8;
-        }
-
-        /* ── Guide Section ── */
-        .guide-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 24px;
-            margin-top: 48px;
-        }
-
-        .guide-step {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 28px;
-            position: relative;
-        }
-
-        .guide-step h3 {
-            font-size: 1.15rem;
-            font-weight: 700;
-            margin-bottom: 8px;
-            padding-left: 40px;
-        }
-
-        .guide-step p, .guide-step ul {
-            font-size: 0.95rem;
-            color: #475569;
-            line-height: 1.7;
-        }
-
-        .guide-step ul {
-            padding-left: 20px;
-            margin-top: 8px;
-        }
-
-        .guide-step ul li {
-            margin-bottom: 4px;
-        }
-
-        .guide-number {
-            position: absolute;
-            top: 26px;
-            left: 28px;
-            width: 28px;
-            height: 28px;
-            background: linear-gradient(135deg, #2563eb, #7c3aed);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.85rem;
-        }
-
-        .guide-step a {
-            color: #2563eb;
-            text-decoration: none;
-        }
-
-        .guide-step a:hover {
-            text-decoration: underline;
-        }
-
-        /* ── CTA Section ── */
-        .cta-section {
-            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-            padding: 80px 0;
-            text-align: center;
-        }
-
-        .cta-section h2 {
-            color: #fff;
-            margin-bottom: 16px;
-        }
-
-        .cta-section p {
-            color: rgba(255,255,255,.8);
-            font-size: 1.1rem;
-            margin-bottom: 36px;
-            max-width: 480px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .cta-section .btn-download {
-            background: #fff;
-            color: #2563eb;
-            font-weight: 700;
-            box-shadow: 0 4px 20px rgba(0,0,0,.15);
-        }
-
-        .cta-section .btn-download:hover {
-            background: #f8fafc;
-            box-shadow: 0 8px 30px rgba(0,0,0,.2);
-        }
-
-        .cta-section .btn-outline {
-            border-color: rgba(255,255,255,.4);
-            color: #fff;
-            background: transparent;
-        }
-
-        .cta-section .btn-outline:hover {
-            border-color: #fff;
-            background: rgba(255,255,255,.1);
-            color: #fff;
-        }
-
-        /* ── Footer ── */
-        footer {
-            background: #0f172a;
-            color: #94a3b8;
-            padding: 56px 0 40px;
-        }
-
-        .footer-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 40px;
-            padding-bottom: 32px;
-            border-bottom: 1px solid #1e293b;
-        }
-
-        .footer-brand {
-            max-width: 300px;
-        }
-
-        .footer-brand .logo {
-            font-size: 1.2rem;
-            font-weight: 800;
-            color: #fff;
-            margin-bottom: 10px;
-            display: block;
-        }
-
-        .footer-brand p {
-            font-size: 0.875rem;
-            line-height: 1.6;
-        }
-
-        .footer-links-group {
-            display: flex;
-            gap: 56px;
-        }
-
-        .footer-col h4 {
-            color: #e2e8f0;
-            font-size: 0.85rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 16px;
-        }
-
-        .footer-col a {
-            display: block;
-            color: #94a3b8;
-            text-decoration: none;
-            font-size: 0.9rem;
-            padding: 4px 0;
-            transition: color .2s;
-        }
-
-        .footer-col a:hover {
-            color: #60a5fa;
-        }
-
-        .footer-bottom {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.82rem;
-        }
-
-        .btn-sponsor {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: transparent;
-            border: 1.5px solid #db2777;
-            color: #f472b6;
-            padding: 10px 24px;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            text-decoration: none;
-            transition: all .2s;
-        }
-
-        .btn-sponsor:hover {
-            background: #db2777;
-            color: #fff;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(219,39,119,.25);
-        }
-
-        /* ── Responsive ── */
-        @media (max-width: 1024px) {
-            .features-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2.5rem;
-            }
-
-            .hero .tagline {
-                font-size: 1.1rem;
-            }
-
-            section {
-                padding: 64px 0;
-            }
-
-            h2 {
-                font-size: 1.75rem;
-            }
-
-            .features-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 14px;
-            }
-
-            .why-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .screenshots-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            nav ul {
-                gap: 16px;
-            }
-
-            nav a {
-                font-size: 0.82rem;
-            }
-
-            .btn {
-                padding: 13px 22px;
-                font-size: 0.9rem;
-            }
-
-            .hero-stats {
-                gap: 32px;
-            }
-
-            .footer-top {
-                flex-direction: column;
-                gap: 32px;
-            }
-
-            .footer-bottom {
-                flex-direction: column;
-                gap: 12px;
-                text-align: center;
-            }
-        }
-
-        @media (max-width: 480px) {
-            nav ul {
-                display: none;
-            }
-
-            .hero h1 {
-                font-size: 2rem;
-            }
-
-            .btn-group {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .btn {
-                width: 100%;
-                max-width: 260px;
-                justify-content: center;
-            }
-
-            .features-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 12px;
-            }
-
-            .feature-card {
-                padding: 20px 16px;
-            }
-
-            .footer-links-group {
-                gap: 32px;
-            }
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- ── Navbar ── -->
-<nav>
+<header class="site-header">
     <div class="container">
-        <a href="#" class="logo">
-            <img src="icon.png" alt="PDFApps" class="logo-icon">
+        <a href="index.html" class="brand">
+            <img src="icon.png" alt="">
             PDFApps
         </a>
-        <ul>
-            <li><a href="#features" data-i18n="nav.features">Features</a></li>
-            <li><a href="#why" data-i18n="nav.why">Why PDFApps?</a></li>
-            <li><a href="#screenshots" data-i18n="nav.screenshots">Screenshots</a></li>
-            <li><a href="#guide" data-i18n="nav.guide">Guide</a></li>
-            <li><a href="#compare" data-i18n="nav.compare">Compare</a></li>
-            <li>
-                <select id="lang-picker" class="lang-select">
-                    <option value="en">EN</option>
-                    <option value="pt">PT</option>
-                    <option value="es">ES</option>
-                    <option value="fr">FR</option>
-                    <option value="de">DE</option>
-                    <option value="zh">ZH</option>
-                    <option value="it">IT</option>
-                    <option value="nl">NL</option>
-                </select>
-            </li>
-            <li><a href="https://github.com/nelsonduarte/PDFApps" class="nav-cta">GitHub</a></li>
+        <ul class="nav-links">
+            <li><a href="index.html" class="active">Home</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="download.html">Download</a></li>
+            <li><a href="docs.html">Docs</a></li>
+            <li><a href="changelog.html">Changelog</a></li>
         </ul>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme"></button>
+            <a href="https://github.com/nelsonduarte/PDFApps" class="icon-btn" aria-label="GitHub">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            </a>
+            <a href="download.html" class="btn btn-primary btn-sm">Download</a>
+        </div>
     </div>
-</nav>
+</header>
 
-<!-- ── Hero ── -->
 <section class="hero">
     <div class="container">
-        <div class="hero-badge">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="4" fill="#2563eb"/></svg>
-            <span data-i18n="hero.badge">Open Source &middot; MIT License</span>
+        <span class="eyebrow">v1.9.0 · MIT licensed · Open source</span>
+        <h1>The PDF editor that<br>respects your <span class="gradient-text">privacy</span></h1>
+        <p class="hero-tagline">13 powerful tools in one app. 100% offline, free forever, no accounts. Your files never leave your computer.</p>
+
+        <div class="hero-cta">
+            <a href="download.html" class="btn btn-primary btn-lg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download for free
+            </a>
+            <a href="features.html" class="btn btn-secondary btn-lg">Explore features</a>
         </div>
 
-        <h1 data-i18n="hero.title" data-i18n-html="true">The PDF editor that<br>respects your <span>privacy</span></h1>
-        <p class="tagline" data-i18n="hero.tagline">13 powerful tools in one app. 100% offline, free forever, no accounts needed. Your files never leave your computer.</p>
-
-        <div class="btn-group">
-            <a href="https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFAppsSetup.exe" class="btn btn-download">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Windows
-            </a>
-            <a href="https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFApps-Linux.tar.gz" class="btn btn-download">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Linux
-            </a>
-            <a href="https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFApps-macOS.zip" class="btn btn-download">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                macOS
-            </a>
+        <div class="hero-meta">
+            <span class="hero-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Windows · macOS · Linux
+            </span>
+            <span class="hero-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                No telemetry
+            </span>
+            <span class="hero-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                No accounts
+            </span>
         </div>
 
-        <p class="hero-sub">
-            <a href="https://github.com/nelsonduarte/PDFApps" data-i18n="hero.source">View source on GitHub</a>
-            &nbsp;&middot;&nbsp; v1.9.0
-        </p>
+        <div class="hero-screenshot">
+            <img src="viewer.png" alt="PDFApps interface">
+        </div>
+    </div>
+</section>
 
-        <div class="hero-stats">
-            <div class="hero-stat">
-                <div class="hero-stat-value">13</div>
-                <div class="hero-stat-label" data-i18n="hero.stat_tools">PDF Tools</div>
+<section class="stats">
+    <div class="container">
+        <div class="stats-grid">
+            <div>
+                <div class="stat-value">13</div>
+                <div class="stat-label">PDF Tools</div>
             </div>
-            <div class="hero-stat">
-                <div class="hero-stat-value">3</div>
-                <div class="hero-stat-label" data-i18n="hero.stat_platforms">Platforms</div>
+            <div>
+                <div class="stat-value">8</div>
+                <div class="stat-label">Languages</div>
             </div>
-            <div class="hero-stat">
-                <div class="hero-stat-value">8</div>
-                <div class="hero-stat-label" data-i18n="hero.stat_langs">Languages</div>
+            <div>
+                <div class="stat-value">6</div>
+                <div class="stat-label">Platforms</div>
             </div>
-            <div class="hero-stat">
-                <div class="hero-stat-value">0</div>
-                <div class="hero-stat-label" data-i18n="hero.stat_subs">Subscriptions</div>
+            <div>
+                <div class="stat-value">$0</div>
+                <div class="stat-label">Forever</div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- ── Features ── -->
-<section id="features">
+<section>
     <div class="container">
-        <h2 data-i18n="features.title">Everything you need for PDFs</h2>
-        <p class="section-subtitle" data-i18n="features.subtitle">13 built-in tools that cover every common PDF task. No plugins, no add-ons, no internet required.</p>
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-blue">&#9986;</div>
-                <h3 data-i18n="features.split">Split</h3>
-                <p data-i18n="features.split_desc">Extract page ranges</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-green">&#128279;</div>
-                <h3 data-i18n="features.merge">Merge</h3>
-                <p data-i18n="features.merge_desc">Combine multiple PDFs</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-purple">&#128260;</div>
-                <h3 data-i18n="features.rotate">Rotate</h3>
-                <p data-i18n="features.rotate_desc">Rotate any page</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-amber">&#128196;</div>
-                <h3 data-i18n="features.extract">Extract</h3>
-                <p data-i18n="features.extract_desc">Pull out specific pages</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-rose">&#128218;</div>
-                <h3 data-i18n="features.reorder">Reorder</h3>
-                <p data-i18n="features.reorder_desc">Drag & drop pages</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-cyan">&#128230;</div>
-                <h3 data-i18n="features.compress">Compress</h3>
-                <p data-i18n="features.compress_desc">3 compression levels</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-blue">&#128274;</div>
-                <h3 data-i18n="features.encrypt">Encrypt</h3>
-                <p data-i18n="features.encrypt_desc">Password protection</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-purple">&#128167;</div>
-                <h3 data-i18n="features.watermark">Watermark</h3>
-                <p data-i18n="features.watermark_desc">Stamp overlay</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-green">&#128065;</div>
-                <h3>OCR</h3>
-                <p data-i18n="features.ocr_desc">5 languages supported</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-amber">&#128257;</div>
-                <h3 data-i18n="features.convert">Convert</h3>
-                <p>PNG, JPG, DOCX, TXT</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-rose">&#9998;</div>
-                <h3 data-i18n="features.editor">Visual Editor</h3>
-                <p data-i18n="features.editor_desc">Redact, text, images, signatures</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-cyan">&#128229;</div>
-                <h3 data-i18n="features.import">Import</h3>
-                <p data-i18n="features.import_desc">TXT, images & Markdown to PDF</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon feature-icon-blue">&#128196;</div>
-                <h3 data-i18n="features.info">Info</h3>
-                <p data-i18n="features.info_desc">PDF metadata & properties</p>
-            </div>
+        <div class="section-header">
+            <span class="eyebrow">Why PDFApps</span>
+            <h2>Built for people who care</h2>
+            <p>Most PDF tools are paid, browser-based, or want your data. PDFApps is different.</p>
         </div>
-    </div>
-</section>
 
-<!-- ── Why PDFApps ── -->
-<section id="why">
-    <div class="container">
-        <h2 data-i18n="why.title">Why PDFApps?</h2>
-        <p class="section-subtitle" data-i18n="why.subtitle">Built for people who care about privacy, simplicity, and not paying for basic tools.</p>
         <div class="why-grid">
             <div class="why-card">
-                <div class="why-icon feature-icon-blue">&#128272;</div>
-                <h3 data-i18n="why.offline_title">100% Offline</h3>
-                <p data-i18n="why.offline_desc">Your files never leave your computer. No uploads, no cloud processing, no data collection. Complete privacy by design.</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <h3>100% offline</h3>
+                <p>Files never leave your computer. No uploads, no cloud, no tracking.</p>
             </div>
             <div class="why-card">
-                <div class="why-icon feature-icon-green">&#127873;</div>
-                <h3 data-i18n="why.free_title">Free Forever</h3>
-                <p data-i18n="why.free_desc">Open source and MIT licensed. No subscriptions, no trials, no feature locks. Every tool is yours to use, forever.</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                </div>
+                <h3>Free forever</h3>
+                <p>Open source, MIT licensed. No subscriptions, no upsells, no trials.</p>
             </div>
             <div class="why-card">
-                <div class="why-icon feature-icon-purple">&#128187;</div>
-                <h3 data-i18n="why.cross_title">Cross-Platform</h3>
-                <p data-i18n="why.cross_desc">Runs natively on Windows, macOS, and Linux. Same experience everywhere, built with Python and PySide6 (Qt 6).</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </div>
+                <h3>Cross-platform</h3>
+                <p>Native on Windows, macOS, and Linux. Same experience everywhere.</p>
             </div>
             <div class="why-card">
-                <div class="why-icon feature-icon-amber">&#128259;</div>
-                <h3 data-i18n="why.update_title">Auto-Update</h3>
-                <p data-i18n="why.update_desc">Always stay up to date. The app checks for new versions automatically and lets you update in one click, with a progress bar — no reinstall needed.</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+                </div>
+                <h3>All in one</h3>
+                <p>13 tools in a single app. No more juggling 5 different websites.</p>
             </div>
         </div>
     </div>
 </section>
 
-<!-- ── Screenshots ── -->
-<section id="screenshots">
+<section>
     <div class="container">
-        <h2 data-i18n="screenshots.title">See it in action</h2>
-        <p class="section-subtitle" data-i18n="screenshots.subtitle">A clean, modern interface designed for productivity.</p>
-        <div class="screenshots-grid">
-            <figure class="screenshot-item">
-                <img src="viewer.png" alt="PDFApps Viewer" loading="lazy">
-                <figcaption data-i18n="screenshots.viewer">PDF Viewer</figcaption>
-            </figure>
-            <figure class="screenshot-item">
-                <img src="viewer-light.png" alt="PDFApps Light Theme" loading="lazy">
-                <figcaption data-i18n="screenshots.light">Light Theme</figcaption>
-            </figure>
-            <figure class="screenshot-item">
-                <img src="edit.png" alt="PDFApps Visual Editor" loading="lazy">
-                <figcaption data-i18n="screenshots.editor">Visual Editor</figcaption>
-            </figure>
-            <figure class="screenshot-item">
-                <img src="languages.png" alt="PDFApps Languages" loading="lazy">
-                <figcaption data-i18n="screenshots.languages">8 Languages</figcaption>
-            </figure>
-            <figure class="screenshot-item">
-                <img src="convert.png" alt="PDFApps Convert" loading="lazy">
-                <figcaption data-i18n="screenshots.convert">Convert PDF</figcaption>
-            </figure>
-            <figure class="screenshot-item">
-                <img src="encrypt.png" alt="PDFApps Encrypt" loading="lazy">
-                <figcaption data-i18n="screenshots.encrypt">Encrypt PDF</figcaption>
-            </figure>
-            <figure class="screenshot-item">
-                <img src="import.png" alt="PDFApps Import" loading="lazy">
-                <figcaption data-i18n="screenshots.import">Import to PDF</figcaption>
-            </figure>
-            <figure class="screenshot-item">
-                <img src="OCR.png" alt="PDFApps OCR" loading="lazy">
-                <figcaption data-i18n="screenshots.ocr">OCR Recognition</figcaption>
-            </figure>
+        <div class="section-header">
+            <span class="eyebrow">Featured tools</span>
+            <h2>Everything you need for PDFs</h2>
+            <p>From basic operations to a visual editor with signatures and annotations.</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+                </div>
+                <h3>Split &amp; Merge</h3>
+                <p>Split a PDF by page ranges or merge multiple files with drag-and-drop ordering.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                </div>
+                <h3>Compress</h3>
+                <p>Three quality levels using Ghostscript and PyMuPDF for the smallest output size.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <h3>Encrypt</h3>
+                <p>Protect PDFs with a password or remove encryption from existing documents.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+                <h3>OCR</h3>
+                <p>Extract text from scanned PDFs in 5 languages using Tesseract.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                </div>
+                <h3>Visual Editor</h3>
+                <p>Redact, annotate, sign, highlight, and edit text directly on the PDF.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                </div>
+                <h3>Convert</h3>
+                <p>Export to PNG, JPG (with DPI selector), DOCX, or plain text.</p>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 48px;">
+            <a href="features.html" class="btn btn-secondary">See all 13 tools →</a>
         </div>
     </div>
 </section>
 
-<!-- ── Guide ── -->
-<section id="guide">
+<section class="platforms">
     <div class="container">
-        <h2 data-i18n="guide.title">How to Use PDFApps</h2>
-        <p class="section-subtitle" data-i18n="guide.subtitle">A quick guide to get you started with every feature.</p>
+        <div class="section-header">
+            <span class="eyebrow">Available everywhere</span>
+            <h2>Install on any platform</h2>
+            <p>Native installers, package managers, and a portable AppImage.</p>
+        </div>
 
-        <div class="guide-grid">
-            <div class="guide-step">
-                <div class="guide-number">1</div>
-                <h3 data-i18n="guide.s1_title">Open a PDF</h3>
-                <p data-i18n="guide.s1_desc">Click the <strong>folder icon</strong> in the toolbar, drag and drop a file onto the window, or double-click a PDF associated with PDFApps. The viewer loads instantly with continuous scroll.</p>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">2</div>
-                <h3 data-i18n="guide.s2_title">Navigate Pages</h3>
-                <p data-i18n="guide.s2_desc">Use the <strong>page input field</strong> in the toolbar to jump to any page. Type a number and press Enter. Use the <strong>arrow buttons</strong> to go to the previous or next page.</p>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">3</div>
-                <h3 data-i18n="guide.s3_title">Zoom In & Out</h3>
-                <p data-i18n="guide.s3_desc">Use the <strong>+ / &minus;</strong> buttons in the toolbar or <strong>Ctrl + Scroll</strong> to zoom. Click <strong>Reset</strong> to return to the default zoom level.</p>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">4</div>
-                <h3 data-i18n="guide.s4_title">Use the Tools</h3>
-                <p data-i18n="guide.s4_desc">Click any tool in the <strong>sidebar</strong> (Split, Merge, Rotate, etc.). Select your PDF, adjust the settings, and click <strong>Run</strong>. The output file is saved automatically.</p>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">5</div>
-                <h3 data-i18n="guide.s5_title">Visual Editor</h3>
-                <div data-i18n="guide.s5_desc" data-i18n-html="true"><p>Click <strong>Edit</strong> in the sidebar to open the visual editor. Choose a mode from the right panel:</p>
-                <ul>
-                    <li><strong>Redact / Censor</strong> &mdash; draw a black rectangle to hide content</li>
-                    <li><strong>Add Text</strong> &mdash; click to place text on the page</li>
-                    <li><strong>Add Image</strong> &mdash; insert an image onto the PDF</li>
-                    <li><strong>Highlight</strong> &mdash; draw a yellow highlight over text</li>
-                    <li><strong>Note / Comment</strong> &mdash; click to add a note; click the icon to show/hide the popup</li>
-                    <li><strong>Edit Existing Text</strong> &mdash; click on text to modify it inline</li>
-                    <li><strong>Forms</strong> &mdash; fill in PDF form fields</li>
-                    <li><strong>Signature</strong> &mdash; draw, type, or import a signature; drag to place on the PDF</li>
-                    <li><strong>Select</strong> &mdash; select and copy text</li>
-                </ul>
-                <p>The editor shows all pages with continuous scroll.</p>
-                <p>Use <strong>Ctrl+Z / Ctrl+Y</strong> to undo/redo. Click <strong>Save</strong> to apply all edits.</p></div>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">6</div>
-                <h3 data-i18n="guide.s6_title">Comments & Annotations</h3>
-                <p data-i18n="guide.s6_desc">Notes appear as <strong>pencil icons</strong>. Click to toggle the popup balloon. <strong>Right-click</strong> on a note icon to delete it. Annotations are saved in the PDF and visible in any PDF reader.</p>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">7</div>
-                <h3 data-i18n="guide.s7_title">Convert PDF</h3>
-                <p data-i18n="guide.s7_desc">Use the <strong>Convert</strong> tool to export PDF pages to <strong>PNG</strong>, <strong>JPG</strong> (with DPI selector), <strong>DOCX</strong> (Word), or <strong>TXT</strong> (plain text).</p>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">8</div>
-                <h3 data-i18n="guide.s8_title">OCR (Text Recognition)</h3>
-                <p data-i18n="guide.s8_desc" data-i18n-html="true">Use the <strong>OCR</strong> tool to extract text from scanned PDFs. Requires <a href="https://github.com/tesseract-ocr/tesseract" target="_blank">Tesseract</a> installed. Supports Portuguese, English, Spanish, French, and German.</p>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">9</div>
-                <h3 data-i18n="guide.s9_title">Keyboard Shortcuts</h3>
-                <div data-i18n="guide.s9_desc" data-i18n-html="true"><ul>
-                    <li><strong>F5</strong> &mdash; Presentation mode</li>
-                    <li><strong>F11</strong> &mdash; Fullscreen</li>
-                    <li><strong>Ctrl + F</strong> &mdash; Search in PDF</li>
-                    <li><strong>Ctrl + Scroll</strong> &mdash; Zoom in/out</li>
-                    <li><strong>Ctrl + Z</strong> &mdash; Undo (editor)</li>
-                    <li><strong>Ctrl + Y</strong> &mdash; Redo (editor)</li>
-                    <li><strong>Escape</strong> &mdash; Exit presentation / close search</li>
-                    <li><strong>Right-click</strong> on note &mdash; Delete comment</li>
-                </ul></div>
-            </div>
-            <div class="guide-step">
-                <div class="guide-number">10</div>
-                <h3 data-i18n="guide.s10_title">Themes</h3>
-                <p data-i18n="guide.s10_desc">Click the <strong>sun/moon icon</strong> in the top-right corner to toggle between <strong>dark</strong> and <strong>light</strong> themes.</p>
-            </div>
+        <div class="platforms-grid">
+            <a href="download.html" class="platform-item">
+                <img src="icons/windows.svg" alt="Windows">
+                <span>Windows</span>
+            </a>
+            <a href="download.html" class="platform-item">
+                <img src="icons/apple.svg" alt="macOS">
+                <span>macOS</span>
+            </a>
+            <a href="download.html" class="platform-item">
+                <img src="icons/ubuntu.svg" alt="Ubuntu">
+                <span>Ubuntu</span>
+            </a>
+            <a href="download.html" class="platform-item">
+                <img src="icons/fedora.svg" alt="Fedora">
+                <span>Fedora</span>
+            </a>
+            <a href="download.html" class="platform-item">
+                <img src="icons/archlinux.svg" alt="Arch">
+                <span>Arch</span>
+            </a>
+            <a href="download.html" class="platform-item">
+                <img src="icons/appimage.svg" alt="AppImage">
+                <span>AppImage</span>
+            </a>
         </div>
     </div>
 </section>
 
-<!-- ── Comparison ── -->
-<section id="compare">
-    <div class="container">
-        <h2 data-i18n="compare.title">How PDFApps compares</h2>
-        <p class="section-subtitle" data-i18n="compare.subtitle">See how PDFApps stacks up against the most popular PDF tools.</p>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th data-i18n="compare.feature">Feature</th>
-                        <th>PDFApps</th>
-                        <th>Adobe Acrobat</th>
-                        <th>iLovePDF</th>
-                        <th>Smallpdf</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td data-i18n="compare.offline">Works Offline</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="cross">&#10007;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.free">Completely Free</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="partial">&#9673;</td>
-                        <td class="partial">&#9673;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.opensource">Open Source</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="cross">&#10007;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.noaccount">No Account Required</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.visual_editor">Visual Editor</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="partial">&#9673;</td>
-                    </tr>
-                    <tr>
-                        <td>OCR</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.crossplatform">Cross-Platform</td>
-                        <td class="check">&#10003;</td>
-                        <td class="partial">&#9673;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.multilang">Multi-Language (8)</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.autoupdate">Auto-Update</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="cross">&#10007;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.import">Import (TXT/IMG/MD)</td>
-                        <td class="check">&#10003;</td>
-                        <td class="partial">&#9673;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="cross">&#10007;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.print">Print</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="cross">&#10007;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.signature">Signature</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                        <td class="check">&#10003;</td>
-                    </tr>
-                    <tr>
-                        <td data-i18n="compare.presentation">Presentation Mode</td>
-                        <td class="check">&#10003;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="cross">&#10007;</td>
-                        <td class="cross">&#10007;</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <p class="table-legend">
-            <span class="check">&#10003;</span> <span data-i18n="compare.yes">Yes</span> &nbsp;&nbsp;
-            <span class="partial">&#9673;</span> <span data-i18n="compare.partial">Partial / Limited</span> &nbsp;&nbsp;
-            <span class="cross">&#10007;</span> <span data-i18n="compare.no">No</span>
-        </p>
-    </div>
-</section>
-
-<!-- ── CTA ── -->
 <section class="cta-section">
     <div class="container">
-        <h2 data-i18n="cta.title">Ready to take control of your PDFs?</h2>
-        <p data-i18n="cta.desc">Download PDFApps for free and start working with your documents offline.</p>
-        <div class="btn-group">
-            <a href="https://github.com/nelsonduarte/PDFApps/releases/latest" class="btn btn-download" data-i18n="cta.download">Download PDFApps</a>
-            <a href="https://github.com/nelsonduarte/PDFApps" class="btn btn-outline" data-i18n="cta.github">View on GitHub</a>
+        <div class="cta-box">
+            <h2>Ready to ditch the cloud?</h2>
+            <p>Download PDFApps and get 13 PDF tools running locally on your machine in less than a minute.</p>
+            <a href="download.html" class="btn btn-primary btn-lg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download for free
+            </a>
         </div>
     </div>
 </section>
 
-<!-- ── Footer ── -->
-<footer>
+<footer class="site-footer">
     <div class="container">
-        <div class="footer-top">
+        <div class="footer-grid">
             <div class="footer-brand">
-                <span class="logo"><img src="icon.png" alt="PDFApps" style="width:24px;height:24px;border-radius:6px;vertical-align:middle;margin-right:6px;">PDFApps</span>
-                <p data-i18n="footer.desc">A fast, offline, open-source PDF editor. Built with Python and PySide6.</p>
+                <a href="index.html" class="brand"><img src="icon.png" alt="">PDFApps</a>
+                <p>Fast, offline, subscription-free PDF editor. Open source under the MIT license.</p>
             </div>
-            <div class="footer-links-group">
-                <div class="footer-col">
-                    <h4 data-i18n="footer.project">Project</h4>
-                    <a href="https://github.com/nelsonduarte/PDFApps" data-i18n="footer.source">Source Code</a>
-                    <a href="https://github.com/nelsonduarte/PDFApps/releases" data-i18n="footer.releases">Releases</a>
-                    <a href="https://github.com/nelsonduarte/PDFApps/issues" data-i18n="footer.bug">Report a Bug</a>
-                </div>
-                <div class="footer-col">
-                    <h4 data-i18n="footer.community">Community</h4>
-                    <a href="https://github.com/nelsonduarte/PDFApps/blob/main/LICENSE" data-i18n="footer.license">MIT License</a>
-                    <a href="https://github.com/nelsonduarte/PDFApps#contributing" data-i18n="footer.contributing">Contributing</a>
-                    <a href="https://github.com/sponsors/nelsonduarte">Sponsor</a>
-                </div>
+            <div class="footer-col">
+                <h4>Product</h4>
+                <ul>
+                    <li><a href="features.html">Features</a></li>
+                    <li><a href="download.html">Download</a></li>
+                    <li><a href="changelog.html">Changelog</a></li>
+                    <li><a href="docs.html">Documentation</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/CONTRIBUTING.md">Contributing</a></li>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/issues">Issues</a></li>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/discussions">Discussions</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Community</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps">GitHub</a></li>
+                    <li><a href="https://github.com/sponsors/nelsonduarte">Sponsor</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/LICENSE">MIT License</a></li>
+                    <li><a href="#">Privacy</a></li>
+                </ul>
             </div>
         </div>
         <div class="footer-bottom">
-            <p>&copy; 2025-2026 PDFApps &mdash; MIT License</p>
-            <a href="https://github.com/sponsors/nelsonduarte" class="btn-sponsor" data-i18n="footer.sponsor">&#9829; Sponsor this project</a>
+            <span>© 2026 Nelson Duarte · Made with ♥ for the open web</span>
+            <div class="footer-bottom-links">
+                <a href="https://github.com/nelsonduarte/PDFApps">GitHub</a>
+                <a href="changelog.html">v1.9.0</a>
+            </div>
         </div>
     </div>
 </footer>
 
-<script>
-const T = {
-  en: {
-    "nav.features": "Features", "nav.why": "Why PDFApps?", "nav.screenshots": "Screenshots", "nav.guide": "Guide", "nav.compare": "Compare",
-    "hero.badge": "Open Source &middot; MIT License",
-    "hero.title": "The PDF editor that<br>respects your <span>privacy</span>",
-    "hero.tagline": "13 powerful tools in one app. 100% offline, free forever, no accounts needed. Your files never leave your computer.",
-    "hero.source": "View source on GitHub",
-    "hero.stat_tools": "PDF Tools", "hero.stat_platforms": "Platforms", "hero.stat_subs": "Subscriptions",
-    "features.title": "Everything you need for PDFs",
-    "features.subtitle": "13 built-in tools that cover every common PDF task. No plugins, no add-ons, no internet required.",
-    "features.split": "Split", "features.split_desc": "Extract page ranges",
-    "features.merge": "Merge", "features.merge_desc": "Combine multiple PDFs",
-    "features.rotate": "Rotate", "features.rotate_desc": "Rotate any page",
-    "features.extract": "Extract", "features.extract_desc": "Pull out specific pages",
-    "features.reorder": "Reorder", "features.reorder_desc": "Drag & drop pages",
-    "features.compress": "Compress", "features.compress_desc": "3 compression levels",
-    "features.encrypt": "Encrypt", "features.encrypt_desc": "Password protection",
-    "features.watermark": "Watermark", "features.watermark_desc": "Stamp overlay",
-    "features.ocr_desc": "5 languages supported",
-    "features.convert": "Convert",
-    "features.editor": "Visual Editor", "features.editor_desc": "Redact, text, images, signatures",
-    "features.info": "Info", "features.info_desc": "PDF metadata & properties",
-    "features.import": "Import", "features.import_desc": "TXT, images & Markdown to PDF", "hero.stat_langs": "Languages",
-    "why.title": "Why PDFApps?",
-    "why.subtitle": "Built for people who care about privacy, simplicity, and not paying for basic tools.",
-    "why.offline_title": "100% Offline", "why.offline_desc": "Your files never leave your computer. No uploads, no cloud processing, no data collection. Complete privacy by design.",
-    "why.free_title": "Free Forever", "why.free_desc": "Open source and MIT licensed. No subscriptions, no trials, no feature locks. Every tool is yours to use, forever.",
-    "why.cross_title": "Cross-Platform", "why.cross_desc": "Runs natively on Windows, macOS, and Linux. Same experience everywhere, built with Python and PySide6 (Qt 6).",
-    "why.update_title": "Auto-Update",
-    "why.update_desc": "Always stay up to date. The app checks for new versions automatically and lets you update in one click, with a progress bar — no reinstall needed.",
-    "screenshots.title": "See it in action", "screenshots.subtitle": "A clean, modern interface designed for productivity.",
-    "screenshots.viewer": "PDF Viewer", "screenshots.editor": "Visual Editor",
-    "screenshots.light": "Light Theme", "screenshots.languages": "8 Languages", "screenshots.convert": "Convert PDF", "screenshots.encrypt": "Encrypt PDF", "screenshots.import": "Import to PDF", "screenshots.ocr": "OCR Recognition",
-    "guide.title": "How to Use PDFApps", "guide.subtitle": "A quick guide to get you started with every feature.",
-    "guide.s1_title": "Open a PDF", "guide.s1_desc": "Click the <strong>folder icon</strong> in the toolbar, drag and drop a file onto the window, or double-click a PDF associated with PDFApps. The viewer loads instantly with continuous scroll.",
-    "guide.s2_title": "Navigate Pages", "guide.s2_desc": "Use the <strong>page input field</strong> in the toolbar to jump to any page. Type a number and press Enter. Use the <strong>arrow buttons</strong> to go to the previous or next page.",
-    "guide.s3_title": "Zoom In & Out", "guide.s3_desc": "Use the <strong>+ / &minus;</strong> buttons in the toolbar or <strong>Ctrl + Scroll</strong> to zoom. Click <strong>Reset</strong> to return to the default zoom level.",
-    "guide.s4_title": "Use the Tools", "guide.s4_desc": "Click any tool in the <strong>sidebar</strong> (Split, Merge, Rotate, etc.). Select your PDF, adjust the settings, and click <strong>Run</strong>. The output file is saved automatically.",
-    "guide.s5_title": "Visual Editor", "guide.s5_desc": "<p>Click <strong>Edit</strong> in the sidebar to open the visual editor. Choose a mode from the right panel:</p><ul><li><strong>Redact / Censor</strong> &mdash; draw a black rectangle to hide content</li><li><strong>Add Text</strong> &mdash; click to place text on the page</li><li><strong>Add Image</strong> &mdash; insert an image onto the PDF</li><li><strong>Highlight</strong> &mdash; draw a yellow highlight over text</li><li><strong>Note / Comment</strong> &mdash; click to add a note; click the icon to show/hide the popup</li><li><strong>Edit Existing Text</strong> &mdash; click on text to modify it inline</li></ul><p>Click <strong>Save</strong> to apply all edits.</p>",
-    "guide.s6_title": "Comments & Annotations", "guide.s6_desc": "Notes appear as <strong>pencil icons</strong>. Click to toggle the popup balloon. <strong>Right-click</strong> on a note icon to delete it. Annotations are saved in the PDF and visible in any PDF reader.",
-    "guide.s7_title": "Convert PDF", "guide.s7_desc": "Use the <strong>Convert</strong> tool to export PDF pages to <strong>PNG</strong>, <strong>JPG</strong> (with DPI selector), <strong>DOCX</strong> (Word), or <strong>TXT</strong> (plain text).",
-    "guide.s8_title": "OCR (Text Recognition)", "guide.s8_desc": "Use the <strong>OCR</strong> tool to extract text from scanned PDFs. Requires <a href=\"https://github.com/tesseract-ocr/tesseract\" target=\"_blank\">Tesseract</a> installed. Supports Portuguese, English, Spanish, French, and German.",
-    "guide.s9_title": "Keyboard Shortcuts", "guide.s9_desc": "<ul><li><strong>Ctrl + Scroll</strong> &mdash; Zoom in/out</li><li><strong>Ctrl + O</strong> &mdash; Open file</li><li><strong>Ctrl + F</strong> &mdash; Search in PDF</li><li><strong>Ctrl + Z</strong> &mdash; Undo (editor)</li><li><strong>Ctrl + Y</strong> &mdash; Redo (editor)</li><li><strong>Enter</strong> (in page field) &mdash; Go to page</li><li><strong>Right-click</strong> on note &mdash; Delete comment</li></ul>",
-    "guide.s10_title": "Themes", "guide.s10_desc": "Click the <strong>sun/moon icon</strong> in the top-right corner to toggle between <strong>dark</strong> and <strong>light</strong> themes.",
-    "compare.title": "How PDFApps compares", "compare.subtitle": "See how PDFApps stacks up against the most popular PDF tools.",
-    "compare.feature": "Feature", "compare.offline": "Works Offline", "compare.free": "Completely Free",
-    "compare.opensource": "Open Source", "compare.noaccount": "No Account Required",
-    "compare.visual_editor": "Visual Editor", "compare.crossplatform": "Cross-Platform",
-    "compare.multilang": "Multi-Language (8)", "compare.autoupdate": "Auto-Update", "compare.import": "Import (TXT/IMG/MD)", "compare.print": "Print", "compare.signature": "Signature", "compare.presentation": "Presentation Mode",
-    "compare.yes": "Yes", "compare.partial": "Partial / Limited", "compare.no": "No",
-    "cta.title": "Ready to take control of your PDFs?", "cta.desc": "Download PDFApps for free and start working with your documents offline.",
-    "cta.download": "Download PDFApps", "cta.github": "View on GitHub",
-    "footer.desc": "A fast, offline, open-source PDF editor. Built with Python and PySide6.",
-    "footer.project": "Project", "footer.source": "Source Code", "footer.releases": "Releases", "footer.bug": "Report a Bug",
-    "footer.community": "Community", "footer.license": "MIT License", "footer.contributing": "Contributing",
-    "footer.sponsor": "&#9829; Sponsor this project"
-  },
-  pt: {
-    "nav.features": "Funcionalidades", "nav.why": "Porqu\u00ea PDFApps?", "nav.screenshots": "Capturas", "nav.guide": "Guia", "nav.compare": "Comparar",
-    "hero.badge": "C\u00f3digo Aberto &middot; Licen\u00e7a MIT",
-    "hero.title": "O editor de PDF que<br>respeita a tua <span>privacidade</span>",
-    "hero.tagline": "13 ferramentas poderosas numa s\u00f3 app. 100% offline, gr\u00e1tis para sempre, sem contas. Os teus ficheiros nunca saem do teu computador.",
-    "hero.source": "Ver c\u00f3digo no GitHub",
-    "hero.stat_tools": "Ferramentas", "hero.stat_platforms": "Plataformas", "hero.stat_subs": "Subscri\u00e7\u00f5es",
-    "features.title": "Tudo o que precisas para PDFs",
-    "features.subtitle": "13 ferramentas integradas que cobrem todas as tarefas comuns com PDFs. Sem plugins, sem extras, sem internet.",
-    "features.split": "Dividir", "features.split_desc": "Extrair intervalos de p\u00e1ginas",
-    "features.merge": "Juntar", "features.merge_desc": "Combinar v\u00e1rios PDFs",
-    "features.rotate": "Rodar", "features.rotate_desc": "Rodar qualquer p\u00e1gina",
-    "features.extract": "Extrair", "features.extract_desc": "Retirar p\u00e1ginas espec\u00edficas",
-    "features.reorder": "Reordenar", "features.reorder_desc": "Arrastar e soltar p\u00e1ginas",
-    "features.compress": "Comprimir", "features.compress_desc": "3 n\u00edveis de compress\u00e3o",
-    "features.encrypt": "Encriptar", "features.encrypt_desc": "Prote\u00e7\u00e3o por palavra-passe",
-    "features.watermark": "Marca d'\u00e1gua", "features.watermark_desc": "Carimbo sobreposto",
-    "features.ocr_desc": "5 idiomas suportados",
-    "features.convert": "Converter",
-    "features.editor": "Editor Visual", "features.editor_desc": "Censurar, texto, imagens, assinaturas",
-    "features.info": "Info", "features.info_desc": "Metadados e propriedades do PDF",
-    "features.import": "Importar", "features.import_desc": "TXT, imagens e Markdown para PDF", "hero.stat_langs": "Idiomas",
-    "why.title": "Porqu\u00ea PDFApps?",
-    "why.subtitle": "Feito para quem se preocupa com privacidade, simplicidade e n\u00e3o pagar por ferramentas b\u00e1sicas.",
-    "why.offline_title": "100% Offline", "why.offline_desc": "Os teus ficheiros nunca saem do teu computador. Sem uploads, sem processamento na nuvem, sem recolha de dados. Privacidade total.",
-    "why.free_title": "Gr\u00e1tis Para Sempre", "why.free_desc": "C\u00f3digo aberto com licen\u00e7a MIT. Sem subscri\u00e7\u00f5es, sem per\u00edodos de teste, sem funcionalidades bloqueadas. Todas as ferramentas s\u00e3o tuas, para sempre.",
-    "why.cross_title": "Multiplataforma", "why.cross_desc": "Corre nativamente em Windows, macOS e Linux. A mesma experi\u00eancia em todo o lado, constru\u00eddo com Python e PySide6 (Qt 6).",
-    "why.update_title": "Atualização Automática",
-    "why.update_desc": "Mantém-te sempre atualizado. A app verifica novas versões automaticamente e permite atualizar com um clique, com barra de progresso — sem reinstalar.",
-    "screenshots.title": "V\u00ea em a\u00e7\u00e3o", "screenshots.subtitle": "Uma interface limpa e moderna desenhada para produtividade.",
-    "screenshots.viewer": "Visualizador PDF com scroll cont\u00ednuo", "screenshots.editor": "Editor Visual com anota\u00e7\u00f5es",
-    "screenshots.light": "Tema Claro", "screenshots.languages": "8 Idiomas", "screenshots.convert": "Converter PDF", "screenshots.encrypt": "Encriptar PDF", "screenshots.import": "Importar para PDF", "screenshots.ocr": "Reconhecimento OCR",
-    "guide.title": "Como Usar o PDFApps", "guide.subtitle": "Um guia r\u00e1pido para come\u00e7ares a usar todas as funcionalidades.",
-    "guide.s1_title": "Abrir um PDF", "guide.s1_desc": "Clica no <strong>\u00edcone de pasta</strong> na barra, arrasta um ficheiro para a janela, ou faz duplo clique num PDF associado ao PDFApps. O visualizador carrega instantaneamente com scroll cont\u00ednuo.",
-    "guide.s2_title": "Navegar P\u00e1ginas", "guide.s2_desc": "Usa o <strong>campo de p\u00e1gina</strong> na barra para saltar para qualquer p\u00e1gina. Escreve um n\u00famero e prime Enter. Usa os <strong>bot\u00f5es de seta</strong> para avan\u00e7ar ou recuar.",
-    "guide.s3_title": "Zoom", "guide.s3_desc": "Usa os bot\u00f5es <strong>+ / &minus;</strong> na barra ou <strong>Ctrl + Scroll</strong> para zoom. Clica em <strong>Repor</strong> para voltar ao n\u00edvel padr\u00e3o.",
-    "guide.s4_title": "Usar as Ferramentas", "guide.s4_desc": "Clica numa ferramenta na <strong>barra lateral</strong> (Dividir, Juntar, Rodar, etc.). Seleciona o PDF, ajusta as defini\u00e7\u00f5es e clica em <strong>Executar</strong>. O ficheiro \u00e9 gravado automaticamente.",
-    "guide.s5_title": "Editor Visual", "guide.s5_desc": "<p>Clica em <strong>Editar</strong> na barra para abrir o editor visual. Escolhe um modo no painel direito:</p><ul><li><strong>Censurar</strong> &mdash; desenha um ret\u00e2ngulo preto para ocultar conte\u00fado</li><li><strong>Adicionar Texto</strong> &mdash; clica para colocar texto na p\u00e1gina</li><li><strong>Adicionar Imagem</strong> &mdash; insere uma imagem no PDF</li><li><strong>Realce</strong> &mdash; desenha um destaque amarelo sobre texto</li><li><strong>Nota / Coment\u00e1rio</strong> &mdash; clica para adicionar uma nota</li><li><strong>Editar Texto Existente</strong> &mdash; clica no texto para modific\u00e1-lo</li></ul><p>Clica em <strong>Guardar</strong> para aplicar as edi\u00e7\u00f5es.</p>",
-    "guide.s6_title": "Coment\u00e1rios e Anota\u00e7\u00f5es", "guide.s6_desc": "As notas aparecem como <strong>\u00edcones de l\u00e1pis</strong>. Clica para abrir o bal\u00e3o. <strong>Clique direito</strong> no \u00edcone para apagar. As anota\u00e7\u00f5es s\u00e3o guardadas no PDF e vis\u00edveis em qualquer leitor.",
-    "guide.s7_title": "Converter PDF", "guide.s7_desc": "Usa a ferramenta <strong>Converter</strong> para exportar p\u00e1ginas para <strong>PNG</strong>, <strong>JPG</strong> (com seletor DPI), <strong>DOCX</strong> (Word) ou <strong>TXT</strong> (texto simples).",
-    "guide.s8_title": "OCR (Reconhecimento de Texto)", "guide.s8_desc": "Usa a ferramenta <strong>OCR</strong> para extrair texto de PDFs digitalizados. Requer <a href=\"https://github.com/tesseract-ocr/tesseract\" target=\"_blank\">Tesseract</a> instalado. Suporta Portugu\u00eas, Ingl\u00eas, Espanhol, Franc\u00eas e Alem\u00e3o.",
-    "guide.s9_title": "Atalhos de Teclado", "guide.s9_desc": "<ul><li><strong>Ctrl + Scroll</strong> &mdash; Zoom</li><li><strong>Ctrl + O</strong> &mdash; Abrir ficheiro</li><li><strong>Ctrl + F</strong> &mdash; Pesquisar no PDF</li><li><strong>Ctrl + Z</strong> &mdash; Desfazer (editor)</li><li><strong>Ctrl + Y</strong> &mdash; Refazer (editor)</li><li><strong>Enter</strong> (no campo de p\u00e1gina) &mdash; Ir para p\u00e1gina</li><li><strong>Clique direito</strong> na nota &mdash; Apagar coment\u00e1rio</li></ul>",
-    "guide.s10_title": "Temas", "guide.s10_desc": "Clica no <strong>\u00edcone sol/lua</strong> no canto superior direito para alternar entre tema <strong>escuro</strong> e <strong>claro</strong>.",
-    "compare.title": "Como o PDFApps se compara", "compare.subtitle": "V\u00ea como o PDFApps se posiciona face \u00e0s ferramentas PDF mais populares.",
-    "compare.feature": "Funcionalidade", "compare.offline": "Funciona Offline", "compare.free": "Completamente Gr\u00e1tis",
-    "compare.opensource": "C\u00f3digo Aberto", "compare.noaccount": "Sem Conta Necess\u00e1ria",
-    "compare.visual_editor": "Editor Visual", "compare.crossplatform": "Multiplataforma",
-    "compare.multilang": "Multi-Idioma (8)", "compare.autoupdate": "Atualiza\u00e7\u00e3o Autom\u00e1tica", "compare.import": "Importar (TXT/IMG/MD)", "compare.print": "Imprimir", "compare.signature": "Assinatura", "compare.presentation": "Modo Apresenta\u00e7\u00e3o",
-    "compare.yes": "Sim", "compare.partial": "Parcial / Limitado", "compare.no": "N\u00e3o",
-    "cta.title": "Pronto para controlar os teus PDFs?", "cta.desc": "Descarrega o PDFApps gratuitamente e come\u00e7a a trabalhar com os teus documentos offline.",
-    "cta.download": "Descarregar PDFApps", "cta.github": "Ver no GitHub",
-    "footer.desc": "Um editor de PDF r\u00e1pido, offline e de c\u00f3digo aberto. Constru\u00eddo com Python e PySide6.",
-    "footer.project": "Projeto", "footer.source": "C\u00f3digo Fonte", "footer.releases": "Vers\u00f5es", "footer.bug": "Reportar Bug",
-    "footer.community": "Comunidade", "footer.license": "Licen\u00e7a MIT", "footer.contributing": "Contribuir",
-    "footer.sponsor": "&#9829; Patrocinar este projeto"
-  },
-  es: {
-    "nav.features": "Funciones", "nav.why": "\u00bfPor qu\u00e9 PDFApps?", "nav.screenshots": "Capturas", "nav.guide": "Gu\u00eda", "nav.compare": "Comparar",
-    "hero.badge": "C\u00f3digo Abierto &middot; Licencia MIT",
-    "hero.title": "El editor de PDF que<br>respeta tu <span>privacidad</span>",
-    "hero.tagline": "13 herramientas poderosas en una app. 100% offline, gratis para siempre, sin cuentas. Tus archivos nunca salen de tu ordenador.",
-    "hero.source": "Ver c\u00f3digo en GitHub",
-    "hero.stat_tools": "Herramientas", "hero.stat_platforms": "Plataformas", "hero.stat_subs": "Suscripciones",
-    "features.title": "Todo lo que necesitas para PDFs",
-    "features.subtitle": "13 herramientas integradas que cubren todas las tareas comunes con PDF. Sin plugins, sin extras, sin internet.",
-    "features.split": "Dividir", "features.split_desc": "Extraer rangos de p\u00e1ginas",
-    "features.merge": "Unir", "features.merge_desc": "Combinar varios PDFs",
-    "features.rotate": "Rotar", "features.rotate_desc": "Rotar cualquier p\u00e1gina",
-    "features.extract": "Extraer", "features.extract_desc": "Sacar p\u00e1ginas espec\u00edficas",
-    "features.reorder": "Reordenar", "features.reorder_desc": "Arrastrar y soltar p\u00e1ginas",
-    "features.compress": "Comprimir", "features.compress_desc": "3 niveles de compresi\u00f3n",
-    "features.encrypt": "Encriptar", "features.encrypt_desc": "Protecci\u00f3n con contrase\u00f1a",
-    "features.watermark": "Marca de agua", "features.watermark_desc": "Sello superpuesto",
-    "features.ocr_desc": "5 idiomas soportados",
-    "features.convert": "Convertir",
-    "features.editor": "Editor Visual", "features.editor_desc": "Censurar, texto, im\u00e1genes, firmas",
-    "features.info": "Info", "features.info_desc": "Metadatos y propiedades del PDF",
-    "features.import": "Importar", "features.import_desc": "TXT, imágenes y Markdown a PDF", "hero.stat_langs": "Idiomas",
-    "why.title": "\u00bfPor qu\u00e9 PDFApps?",
-    "why.subtitle": "Hecho para personas que valoran la privacidad, la simplicidad y no pagar por herramientas b\u00e1sicas.",
-    "why.offline_title": "100% Offline", "why.offline_desc": "Tus archivos nunca salen de tu ordenador. Sin subidas, sin procesamiento en la nube, sin recogida de datos. Privacidad total por dise\u00f1o.",
-    "why.free_title": "Gratis Para Siempre", "why.free_desc": "C\u00f3digo abierto con licencia MIT. Sin suscripciones, sin pruebas, sin funciones bloqueadas. Todas las herramientas son tuyas, para siempre.",
-    "why.cross_title": "Multiplataforma", "why.cross_desc": "Funciona nativamente en Windows, macOS y Linux. La misma experiencia en todas partes, construido con Python y PySide6 (Qt 6).",
-    "why.update_title": "Actualización Automática",
-    "why.update_desc": "Mantente siempre actualizado. La app busca nuevas versiones automáticamente y te permite actualizar con un clic, con barra de progreso — sin reinstalar.",
-    "screenshots.title": "Mira c\u00f3mo funciona", "screenshots.subtitle": "Una interfaz limpia y moderna dise\u00f1ada para la productividad.",
-    "screenshots.viewer": "Visor PDF", "screenshots.editor": "Editor Visual",
-    "screenshots.light": "Tema Claro", "screenshots.languages": "8 Idiomas", "screenshots.convert": "Convertir PDF", "screenshots.encrypt": "Encriptar PDF", "screenshots.import": "Importar a PDF", "screenshots.ocr": "Reconocimiento OCR",
-    "guide.title": "C\u00f3mo usar PDFApps", "guide.subtitle": "Una gu\u00eda r\u00e1pida para empezar con todas las funciones.",
-    "guide.s1_title": "Abrir un PDF", "guide.s1_desc": "Haz clic en el <strong>icono de carpeta</strong> en la barra, arrastra un archivo a la ventana, o haz doble clic en un PDF asociado a PDFApps.",
-    "guide.s2_title": "Navegar P\u00e1ginas", "guide.s2_desc": "Usa el <strong>campo de p\u00e1gina</strong> en la barra para saltar a cualquier p\u00e1gina. Escribe un n\u00famero y pulsa Enter. Usa los <strong>botones de flecha</strong> para avanzar o retroceder.",
-    "guide.s3_title": "Zoom", "guide.s3_desc": "Usa los botones <strong>+ / &minus;</strong> o <strong>Ctrl + Scroll</strong> para zoom. Haz clic en <strong>Restablecer</strong> para volver al nivel predeterminado.",
-    "guide.s4_title": "Usar las Herramientas", "guide.s4_desc": "Haz clic en una herramienta en la <strong>barra lateral</strong> (Dividir, Unir, Rotar, etc.). Selecciona tu PDF, ajusta y haz clic en <strong>Ejecutar</strong>.",
-    "guide.s5_title": "Editor Visual", "guide.s5_desc": "<p>Haz clic en <strong>Editar</strong> para abrir el editor visual. Elige un modo:</p><ul><li><strong>Censurar</strong> &mdash; dibuja un rect\u00e1ngulo negro para ocultar contenido</li><li><strong>A\u00f1adir Texto</strong> &mdash; haz clic para colocar texto</li><li><strong>A\u00f1adir Imagen</strong> &mdash; inserta una imagen en el PDF</li><li><strong>Resaltar</strong> &mdash; dibuja un resaltado amarillo</li><li><strong>Nota / Comentario</strong> &mdash; haz clic para a\u00f1adir una nota</li><li><strong>Editar Texto</strong> &mdash; haz clic en texto para modificarlo</li></ul><p>Haz clic en <strong>Guardar</strong> para aplicar.</p>",
-    "guide.s6_title": "Comentarios y Anotaciones", "guide.s6_desc": "Las notas aparecen como <strong>iconos de l\u00e1piz</strong>. Haz clic para abrir el globo. <strong>Clic derecho</strong> para borrar. Las anotaciones se guardan en el PDF.",
-    "guide.s7_title": "Convertir PDF", "guide.s7_desc": "Usa la herramienta <strong>Convertir</strong> para exportar p\u00e1ginas a <strong>PNG</strong>, <strong>JPG</strong>, <strong>DOCX</strong> (Word) o <strong>TXT</strong>.",
-    "guide.s8_title": "OCR (Reconocimiento de Texto)", "guide.s8_desc": "Usa la herramienta <strong>OCR</strong> para extraer texto de PDFs escaneados. Requiere <a href=\"https://github.com/tesseract-ocr/tesseract\" target=\"_blank\">Tesseract</a>. Soporta portugu\u00e9s, ingl\u00e9s, espa\u00f1ol, franc\u00e9s y alem\u00e1n.",
-    "guide.s9_title": "Atajos de Teclado", "guide.s9_desc": "<ul><li><strong>Ctrl + Scroll</strong> &mdash; Zoom</li><li><strong>Ctrl + O</strong> &mdash; Abrir archivo</li><li><strong>Ctrl + F</strong> &mdash; Buscar en PDF</li><li><strong>Ctrl + Z</strong> &mdash; Deshacer (editor)</li><li><strong>Ctrl + Y</strong> &mdash; Rehacer (editor)</li><li><strong>Enter</strong> &mdash; Ir a p\u00e1gina</li><li><strong>Clic derecho</strong> en nota &mdash; Borrar comentario</li></ul>",
-    "guide.s10_title": "Temas", "guide.s10_desc": "Haz clic en el <strong>icono sol/luna</strong> para alternar entre tema <strong>oscuro</strong> y <strong>claro</strong>.",
-    "compare.title": "C\u00f3mo se compara PDFApps", "compare.subtitle": "Mira c\u00f3mo PDFApps se posiciona frente a las herramientas PDF m\u00e1s populares.",
-    "compare.feature": "Funci\u00f3n", "compare.offline": "Funciona Offline", "compare.free": "Completamente Gratis",
-    "compare.opensource": "C\u00f3digo Abierto", "compare.noaccount": "Sin Cuenta Necesaria",
-    "compare.visual_editor": "Editor Visual", "compare.crossplatform": "Multiplataforma",
-    "compare.multilang": "Multi-Idioma (8)", "compare.autoupdate": "Actualizaci\u00f3n Autom\u00e1tica", "compare.import": "Importar (TXT/IMG/MD)", "compare.print": "Imprimir", "compare.signature": "Firma", "compare.presentation": "Modo Presentaci\u00f3n",
-    "compare.yes": "S\u00ed", "compare.partial": "Parcial / Limitado", "compare.no": "No",
-    "cta.title": "\u00bfListo para controlar tus PDFs?", "cta.desc": "Descarga PDFApps gratis y empieza a trabajar con tus documentos offline.",
-    "cta.download": "Descargar PDFApps", "cta.github": "Ver en GitHub",
-    "footer.desc": "Un editor de PDF r\u00e1pido, offline y de c\u00f3digo abierto. Construido con Python y PySide6.",
-    "footer.project": "Proyecto", "footer.source": "C\u00f3digo Fuente", "footer.releases": "Versiones", "footer.bug": "Reportar Bug",
-    "footer.community": "Comunidad", "footer.license": "Licencia MIT", "footer.contributing": "Contribuir",
-    "footer.sponsor": "&#9829; Patrocinar este proyecto"
-  },
-  fr: {
-    "nav.features": "Fonctions", "nav.why": "Pourquoi PDFApps ?", "nav.screenshots": "Captures", "nav.guide": "Guide", "nav.compare": "Comparer",
-    "hero.badge": "Open Source &middot; Licence MIT",
-    "hero.title": "L'\u00e9diteur PDF qui<br>respecte votre <span>vie priv\u00e9e</span>",
-    "hero.tagline": "13 outils puissants dans une seule app. 100% hors ligne, gratuit pour toujours, sans compte. Vos fichiers ne quittent jamais votre ordinateur.",
-    "hero.source": "Voir le code sur GitHub",
-    "hero.stat_tools": "Outils PDF", "hero.stat_platforms": "Plateformes", "hero.stat_subs": "Abonnements",
-    "features.title": "Tout ce dont vous avez besoin pour les PDF",
-    "features.subtitle": "13 outils int\u00e9gr\u00e9s qui couvrent toutes les t\u00e2ches PDF courantes. Sans plugins, sans extensions, sans internet.",
-    "features.split": "Diviser", "features.split_desc": "Extraire des plages de pages",
-    "features.merge": "Fusionner", "features.merge_desc": "Combiner plusieurs PDF",
-    "features.rotate": "Pivoter", "features.rotate_desc": "Pivoter n'importe quelle page",
-    "features.extract": "Extraire", "features.extract_desc": "Extraire des pages sp\u00e9cifiques",
-    "features.reorder": "R\u00e9organiser", "features.reorder_desc": "Glisser-d\u00e9poser les pages",
-    "features.compress": "Compresser", "features.compress_desc": "3 niveaux de compression",
-    "features.encrypt": "Chiffrer", "features.encrypt_desc": "Protection par mot de passe",
-    "features.watermark": "Filigrane", "features.watermark_desc": "Tampon superpos\u00e9",
-    "features.ocr_desc": "5 langues support\u00e9es",
-    "features.convert": "Convertir",
-    "features.editor": "\u00c9diteur Visuel", "features.editor_desc": "Censurer, texte, images, signatures",
-    "features.info": "Info", "features.info_desc": "Métadonnées et propriétés du PDF",
-    "features.import": "Importer", "features.import_desc": "TXT, images et Markdown en PDF", "hero.stat_langs": "Langues",
-    "why.title": "Pourquoi PDFApps ?",
-    "why.subtitle": "Con\u00e7u pour ceux qui se soucient de la vie priv\u00e9e, de la simplicit\u00e9 et de ne pas payer pour des outils basiques.",
-    "why.offline_title": "100% Hors Ligne", "why.offline_desc": "Vos fichiers ne quittent jamais votre ordinateur. Aucun upload, aucun traitement cloud, aucune collecte de donn\u00e9es. Confidentialit\u00e9 totale.",
-    "why.free_title": "Gratuit Pour Toujours", "why.free_desc": "Open source sous licence MIT. Sans abonnements, sans p\u00e9riodes d'essai, sans fonctions verrouill\u00e9es. Tous les outils sont \u00e0 vous, pour toujours.",
-    "why.cross_title": "Multiplateforme", "why.cross_desc": "Fonctionne nativement sur Windows, macOS et Linux. La m\u00eame exp\u00e9rience partout, construit avec Python et PySide6 (Qt 6).",
-    "why.update_title": "Mise à Jour Auto",
-    "why.update_desc": "Restez toujours à jour. L'app vérifie les nouvelles versions automatiquement et permet de mettre à jour en un clic, avec barre de progression — sans réinstaller.",
-    "screenshots.title": "Voyez-le en action", "screenshots.subtitle": "Une interface propre et moderne con\u00e7ue pour la productivit\u00e9.",
-    "screenshots.viewer": "Visionneuse PDF", "screenshots.editor": "\u00c9diteur Visuel",
-    "screenshots.light": "Th\u00e8me Clair", "screenshots.languages": "8 Langues", "screenshots.convert": "Convertir PDF", "screenshots.encrypt": "Chiffrer PDF", "screenshots.import": "Importer en PDF", "screenshots.ocr": "Reconnaissance OCR",
-    "guide.title": "Comment utiliser PDFApps", "guide.subtitle": "Un guide rapide pour d\u00e9marrer avec toutes les fonctionnalit\u00e9s.",
-    "guide.s1_title": "Ouvrir un PDF", "guide.s1_desc": "Cliquez sur l'<strong>ic\u00f4ne de dossier</strong>, glissez un fichier dans la fen\u00eatre, ou double-cliquez sur un PDF associ\u00e9 \u00e0 PDFApps.",
-    "guide.s2_title": "Naviguer", "guide.s2_desc": "Utilisez le <strong>champ de page</strong> pour aller \u00e0 n'importe quelle page. Tapez un num\u00e9ro et appuyez sur Entr\u00e9e.",
-    "guide.s3_title": "Zoom", "guide.s3_desc": "Utilisez les boutons <strong>+ / &minus;</strong> ou <strong>Ctrl + Scroll</strong>. Cliquez sur <strong>R\u00e9initialiser</strong> pour revenir au zoom par d\u00e9faut.",
-    "guide.s4_title": "Utiliser les outils", "guide.s4_desc": "Cliquez sur un outil dans la <strong>barre lat\u00e9rale</strong>. S\u00e9lectionnez votre PDF, ajustez et cliquez sur <strong>Ex\u00e9cuter</strong>.",
-    "guide.s5_title": "\u00c9diteur Visuel", "guide.s5_desc": "<p>Cliquez sur <strong>\u00c9diter</strong> pour ouvrir l'\u00e9diteur visuel :</p><ul><li><strong>Censurer</strong> &mdash; dessinez un rectangle noir</li><li><strong>Ajouter du Texte</strong> &mdash; cliquez pour placer du texte</li><li><strong>Ajouter une Image</strong> &mdash; ins\u00e9rez une image</li><li><strong>Surligner</strong> &mdash; dessinez un surlignage jaune</li><li><strong>Note / Commentaire</strong> &mdash; ajoutez une note</li><li><strong>\u00c9diter le Texte</strong> &mdash; cliquez sur le texte pour le modifier</li></ul><p>Cliquez sur <strong>Enregistrer</strong> pour appliquer.</p>",
-    "guide.s6_title": "Commentaires et Annotations", "guide.s6_desc": "Les notes apparaissent comme des <strong>ic\u00f4nes de crayon</strong>. <strong>Clic droit</strong> pour supprimer. Les annotations sont enregistr\u00e9es dans le PDF.",
-    "guide.s7_title": "Convertir un PDF", "guide.s7_desc": "Exportez des pages vers <strong>PNG</strong>, <strong>JPG</strong>, <strong>DOCX</strong> ou <strong>TXT</strong>.",
-    "guide.s8_title": "OCR (Reconnaissance de texte)", "guide.s8_desc": "Utilisez l'outil <strong>OCR</strong> pour extraire du texte de PDF scann\u00e9s. N\u00e9cessite <a href=\"https://github.com/tesseract-ocr/tesseract\" target=\"_blank\">Tesseract</a>.",
-    "guide.s9_title": "Raccourcis Clavier", "guide.s9_desc": "<ul><li><strong>Ctrl + Scroll</strong> &mdash; Zoom</li><li><strong>Ctrl + O</strong> &mdash; Ouvrir</li><li><strong>Ctrl + F</strong> &mdash; Rechercher dans le PDF</li><li><strong>Ctrl + Z</strong> &mdash; Annuler (éditeur)</li><li><strong>Ctrl + Y</strong> &mdash; Rétablir (éditeur)</li><li><strong>Entr\u00e9e</strong> &mdash; Aller \u00e0 la page</li><li><strong>Clic droit</strong> sur note &mdash; Supprimer</li></ul>",
-    "guide.s10_title": "Th\u00e8mes", "guide.s10_desc": "Cliquez sur l'<strong>ic\u00f4ne soleil/lune</strong> pour alterner entre th\u00e8me <strong>sombre</strong> et <strong>clair</strong>.",
-    "compare.title": "Comparaison avec les alternatives", "compare.subtitle": "Voyez comment PDFApps se positionne face aux outils PDF les plus populaires.",
-    "compare.feature": "Fonction", "compare.offline": "Fonctionne hors ligne", "compare.free": "Enti\u00e8rement gratuit",
-    "compare.opensource": "Open Source", "compare.noaccount": "Sans compte requis",
-    "compare.visual_editor": "\u00c9diteur Visuel", "compare.crossplatform": "Multiplateforme",
-    "compare.multilang": "Multi-Langue (8)", "compare.autoupdate": "Mise \u00e0 jour auto", "compare.import": "Importer (TXT/IMG/MD)", "compare.print": "Imprimer", "compare.signature": "Signature", "compare.presentation": "Mode Pr\u00e9sentation",
-    "compare.yes": "Oui", "compare.partial": "Partiel / Limit\u00e9", "compare.no": "Non",
-    "cta.title": "Pr\u00eat \u00e0 reprendre le contr\u00f4le de vos PDF ?", "cta.desc": "T\u00e9l\u00e9chargez PDFApps gratuitement et travaillez avec vos documents hors ligne.",
-    "cta.download": "T\u00e9l\u00e9charger PDFApps", "cta.github": "Voir sur GitHub",
-    "footer.desc": "Un \u00e9diteur PDF rapide, hors ligne et open source. Construit avec Python et PySide6.",
-    "footer.project": "Projet", "footer.source": "Code Source", "footer.releases": "Versions", "footer.bug": "Signaler un bug",
-    "footer.community": "Communaut\u00e9", "footer.license": "Licence MIT", "footer.contributing": "Contribuer",
-    "footer.sponsor": "&#9829; Sponsoriser ce projet"
-  },
-  de: {
-    "nav.features": "Funktionen", "nav.why": "Warum PDFApps?", "nav.screenshots": "Screenshots", "nav.guide": "Anleitung", "nav.compare": "Vergleich",
-    "hero.badge": "Open Source &middot; MIT-Lizenz",
-    "hero.title": "Der PDF-Editor, der<br>deine <span>Privatsph\u00e4re</span> respektiert",
-    "hero.tagline": "13 leistungsstarke Werkzeuge in einer App. 100% offline, f\u00fcr immer kostenlos, kein Konto n\u00f6tig. Deine Dateien verlassen nie deinen Computer.",
-    "hero.source": "Quellcode auf GitHub",
-    "hero.stat_tools": "PDF-Werkzeuge", "hero.stat_platforms": "Plattformen", "hero.stat_subs": "Abonnements",
-    "features.title": "Alles was du f\u00fcr PDFs brauchst",
-    "features.subtitle": "13 integrierte Werkzeuge f\u00fcr alle g\u00e4ngigen PDF-Aufgaben. Keine Plugins, keine Add-ons, kein Internet erforderlich.",
-    "features.split": "Teilen", "features.split_desc": "Seitenbereiche extrahieren",
-    "features.merge": "Zusammenf\u00fchren", "features.merge_desc": "Mehrere PDFs kombinieren",
-    "features.rotate": "Drehen", "features.rotate_desc": "Jede Seite drehen",
-    "features.extract": "Extrahieren", "features.extract_desc": "Bestimmte Seiten herausl\u00f6sen",
-    "features.reorder": "Umordnen", "features.reorder_desc": "Seiten per Drag & Drop",
-    "features.compress": "Komprimieren", "features.compress_desc": "3 Kompressionsstufen",
-    "features.encrypt": "Verschl\u00fcsseln", "features.encrypt_desc": "Passwortschutz",
-    "features.watermark": "Wasserzeichen", "features.watermark_desc": "Stempel\u00fcberlagerung",
-    "features.ocr_desc": "5 Sprachen unterst\u00fctzt",
-    "features.convert": "Konvertieren",
-    "features.editor": "Visueller Editor", "features.editor_desc": "Schw\u00e4rzen, Text, Bilder, Unterschriften",
-    "features.info": "Info", "features.info_desc": "PDF-Metadaten & Eigenschaften",
-    "features.import": "Importieren", "features.import_desc": "TXT, Bilder & Markdown zu PDF", "hero.stat_langs": "Sprachen",
-    "why.title": "Warum PDFApps?",
-    "why.subtitle": "Entwickelt f\u00fcr Menschen, die Wert auf Privatsph\u00e4re, Einfachheit und kostenlose Werkzeuge legen.",
-    "why.offline_title": "100% Offline", "why.offline_desc": "Deine Dateien verlassen nie deinen Computer. Kein Upload, keine Cloud-Verarbeitung, keine Datenerfassung. Vollst\u00e4ndige Privatsph\u00e4re.",
-    "why.free_title": "F\u00fcr Immer Kostenlos", "why.free_desc": "Open Source mit MIT-Lizenz. Keine Abonnements, keine Testphasen, keine gesperrten Funktionen. Alle Werkzeuge geh\u00f6ren dir, f\u00fcr immer.",
-    "why.cross_title": "Plattform\u00fcbergreifend", "why.cross_desc": "L\u00e4uft nativ auf Windows, macOS und Linux. \u00dcberall die gleiche Erfahrung, gebaut mit Python und PySide6 (Qt 6).",
-    "why.update_title": "Auto-Update",
-    "why.update_desc": "Immer aktuell bleiben. Die App prüft automatisch auf neue Versionen und ermöglicht ein Update mit einem Klick, mit Fortschrittsbalken — ohne Neuinstallation.",
-    "screenshots.title": "Sieh es in Aktion", "screenshots.subtitle": "Eine saubere, moderne Oberfl\u00e4che f\u00fcr Produktivit\u00e4t.",
-    "screenshots.viewer": "PDF-Viewer", "screenshots.editor": "Visueller Editor",
-    "screenshots.light": "Helles Design", "screenshots.languages": "8 Sprachen", "screenshots.convert": "PDF Konvertieren", "screenshots.encrypt": "PDF Verschlüsseln", "screenshots.import": "In PDF Importieren", "screenshots.ocr": "OCR-Erkennung",
-    "guide.title": "So verwendest du PDFApps", "guide.subtitle": "Eine Kurzanleitung f\u00fcr alle Funktionen.",
-    "guide.s1_title": "PDF \u00f6ffnen", "guide.s1_desc": "Klicke auf das <strong>Ordner-Symbol</strong>, ziehe eine Datei ins Fenster oder doppelklicke auf eine PDF-Datei.",
-    "guide.s2_title": "Seiten navigieren", "guide.s2_desc": "Nutze das <strong>Seitenfeld</strong> um zu einer Seite zu springen. Gib eine Nummer ein und dr\u00fccke Enter.",
-    "guide.s3_title": "Zoom", "guide.s3_desc": "Nutze die <strong>+ / &minus;</strong> Tasten oder <strong>Ctrl + Scroll</strong>. Klicke auf <strong>Zur\u00fccksetzen</strong> f\u00fcr Standardzoom.",
-    "guide.s4_title": "Werkzeuge nutzen", "guide.s4_desc": "Klicke auf ein Werkzeug in der <strong>Seitenleiste</strong>. W\u00e4hle dein PDF, passe an und klicke auf <strong>Ausf\u00fchren</strong>.",
-    "guide.s5_title": "Visueller Editor", "guide.s5_desc": "<p>Klicke auf <strong>Bearbeiten</strong> f\u00fcr den visuellen Editor:</p><ul><li><strong>Schw\u00e4rzen</strong> &mdash; schwarzes Rechteck zum Verbergen</li><li><strong>Text hinzuf\u00fcgen</strong> &mdash; Text platzieren</li><li><strong>Bild hinzuf\u00fcgen</strong> &mdash; Bild einf\u00fcgen</li><li><strong>Hervorheben</strong> &mdash; gelbe Markierung</li><li><strong>Notiz / Kommentar</strong> &mdash; Notiz hinzuf\u00fcgen</li><li><strong>Text bearbeiten</strong> &mdash; Text inline \u00e4ndern</li></ul><p>Klicke auf <strong>Speichern</strong> zum Anwenden.</p>",
-    "guide.s6_title": "Kommentare & Anmerkungen", "guide.s6_desc": "Notizen erscheinen als <strong>Stift-Symbole</strong>. <strong>Rechtsklick</strong> zum L\u00f6schen. Anmerkungen werden im PDF gespeichert.",
-    "guide.s7_title": "PDF konvertieren", "guide.s7_desc": "Exportiere Seiten als <strong>PNG</strong>, <strong>JPG</strong>, <strong>DOCX</strong> oder <strong>TXT</strong>.",
-    "guide.s8_title": "OCR (Texterkennung)", "guide.s8_desc": "Extrahiere Text aus gescannten PDFs. Ben\u00f6tigt <a href=\"https://github.com/tesseract-ocr/tesseract\" target=\"_blank\">Tesseract</a>.",
-    "guide.s9_title": "Tastaturk\u00fcrzel", "guide.s9_desc": "<ul><li><strong>Ctrl + Scroll</strong> &mdash; Zoom</li><li><strong>Ctrl + O</strong> &mdash; \u00d6ffnen</li><li><strong>Enter</strong> &mdash; Zur Seite</li><li><strong>Rechtsklick</strong> auf Notiz &mdash; L\u00f6schen</li></ul>",
-    "guide.s10_title": "Designs", "guide.s10_desc": "Klicke auf das <strong>Sonne/Mond-Symbol</strong> zum Wechseln zwischen <strong>dunklem</strong> und <strong>hellem</strong> Design.",
-    "compare.title": "PDFApps im Vergleich", "compare.subtitle": "Sieh wie PDFApps gegen\u00fcber den beliebtesten PDF-Tools abschneidet.",
-    "compare.feature": "Funktion", "compare.offline": "Offline nutzbar", "compare.free": "Komplett kostenlos",
-    "compare.opensource": "Open Source", "compare.noaccount": "Kein Konto n\u00f6tig",
-    "compare.visual_editor": "Visueller Editor", "compare.crossplatform": "Plattform\u00fcbergreifend",
-    "compare.multilang": "Mehrsprachig (8)", "compare.autoupdate": "Auto-Update", "compare.import": "Importieren (TXT/IMG/MD)", "compare.print": "Drucken", "compare.signature": "Unterschrift", "compare.presentation": "Pr\u00e4sentationsmodus",
-    "compare.yes": "Ja", "compare.partial": "Teilweise / Begrenzt", "compare.no": "Nein",
-    "cta.title": "Bereit, deine PDFs zu kontrollieren?", "cta.desc": "Lade PDFApps kostenlos herunter und arbeite offline mit deinen Dokumenten.",
-    "cta.download": "PDFApps herunterladen", "cta.github": "Auf GitHub ansehen",
-    "footer.desc": "Ein schneller, offline, Open-Source PDF-Editor. Gebaut mit Python und PySide6.",
-    "footer.project": "Projekt", "footer.source": "Quellcode", "footer.releases": "Versionen", "footer.bug": "Fehler melden",
-    "footer.community": "Community", "footer.license": "MIT-Lizenz", "footer.contributing": "Mitwirken",
-    "footer.sponsor": "&#9829; Projekt unterst\u00fctzen"
-  },
-  zh: {
-    "nav.features": "\u529f\u80fd", "nav.why": "\u4e3a\u4ec0\u4e48\u9009\u62e9 PDFApps\uff1f", "nav.screenshots": "\u622a\u56fe", "nav.guide": "\u6307\u5357", "nav.compare": "\u5bf9\u6bd4",
-    "hero.badge": "\u5f00\u6e90 &middot; MIT \u8bb8\u53ef\u8bc1",
-    "hero.title": "\u5c0a\u91cd\u4f60<span>\u9690\u79c1</span>\u7684<br>PDF \u7f16\u8f91\u5668",
-    "hero.tagline": "\u4e00\u4e2a\u5e94\u7528\u4e2d\u768411\u4e2a\u5f3a\u5927\u5de5\u5177\u3002100%\u79bb\u7ebf\uff0c\u6c38\u4e45\u514d\u8d39\uff0c\u65e0\u9700\u8d26\u53f7\u3002\u4f60\u7684\u6587\u4ef6\u6c38\u8fdc\u4e0d\u4f1a\u79bb\u5f00\u4f60\u7684\u7535\u8111\u3002",
-    "hero.source": "\u5728 GitHub \u67e5\u770b\u6e90\u4ee3\u7801",
-    "hero.stat_tools": "PDF \u5de5\u5177", "hero.stat_platforms": "\u5e73\u53f0", "hero.stat_subs": "\u8ba2\u9605",
-    "features.title": "\u4f60\u9700\u8981\u7684\u6240\u6709 PDF \u529f\u80fd",
-    "features.subtitle": "11\u4e2a\u5185\u7f6e\u5de5\u5177\u8986\u76d6\u6240\u6709\u5e38\u89c1 PDF \u4efb\u52a1\u3002\u65e0\u63d2\u4ef6\uff0c\u65e0\u6269\u5c55\uff0c\u65e0\u9700\u7f51\u7edc\u3002",
-    "features.split": "\u62c6\u5206", "features.split_desc": "\u63d0\u53d6\u9875\u9762\u8303\u56f4",
-    "features.merge": "\u5408\u5e76", "features.merge_desc": "\u5408\u5e76\u591a\u4e2a PDF",
-    "features.rotate": "\u65cb\u8f6c", "features.rotate_desc": "\u65cb\u8f6c\u4efb\u610f\u9875\u9762",
-    "features.extract": "\u63d0\u53d6", "features.extract_desc": "\u63d0\u53d6\u7279\u5b9a\u9875\u9762",
-    "features.reorder": "\u91cd\u65b0\u6392\u5e8f", "features.reorder_desc": "\u62d6\u653e\u9875\u9762",
-    "features.compress": "\u538b\u7f29", "features.compress_desc": "3\u4e2a\u538b\u7f29\u7ea7\u522b",
-    "features.encrypt": "\u52a0\u5bc6", "features.encrypt_desc": "\u5bc6\u7801\u4fdd\u62a4",
-    "features.watermark": "\u6c34\u5370", "features.watermark_desc": "\u8986\u76d6\u5370\u7ae0",
-    "features.ocr_desc": "\u652f\u63015\u79cd\u8bed\u8a00",
-    "features.convert": "\u8f6c\u6362",
-    "features.editor": "\u53ef\u89c6\u5316\u7f16\u8f91\u5668", "features.editor_desc": "\u6d82\u9ed1\u3001\u6587\u5b57\u3001\u56fe\u7247\u3001\u7b7e\u540d",
-    "features.info": "信息", "features.info_desc": "PDF 元数据和属性",
-    "features.import": "导入", "features.import_desc": "TXT、图片和 Markdown 转 PDF", "hero.stat_langs": "种语言",
-    "why.title": "\u4e3a\u4ec0\u4e48\u9009\u62e9 PDFApps\uff1f",
-    "why.subtitle": "\u4e3a\u91cd\u89c6\u9690\u79c1\u3001\u7b80\u6d01\u548c\u4e0d\u60f3\u4e3a\u57fa\u672c\u5de5\u5177\u4ed8\u8d39\u7684\u4eba\u6253\u9020\u3002",
-    "why.offline_title": "100% \u79bb\u7ebf", "why.offline_desc": "\u4f60\u7684\u6587\u4ef6\u6c38\u8fdc\u4e0d\u4f1a\u79bb\u5f00\u4f60\u7684\u7535\u8111\u3002\u65e0\u4e0a\u4f20\uff0c\u65e0\u4e91\u5904\u7406\uff0c\u65e0\u6570\u636e\u6536\u96c6\u3002\u5b8c\u5168\u9690\u79c1\u8bbe\u8ba1\u3002",
-    "why.free_title": "\u6c38\u4e45\u514d\u8d39", "why.free_desc": "\u5f00\u6e90 MIT \u8bb8\u53ef\u3002\u65e0\u8ba2\u9605\uff0c\u65e0\u8bd5\u7528\uff0c\u65e0\u529f\u80fd\u9650\u5236\u3002\u6240\u6709\u5de5\u5177\u90fd\u662f\u4f60\u7684\uff0c\u6c38\u8fdc\u3002",
-    "why.cross_title": "\u8de8\u5e73\u53f0", "why.cross_desc": "\u5728 Windows\u3001macOS \u548c Linux \u4e0a\u539f\u751f\u8fd0\u884c\u3002\u968f\u5904\u76f8\u540c\u7684\u4f53\u9a8c\uff0c\u4f7f\u7528 Python \u548c PySide6 (Qt 6) \u6784\u5efa\u3002",
-    "why.update_title": "自动更新",
-    "why.update_desc": "始终保持最新。应用自动检查新版本，一键更新，带进度条——无需重新安装。",
-    "screenshots.title": "\u770b\u5b83\u5982\u4f55\u5de5\u4f5c", "screenshots.subtitle": "\u4e00\u4e2a\u5e72\u51c0\u3001\u73b0\u4ee3\u7684\u754c\u9762\uff0c\u4e13\u4e3a\u751f\u4ea7\u529b\u8bbe\u8ba1\u3002",
-    "screenshots.viewer": "PDF \u67e5\u770b\u5668", "screenshots.editor": "\u53ef\u89c6\u5316\u7f16\u8f91\u5668",
-    "screenshots.light": "\u6d45\u8272\u4e3b\u9898", "screenshots.languages": "8 \u79cd\u8bed\u8a00", "screenshots.convert": "\u8f6c\u6362 PDF", "screenshots.encrypt": "\u52a0\u5bc6 PDF", "screenshots.import": "\u5bfc\u5165\u4e3a PDF", "screenshots.ocr": "OCR \u8bc6\u522b",
-    "guide.title": "\u5982\u4f55\u4f7f\u7528 PDFApps", "guide.subtitle": "\u5feb\u901f\u5165\u95e8\u6307\u5357\u3002",
-    "guide.s1_title": "\u6253\u5f00 PDF", "guide.s1_desc": "\u70b9\u51fb\u5de5\u5177\u680f\u4e2d\u7684<strong>\u6587\u4ef6\u5939\u56fe\u6807</strong>\uff0c\u5c06\u6587\u4ef6\u62d6\u5230\u7a97\u53e3\uff0c\u6216\u53cc\u51fb\u5173\u8054\u7684 PDF \u6587\u4ef6\u3002",
-    "guide.s2_title": "\u9875\u9762\u5bfc\u822a", "guide.s2_desc": "\u4f7f\u7528\u5de5\u5177\u680f\u4e2d\u7684<strong>\u9875\u7801\u5b57\u6bb5</strong>\u8df3\u8f6c\u5230\u4efb\u610f\u9875\u9762\u3002\u8f93\u5165\u6570\u5b57\u5e76\u6309 Enter\u3002",
-    "guide.s3_title": "\u7f29\u653e", "guide.s3_desc": "\u4f7f\u7528 <strong>+ / &minus;</strong> \u6309\u94ae\u6216 <strong>Ctrl + \u6eda\u8f6e</strong>\u3002\u70b9\u51fb<strong>\u91cd\u7f6e</strong>\u6062\u590d\u9ed8\u8ba4\u7f29\u653e\u3002",
-    "guide.s4_title": "\u4f7f\u7528\u5de5\u5177", "guide.s4_desc": "\u70b9\u51fb<strong>\u4fa7\u680f</strong>\u4e2d\u7684\u5de5\u5177\u3002\u9009\u62e9 PDF\uff0c\u8c03\u6574\u8bbe\u7f6e\uff0c\u70b9\u51fb<strong>\u8fd0\u884c</strong>\u3002",
-    "guide.s5_title": "\u53ef\u89c6\u5316\u7f16\u8f91\u5668", "guide.s5_desc": "<p>\u70b9\u51fb<strong>\u7f16\u8f91</strong>\u6253\u5f00\u53ef\u89c6\u5316\u7f16\u8f91\u5668\uff1a</p><ul><li><strong>\u6d82\u9ed1</strong> &mdash; \u7ed8\u5236\u9ed1\u8272\u77e9\u5f62\u9690\u85cf\u5185\u5bb9</li><li><strong>\u6dfb\u52a0\u6587\u5b57</strong> &mdash; \u70b9\u51fb\u653e\u7f6e\u6587\u5b57</li><li><strong>\u6dfb\u52a0\u56fe\u7247</strong> &mdash; \u63d2\u5165\u56fe\u7247</li><li><strong>\u9ad8\u4eae</strong> &mdash; \u7ed8\u5236\u9ec4\u8272\u9ad8\u4eae</li><li><strong>\u6ce8\u91ca</strong> &mdash; \u6dfb\u52a0\u6ce8\u91ca</li><li><strong>\u7f16\u8f91\u6587\u5b57</strong> &mdash; \u70b9\u51fb\u6587\u5b57\u4fee\u6539</li></ul><p>\u70b9\u51fb<strong>\u4fdd\u5b58</strong>\u5e94\u7528\u7f16\u8f91\u3002</p>",
-    "guide.s6_title": "\u8bc4\u8bba\u4e0e\u6ce8\u91ca", "guide.s6_desc": "\u6ce8\u91ca\u663e\u793a\u4e3a<strong>\u94c5\u7b14\u56fe\u6807</strong>\u3002<strong>\u53f3\u952e\u70b9\u51fb</strong>\u5220\u9664\u3002\u6ce8\u91ca\u4fdd\u5b58\u5728 PDF \u4e2d\u3002",
-    "guide.s7_title": "\u8f6c\u6362 PDF", "guide.s7_desc": "\u5c06\u9875\u9762\u5bfc\u51fa\u4e3a <strong>PNG</strong>\u3001<strong>JPG</strong>\u3001<strong>DOCX</strong> \u6216 <strong>TXT</strong>\u3002",
-    "guide.s8_title": "OCR\uff08\u6587\u5b57\u8bc6\u522b\uff09", "guide.s8_desc": "\u4f7f\u7528 <strong>OCR</strong> \u5de5\u5177\u4ece\u626b\u63cf PDF \u4e2d\u63d0\u53d6\u6587\u5b57\u3002\u9700\u8981 <a href=\"https://github.com/tesseract-ocr/tesseract\" target=\"_blank\">Tesseract</a>\u3002",
-    "guide.s9_title": "\u952e\u76d8\u5feb\u6377\u952e", "guide.s9_desc": "<ul><li><strong>Ctrl + \u6eda\u8f6e</strong> &mdash; \u7f29\u653e</li><li><strong>Ctrl + O</strong> &mdash; \u6253\u5f00\u6587\u4ef6</li><li><strong>Enter</strong> &mdash; \u8df3\u8f6c\u9875\u9762</li><li><strong>\u53f3\u952e\u70b9\u51fb</strong>\u6ce8\u91ca &mdash; \u5220\u9664</li></ul>",
-    "guide.s10_title": "\u4e3b\u9898", "guide.s10_desc": "\u70b9\u51fb<strong>\u592a\u9633/\u6708\u4eae\u56fe\u6807</strong>\u5207\u6362<strong>\u6df1\u8272</strong>\u548c<strong>\u6d45\u8272</strong>\u4e3b\u9898\u3002",
-    "compare.title": "PDFApps \u5bf9\u6bd4", "compare.subtitle": "\u770b\u770b PDFApps \u4e0e\u6700\u6d41\u884c\u7684 PDF \u5de5\u5177\u76f8\u6bd4\u5982\u4f55\u3002",
-    "compare.feature": "\u529f\u80fd", "compare.offline": "\u79bb\u7ebf\u5de5\u4f5c", "compare.free": "\u5b8c\u5168\u514d\u8d39",
-    "compare.opensource": "\u5f00\u6e90", "compare.noaccount": "\u65e0\u9700\u8d26\u53f7",
-    "compare.visual_editor": "\u53ef\u89c6\u5316\u7f16\u8f91\u5668", "compare.crossplatform": "\u8de8\u5e73\u53f0",
-    "compare.multilang": "\u591a\u8bed\u8a00 (8)", "compare.autoupdate": "\u81ea\u52a8\u66f4\u65b0", "compare.import": "\u5bfc\u5165 (TXT/IMG/MD)", "compare.print": "\u6253\u5370", "compare.signature": "\u7b7e\u540d", "compare.presentation": "\u6f14\u793a\u6a21\u5f0f",
-    "compare.yes": "\u662f", "compare.partial": "\u90e8\u5206 / \u6709\u9650", "compare.no": "\u5426",
-    "cta.title": "\u51c6\u5907\u597d\u63a7\u5236\u4f60\u7684 PDF \u4e86\u5417\uff1f", "cta.desc": "\u514d\u8d39\u4e0b\u8f7d PDFApps\uff0c\u5f00\u59cb\u79bb\u7ebf\u5904\u7406\u4f60\u7684\u6587\u6863\u3002",
-    "cta.download": "\u4e0b\u8f7d PDFApps", "cta.github": "\u5728 GitHub \u67e5\u770b",
-    "footer.desc": "\u5feb\u901f\u3001\u79bb\u7ebf\u3001\u5f00\u6e90\u7684 PDF \u7f16\u8f91\u5668\u3002\u4f7f\u7528 Python \u548c PySide6 \u6784\u5efa\u3002",
-    "footer.project": "\u9879\u76ee", "footer.source": "\u6e90\u4ee3\u7801", "footer.releases": "\u7248\u672c", "footer.bug": "\u62a5\u544a\u9519\u8bef",
-    "footer.community": "\u793e\u533a", "footer.license": "MIT \u8bb8\u53ef\u8bc1", "footer.contributing": "\u8d21\u732e",
-    "footer.sponsor": "&#9829; \u8d5e\u52a9\u6b64\u9879\u76ee"
-  },
-  it: {
-    "nav.features": "Funzioni", "nav.why": "Perch\u00e9 PDFApps?", "nav.screenshots": "Schermate", "nav.guide": "Guida", "nav.compare": "Confronto",
-    "hero.badge": "Open Source &middot; Licenza MIT",
-    "hero.title": "L'editor PDF che<br>rispetta la tua <span>privacy</span>",
-    "hero.tagline": "13 strumenti potenti in una sola app. 100% offline, gratis per sempre, senza account. I tuoi file non lasciano mai il tuo computer.",
-    "hero.source": "Vedi il codice su GitHub",
-    "hero.stat_tools": "Strumenti PDF", "hero.stat_platforms": "Piattaforme", "hero.stat_subs": "Abbonamenti",
-    "features.title": "Tutto ci\u00f2 che ti serve per i PDF",
-    "features.subtitle": "13 strumenti integrati per ogni attivit\u00e0 PDF comune. Senza plugin, senza estensioni, senza internet.",
-    "features.split": "Dividi", "features.split_desc": "Estrai intervalli di pagine",
-    "features.merge": "Unisci", "features.merge_desc": "Combina pi\u00f9 PDF",
-    "features.rotate": "Ruota", "features.rotate_desc": "Ruota qualsiasi pagina",
-    "features.extract": "Estrai", "features.extract_desc": "Estrai pagine specifiche",
-    "features.reorder": "Riordina", "features.reorder_desc": "Trascina e rilascia le pagine",
-    "features.compress": "Comprimi", "features.compress_desc": "3 livelli di compressione",
-    "features.encrypt": "Crittografa", "features.encrypt_desc": "Protezione con password",
-    "features.watermark": "Filigrana", "features.watermark_desc": "Timbro sovrapposto",
-    "features.ocr_desc": "5 lingue supportate",
-    "features.convert": "Converti",
-    "features.editor": "Editor Visuale", "features.editor_desc": "Censura, testo, immagini, firme",
-    "features.info": "Info", "features.info_desc": "Metadati e proprietà del PDF",
-    "features.import": "Importare", "features.import_desc": "TXT, immagini e Markdown in PDF", "hero.stat_langs": "Lingue",
-    "why.title": "Perch\u00e9 PDFApps?",
-    "why.subtitle": "Creato per chi tiene alla privacy, alla semplicit\u00e0 e a non pagare per strumenti basilari.",
-    "why.offline_title": "100% Offline", "why.offline_desc": "I tuoi file non lasciano mai il tuo computer. Nessun upload, nessuna elaborazione cloud, nessuna raccolta dati. Privacy totale.",
-    "why.free_title": "Gratis Per Sempre", "why.free_desc": "Open source con licenza MIT. Nessun abbonamento, nessun periodo di prova, nessuna funzione bloccata. Tutti gli strumenti sono tuoi, per sempre.",
-    "why.cross_title": "Multipiattaforma", "why.cross_desc": "Funziona nativamente su Windows, macOS e Linux. La stessa esperienza ovunque, costruito con Python e PySide6 (Qt 6).",
-    "why.update_title": "Aggiornamento Automatico",
-    "why.update_desc": "Resta sempre aggiornato. L'app controlla automaticamente le nuove versioni e ti permette di aggiornare con un clic, con barra di progresso — senza reinstallare.",
-    "screenshots.title": "Guardalo in azione", "screenshots.subtitle": "Un'interfaccia pulita e moderna progettata per la produttivit\u00e0.",
-    "screenshots.viewer": "Visualizzatore PDF", "screenshots.editor": "Editor Visuale",
-    "screenshots.light": "Tema Chiaro", "screenshots.languages": "8 Lingue", "screenshots.convert": "Convertire PDF", "screenshots.encrypt": "Crittografare PDF", "screenshots.import": "Importare in PDF", "screenshots.ocr": "Riconoscimento OCR",
-    "guide.title": "Come usare PDFApps", "guide.subtitle": "Una guida rapida per iniziare con tutte le funzionalit\u00e0.",
-    "guide.s1_title": "Apri un PDF", "guide.s1_desc": "Clicca sull'<strong>icona cartella</strong>, trascina un file nella finestra o fai doppio clic su un PDF associato.",
-    "guide.s2_title": "Naviga le pagine", "guide.s2_desc": "Usa il <strong>campo pagina</strong> per saltare a qualsiasi pagina. Digita un numero e premi Invio.",
-    "guide.s3_title": "Zoom", "guide.s3_desc": "Usa i pulsanti <strong>+ / &minus;</strong> o <strong>Ctrl + Scroll</strong>. Clicca su <strong>Ripristina</strong> per lo zoom predefinito.",
-    "guide.s4_title": "Usa gli strumenti", "guide.s4_desc": "Clicca su uno strumento nella <strong>barra laterale</strong>. Seleziona il PDF, regola e clicca su <strong>Esegui</strong>.",
-    "guide.s5_title": "Editor Visuale", "guide.s5_desc": "<p>Clicca su <strong>Modifica</strong> per l'editor visuale:</p><ul><li><strong>Censura</strong> &mdash; rettangolo nero per nascondere</li><li><strong>Aggiungi Testo</strong> &mdash; clicca per posizionare testo</li><li><strong>Aggiungi Immagine</strong> &mdash; inserisci un'immagine</li><li><strong>Evidenzia</strong> &mdash; evidenziazione gialla</li><li><strong>Nota / Commento</strong> &mdash; aggiungi una nota</li><li><strong>Modifica Testo</strong> &mdash; clicca sul testo per modificarlo</li></ul><p>Clicca su <strong>Salva</strong> per applicare.</p>",
-    "guide.s6_title": "Commenti e Annotazioni", "guide.s6_desc": "Le note appaiono come <strong>icone matita</strong>. <strong>Clic destro</strong> per eliminare. Le annotazioni vengono salvate nel PDF.",
-    "guide.s7_title": "Converti PDF", "guide.s7_desc": "Esporta pagine in <strong>PNG</strong>, <strong>JPG</strong>, <strong>DOCX</strong> o <strong>TXT</strong>.",
-    "guide.s8_title": "OCR (Riconoscimento testo)", "guide.s8_desc": "Usa lo strumento <strong>OCR</strong> per estrarre testo da PDF scansionati. Richiede <a href=\"https://github.com/tesseract-ocr/tesseract\" target=\"_blank\">Tesseract</a>.",
-    "guide.s9_title": "Scorciatoie da tastiera", "guide.s9_desc": "<ul><li><strong>Ctrl + Scroll</strong> &mdash; Zoom</li><li><strong>Ctrl + O</strong> &mdash; Apri file</li><li><strong>Ctrl + F</strong> &mdash; Cerca nel PDF</li><li><strong>Ctrl + Z</strong> &mdash; Annulla (editor)</li><li><strong>Ctrl + Y</strong> &mdash; Ripeti (editor)</li><li><strong>Invio</strong> &mdash; Vai a pagina</li><li><strong>Clic destro</strong> su nota &mdash; Elimina</li></ul>",
-    "guide.s10_title": "Temi", "guide.s10_desc": "Clicca sull'<strong>icona sole/luna</strong> per alternare tra tema <strong>scuro</strong> e <strong>chiaro</strong>.",
-    "compare.title": "Confronto con le alternative", "compare.subtitle": "Guarda come PDFApps si confronta con gli strumenti PDF pi\u00f9 popolari.",
-    "compare.feature": "Funzione", "compare.offline": "Funziona Offline", "compare.free": "Completamente Gratuito",
-    "compare.opensource": "Open Source", "compare.noaccount": "Senza Account",
-    "compare.visual_editor": "Editor Visuale", "compare.crossplatform": "Multipiattaforma",
-    "compare.multilang": "Multi-Lingua (8)", "compare.autoupdate": "Aggiornamento Auto", "compare.import": "Importare (TXT/IMG/MD)", "compare.print": "Stampare", "compare.signature": "Firma", "compare.presentation": "Modalit\u00e0 Presentazione",
-    "compare.yes": "S\u00ec", "compare.partial": "Parziale / Limitato", "compare.no": "No",
-    "cta.title": "Pronto a controllare i tuoi PDF?", "cta.desc": "Scarica PDFApps gratis e inizia a lavorare con i tuoi documenti offline.",
-    "cta.download": "Scarica PDFApps", "cta.github": "Vedi su GitHub",
-    "footer.desc": "Un editor PDF veloce, offline e open source. Costruito con Python e PySide6.",
-    "footer.project": "Progetto", "footer.source": "Codice Sorgente", "footer.releases": "Versioni", "footer.bug": "Segnala un Bug",
-    "footer.community": "Comunit\u00e0", "footer.license": "Licenza MIT", "footer.contributing": "Contribuire",
-    "footer.sponsor": "&#9829; Sponsorizza questo progetto"
-  },
-  nl: {
-    "nav.features": "Functies", "nav.why": "Waarom PDFApps?", "nav.screenshots": "Schermafbeeldingen", "nav.guide": "Gids", "nav.compare": "Vergelijken",
-    "hero.badge": "Open Source &middot; MIT-licentie",
-    "hero.title": "De PDF-editor die<br>je <span>privacy</span> respecteert",
-    "hero.tagline": "13 krachtige tools in \u00e9\u00e9n app. 100% offline, voor altijd gratis, geen account nodig. Je bestanden verlaten nooit je computer.",
-    "hero.source": "Bekijk broncode op GitHub",
-    "hero.stat_tools": "PDF-tools", "hero.stat_platforms": "Platformen", "hero.stat_subs": "Abonnementen",
-    "features.title": "Alles wat je nodig hebt voor PDF's",
-    "features.subtitle": "13 ingebouwde tools voor alle veelvoorkomende PDF-taken. Geen plugins, geen add-ons, geen internet nodig.",
-    "features.split": "Splitsen", "features.split_desc": "Paginabereiken extraheren",
-    "features.merge": "Samenvoegen", "features.merge_desc": "Meerdere PDF's combineren",
-    "features.rotate": "Roteren", "features.rotate_desc": "Elke pagina draaien",
-    "features.extract": "Extraheren", "features.extract_desc": "Specifieke pagina's ophalen",
-    "features.reorder": "Herschikken", "features.reorder_desc": "Pagina's slepen en neerzetten",
-    "features.compress": "Comprimeren", "features.compress_desc": "3 compressieniveaus",
-    "features.encrypt": "Versleutelen", "features.encrypt_desc": "Wachtwoordbeveiliging",
-    "features.watermark": "Watermerk", "features.watermark_desc": "Stempeloverlay",
-    "features.ocr_desc": "5 talen ondersteund",
-    "features.convert": "Converteren",
-    "features.editor": "Visuele Editor", "features.editor_desc": "Censureren, tekst, afbeeldingen, handtekeningen",
-    "features.info": "Info", "features.info_desc": "PDF-metadata en eigenschappen",
-    "features.import": "Importeren", "features.import_desc": "TXT, afbeeldingen & Markdown naar PDF", "hero.stat_langs": "Talen",
-    "why.title": "Waarom PDFApps?",
-    "why.subtitle": "Gemaakt voor mensen die waarde hechten aan privacy, eenvoud en niet betalen voor basistools.",
-    "why.offline_title": "100% Offline", "why.offline_desc": "Je bestanden verlaten nooit je computer. Geen uploads, geen cloudverwerking, geen gegevensverzameling. Volledige privacy.",
-    "why.free_title": "Voor Altijd Gratis", "why.free_desc": "Open source met MIT-licentie. Geen abonnementen, geen proefperiodes, geen geblokkeerde functies. Alle tools zijn van jou, voor altijd.",
-    "why.cross_title": "Cross-platform", "why.cross_desc": "Draait native op Windows, macOS en Linux. Overal dezelfde ervaring, gebouwd met Python en PySide6 (Qt 6).",
-    "why.update_title": "Auto-Update",
-    "why.update_desc": "Blijf altijd up-to-date. De app controleert automatisch op nieuwe versies en laat je met één klik updaten, met voortgangsbalk — geen herinstallatie nodig.",
-    "screenshots.title": "Bekijk het in actie", "screenshots.subtitle": "Een schone, moderne interface ontworpen voor productiviteit.",
-    "screenshots.viewer": "PDF-viewer", "screenshots.editor": "Visuele Editor",
-    "screenshots.light": "Licht Thema", "screenshots.languages": "8 Talen", "screenshots.convert": "PDF Converteren", "screenshots.encrypt": "PDF Versleutelen", "screenshots.import": "Importeren naar PDF", "screenshots.ocr": "OCR-herkenning",
-    "guide.title": "Hoe PDFApps te gebruiken", "guide.subtitle": "Een snelle gids om aan de slag te gaan met alle functies.",
-    "guide.s1_title": "Open een PDF", "guide.s1_desc": "Klik op het <strong>mappictogram</strong>, sleep een bestand naar het venster, of dubbelklik op een gekoppeld PDF-bestand.",
-    "guide.s2_title": "Pagina's navigeren", "guide.s2_desc": "Gebruik het <strong>paginaveld</strong> om naar een pagina te springen. Typ een nummer en druk op Enter.",
-    "guide.s3_title": "Zoom", "guide.s3_desc": "Gebruik de <strong>+ / &minus;</strong> knoppen of <strong>Ctrl + Scroll</strong>. Klik op <strong>Reset</strong> voor standaardzoom.",
-    "guide.s4_title": "Gebruik de tools", "guide.s4_desc": "Klik op een tool in de <strong>zijbalk</strong>. Selecteer je PDF, pas aan en klik op <strong>Uitvoeren</strong>.",
-    "guide.s5_title": "Visuele Editor", "guide.s5_desc": "<p>Klik op <strong>Bewerken</strong> voor de visuele editor:</p><ul><li><strong>Censureren</strong> &mdash; zwarte rechthoek om inhoud te verbergen</li><li><strong>Tekst toevoegen</strong> &mdash; klik om tekst te plaatsen</li><li><strong>Afbeelding toevoegen</strong> &mdash; afbeelding invoegen</li><li><strong>Markeren</strong> &mdash; gele markering</li><li><strong>Notitie</strong> &mdash; notitie toevoegen</li><li><strong>Tekst bewerken</strong> &mdash; klik op tekst om te wijzigen</li></ul><p>Klik op <strong>Opslaan</strong> om toe te passen.</p>",
-    "guide.s6_title": "Opmerkingen & Annotaties", "guide.s6_desc": "Notities verschijnen als <strong>potloodpictogrammen</strong>. <strong>Rechts klikken</strong> om te verwijderen. Annotaties worden opgeslagen in de PDF.",
-    "guide.s7_title": "PDF converteren", "guide.s7_desc": "Exporteer pagina's als <strong>PNG</strong>, <strong>JPG</strong>, <strong>DOCX</strong> of <strong>TXT</strong>.",
-    "guide.s8_title": "OCR (Tekstherkenning)", "guide.s8_desc": "Gebruik de <strong>OCR</strong>-tool om tekst uit gescande PDF's te halen. Vereist <a href=\"https://github.com/tesseract-ocr/tesseract\" target=\"_blank\">Tesseract</a>.",
-    "guide.s9_title": "Sneltoetsen", "guide.s9_desc": "<ul><li><strong>Ctrl + Scroll</strong> &mdash; Zoom</li><li><strong>Ctrl + O</strong> &mdash; Bestand openen</li><li><strong>Ctrl + F</strong> &mdash; Zoeken in PDF</li><li><strong>Ctrl + Z</strong> &mdash; Ongedaan maken (editor)</li><li><strong>Ctrl + Y</strong> &mdash; Opnieuw doen (editor)</li><li><strong>Enter</strong> &mdash; Ga naar pagina</li><li><strong>Rechts klikken</strong> op notitie &mdash; Verwijderen</li></ul>",
-    "guide.s10_title": "Thema's", "guide.s10_desc": "Klik op het <strong>zon/maan-pictogram</strong> om te wisselen tussen <strong>donker</strong> en <strong>licht</strong> thema.",
-    "compare.title": "Hoe PDFApps zich vergelijkt", "compare.subtitle": "Bekijk hoe PDFApps zich verhoudt tot de populairste PDF-tools.",
-    "compare.feature": "Functie", "compare.offline": "Werkt Offline", "compare.free": "Volledig Gratis",
-    "compare.opensource": "Open Source", "compare.noaccount": "Geen Account Nodig",
-    "compare.visual_editor": "Visuele Editor", "compare.crossplatform": "Cross-platform",
-    "compare.multilang": "Meertalig (8)", "compare.autoupdate": "Auto-update", "compare.import": "Importeren (TXT/IMG/MD)", "compare.print": "Afdrukken", "compare.signature": "Handtekening", "compare.presentation": "Presentatiemodus",
-    "compare.yes": "Ja", "compare.partial": "Gedeeltelijk / Beperkt", "compare.no": "Nee",
-    "cta.title": "Klaar om je PDF's te beheren?", "cta.desc": "Download PDFApps gratis en begin offline met je documenten te werken.",
-    "cta.download": "Download PDFApps", "cta.github": "Bekijk op GitHub",
-    "footer.desc": "Een snelle, offline, open-source PDF-editor. Gebouwd met Python en PySide6.",
-    "footer.project": "Project", "footer.source": "Broncode", "footer.releases": "Versies", "footer.bug": "Bug Melden",
-    "footer.community": "Community", "footer.license": "MIT-licentie", "footer.contributing": "Bijdragen",
-    "footer.sponsor": "&#9829; Sponsor dit project"
-  }
-};
-
-function detectLang() {
-  // Try all browser languages (navigator.languages) before falling back
-  const langs = navigator.languages || [navigator.language || navigator.userLanguage || "en"];
-  for (const raw of langs) {
-    const code = raw.toLowerCase().split("-")[0];
-    if (T[code]) return code;
-  }
-  return "en";
-}
-
-function applyLang(lang) {
-  const strings = T[lang] || T.en;
-  const fallback = T.en;
-  document.documentElement.lang = lang;
-  document.querySelectorAll("[data-i18n]").forEach(el => {
-    const key = el.getAttribute("data-i18n");
-    const val = strings[key] || fallback[key];
-    if (!val) return;
-    el.innerHTML = val;
-  });
-  document.getElementById("lang-picker").value = lang;
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  // Always detect on first visit; respect manual choice via picker only
-  const saved = localStorage.getItem("pdfapps-lang");
-  const detected = detectLang();
-  // If saved lang doesn't match detected AND user never manually picked, use detected
-  const manuallySet = localStorage.getItem("pdfapps-lang-manual");
-  const lang = manuallySet ? (saved || detected) : detected;
-  applyLang(lang);
-  document.getElementById("lang-picker").addEventListener("change", e => {
-    const l = e.target.value;
-    localStorage.setItem("pdfapps-lang", l);
-    localStorage.setItem("pdfapps-lang-manual", "1");
-    applyLang(l);
-  });
-});
-
-// ── Lightbox ──
-const lbOverlay = document.createElement('div');
-lbOverlay.className = 'lightbox-overlay';
-lbOverlay.innerHTML = '<span class="lightbox-close">&times;</span><img src="" alt="">';
-document.body.appendChild(lbOverlay);
-const lbImg = lbOverlay.querySelector('img');
-const lbClose = lbOverlay.querySelector('.lightbox-close');
-
-document.querySelectorAll('.screenshot-item img').forEach(img => {
-  img.addEventListener('click', () => {
-    lbImg.src = img.src;
-    lbImg.alt = img.alt;
-    lbOverlay.classList.add('active');
-  });
-});
-
-lbOverlay.addEventListener('click', () => lbOverlay.classList.remove('active'));
-lbImg.addEventListener('click', e => e.stopPropagation());
-lbClose.addEventListener('click', () => lbOverlay.classList.remove('active'));
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') lbOverlay.classList.remove('active');
-});
-</script>
-
+<script src="script.js"></script>
 </body>
 </html>

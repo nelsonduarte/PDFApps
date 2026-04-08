@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation — PDFApps</title>
+    <meta name="description" content="PDFApps documentation: quick start, tools usage, keyboard shortcuts, and FAQ.">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container">
+        <a href="index.html" class="brand">
+            <img src="icon.png" alt="">
+            PDFApps
+        </a>
+        <ul class="nav-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="download.html">Download</a></li>
+            <li><a href="docs.html" class="active">Docs</a></li>
+            <li><a href="changelog.html">Changelog</a></li>
+        </ul>
+        <div class="nav-actions">
+            <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme"></button>
+            <a href="https://github.com/nelsonduarte/PDFApps" class="icon-btn" aria-label="GitHub">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            </a>
+            <a href="download.html" class="btn btn-primary btn-sm">Download</a>
+        </div>
+    </div>
+</header>
+
+<div class="page-header">
+    <div class="container">
+        <span class="eyebrow">Documentation</span>
+        <h1>Get started with PDFApps</h1>
+        <p>Everything you need to know to use PDFApps efficiently. Quick start, keyboard shortcuts, and answers to common questions.</p>
+    </div>
+</div>
+
+<div class="docs-layout">
+    <aside class="docs-sidebar">
+        <nav>
+            <h4>Getting Started</h4>
+            <ul>
+                <li><a href="#install">Install</a></li>
+                <li><a href="#first-steps">First steps</a></li>
+                <li><a href="#open-pdf">Open a PDF</a></li>
+            </ul>
+            <h4>Viewer</h4>
+            <ul>
+                <li><a href="#navigation">Navigation</a></li>
+                <li><a href="#search">Search</a></li>
+                <li><a href="#bookmarks">Bookmarks / TOC</a></li>
+                <li><a href="#night-mode">Night mode</a></li>
+                <li><a href="#presentation">Presentation</a></li>
+            </ul>
+            <h4>Tools</h4>
+            <ul>
+                <li><a href="#tool-split">Split &amp; Merge</a></li>
+                <li><a href="#tool-compress">Compress</a></li>
+                <li><a href="#tool-encrypt">Encrypt</a></li>
+                <li><a href="#tool-ocr">OCR</a></li>
+                <li><a href="#tool-convert">Convert</a></li>
+                <li><a href="#tool-edit">Visual Editor</a></li>
+            </ul>
+            <h4>Reference</h4>
+            <ul>
+                <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#troubleshooting">Troubleshooting</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="docs-content">
+        <section id="install">
+            <h2>Install</h2>
+            <p>PDFApps is available on every major platform. Pick the one that matches your system:</p>
+            <ul class="docs-list">
+                <li><strong>Windows 10/11:</strong> download the installer from the <a href="download.html">Download page</a></li>
+                <li><strong>macOS 10.14+:</strong> download the macOS zip and drag to Applications</li>
+                <li><strong>Ubuntu / Snap:</strong> <code>sudo snap install pdfapps</code></li>
+                <li><strong>Fedora:</strong> <code>sudo dnf copr enable nelsonduarte2809/pdfapps &amp;&amp; sudo dnf install pdfapps</code></li>
+                <li><strong>Arch / Manjaro:</strong> <code>yay -S pdfapps</code></li>
+                <li><strong>Any Linux:</strong> download the AppImage and run it</li>
+            </ul>
+            <p>For OCR and advanced compression you also need <strong>Tesseract</strong> and <strong>Ghostscript</strong> installed on your system. The Windows installer offers to install both automatically.</p>
+        </section>
+
+        <section id="first-steps">
+            <h2>First steps</h2>
+            <p>When you open PDFApps for the first time you see the workspace with a sidebar of 13 tools on the left. Click <strong>Open PDF</strong> in the toolbar (or drag a file onto the window) to start working.</p>
+            <p>The app remembers your last theme, language, and recently opened files between sessions. Configuration is stored in <code>~/.pdfapps_config.json</code>.</p>
+        </section>
+
+        <section id="open-pdf">
+            <h2>Open a PDF</h2>
+            <p>There are five ways to open a PDF:</p>
+            <ol class="docs-list">
+                <li>Click the <strong>folder icon</strong> in the toolbar (or press <kbd>Ctrl</kbd>+<kbd>O</kbd>)</li>
+                <li>Drag a PDF file (or several) onto the window</li>
+                <li>Click <strong>Recent files</strong> in the toolbar to reopen a previous file</li>
+                <li>Pass the file path as a command-line argument: <code>pdfapps myfile.pdf</code></li>
+                <li>Set PDFApps as the default PDF reader and double-click any PDF in your file manager</li>
+            </ol>
+            <p>Multiple PDFs open in tabs, so you can switch between them like in a browser.</p>
+        </section>
+
+        <section id="navigation">
+            <h2>Navigation</h2>
+            <p>The viewer uses continuous scroll — all pages are rendered as you scroll, so there's no "next page" button to click. Use the toolbar controls for jump-to-page, prev/next, and zoom.</p>
+            <ul class="docs-list">
+                <li><strong>Page input:</strong> type a page number and press Enter to jump there</li>
+                <li><strong>Arrows ‹ ›:</strong> previous and next page</li>
+                <li><strong>Zoom:</strong> Ctrl+scroll, or the <code>− % +</code> buttons in the toolbar</li>
+                <li><strong>Fit:</strong> reset zoom to fit the window width</li>
+            </ul>
+        </section>
+
+        <section id="search">
+            <h2>Search (Ctrl+F)</h2>
+            <p>Press <kbd>Ctrl</kbd>+<kbd>F</kbd> to open the search bar. Results are highlighted in real-time as you type. Use the up/down arrows to jump between matches, or press <kbd>Escape</kbd> to close.</p>
+        </section>
+
+        <section id="bookmarks">
+            <h2>Bookmarks / TOC</h2>
+            <p>PDFs that have a table of contents (also called bookmarks or outline) show a clickable side panel on the left of the viewer. Click any heading to jump to that page. The bookmark icon in the toolbar toggles the panel — it's hidden for PDFs without an outline.</p>
+        </section>
+
+        <section id="night-mode">
+            <h2>Night reading mode</h2>
+            <p>Click the moon icon in the toolbar to invert the colors of the rendered pages — white backgrounds become dark and black text becomes light. Useful for reading at night without strain. Night mode is independent from the app theme, so you can have a light app with night-mode PDFs or vice versa.</p>
+        </section>
+
+        <section id="presentation">
+            <h2>Presentation mode (F5)</h2>
+            <p>Press <kbd>F5</kbd> or click the TV icon to enter fullscreen presentation mode. The page fills the screen with a black background. Use arrow keys, <kbd>Space</kbd>, <kbd>PgUp</kbd>/<kbd>PgDn</kbd>, <kbd>Home</kbd>/<kbd>End</kbd> to navigate. Press <kbd>Escape</kbd> to exit.</p>
+        </section>
+
+        <section id="tool-split">
+            <h2>Split &amp; Merge</h2>
+            <p><strong>Split:</strong> click <strong>Split</strong> in the sidebar, choose your PDF, then add rows defining page ranges and output names. Click <strong>Run</strong> to generate one PDF per range.</p>
+            <p><strong>Merge:</strong> click <strong>Merge</strong>, drag PDFs into the list (or use the file picker), reorder them with the up/down buttons, and click <strong>Run</strong>.</p>
+        </section>
+
+        <section id="tool-compress">
+            <h2>Compress</h2>
+            <p>The Compress tool uses a 3-pass pipeline (Ghostscript → PyMuPDF → pikepdf) and keeps the smallest result. Three quality levels are available:</p>
+            <ul class="docs-list">
+                <li><strong>Extreme</strong> — 72 DPI, 40% quality, grayscale. Best for archival or email.</li>
+                <li><strong>Recommended</strong> — 150 DPI, 65% quality. Good balance.</li>
+                <li><strong>Low</strong> — 300 DPI, 80% quality. Minimal visible loss.</li>
+            </ul>
+            <p>Ghostscript is optional but recommended for the "Extreme" level.</p>
+        </section>
+
+        <section id="tool-encrypt">
+            <h2>Encrypt &amp; Decrypt</h2>
+            <p>Set both an <strong>owner password</strong> (for editing rights) and a <strong>user password</strong> (for opening). To remove encryption from a file, switch to "Decrypt" mode and enter the existing password.</p>
+        </section>
+
+        <section id="tool-ocr">
+            <h2>OCR (Text Recognition)</h2>
+            <p>Use OCR to extract text from scanned PDFs. Requires <a href="https://github.com/tesseract-ocr/tesseract" target="_blank">Tesseract</a> installed. Supports Portuguese, English, Spanish, French, and German. The output is a new PDF with an invisible text layer over the original images, so the file looks identical but you can search and select text.</p>
+        </section>
+
+        <section id="tool-convert">
+            <h2>Convert</h2>
+            <p>Convert PDF pages to:</p>
+            <ul class="docs-list">
+                <li><strong>PNG / JPG</strong> — choose the DPI (72, 150, or 300). One image per page.</li>
+                <li><strong>DOCX</strong> — Word document with the extracted text. Layout is approximated.</li>
+                <li><strong>TXT</strong> — plain text extraction.</li>
+            </ul>
+        </section>
+
+        <section id="tool-edit">
+            <h2>Visual Editor</h2>
+            <p>The editor has 9 modes selectable from the right panel:</p>
+            <ul class="docs-list">
+                <li><strong>Redact / Censor</strong> — draw a black rectangle to permanently hide content</li>
+                <li><strong>Add Text</strong> — click anywhere to insert text with custom size and color</li>
+                <li><strong>Add Image</strong> — drag a rectangle to insert an image (PNG, JPG)</li>
+                <li><strong>Highlight</strong> — color overlay on selected text</li>
+                <li><strong>Note / Comment</strong> — sticky note with a popup balloon</li>
+                <li><strong>Fill Forms</strong> — auto-detects PDF form fields and lets you fill them</li>
+                <li><strong>Edit Text</strong> — click existing text to modify it</li>
+                <li><strong>Signature</strong> — draw, type, or import a signature; drag to place</li>
+                <li><strong>Select</strong> — text selection and copy mode</li>
+            </ul>
+            <p>Use <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> to undo/redo. Click <strong>Apply and Save</strong> to write all pending edits to a new PDF.</p>
+        </section>
+
+        <section id="shortcuts">
+            <h2>Keyboard shortcuts</h2>
+            <table class="docs-table">
+                <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
+                <tbody>
+                    <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Open PDF (multi-select)</td></tr>
+                    <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save / apply active tool</td></tr>
+                    <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print current PDF</td></tr>
+                    <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Close current tab</td></tr>
+                    <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Search text in PDF</td></tr>
+                    <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo (editor)</td></tr>
+                    <tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Redo (editor)</td></tr>
+                    <tr><td><kbd>Ctrl</kbd>+<kbd>Scroll</kbd></td><td>Zoom in / out</td></tr>
+                    <tr><td><kbd>F5</kbd></td><td>Start presentation mode</td></tr>
+                    <tr><td><kbd>F11</kbd></td><td>Toggle fullscreen</td></tr>
+                    <tr><td><kbd>Escape</kbd></td><td>Exit presentation / close search</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="faq">
+            <h2>FAQ</h2>
+            <div class="faq-item">
+                <h3>Is PDFApps really free?</h3>
+                <p>Yes. MIT licensed, open source, no premium tier, no upsells, no ads.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Do my files leave my computer?</h3>
+                <p>No. Everything runs locally. The only network requests are an optional update check on startup (which can be disabled) and the OCR/compression engine downloads during first install.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Why is the app so big?</h3>
+                <p>PDFApps bundles PySide6 (Qt 6) which is ~80 MB on its own. The total install is ~100 MB, comparable to most modern desktop apps.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Can I use PDFApps in my company?</h3>
+                <p>Yes. The MIT license allows commercial use without restriction. No purchase or sign-up required.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Does the editor support digital signatures (cryptographic)?</h3>
+                <p>The Signature tool places a visual signature (drawn, typed, or imported image) on the PDF. It does not perform cryptographic signing. For legally binding digital signatures, use a dedicated tool like Adobe Sign or DocuSign.</p>
+            </div>
+            <div class="faq-item">
+                <h3>How do I get OCR working?</h3>
+                <p>Install Tesseract from your package manager (Linux/macOS) or via the Windows installer (which downloads it automatically). PDFApps detects Tesseract via the system PATH.</p>
+            </div>
+        </section>
+
+        <section id="troubleshooting">
+            <h2>Troubleshooting</h2>
+            <div class="faq-item">
+                <h3>The OCR tool says Tesseract is not installed</h3>
+                <p>Make sure <code>tesseract</code> is on your system PATH. Test with <code>tesseract --version</code> in a terminal. If installed but not detected, restart PDFApps after installation.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Compression "Extreme" level fails</h3>
+                <p>The Extreme level requires Ghostscript. Install via <code>brew install ghostscript</code> (macOS), <code>sudo apt install ghostscript</code> (Debian/Ubuntu), or download from <a href="https://www.ghostscript.com/" target="_blank">ghostscript.com</a> (Windows).</p>
+            </div>
+            <div class="faq-item">
+                <h3>The auto-updater is stuck</h3>
+                <p>Auto-updater is disabled in Flatpak and Snap installations because the package manager handles updates. In direct installations, check that you have admin rights — the installer needs UAC elevation on Windows.</p>
+            </div>
+            <div class="faq-item">
+                <h3>Found a bug?</h3>
+                <p>Report it on the <a href="https://github.com/nelsonduarte/PDFApps/issues" target="_blank">GitHub issue tracker</a>. Include your OS, PDFApps version, and steps to reproduce.</p>
+            </div>
+        </section>
+    </main>
+</div>
+
+<footer class="site-footer">
+    <div class="container">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <a href="index.html" class="brand"><img src="icon.png" alt="">PDFApps</a>
+                <p>Fast, offline, subscription-free PDF editor. Open source under the MIT license.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Product</h4>
+                <ul>
+                    <li><a href="features.html">Features</a></li>
+                    <li><a href="download.html">Download</a></li>
+                    <li><a href="changelog.html">Changelog</a></li>
+                    <li><a href="docs.html">Documentation</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/CONTRIBUTING.md">Contributing</a></li>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/issues">Issues</a></li>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/discussions">Discussions</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Community</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps">GitHub</a></li>
+                    <li><a href="https://github.com/sponsors/nelsonduarte">Sponsor</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/LICENSE">MIT License</a></li>
+                    <li><a href="#">Privacy</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2026 Nelson Duarte · Made with ♥ for the open web</span>
+            <div class="footer-bottom-links">
+                <a href="https://github.com/nelsonduarte/PDFApps">GitHub</a>
+                <a href="changelog.html">v1.9.0</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
