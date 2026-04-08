@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ vars.ENABLE_AUR != 'false' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: v${{ needs.resolve.outputs.version }}
 
@@ -160,13 +160,13 @@ jobs:
     runs-on: ubuntu-22.04
     if: ${{ vars.ENABLE_SNAP != 'false' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: v${{ needs.resolve.outputs.version }}
 
       - name: Build snap
         id: build
-        uses: snapcore/action-build@v1
+        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
 
@@ -174,7 +174,7 @@ jobs:
         if: env.SNAPCRAFT_STORE_CREDENTIALS != ''
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
-        uses: snapcore/action-publish@v1
+        uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1
         with:
           snap: ${{ steps.build.outputs.snap }}
           release: stable
