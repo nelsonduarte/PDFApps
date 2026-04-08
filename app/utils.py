@@ -102,9 +102,12 @@ def ToolHeader(icon_name: str, title: str, desc: str) -> QWidget:
     ico.setFocusPolicy(Qt.FocusPolicy.NoFocus)
     col = QVBoxLayout(); col.setSpacing(3)
     t = QLabel(title); t.setObjectName("th_title")
+    t.setWordWrap(True)
     d = QLabel(desc);  d.setObjectName("th_desc")
+    d.setWordWrap(True)
     col.addWidget(t); col.addWidget(d)
-    h.addWidget(ico); h.addLayout(col); h.addStretch()
+    h.addWidget(ico, 0); h.addLayout(col, 1)
+    w.setMinimumWidth(0)
     return w
 
 

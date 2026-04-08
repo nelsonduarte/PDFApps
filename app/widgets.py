@@ -52,7 +52,9 @@ class DropFileEdit(QWidget):
         self._lbl = QLabel(placeholder)
         self._lbl.setObjectName("drop_zone_lbl")
         self._lbl.setWordWrap(True)
+        self._lbl.setMinimumWidth(0)
         h.addWidget(self._lbl, 1)
+        self.setMinimumWidth(0)
 
         self._clr = QPushButton()
         self._clr.setIcon(qta.icon('fa5s.times', color='#4A5568'))
@@ -140,10 +142,13 @@ class MultiDropWidget(QWidget):
         h.addWidget(ico)
         self._lbl = QLabel(t("widget.drop_multi"))
         self._lbl.setObjectName("drop_zone_lbl")
+        self._lbl.setWordWrap(True)
+        self._lbl.setMinimumWidth(0)
         h.addWidget(self._lbl, 1)
         self.btn = QPushButton(t("btn.add"))
         self.btn.setFixedWidth(110)
         h.addWidget(self.btn)
+        self.setMinimumWidth(0)
 
     def dragEnterEvent(self, e: QDragEnterEvent):
         if e.mimeData().hasUrls():

@@ -21,7 +21,8 @@ class TabRotar(BasePage):
                          t("tool.rotate.desc"),
                          t("tool.rotate.btn"), status_fn)
         f = self._form
-        f.addWidget(section(t("tool.rotate.source")))
+        sec_src = section(t("tool.rotate.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -41,9 +42,11 @@ class TabRotar(BasePage):
         form.addRow(t("tool.rotate.angle_label"), self.cmb_angle)
         f.addWidget(grp)
 
-        f.addWidget(section(t("tool.rotate.output")))
+        sec_out = section(t("tool.rotate.output"))
+        f.addWidget(sec_out)
         self.drop_out = DropFileEdit("rotated.pdf", save=True, default_name="rotated.pdf")
         f.addWidget(self.drop_out); f.addStretch()
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
 
     def _pick_input(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
@@ -64,12 +67,12 @@ class TabRotar(BasePage):
         if path and not self.drop_in.path(): self._load_input(path)
 
     def _run(self):
-        pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
+        pdf_path = self.drop_in.path()
         angle = {0: 90, 1: 180, 2: 270}[self.cmb_angle.currentIndex()]
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
-        if not out_path:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+        out_path = self._resolve_output_file(self.drop_out, pdf_path)
+        if not out_path: return
         try:
             reader = PdfReader(pdf_path); total = len(reader.pages)
             txt = self.edit_pages.text().strip()

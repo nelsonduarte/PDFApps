@@ -467,7 +467,10 @@
         "tool.nup.select_source": "Choose a source PDF.",
         "tool.nup.empty_doc": "The PDF has no pages.",
         "tool.nup.cells_too_small": "Margin and gap leave no room for the pages. Reduce them.",
-        "tool.nup.done": "N-up PDF generated:\n{path}"
+        "tool.nup.done": "N-up PDF generated:\n{path}",
+        "file_filter.docx": "Word Document (*.docx)",
+        "file_filter.txt": "Text file (*.txt)",
+        "compact.change_source": "Change source file"
     },
     "pt": {
         "app.name": "PDFApps",
@@ -937,7 +940,10 @@
         "tool.nup.select_source": "Escolhe um PDF de origem.",
         "tool.nup.empty_doc": "O PDF não tem páginas.",
         "tool.nup.cells_too_small": "Margem e espaçamento não deixam espaço para as páginas. Reduz os valores.",
-        "tool.nup.done": "PDF gerado:\n{path}"
+        "tool.nup.done": "PDF gerado:\n{path}",
+        "file_filter.docx": "Documento Word (*.docx)",
+        "file_filter.txt": "Ficheiro de texto (*.txt)",
+        "compact.change_source": "Trocar ficheiro de origem"
     },
     "es": {
         "app.name": "PDFApps",
@@ -1407,7 +1413,10 @@
         "tool.nup.select_source": "Elige un PDF de origen.",
         "tool.nup.empty_doc": "El PDF no tiene páginas.",
         "tool.nup.cells_too_small": "El margen y el espacio no dejan sitio para las páginas. Redúcelos.",
-        "tool.nup.done": "PDF generado:\n{path}"
+        "tool.nup.done": "PDF generado:\n{path}",
+        "file_filter.docx": "Documento Word (*.docx)",
+        "file_filter.txt": "Archivo de texto (*.txt)",
+        "compact.change_source": "Cambiar archivo de origen"
     },
     "fr": {
         "app.name": "PDFApps",
@@ -1877,7 +1886,10 @@
         "tool.nup.select_source": "Choisissez un PDF source.",
         "tool.nup.empty_doc": "Le PDF ne contient aucune page.",
         "tool.nup.cells_too_small": "La marge et l'espacement ne laissent pas de place aux pages. Réduisez-les.",
-        "tool.nup.done": "PDF généré :\n{path}"
+        "tool.nup.done": "PDF généré :\n{path}",
+        "file_filter.docx": "Document Word (*.docx)",
+        "file_filter.txt": "Fichier texte (*.txt)",
+        "compact.change_source": "Changer le fichier source"
     },
     "de": {
         "app.name": "PDFApps",
@@ -2347,7 +2359,10 @@
         "tool.nup.select_source": "Wähle eine Quell-PDF.",
         "tool.nup.empty_doc": "Die PDF enthält keine Seiten.",
         "tool.nup.cells_too_small": "Rand und Abstand lassen keinen Platz für die Seiten. Bitte reduzieren.",
-        "tool.nup.done": "PDF erzeugt:\n{path}"
+        "tool.nup.done": "PDF erzeugt:\n{path}",
+        "file_filter.docx": "Word-Dokument (*.docx)",
+        "file_filter.txt": "Textdatei (*.txt)",
+        "compact.change_source": "Quelldatei ändern"
     },
     "zh": {
         "app.name": "PDFApps",
@@ -2817,7 +2832,10 @@
         "tool.nup.select_source": "请选择源PDF。",
         "tool.nup.empty_doc": "PDF没有页面。",
         "tool.nup.cells_too_small": "边距和间距没有为页面留出空间。请减小数值。",
-        "tool.nup.done": "已生成PDF：\n{path}"
+        "tool.nup.done": "已生成PDF：\n{path}",
+        "file_filter.docx": "Word 文档 (*.docx)",
+        "file_filter.txt": "文本文件 (*.txt)",
+        "compact.change_source": "更换源文件"
     },
     "it": {
         "app.name": "PDFApps",
@@ -3287,7 +3305,10 @@
         "tool.nup.select_source": "Scegli un PDF di origine.",
         "tool.nup.empty_doc": "Il PDF non contiene pagine.",
         "tool.nup.cells_too_small": "Margine e spaziatura non lasciano spazio alle pagine. Riducili.",
-        "tool.nup.done": "PDF generato:\n{path}"
+        "tool.nup.done": "PDF generato:\n{path}",
+        "file_filter.docx": "Documento Word (*.docx)",
+        "file_filter.txt": "File di testo (*.txt)",
+        "compact.change_source": "Cambia file di origine"
     },
     "nl": {
         "app.name": "PDFApps",
@@ -3757,6 +3778,9 @@
         "tool.nup.select_source": "Kies een bron-PDF.",
         "tool.nup.empty_doc": "De PDF bevat geen pagina's.",
         "tool.nup.cells_too_small": "Marge en ruimte laten geen plek voor de pagina's. Verklein deze waarden.",
-        "tool.nup.done": "PDF gegenereerd:\n{path}"
+        "tool.nup.done": "PDF gegenereerd:\n{path}",
+        "file_filter.docx": "Word-document (*.docx)",
+        "file_filter.txt": "Tekstbestand (*.txt)",
+        "compact.change_source": "Bronbestand wijzigen"
     }
 }

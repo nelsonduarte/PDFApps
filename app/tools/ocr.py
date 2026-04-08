@@ -64,7 +64,8 @@ class TabOCR(BasePage):
                          t("tool.ocr.btn"), status_fn)
         f = self._form
 
-        f.addWidget(section(t("tool.ocr.source")))
+        sec_src = section(t("tool.ocr.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -93,10 +94,12 @@ class TabOCR(BasePage):
         row_fmt.addWidget(lbl_fmt); row_fmt.addWidget(self.cmb_fmt); row_fmt.addStretch()
         f.addLayout(row_fmt)
 
-        f.addWidget(section(t("tool.ocr.output")))
+        sec_out = section(t("tool.ocr.output"))
+        f.addWidget(sec_out)
         self.drop_out = DropFileEdit("ocr_output.pdf", save=True, default_name="ocr_output.pdf")
         f.addWidget(self.drop_out)
         f.addStretch()
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
 
     def _on_fmt_change(self, idx):
         p = self.drop_out.path()
@@ -179,11 +182,11 @@ class TabOCR(BasePage):
 
     def _run(self):
         import io as _io
-        pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
+        pdf_path = self.drop_in.path()
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
-        if not out_path:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+        out_path = self._resolve_output_file(self.drop_out, pdf_path)
+        if not out_path: return
         try:
             import pytesseract
         except ImportError:

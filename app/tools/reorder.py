@@ -22,7 +22,8 @@ class TabReordenar(BasePage):
                          t("tool.reorder.btn"), status_fn)
         self._reader = None
         f = self._form
-        f.addWidget(section(t("tool.reorder.source")))
+        sec_src = section(t("tool.reorder.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -39,16 +40,24 @@ class TabReordenar(BasePage):
         self.lst.setMinimumHeight(200)
         vl.addWidget(self.lst)
         hb = QHBoxLayout()
-        for txt, slot in [(t("btn.up"), self._up), (t("btn.down"), self._dn),
-                          (t("btn.delete"), self._del), (t("btn.reset_order"), self._reset)]:
+        for txt, slot, tip in [
+            ("▲",  self._up,    t("btn.up")),
+            ("▼",  self._dn,    t("btn.down")),
+            ("−",  self._del,   t("btn.delete")),
+            ("↺",  self._reset, t("btn.reset_order")),
+        ]:
             btn = danger_btn(txt) if slot == self._del else QPushButton(txt)
+            btn.setToolTip(tip)
+            btn.setFixedWidth(40)
             btn.clicked.connect(slot); hb.addWidget(btn)
         hb.addStretch(); vl.addLayout(hb)
         f.addWidget(grp)
 
-        f.addWidget(section(t("tool.reorder.output")))
+        sec_out = section(t("tool.reorder.output"))
+        f.addWidget(sec_out)
         self.drop_out = DropFileEdit("reordered.pdf", save=True, default_name="reordered.pdf")
         f.addWidget(self.drop_out); f.addStretch()
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
 
     def _pick_input(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
@@ -98,9 +107,8 @@ class TabReordenar(BasePage):
     def _run(self):
         if not self._reader:
             QMessageBox.warning(self, t("msg.warning"), t("msg.open_pdf_first")); return
-        out = self.drop_out.path()
-        if not out:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+        out = self._resolve_output_file(self.drop_out, self.drop_in.path())
+        if not out: return
         try:
             indices = [self.lst.item(i).data(256) for i in range(self.lst.count())]
             w = PdfWriter()

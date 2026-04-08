@@ -24,7 +24,8 @@ class TabDividir(BasePage):
         self._total = 0
         f = self._form
 
-        f.addWidget(section(t("tool.split.source")))
+        sec_src = section(t("tool.split.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -52,7 +53,8 @@ class TabDividir(BasePage):
         vt.addLayout(hb)
         f.addWidget(grp)
 
-        f.addWidget(section(t("tool.split.output_folder")))
+        sec_out = section(t("tool.split.output_folder"))
+        f.addWidget(sec_out)
         self.drop_out = DropFileEdit(t("tool.split.folder_hint"))
         self.drop_out.btn.setText(t("btn.choose"))
         try: self.drop_out.btn.clicked.disconnect()
@@ -61,6 +63,7 @@ class TabDividir(BasePage):
         f.addWidget(self.drop_out)
         f.addStretch()
         self._add_row()
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
 
     def _pick_input(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
@@ -96,11 +99,12 @@ class TabDividir(BasePage):
             self.table.removeRow(r)
 
     def _run(self):
-        pdf_path = self.drop_in.path(); out_dir = self.drop_out.path()
+        pdf_path = self.drop_in.path()
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
+        out_dir = self._resolve_output_dir(self.drop_out, pdf_path)
         if not out_dir:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_folder")); return
+            return
         try:
             reader = PdfReader(pdf_path); total = len(reader.pages)
         except Exception as e:

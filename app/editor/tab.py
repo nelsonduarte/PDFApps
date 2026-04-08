@@ -101,7 +101,7 @@ class TabEditar(QWidget):
         cv = QVBoxLayout(ctrl_inner); cv.setContentsMargins(10, 10, 10, 10); cv.setSpacing(8)
 
         # -- PDF file --
-        grp_file = QGroupBox(t("edit.pdf_file"))
+        self._grp_file = grp_file = QGroupBox(t("edit.pdf_file"))
         gf = QVBoxLayout(grp_file); gf.setSpacing(4)
         self._drop_in = DropFileEdit()
         try: self._drop_in.btn.clicked.disconnect()
@@ -315,7 +315,7 @@ class TabEditar(QWidget):
         cv.addWidget(grp_pend)
 
         # -- Save --
-        grp_save = QGroupBox(t("edit.save_to"))
+        self._grp_save = grp_save = QGroupBox(t("edit.save_to"))
         gs = QVBoxLayout(grp_save)
         self._drop_out = DropFileEdit("output_edited.pdf", save=True, default_name="output_edited.pdf")
         gs.addWidget(self._drop_out)
@@ -354,6 +354,13 @@ class TabEditar(QWidget):
         return super().eventFilter(obj, event)
 
     # ── helpers ──────────────────────────────────────────────────────────────
+
+    def set_compact_mode(self, active: bool, path: str = "") -> None:
+        """Hide the file picker / save-to groups when a viewer PDF is loaded."""
+        if active and path:
+            self._load_pdf(path)
+        self._grp_file.setVisible(not active)
+        self._grp_save.setVisible(not active)
 
     def update_theme(self, dark: bool) -> None:
         self._dark_mode = dark
@@ -732,7 +739,12 @@ class TabEditar(QWidget):
             QMessageBox.warning(self, t("msg.warning"), t("msg.open_pdf_first")); return
         out = self._drop_out.path()
         if not out:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+            base, ext = os.path.splitext(os.path.basename(self._doc_path))
+            suggested = os.path.join(os.path.dirname(self._doc_path), base + "_edited" + ext)
+            out, _ = QFileDialog.getSaveFileName(
+                self, t("btn.choose"), suggested, t("file_filter.pdf"))
+            if not out: return
+            self._drop_out.set_path(out)
         if self._mode_idx == 5:
             self._apply_forms(out); return
         if not self._pending:

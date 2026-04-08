@@ -45,7 +45,8 @@ class TabNUp(BasePage):
                          t("tool.nup.btn"), status_fn)
         f = self._form
 
-        f.addWidget(section(t("tool.nup.source")))
+        sec_src = section(t("tool.nup.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -85,14 +86,22 @@ class TabNUp(BasePage):
         form.addRow(t("tool.nup.margin"), self.spin_margin)
 
         self.cmb_order = QComboBox()
-        self.cmb_order.addItems([t("tool.nup.order.row"), t("tool.nup.order.col")])
+        self.cmb_order.addItems(["→ ↓", "↓ →"])
+        self.cmb_order.setItemData(0, t("tool.nup.order.row"), 3)  # Qt.ToolTipRole
+        self.cmb_order.setItemData(1, t("tool.nup.order.col"), 3)
+        self.cmb_order.setToolTip(t("tool.nup.order.row"))
+        self.cmb_order.currentIndexChanged.connect(
+            lambda i: self.cmb_order.setToolTip(
+                t("tool.nup.order.row") if i == 0 else t("tool.nup.order.col")))
         form.addRow(t("tool.nup.order"), self.cmb_order)
 
         f.addWidget(grp)
 
-        f.addWidget(section(t("tool.nup.output")))
+        sec_out = section(t("tool.nup.output"))
+        f.addWidget(sec_out)
         self.drop_out = DropFileEdit("nup.pdf", save=True, default_name="nup.pdf")
         f.addWidget(self.drop_out); f.addStretch()
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
 
     def _pick_input(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
@@ -118,11 +127,10 @@ class TabNUp(BasePage):
 
     def _run(self):
         pdf_path = self.drop_in.path()
-        out_path = self.drop_out.path()
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("tool.nup.select_source")); return
-        if not out_path:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+        out_path = self._resolve_output_file(self.drop_out, pdf_path)
+        if not out_path: return
 
         try:
             import fitz

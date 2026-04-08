@@ -21,7 +21,8 @@ class TabExtrair(BasePage):
                          t("tool.extract.desc"),
                          t("tool.extract.btn"), status_fn)
         f = self._form
-        f.addWidget(section(t("tool.extract.source")))
+        sec_src = section(t("tool.extract.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -41,9 +42,11 @@ class TabExtrair(BasePage):
         form.addRow("", hint)
         f.addWidget(grp)
 
-        f.addWidget(section(t("tool.extract.output")))
+        sec_out = section(t("tool.extract.output"))
+        f.addWidget(sec_out)
         self.drop_out = DropFileEdit("extracted.pdf", save=True, default_name="extracted.pdf")
         f.addWidget(self.drop_out); f.addStretch()
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
 
     def _pick_input(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
@@ -64,14 +67,14 @@ class TabExtrair(BasePage):
         if path and not self.drop_in.path(): self._load_input(path)
 
     def _run(self):
-        pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
+        pdf_path = self.drop_in.path()
         txt = self.edit_pages.text().strip()
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
         if not txt:
             QMessageBox.warning(self, t("msg.warning"), t("tool.extract.specify")); return
-        if not out_path:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+        out_path = self._resolve_output_file(self.drop_out, pdf_path)
+        if not out_path: return
         try:
             reader = PdfReader(pdf_path)
             pages  = parse_pages(txt, len(reader.pages))

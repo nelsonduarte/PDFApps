@@ -22,7 +22,8 @@ class TabEncriptar(BasePage):
                          t("tool.encrypt.desc"),
                          t("tool.encrypt.btn"), status_fn)
         f = self._form
-        f.addWidget(section(t("tool.encrypt.source")))
+        sec_src = section(t("tool.encrypt.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -61,9 +62,11 @@ class TabEncriptar(BasePage):
         f.addWidget(self.grp_dec)
         self._on_mode(0)
 
-        f.addWidget(section(t("tool.encrypt.output")))
+        sec_out = section(t("tool.encrypt.output"))
+        f.addWidget(sec_out)
         self.drop_out = DropFileEdit("result.pdf", save=True, default_name="result.pdf")
         f.addWidget(self.drop_out); f.addStretch()
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
 
     def _on_mode(self, idx: int):
         self.grp_enc.setVisible(idx == 0)
@@ -101,11 +104,11 @@ class TabEncriptar(BasePage):
         if path and not self.drop_in.path(): self._load_input(path)
 
     def _run(self):
-        pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
+        pdf_path = self.drop_in.path()
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
-        if not out_path:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+        out_path = self._resolve_output_file(self.drop_out, pdf_path)
+        if not out_path: return
         try:
             reader = PdfReader(pdf_path)
             if self.cmb_mode.currentIndex() == 0:

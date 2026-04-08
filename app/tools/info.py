@@ -36,7 +36,8 @@ class TabInfo(BasePage):
                          t("tool.info.desc"),
                          t("tool.info.btn"), status_fn)
         f = self._form
-        f.addWidget(section(t("tool.info.source")))
+        sec_src = section(t("tool.info.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -54,6 +55,7 @@ class TabInfo(BasePage):
             "border:1px solid #1E293B; border-radius:8px; padding:14px; }")
         f.addWidget(self.txt); f.addStretch()
         self.action_btn.setText(t("tool.info.open_show"))
+        self._compact_hidden = [sec_src, self.drop_in]
 
     def _pick_and_show(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))

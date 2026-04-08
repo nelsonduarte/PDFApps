@@ -21,7 +21,8 @@ class TabMarcaDagua(BasePage):
                          t("tool.watermark.desc"),
                          t("tool.watermark.btn"), status_fn)
         f = self._form
-        f.addWidget(section(t("tool.watermark.source")))
+        sec_src = section(t("tool.watermark.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -40,14 +41,21 @@ class TabMarcaDagua(BasePage):
         self.edit_pages = QLineEdit()
         self.edit_pages.setPlaceholderText(t("tool.watermark.pages_hint"))
         self.cmb_layer = QComboBox()
-        self.cmb_layer.addItems([t("tool.watermark.below"), t("tool.watermark.above")])
+        full = [t("tool.watermark.below"), t("tool.watermark.above")]
+        short = [s.split("(")[0].strip() for s in full]
+        self.cmb_layer.addItems(short)
+        for i, full_text in enumerate(full):
+            self.cmb_layer.setItemData(i, full_text, Qt.ItemDataRole.ToolTipRole)
+        self.cmb_layer.setMinimumContentsLength(8)
         form.addRow(t("tool.watermark.pages_label"), self.edit_pages)
         form.addRow(t("tool.watermark.position_label"), self.cmb_layer)
         f.addWidget(grp)
 
-        f.addWidget(section(t("tool.watermark.output")))
+        sec_out = section(t("tool.watermark.output"))
+        f.addWidget(sec_out)
         self.drop_out = DropFileEdit("watermarked.pdf", save=True, default_name="watermarked.pdf")
         f.addWidget(self.drop_out); f.addStretch()
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
 
     def _pick_input(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
@@ -69,13 +77,12 @@ class TabMarcaDagua(BasePage):
 
     def _run(self):
         pdf_path = self.drop_in.path(); wm_path = self.drop_wm.path()
-        out_path = self.drop_out.path()
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.select_source")); return
         if not wm_path or not os.path.isfile(wm_path):
             QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.select_wm")); return
-        if not out_path:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+        out_path = self._resolve_output_file(self.drop_out, pdf_path)
+        if not out_path: return
         try:
             reader  = PdfReader(pdf_path)
             wm_page = PdfReader(wm_path).pages[0]

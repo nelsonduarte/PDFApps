@@ -356,10 +356,11 @@ class MainWindow(QMainWindow):
 
         self._splitter = QSplitter(Qt.Orientation.Horizontal)
         self._splitter.setHandleWidth(1)
-        self._splitter.addWidget(self.stack)
+        self._splitter.setChildrenCollapsible(False)
         self._splitter.addWidget(self._tab_container)
-        self._splitter.setCollapsible(0, True)
-        self._splitter.setCollapsible(1, False)
+        self._splitter.addWidget(self.stack)
+        self._splitter.setCollapsible(0, False)
+        self._splitter.setCollapsible(1, True)
 
         main_h.addWidget(self._sidebar)
         main_h.addWidget(self._splitter, 1)
@@ -487,12 +488,18 @@ class MainWindow(QMainWindow):
                 return
 
     def _try_auto_load(self, index: int):
+        widget = self.stack.widget(index)
         path = self._viewer.current_path()
         if path:
-            widget = self.stack.widget(index)
             fn = getattr(widget, "auto_load", None)
             if callable(fn):
                 fn(path)
+        # Toggle "compact mode" for tools that support it: when a viewer PDF
+        # is loaded, hide the source/output pickers so the user can act with
+        # a single button.
+        compact_fn = getattr(widget, "set_compact_mode", None)
+        if callable(compact_fn):
+            compact_fn(bool(path), path or "")
 
     def _edit_tool_idx(self) -> int:
         return next(i for i, (_, __, cls) in enumerate(NAV_ITEMS) if cls is TabEditar)
@@ -534,11 +541,19 @@ class MainWindow(QMainWindow):
             self._current_tool = row
             self.stack.setCurrentIndex(row)
             self.stack.setVisible(True)
-            self._tab_container.setVisible(False)
+            # Editor takes the whole area (it has its own canvas);
+            # other tools open as a fixed-width side panel with the viewer
+            # still visible.
+            if row == edit_idx:
+                self.stack.setMinimumWidth(0)
+                self.stack.setMaximumWidth(16777215)
+                self._tab_container.setVisible(False)
+                self._setup_zoom_bar(True)
+            else:
+                self.stack.setFixedWidth(440)
+                self._tab_container.setVisible(True)
             self._tool_badge.setText(t("workspace.mode_tool", name=NAV_ITEMS[row][0]))
             self._try_auto_load(row)
-            if row == edit_idx:
-                self._setup_zoom_bar(True)
 
     def _open_pdf(self):
         from PySide6.QtWidgets import QFileDialog

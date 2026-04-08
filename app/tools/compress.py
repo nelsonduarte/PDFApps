@@ -12,7 +12,7 @@ from pypdf import PdfReader
 from app.base import BasePage
 from app.i18n import t
 from app.utils import section, info_lbl, _compress_pdf, _find_gs, CancelledError
-from app.constants import DESKTOP
+from app.constants import DESKTOP, TEXT_SEC
 from app.widgets import DropFileEdit
 
 
@@ -24,7 +24,8 @@ class TabComprimir(BasePage):
                          t("tool.compress.desc"),
                          t("tool.compress.btn"), status_fn)
         f = self._form
-        f.addWidget(section(t("tool.compress.source")))
+        sec_src = section(t("tool.compress.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -37,16 +38,35 @@ class TabComprimir(BasePage):
         gl  = QFormLayout(grp)
         gl.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self.cmb_level = QComboBox()
-        self.cmb_level.addItems([
+        # Show only the short level name in the combo and the full
+        # description below it as a hint that updates with the selection.
+        self._level_full = [
             t("tool.compress.extreme"),
             t("tool.compress.recommended"),
             t("tool.compress.low"),
-        ])
+        ]
+        self._level_short = [s.split("—")[0].strip() for s in self._level_full]
+        self.cmb_level.addItems(self._level_short)
+        for i, full in enumerate(self._level_full):
+            self.cmb_level.setItemData(i, full, Qt.ItemDataRole.ToolTipRole)
         self.cmb_level.setCurrentIndex(1)
+        self.cmb_level.setMinimumContentsLength(10)
+        from PySide6.QtWidgets import QSizePolicy
+        self.cmb_level.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         gl.addRow(t("tool.compress.level_label"), self.cmb_level)
+        self._lbl_level_hint = QLabel("")
+        self._lbl_level_hint.setWordWrap(True)
+        self._lbl_level_hint.setStyleSheet(f"color:{TEXT_SEC}; font-size:10pt;")
+        gl.addRow("", self._lbl_level_hint)
+        def _update_hint(i):
+            parts = self._level_full[i].split("—", 1)
+            self._lbl_level_hint.setText(parts[1].strip() if len(parts) > 1 else "")
+        self.cmb_level.currentIndexChanged.connect(_update_hint)
+        _update_hint(self.cmb_level.currentIndex())
         f.addWidget(grp)
 
-        f.addWidget(section(t("tool.compress.output")))
+        sec_out = section(t("tool.compress.output"))
+        f.addWidget(sec_out)
         self.drop_out = DropFileEdit(save=True, default_name="compressed.pdf")
         f.addWidget(self.drop_out)
 
@@ -56,6 +76,7 @@ class TabComprimir(BasePage):
             "background:transparent; padding:10px 4px;")
         f.addWidget(self.lbl_result)
         f.addStretch()
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
 
     def _pick_input(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
@@ -78,11 +99,11 @@ class TabComprimir(BasePage):
         if path and not self.drop_in.path(): self._load_input(path)
 
     def _run(self):
-        pdf_path = self.drop_in.path(); out_path = self.drop_out.path()
+        pdf_path = self.drop_in.path()
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
-        if not out_path:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+        out_path = self._resolve_output_file(self.drop_out, pdf_path)
+        if not out_path: return
         level = self._LEVEL_KEYS[self.cmb_level.currentIndex()]
 
         progress = QProgressDialog(t("progress.compress.passA"),

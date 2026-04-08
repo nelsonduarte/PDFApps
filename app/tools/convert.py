@@ -26,7 +26,8 @@ class TabConverter(BasePage):
         f = self._form
 
         # -- Source file --
-        f.addWidget(section(t("tool.convert.source")))
+        sec_src = section(t("tool.convert.source"))
+        f.addWidget(sec_src)
         self.drop_in = DropFileEdit()
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -61,7 +62,9 @@ class TabConverter(BasePage):
         f.addWidget(self._grp_dpi)
 
         # -- Output folder (images) --
-        f.addWidget(section(t("tool.convert.output_folder")))
+        sec_out_folder = section(t("tool.convert.output_folder"))
+        f.addWidget(sec_out_folder)
+        self._sec_out_folder = sec_out_folder
         self._drop_folder = DropFileEdit(placeholder=t("tool.convert.folder_hint"))
         try: self._drop_folder.btn.clicked.disconnect()
         except RuntimeError: pass
@@ -82,23 +85,22 @@ class TabConverter(BasePage):
             "background:transparent; padding:10px 4px;")
         f.addWidget(self.lbl_result)
         f.addStretch()
+        self._compact_hidden = [
+            sec_src, self.drop_in, self.lbl_info,
+            sec_out_folder, self._drop_folder,
+            self._section_file, self._drop_file,
+        ]
 
     # ── UI callbacks ──────────────────────────────────────────────────────
 
     def _on_format_changed(self, index: int):
         is_image = index <= 1
         self._grp_dpi.setVisible(is_image)
-        self._drop_folder.setVisible(is_image)
-        # find the "Output folder" section label (widget before _drop_folder)
-        for i in range(self._form.count()):
-            w = self._form.itemAt(i).widget()
-            if w is self._drop_folder:
-                prev = self._form.itemAt(i - 1).widget()
-                if prev:
-                    prev.setVisible(is_image)
-                break
-        self._section_file.setVisible(not is_image)
-        self._drop_file.setVisible(not is_image)
+        if not self._compact_active:
+            self._drop_folder.setVisible(is_image)
+            self._sec_out_folder.setVisible(is_image)
+            self._section_file.setVisible(not is_image)
+            self._drop_file.setVisible(not is_image)
         if not is_image:
             ext = ".docx" if index == 2 else ".txt"
             inp = self.drop_in.path()
@@ -162,9 +164,8 @@ class TabConverter(BasePage):
             self._convert_txt(pdf_path)
 
     def _convert_images(self, pdf_path: str, fmt: int):
-        out_dir = self._drop_folder.path()
+        out_dir = self._resolve_output_dir(self._drop_folder, pdf_path)
         if not out_dir:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_folder"))
             return
         os.makedirs(out_dir, exist_ok=True)
         ext = "png" if fmt == 0 else "jpg"
@@ -204,9 +205,9 @@ class TabConverter(BasePage):
             QMessageBox.critical(self, t("msg.error"), str(e))
 
     def _convert_docx(self, pdf_path: str):
-        out_path = self._drop_file.path()
+        out_path = self._resolve_output_file(self._drop_file, pdf_path,
+                                             filter_key="file_filter.docx")
         if not out_path:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output"))
             return
         self._status("→ DOCX…")
         QApplication.processEvents()
@@ -239,9 +240,9 @@ class TabConverter(BasePage):
             QMessageBox.critical(self, t("msg.error"), str(e))
 
     def _convert_txt(self, pdf_path: str):
-        out_path = self._drop_file.path()
+        out_path = self._resolve_output_file(self._drop_file, pdf_path,
+                                             filter_key="file_filter.txt")
         if not out_path:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output"))
             return
         self._status("→ TXT…")
         QApplication.processEvents()

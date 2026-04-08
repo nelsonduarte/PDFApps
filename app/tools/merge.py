@@ -30,11 +30,21 @@ class TabJuntar(BasePage):
         self.lst.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.lst.setAlternatingRowColors(True)
         self.lst.setMinimumHeight(180)
+        self.lst.setMinimumWidth(0)
+        from PySide6.QtCore import Qt as _Qt
+        self.lst.setHorizontalScrollBarPolicy(_Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.lst.setTextElideMode(_Qt.TextElideMode.ElideMiddle)
         vl.addWidget(self.lst)
         hb = QHBoxLayout()
-        for txt, slot in [(t("btn.up"), self._up), (t("btn.down"), self._dn),
-                          (t("btn.remove"), self._remove), (t("btn.clear"), self.lst.clear)]:
-            btn = danger_btn(txt) if slot == self._remove else QPushButton(txt)
+        for icon, slot, tip in [
+            ("▲", self._up,         t("btn.up")),
+            ("▼", self._dn,         t("btn.down")),
+            ("−", self._remove,     t("btn.remove")),
+            ("✕", self.lst.clear,   t("btn.clear")),
+        ]:
+            btn = danger_btn(icon) if slot == self._remove else QPushButton(icon)
+            btn.setToolTip(tip)
+            btn.setFixedWidth(40)
             btn.clicked.connect(slot); hb.addWidget(btn)
         hb.addStretch(); vl.addLayout(hb)
         f.addWidget(grp)
@@ -74,11 +84,10 @@ class TabJuntar(BasePage):
 
     def _run(self):
         paths = [self.lst.item(i).text() for i in range(self.lst.count())]
-        out   = self.drop_out.path()
         if len(paths) < 2:
             QMessageBox.warning(self, t("msg.warning"), t("tool.merge.min2")); return
-        if not out:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output")); return
+        out = self._resolve_output_file(self.drop_out, paths[0] if paths else "")
+        if not out: return
         try:
             w = PdfWriter()
             for p in paths:

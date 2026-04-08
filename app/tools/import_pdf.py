@@ -97,13 +97,12 @@ class TabImport(BasePage):
 
     def _run(self):
         fmt = self.cmb_type.currentIndex()
-        out = self.drop_out.path()
-        if not out:
-            QMessageBox.warning(self, t("msg.warning"), t("msg.choose_output"))
-            return
         files = self._get_files()
         if not files:
             QMessageBox.warning(self, t("msg.warning"), t("tool.import.select_file"))
+            return
+        out = self._resolve_output_file(self.drop_out, files[0])
+        if not out:
             return
         self.lbl_result.setText("")
         if fmt == 0:
