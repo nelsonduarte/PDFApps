@@ -149,7 +149,7 @@ jobs:
             --spec rpm/pdfapps.spec \
             --type git \
             --nowait \
-            nelsonduarte/PDFApps
+            nelsonduarte2809/pdfapps
 
   # ─────────────────────────────────────────────────────────────────
   # Snap Store — build and upload the snap
