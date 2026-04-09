@@ -72,7 +72,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pacman-package-manager || true
 
-      - name: Push pdfapps (source)
+      - name: Compute checksums and push pdfapps (source)
         env:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
         if: env.AUR_SSH_KEY != ''
@@ -81,10 +81,20 @@ jobs:
           VER="${{ needs.resolve.outputs.version }}"
           git config --global user.name "Nelson Duarte"
           git config --global user.email "noreply@github.com"
+
+          # Compute sha256 of the source tarball GitHub generates for the tag
+          SRC_SHA=$(curl -sL "https://github.com/nelsonduarte/PDFApps/archive/refs/tags/v${VER}.tar.gz" | sha256sum | awk '{print $1}')
+          echo "Source tarball sha256: $SRC_SHA"
+
           rm -rf /tmp/aur-pdfapps
           git clone ssh://aur@aur.archlinux.org/pdfapps.git /tmp/aur-pdfapps
           cp aur/pdfapps/PKGBUILD aur/pdfapps/.SRCINFO /tmp/aur-pdfapps/
           cd /tmp/aur-pdfapps
+
+          # Patch checksums in PKGBUILD and .SRCINFO
+          sed -i "s|sha256sums=('.*')|sha256sums=('${SRC_SHA}')|" PKGBUILD
+          sed -i "s|sha256sums = .*|sha256sums = ${SRC_SHA}|" .SRCINFO
+
           if git diff --quiet; then
             echo "no changes — nothing to push"
           else
@@ -93,17 +103,29 @@ jobs:
             git push
           fi
 
-      - name: Push pdfapps-bin (binary)
+      - name: Compute checksums and push pdfapps-bin (binary)
         env:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
         if: env.AUR_SSH_KEY != ''
         run: |
           set -e
           VER="${{ needs.resolve.outputs.version }}"
+
+          # Compute sha256 of the binary tarball from the GitHub release
+          BIN_SHA=$(curl -sL "https://github.com/nelsonduarte/PDFApps/releases/download/v${VER}/PDFApps-Linux.tar.gz" | sha256sum | awk '{print $1}')
+          echo "Binary tarball sha256: $BIN_SHA"
+
           rm -rf /tmp/aur-pdfapps-bin
           git clone ssh://aur@aur.archlinux.org/pdfapps-bin.git /tmp/aur-pdfapps-bin
           cp aur/pdfapps-bin/PKGBUILD aur/pdfapps-bin/.SRCINFO /tmp/aur-pdfapps-bin/
           cd /tmp/aur-pdfapps-bin
+
+          # Patch only the first sha256 (binary tarball) — the rest are SKIP
+          sed -i "0,/sha256sums=/{s|sha256sums=(|sha256sums=(\n    '${BIN_SHA}'|}" PKGBUILD || true
+          # Simpler: replace the old hash line
+          sed -i "s|'[a-f0-9]\{64\}'|'${BIN_SHA}'|" PKGBUILD
+          sed -i "0,/sha256sums = [a-f0-9]/{s|sha256sums = [a-f0-9].*|sha256sums = ${BIN_SHA}|}" .SRCINFO
+
           if git diff --quiet; then
             echo "no changes — nothing to push"
           else
