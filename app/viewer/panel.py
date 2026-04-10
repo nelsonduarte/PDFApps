@@ -148,17 +148,20 @@ class PdfViewerPanel(QWidget):
                 link.setFlat(True)
                 link.setStyleSheet(
                     "QPushButton#recent_link { text-align: left; padding: 4px 12px; "
-                    "border: none; background: transparent; font-size: 10pt; }"
-                    "QPushButton#recent_link:hover { background: rgba(255,255,255,0.05); border-radius: 6px; }")
+                    "border: none; outline: none; background: transparent; font-size: 10pt; }"
+                    "QPushButton#recent_link:hover { background: rgba(255,255,255,0.05); border-radius: 6px; }"
+                    "QPushButton#recent_link:focus { outline: none; border: none; }")
                 link.clicked.connect(lambda checked, p=rp: self.load(p))
                 del_btn = QPushButton("✕")
-                del_btn.setFixedSize(24, 24)
+                del_btn.setFixedSize(28, 28)
                 del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 del_btn.setFlat(True)
                 del_btn.setToolTip(t("btn.remove"))
                 del_btn.setStyleSheet(
-                    "QPushButton { color: #6B7280; border: none; background: transparent; font-size: 10pt; }"
-                    "QPushButton:hover { color: #EF4444; }")
+                    "QPushButton { color: #9CA3AF; border: none; outline: none; "
+                    "background: transparent; font-size: 12pt; font-weight: bold; }"
+                    "QPushButton:hover { color: #EF4444; }"
+                    "QPushButton:focus { outline: none; border: none; }")
                 del_btn.clicked.connect(lambda checked, p=rp, r=row: self._remove_recent(p, r))
                 row_h.addWidget(link, 1)
                 row_h.addWidget(del_btn)
