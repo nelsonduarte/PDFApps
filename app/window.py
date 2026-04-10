@@ -899,7 +899,10 @@ class MainWindow(QMainWindow):
         """Restart the application as a fully detached process."""
         import sys
         from PySide6.QtCore import QProcess
-        QProcess.startDetached(sys.executable, sys.argv)
+        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "pdfapps.py")
+        # Pass any PDF arguments that were on the original command line
+        args = [script] + [a for a in sys.argv[1:] if a.lower().endswith(".pdf")]
+        QProcess.startDetached(sys.executable, args, os.path.dirname(script))
         QApplication.instance().exit(0)
 
     # ── Drag & drop PDF on window ──────────────────────────────────────────
