@@ -132,7 +132,7 @@ QLineEdit:focus, QSpinBox:focus {{
     border: 1px solid {ACCENT}; background: #202640;
 }}
 QPushButton:focus, QComboBox:focus {{
-    outline: 2px solid {ACCENT}; outline-offset: 1px;
+    border: 2px solid {ACCENT};
 }}
 QLineEdit[readOnly="true"] {{ background: {BG_CARD}; color: {TEXT_SEC}; }}
 
@@ -366,7 +366,7 @@ QLineEdit, QSpinBox, QComboBox {{
     font-size: 11pt; min-height: 22px;
 }}
 QLineEdit:focus, QSpinBox:focus {{ border: 1px solid {_LA}; background: #EBF2FF; }}
-QPushButton:focus, QComboBox:focus {{ outline: 2px solid {_LA}; outline-offset: 1px; }}
+QPushButton:focus, QComboBox:focus {{ border: 2px solid {_LA}; }}
 QLineEdit[readOnly="true"] {{ background: {_LC}; color: {_LQ}; }}
 
 QComboBox::drop-down {{ border: none; width: 26px; }}
