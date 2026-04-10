@@ -55,6 +55,7 @@
             <img src="icon.png" alt="">
             PDFApps
         </a>
+        <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu"><span></span><span></span><span></span></button>
         <nav aria-label="Main navigation">
         <ul class="nav-links">
             <li><a href="index.html" class="active">Home</a></li>
@@ -79,10 +80,10 @@
     <div class="container">
         <span class="eyebrow">v1.11.0 · MIT licensed · Open source</span>
         <h1>The PDF editor that<br>respects your <span class="gradient-text">privacy</span></h1>
-        <p class="hero-tagline">13 powerful tools in one app. 100% offline, free forever, no accounts. Your files never leave your computer.</p>
+        <p class="hero-tagline">15 powerful tools in one app. 100% offline, free forever, no accounts. Your files never leave your computer.</p>
 
         <div class="hero-cta">
-            <a href="download.html" class="btn btn-primary btn-lg">
+            <a id="hero-download" href="download.html" class="btn btn-primary btn-lg">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Download for free
             </a>
@@ -90,6 +91,10 @@
         </div>
 
         <div class="hero-meta">
+            <a href="https://github.com/nelsonduarte/PDFApps" class="hero-meta-item" style="text-decoration:none;color:inherit;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <img src="https://img.shields.io/github/stars/nelsonduarte/PDFApps?style=flat&label=Stars&color=f59e0b" alt="GitHub Stars" style="height:20px;vertical-align:middle;">
+            </a>
             <span class="hero-meta-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 Windows · macOS · Linux
@@ -107,11 +112,11 @@
     </div>
 </section>
 
-<section class="stats">
+<section class="stats reveal">
     <div class="container">
         <div class="stats-grid">
             <div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">PDF Tools</div>
             </div>
             <div>
@@ -230,7 +235,7 @@
     </div>
 </section>
 
-<section class="platforms">
+<section class="platforms reveal">
     <div class="container">
         <div class="section-header">
             <span class="eyebrow">Available everywhere</span>
@@ -316,7 +321,6 @@
                 <h4>Legal</h4>
                 <ul>
                     <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/LICENSE">MIT License</a></li>
-                    <li><a href="#">Privacy</a></li>
                 </ul>
             </div>
         </div>

@@ -39,5 +39,51 @@
                 applyTheme(next);
             });
         }
+
+        // Mobile hamburger menu
+        const menuBtn = document.getElementById('mobile-menu-btn');
+        const navLinks = document.querySelector('.nav-links');
+        if (menuBtn && navLinks) {
+            menuBtn.addEventListener('click', function () {
+                menuBtn.classList.toggle('active');
+                navLinks.classList.toggle('open');
+            });
+            navLinks.querySelectorAll('a').forEach(function (a) {
+                a.addEventListener('click', function () {
+                    menuBtn.classList.remove('active');
+                    navLinks.classList.remove('open');
+                });
+            });
+        }
+
+        // OS-detecting download button
+        var heroDl = document.getElementById('hero-download');
+        if (heroDl) {
+            var ua = navigator.userAgent;
+            if (/Mac/i.test(ua)) {
+                heroDl.textContent = 'Download for macOS';
+                heroDl.href = 'https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFApps-macOS.zip';
+            } else if (/Linux/i.test(ua)) {
+                heroDl.textContent = 'Download for Linux';
+                heroDl.href = 'https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFApps-Linux.tar.gz';
+            } else {
+                heroDl.textContent = 'Download for Windows';
+                heroDl.href = 'https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFAppsSetup.exe';
+            }
+        }
+
+        // Scroll-reveal animations
+        var reveals = document.querySelectorAll('.reveal');
+        if (reveals.length && 'IntersectionObserver' in window) {
+            var io = new IntersectionObserver(function (entries) {
+                entries.forEach(function (e) {
+                    if (e.isIntersecting) {
+                        e.target.classList.add('visible');
+                        io.unobserve(e.target);
+                    }
+                });
+            }, { threshold: 0.15 });
+            reveals.forEach(function (el) { io.observe(el); });
+        }
     });
 })();
