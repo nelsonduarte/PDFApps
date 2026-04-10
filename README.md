@@ -34,21 +34,6 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ---
 
-## Screenshots
-
-| | |
-|---|---|
-| ![Viewer](screenshots/viewer.png) | ![Light Theme](screenshots/viewer-light.png) |
-| *PDF Viewer — dark theme* | *PDF Viewer — light theme* |
-| ![Editor](screenshots/edit.png) | ![Languages](screenshots/languages.png) |
-| *Visual editor — redact, text, images, highlights* | *8 languages with auto-detection* |
-| ![Convert](screenshots/convert.png) | ![Encrypt](screenshots/encrypt.png) |
-| *Convert PDF to PNG, JPG, DOCX, TXT* | *Encrypt / decrypt PDFs* |
-| ![Import](screenshots/import.png) | ![OCR](screenshots/OCR.png) |
-| *Import TXT, images, Markdown to PDF* | *OCR text recognition* |
-
----
-
 ## Features
 
 | Tool | Description |

@@ -20,5 +20,5 @@ Auto-save de sessão — reabrir os PDFs que estavam abertos quando a app fechou
 Thumbnails na sidebar — pré-visualização de páginas ao lado do viewer
 Export para PDF/A — formato de arquivo para preservação a longo prazo
 Speech-to-text — ler o PDF em voz alta (acessibilidade)
-color picker no add text
-verificar cor dos modais no light mode
+[DONE] color picker no add text
+[DONE] verificar cor dos modais no light mode
