@@ -111,62 +111,35 @@ class PdfViewerPanel(QWidget):
         ph_lay = QVBoxLayout(ph_widget)
         ph_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ph_lay.setSpacing(14)
-        ph_icon = QLabel()
-        from PySide6.QtGui import QPixmap as _QPixmap, QImage as _QImage, QPainter as _QPainter
-        from app.utils import resource_path as _rp
-        _svg_path = _rp("pdfapps.svg")
-        _ph_h = 72
-        if os.path.exists(_svg_path):
-            from PySide6.QtSvg import QSvgRenderer as _QSvgRenderer
-            _r = _QSvgRenderer(_svg_path)
-            _vb = _r.viewBox()
-            _ratio = _vb.width() / _vb.height() if _vb.height() else 1.0
-            _ph_w = int(_ph_h * _ratio)
-            _img = _QImage(_ph_w * 2, _ph_h * 2, _QImage.Format.Format_ARGB32_Premultiplied)
-            _img.fill(0)
-            _p = _QPainter(_img)
-            _r.render(_p)
-            _p.end()
-            _ph_pix = _QPixmap.fromImage(_img)
-            _ph_pix.setDevicePixelRatio(2.0)
-        else:
-            _ico_src = _rp("icon.ico")
-            _ph_pix = _QPixmap(_ico_src).scaled(
-                _ph_h * 2, _ph_h * 2, Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation)
-            _ph_pix.setDevicePixelRatio(2.0)
-        ph_icon.setPixmap(_ph_pix)
-        ph_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ph_text = QLabel(t("viewer.placeholder"))
-        ph_text.setObjectName("viewer_placeholder")
-        ph_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ph_drag = QLabel(t("viewer.drag_hint"))
+        ph_drag.setObjectName("viewer_placeholder")
+        ph_drag.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._ph_btn = QPushButton(t("viewer.open_btn"))
         self._ph_btn.setIcon(qta.icon('fa5s.folder-open', color='#FFFFFF'))
         self._ph_btn.setObjectName("btn_primary")
         self._ph_btn.setFixedWidth(160)
         self._ph_btn.clicked.connect(self._open_dialog)
-        ph_drag = QLabel(t("viewer.drag_hint"))
-        ph_drag.setObjectName("viewer_placeholder")
-        ph_drag.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ph_drag.setStyleSheet("font-size: 10pt; opacity: 0.6;")
 
-        ph_lay.addWidget(ph_icon); ph_lay.addWidget(ph_text)
-        ph_lay.addWidget(self._ph_btn, 0, Qt.AlignmentFlag.AlignCenter)
         ph_lay.addWidget(ph_drag)
+        ph_lay.addWidget(self._ph_btn, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Recent files section
-        from app.i18n import get_recent_files
+        from app.i18n import get_recent_files, add_recent_file
+        self._recents_container = QWidget()
+        rc_lay = QVBoxLayout(self._recents_container)
+        rc_lay.setContentsMargins(0, 16, 0, 0); rc_lay.setSpacing(4)
         recents = get_recent_files()
         if recents:
-            ph_lay.addSpacing(16)
             rec_title = QLabel(t("viewer.recent"))
             rec_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
             rec_title.setStyleSheet("font-size: 10pt; font-weight: 600; opacity: 0.7;")
-            ph_lay.addWidget(rec_title)
+            rc_lay.addWidget(rec_title)
             for rp in recents[:5]:
                 if not os.path.isfile(rp):
                     continue
                 fname = os.path.basename(rp)
+                row = QWidget()
+                row_h = QHBoxLayout(row); row_h.setContentsMargins(0, 0, 0, 0); row_h.setSpacing(0)
                 link = QPushButton(f"📄  {fname}")
                 link.setObjectName("recent_link")
                 link.setToolTip(rp)
@@ -177,7 +150,19 @@ class PdfViewerPanel(QWidget):
                     "border: none; background: transparent; font-size: 10pt; }"
                     "QPushButton#recent_link:hover { background: rgba(255,255,255,0.05); border-radius: 6px; }")
                 link.clicked.connect(lambda checked, p=rp: self.load(p))
-                ph_lay.addWidget(link)
+                del_btn = QPushButton("✕")
+                del_btn.setFixedSize(24, 24)
+                del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                del_btn.setFlat(True)
+                del_btn.setToolTip(t("btn.remove"))
+                del_btn.setStyleSheet(
+                    "QPushButton { color: #6B7280; border: none; background: transparent; font-size: 10pt; }"
+                    "QPushButton:hover { color: #EF4444; }")
+                del_btn.clicked.connect(lambda checked, p=rp, r=row: self._remove_recent(p, r))
+                row_h.addWidget(link, 1)
+                row_h.addWidget(del_btn)
+                rc_lay.addWidget(row)
+        ph_lay.addWidget(self._recents_container)
 
         self._placeholder = ph_widget
         layout.addWidget(self._placeholder, 1)
@@ -329,6 +314,23 @@ class PdfViewerPanel(QWidget):
         self.load(e.mimeData().urls()[0].toLocalFile())
 
     # ── Open dialog ────────────────────────────────────────────────────────
+    def _remove_recent(self, path: str, row_widget):
+        """Remove a file from recents and hide its row."""
+        from app.i18n import _CONFIG_PATH
+        import json
+        try:
+            with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            recents = cfg.get("recent_files", [])
+            normed = os.path.normpath(path)
+            recents = [r for r in recents if os.path.normpath(r) != normed]
+            cfg["recent_files"] = recents
+            with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(cfg, f)
+        except Exception:
+            pass
+        row_widget.setVisible(False)
+
     def _open_dialog(self):
         path, _ = QFileDialog.getOpenFileName(
             self.window(), t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
