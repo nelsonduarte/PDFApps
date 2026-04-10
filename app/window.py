@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor
 import qtawesome as qta
 
-from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP
+from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP, BORDER
 from app.i18n import t, set_language, get_language, get_recent_files, add_recent_file
 from app.styles import STYLE, STYLE_LIGHT
 from app.utils import resource_path, _make_palette
@@ -322,6 +322,14 @@ class MainWindow(QMainWindow):
         self.nav.setIconSize(QSize(18, 18))
         tool_idx = 0
         for group_key, tools in _NAV_GROUPS:
+            # Separator line between groups (skip before first group)
+            if tool_idx > 0:
+                sep_item = QListWidgetItem()
+                sep_item.setFlags(Qt.ItemFlag.NoItemFlags)
+                sep_item.setData(Qt.ItemDataRole.UserRole, -1)
+                sep_item.setSizeHint(QSize(0, 1))
+                sep_item.setBackground(QColor(BORDER))
+                self.nav.addItem(sep_item)
             # Section header (non-selectable)
             hdr = QListWidgetItem(t(group_key).upper())
             hdr.setFlags(Qt.ItemFlag.NoItemFlags)
