@@ -327,7 +327,7 @@ class MainWindow(QMainWindow):
                 sep_item = QListWidgetItem()
                 sep_item.setFlags(Qt.ItemFlag.NoItemFlags)
                 sep_item.setData(Qt.ItemDataRole.UserRole, -1)
-                sep_item.setSizeHint(QSize(0, 9))
+                sep_item.setSizeHint(QSize(0, 16))
                 self.nav.addItem(sep_item)
                 sep_line = QFrame()
                 sep_line.setFixedHeight(1)
