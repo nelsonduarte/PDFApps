@@ -331,7 +331,7 @@ class MainWindow(QMainWindow):
                 self.nav.addItem(sep_item)
                 sep_line = QFrame()
                 sep_line.setFixedHeight(1)
-                sep_line.setStyleSheet(f"background:{BORDER}; margin: 0 8px;")
+                sep_line.setStyleSheet(f"background:{BORDER}; margin: 0 8px 0 4px;")
                 self.nav.setItemWidget(sep_item, sep_line)
             # Section header (non-selectable)
             hdr = QListWidgetItem(t(group_key).upper())
