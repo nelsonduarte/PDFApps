@@ -328,7 +328,7 @@ class MainWindow(QMainWindow):
             hdr.setData(Qt.ItemDataRole.UserRole, -1)
             hdr.setForeground(QColor(TEXT_SEC))
             from PySide6.QtGui import QFont as _QF
-            f = _QF(); f.setPointSize(7); f.setBold(True); f.setLetterSpacing(_QF.SpacingType.AbsoluteSpacing, 1.5)
+            f = _QF(); f.setPointSize(9); f.setBold(True); f.setLetterSpacing(_QF.SpacingType.AbsoluteSpacing, 1.5)
             hdr.setFont(f)
             hdr.setSizeHint(QSize(0, 26))
             self.nav.addItem(hdr)
@@ -416,10 +416,15 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+P"), self, lambda: self._viewer._print_pdf())
         QShortcut(QKeySequence("Ctrl+W"), self, self._close_current_tab)
         QShortcut(QKeySequence("Ctrl+S"), self, self._save_current_tool)
-        # Quick tool shortcuts (Ctrl+1..5 for the first 5 tools)
-        for idx in range(min(5, len(NAV_ITEMS))):
-            QShortcut(QKeySequence(f"Ctrl+{idx+1}"), self,
-                      lambda i=idx: self._activate_tool(i))
+        # Quick tool shortcuts: Ctrl+1..9 for tools 1-9,
+        # Ctrl+Shift+1..6 for tools 10-15
+        for idx in range(len(NAV_ITEMS)):
+            if idx < 9:
+                QShortcut(QKeySequence(f"Ctrl+{idx+1}"), self,
+                          lambda i=idx: self._activate_tool(i))
+            else:
+                QShortcut(QKeySequence(f"Ctrl+Shift+{idx-8}"), self,
+                          lambda i=idx: self._activate_tool(i))
         self._fullscreen = False
 
         # Apply saved theme (if light mode was saved)
