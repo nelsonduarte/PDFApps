@@ -1,11 +1,11 @@
-"""PDFApps – reusable drop-zone widgets."""
+"""PDFApps – reusable widgets: drop-zone, color picker."""
 
 import os
 
 from PySide6.QtCore import Signal, Qt, QSize
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QColor, QPixmap, QPainter
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QPushButton, QFileDialog,
+    QWidget, QHBoxLayout, QLabel, QPushButton, QFileDialog, QColorDialog,
 )
 import qtawesome as qta
 
@@ -167,3 +167,45 @@ class MultiDropWidget(QWidget):
                  if u.toLocalFile().lower().endswith(".pdf")]
         if paths:
             self._cb(paths)
+
+
+class ColorPickerButton(QPushButton):
+    """Button that shows a color swatch and opens QColorDialog on click."""
+
+    color_changed = Signal(tuple)  # emits (r, g, b) as 0.0-1.0 floats
+
+    def __init__(self, initial: tuple = (0, 0, 0), parent=None):
+        super().__init__(parent)
+        self._color = initial  # (r, g, b) 0.0-1.0
+        self.setFixedHeight(30)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.clicked.connect(self._pick)
+        self._update_swatch()
+
+    def color_tuple(self) -> tuple:
+        return self._color
+
+    def set_color(self, rgb: tuple):
+        self._color = rgb
+        self._update_swatch()
+
+    def _update_swatch(self):
+        r, g, b = self._color
+        hex_c = f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+        # Determine text color based on luminance
+        lum = 0.299 * r + 0.587 * g + 0.114 * b
+        txt = "#FFFFFF" if lum < 0.5 else "#000000"
+        self.setStyleSheet(
+            f"QPushButton {{ background: {hex_c}; color: {txt}; border: 1px solid #888;"
+            f" border-radius: 4px; padding: 2px 10px; font-size: 10pt; }}"
+            f"QPushButton:hover {{ border-color: {ACCENT}; }}")
+        self.setText(hex_c.upper())
+
+    def _pick(self):
+        r, g, b = self._color
+        initial = QColor(int(r * 255), int(g * 255), int(b * 255))
+        color = QColorDialog.getColor(initial, self, t("edit.color"))
+        if color.isValid():
+            self._color = (color.redF(), color.greenF(), color.blueF())
+            self._update_swatch()
+            self.color_changed.emit(self._color)

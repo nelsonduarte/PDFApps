@@ -129,7 +129,6 @@ class _TextEditDialog(QDialog):
 
 class _TextDialog(QDialog):
     """Popup to insert text when clicking on the canvas."""
-    _COLORS = {"Black": (0,0,0), "Blue": (0,0,1), "Red": (1,0,0), "Green": (0,0.6,0)}
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -142,7 +141,8 @@ class _TextDialog(QDialog):
         self.font_size = QSpinBox(); self.font_size.setMinimum(4); self.font_size.setMaximum(144); self.font_size.setValue(12)
         row.addWidget(self.font_size); row.addSpacing(12)
         row.addWidget(QLabel(t("dialog.insert_color")))
-        self.color = QComboBox(); self.color.addItems(list(self._COLORS.keys()))
+        from app.widgets import ColorPickerButton
+        self.color = ColorPickerButton((0, 0, 0))
         row.addWidget(self.color); row.addStretch()
         v.addLayout(row)
         btns = QHBoxLayout()
@@ -153,7 +153,7 @@ class _TextDialog(QDialog):
         self.setMinimumWidth(360)
 
     def color_tuple(self):
-        return list(self._COLORS.values())[self.color.currentIndex()]
+        return self.color.color_tuple()
 
 
 class _NoteDialog(QDialog):

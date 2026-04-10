@@ -15,7 +15,7 @@ import qtawesome as qta
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, DESKTOP, _LQ, _LP
 from app.utils import ToolHeader, ActionBar, info_lbl, _paint_bg
 from app.i18n import t
-from app.widgets import DropFileEdit
+from app.widgets import DropFileEdit, ColorPickerButton
 from app.editor.canvas import PdfEditCanvas
 from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
 
@@ -164,7 +164,7 @@ class TabEditar(QWidget):
         # 0 - Redact
         w0 = QWidget(); v0 = QVBoxLayout(w0); v0.setContentsMargins(0,4,0,0); v0.setSpacing(4)
         v0.addWidget(QLabel(t("edit.color")))
-        self._red_color = QComboBox(); self._red_color.addItems(list(self._RED_FILLS.keys()))
+        self._red_color = ColorPickerButton((0, 0, 0))
         v0.addWidget(self._red_color)
         hint0 = QLabel(t("edit.hint.redact")); hint0.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v0.addWidget(hint0); v0.addStretch()
@@ -193,7 +193,7 @@ class TabEditar(QWidget):
         # 3 - Highlight
         w3 = QWidget(); v3 = QVBoxLayout(w3); v3.setContentsMargins(0,4,0,0); v3.setSpacing(4)
         v3.addWidget(QLabel(t("edit.color")))
-        self._hi_color = QComboBox(); self._hi_color.addItems(list(self._HI_COLORS.keys()))
+        self._hi_color = ColorPickerButton((1, 1, 0))
         v3.addWidget(self._hi_color)
         hint3 = QLabel(t("edit.hint.highlight")); hint3.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v3.addWidget(hint3); v3.addStretch()
@@ -262,9 +262,8 @@ class TabEditar(QWidget):
         # 8 - Draw (freehand ink)
         w_draw = QWidget(); v_d = QVBoxLayout(w_draw); v_d.setContentsMargins(0,4,0,0); v_d.setSpacing(4)
         v_d.addWidget(QLabel(t("edit.color")))
-        self._draw_color_cb = QComboBox()
-        self._draw_color_cb.addItems(list(self._DRAW_COLORS.keys()))
-        self._draw_color_cb.currentTextChanged.connect(self._on_draw_color_changed)
+        self._draw_color_cb = ColorPickerButton((1, 0, 0))
+        self._draw_color_cb.color_changed.connect(self._on_draw_color_changed)
         v_d.addWidget(self._draw_color_cb)
         v_d.addWidget(QLabel(t("edit.draw.width")))
         self._draw_width_slider = QSlider(Qt.Orientation.Horizontal)
@@ -453,7 +452,7 @@ class TabEditar(QWidget):
         is_draw = (idx == 8)
         self._canvas.set_draw_mode(
             is_draw,
-            color=self._DRAW_COLORS[self._draw_color_cb.currentText()] if is_draw else None,
+            color=self._draw_color_cb.color_tuple() if is_draw else None,
             width=self._draw_width_slider.value() if is_draw else None,
         )
         # Text-related modes get a text cursor
@@ -587,15 +586,15 @@ class TabEditar(QWidget):
 
     # ── canvas callbacks ─────────────────────────────────────────────────────
 
-    def _on_draw_color_changed(self, _txt):
+    def _on_draw_color_changed(self, _color_tuple):
         self._canvas.set_draw_mode(self._mode_idx == 8,
-                                   color=self._DRAW_COLORS[self._draw_color_cb.currentText()],
+                                   color=self._draw_color_cb.color_tuple(),
                                    width=self._draw_width_slider.value())
 
     def _on_draw_width_changed(self, v):
         self._draw_width_lbl.setText(str(v))
         self._canvas.set_draw_mode(self._mode_idx == 8,
-                                   color=self._DRAW_COLORS[self._draw_color_cb.currentText()],
+                                   color=self._draw_color_cb.color_tuple(),
                                    width=v)
 
     def _on_stroke(self, page_idx, pdf_points):
@@ -605,7 +604,7 @@ class TabEditar(QWidget):
             "type": "draw",
             "page": page_idx,
             "points": pdf_points,
-            "color": self._DRAW_COLORS[self._draw_color_cb.currentText()],
+            "color": self._draw_color_cb.color_tuple(),
             "width": self._draw_width_slider.value(),
         })
 
@@ -631,7 +630,7 @@ class TabEditar(QWidget):
             self._on_point(page_idx, center); return
         if mode == 0:
             self._add({"type": "redact", "page": self._page_idx, "rect": pdf_rect,
-                       "fill": self._RED_FILLS[self._red_color.currentText()]})
+                       "fill": self._red_color.color_tuple()})
         elif mode == 2:
             img = self._img_drop.path()
             if not img or not os.path.isfile(img):
@@ -648,7 +647,7 @@ class TabEditar(QWidget):
             self._add({"type": "signature", "page": self._page_idx, "rect": pdf_rect, "path": sig})
         elif mode == 3:
             self._add({"type": "highlight", "page": self._page_idx, "rect": pdf_rect,
-                       "color": self._HI_COLORS[self._hi_color.currentText()]})
+                       "color": self._hi_color.color_tuple()})
 
     def _on_point(self, page_idx, pdf_pt):
         self._page_idx = page_idx
