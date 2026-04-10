@@ -27,7 +27,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 - **100% offline** — your files never leave your computer
 - **No subscriptions** — free and open source, forever
-- **All-in-one** — 13 tools: split, merge, compress, encrypt, OCR, convert, edit and more in a single app
+- **All-in-one** — 15 tools: split, merge, compress, encrypt, OCR, convert, edit, page numbers, N-up and more
 - **Cross-platform** — works on Windows, macOS and Linux
 - **Fast** — lazy rendering opens large PDFs instantly
 - **Multi-language** — auto-detects your system language (EN, PT, ES, FR, DE, ZH, IT, NL)
@@ -48,6 +48,8 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 | **Watermark** | Overlay a watermark/stamp PDF on pages with opacity and position control |
 | **OCR** | Recognise text in scanned PDFs — supports PT, EN, ES, FR and DE |
 | **Convert** | Convert PDF to images (PNG/JPG with DPI control), Word (DOCX) or plain text (TXT) |
+| **Page numbers** | Add page numbering (header/footer) with format, position and font control |
+| **N-Up** | Arrange multiple pages per sheet (2, 4, 6, 9, 16-up) with custom layout |
 | **Edit** | Inline visual editor: redact, insert text, image, signature, highlight, notes, forms and edit existing text |
 | **Import** | Convert text files (.txt), images (PNG/JPG/BMP) or Markdown (.md) to PDF — batch support |
 | **Info** | Show metadata, page count, size and document properties |
@@ -75,15 +77,18 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 - **Continuous scroll** — all pages visible at once, scroll through the entire document
 - **Signature** — draw, type (cursive fonts), or import an image signature; save for reuse; drag to place on PDF
 - **Undo/Redo** — Ctrl+Z / Ctrl+Y with full action history
+- **Color picker** — choose any color for text, highlights, redactions and drawings
 - Redact, insert text, images, highlights, notes, forms and edit existing text
 
 ### Other highlights
 
+- **Pipeline mode** — apply multiple tools in sequence (e.g. rotate then compress) and save only at the end with Ctrl+S
 - **Auto-update** — checks for new versions on startup; download and install updates in-app with progress bar
-- **Multi-language** — auto-detects system language (EN, PT, ES, FR, DE, ZH, IT, NL), with selector in toolbar
+- **Multi-language** — auto-detects system language (EN, PT, ES, FR, DE, ZH, IT, NL), with selector in toolbar; auto-restarts on change
 - **Localized installer** — installer and uninstaller detect the OS language and display in the user's language
 - **Recent files** — quick access to the last 10 opened PDFs via history icon
 - **Help guide** — ? button opens the online user guide
+- **Accessibility** — screen reader support (accessible names on all buttons), visible focus indicators, keyboard-navigable UI
 - Modern dark/light theme with toggle sidebar
 - Full drag and drop support across all file fields
 - Cross-platform: Windows, macOS and Linux
@@ -239,6 +244,9 @@ PDFApps/
 | **Ctrl+Z** | Undo (editor) |
 | **Ctrl+Y** | Redo (editor) |
 | **Ctrl+Scroll** | Zoom in/out |
+| **Ctrl+1–9** | Open tool 1–9 |
+| **Ctrl+Shift+1–6** | Open tool 10–15 |
+| **PgUp / PgDn** | Previous / next page |
 | **F5** | Start presentation mode |
 | **F11** | Toggle fullscreen |
 | **Escape** | Exit presentation / close search |
@@ -253,28 +261,31 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full d
 
 ## Support the project
 
-If you find PDFApps useful, consider [sponsoring the project](https://github.com/sponsors/nelsonduarte) to help keep it alive and growing.
+PDFApps is free, open source and built by a solo developer. If you or your company find it useful, sponsoring helps keep it maintained and growing.
+
+**Why sponsor?**
+- Ensure long-term maintenance and new features
+- Get your logo in the README and website (Gold tier)
+- Support privacy-first, offline software
 
 <a href="https://github.com/sponsors/nelsonduarte">
   <img src="https://img.shields.io/badge/Sponsor_on_GitHub-♥-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor on GitHub">
 </a>
+<a href="https://polar.sh/nelsonduarte">
+  <img src="https://img.shields.io/badge/Fund_on_Polar-0062FF?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyeiIvPjwvc3ZnPg==" alt="Fund on Polar">
+</a>
 
 ### Sponsors
 
-<!-- gold -->
-<!-- Add your logo here by sponsoring at the Gold tier -->
-
 #### Gold sponsors
 
-_Be the first Gold sponsor — [become one](https://github.com/sponsors/nelsonduarte)_
+<!-- Your logo here — become a Gold sponsor: https://github.com/sponsors/nelsonduarte -->
+
+_Your company here — [become a Gold sponsor](https://github.com/sponsors/nelsonduarte)_
 
 #### Backers
 
-_Be the first Backer — [become one](https://github.com/sponsors/nelsonduarte)_
-
-#### Supporters
-
-_Be the first Supporter — [become one](https://github.com/sponsors/nelsonduarte)_
+_Be the first backer — [sponsor on GitHub](https://github.com/sponsors/nelsonduarte) or [fund on Polar](https://polar.sh/nelsonduarte)_
 
 ---
 
