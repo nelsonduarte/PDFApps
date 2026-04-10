@@ -1,5 +1,5 @@
 Name:           pdfapps
-Version:        1.10.0
+Version:        1.11.0
 Release:        1%{?dist}
 Summary:        Fast, offline, subscription-free PDF editor
 
