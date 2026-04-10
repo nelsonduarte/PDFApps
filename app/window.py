@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QStackedWidget, QSplitter, QStatusBar, QFrame,
     QApplication, QLineEdit, QMenu, QTabBar,
 )
+from PySide6.QtGui import QColor
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP
