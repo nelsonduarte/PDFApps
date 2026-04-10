@@ -118,7 +118,7 @@ def t(key: str, **kwargs) -> str:
 
 # ── Recent files ──────────────────────────────────────────────────────────
 
-_MAX_RECENT = 10
+_MAX_RECENT = 5
 
 
 def get_recent_files() -> list[str]:

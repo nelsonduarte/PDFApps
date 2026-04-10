@@ -129,13 +129,7 @@ class MainWindow(QMainWindow):
         self._open_pdf_btn.clicked.connect(self._open_pdf)
         wb_h.addWidget(self._open_pdf_btn)
 
-        self._recent_btn = QPushButton()
-        self._recent_btn.setIcon(qta.icon("fa5s.history", color=TEXT_PRI))
-        self._recent_btn.setObjectName("viewer_nav_btn")
-        self._recent_btn.setFixedSize(28, 28)
-        self._recent_btn.setToolTip(t("recent.title"))
-        self._recent_btn.clicked.connect(self._show_recent_menu)
-        wb_h.addWidget(self._recent_btn)
+        # Recent button removed — recents shown in viewer placeholder
 
         self._toc_top_btn = QPushButton()
         self._toc_top_btn.setIcon(qta.icon("fa5s.bookmark", color=TEXT_PRI))
@@ -1034,7 +1028,7 @@ class MainWindow(QMainWindow):
         self._sidebar_toggle_btn.setIcon(
             self._ico_bars if self._sidebar_collapsed else self._ico_times)
         self._open_pdf_btn.setIcon(qta.icon("fa5s.folder-open", color=bar_color))
-        self._recent_btn.setIcon(qta.icon("fa5s.history", color=bar_color))
+        # (recent button removed)
         self._toc_top_btn.setIcon(qta.icon("fa5s.bookmark", color=bar_color))
         self._night_top_btn.setIcon(qta.icon("fa5s.moon", color=bar_color))
         self._undo_top_btn.setIcon(qta.icon("fa5s.undo", color=bar_color))
