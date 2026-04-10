@@ -20,6 +20,7 @@ class TabRotar(BasePage):
         super().__init__("fa5s.sync-alt", t("tool.rotate.name"),
                          t("tool.rotate.desc"),
                          t("tool.rotate.btn"), status_fn)
+        self._pipeline_supported = True
         f = self._form
         sec_src = section(t("tool.rotate.source"))
         f.addWidget(sec_src)

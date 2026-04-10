@@ -43,6 +43,7 @@ class TabNUp(BasePage):
         super().__init__("fa5s.th", t("tool.nup.name"),
                          t("tool.nup.desc"),
                          t("tool.nup.btn"), status_fn)
+        self._pipeline_supported = True
         f = self._form
 
         sec_src = section(t("tool.nup.source"))

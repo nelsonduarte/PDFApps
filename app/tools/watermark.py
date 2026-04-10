@@ -20,6 +20,7 @@ class TabMarcaDagua(BasePage):
         super().__init__("fa5s.stamp", t("tool.watermark.name"),
                          t("tool.watermark.desc"),
                          t("tool.watermark.btn"), status_fn)
+        self._pipeline_supported = True
         f = self._form
         sec_src = section(t("tool.watermark.source"))
         f.addWidget(sec_src)

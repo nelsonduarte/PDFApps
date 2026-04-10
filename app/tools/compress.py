@@ -23,6 +23,7 @@ class TabComprimir(BasePage):
         super().__init__("fa5s.compress-arrows-alt", t("tool.compress.name"),
                          t("tool.compress.desc"),
                          t("tool.compress.btn"), status_fn)
+        self._pipeline_supported = True
         f = self._form
         sec_src = section(t("tool.compress.source"))
         f.addWidget(sec_src)

@@ -20,6 +20,7 @@ class TabExtrair(BasePage):
         super().__init__("fa5s.file-export", t("tool.extract.name"),
                          t("tool.extract.desc"),
                          t("tool.extract.btn"), status_fn)
+        self._pipeline_supported = True
         f = self._form
         sec_src = section(t("tool.extract.source"))
         f.addWidget(sec_src)

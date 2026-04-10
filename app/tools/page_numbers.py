@@ -37,6 +37,7 @@ class TabPageNumbers(BasePage):
         super().__init__("fa5s.list-ol", t("tool.page_numbers.name"),
                          t("tool.page_numbers.desc"),
                          t("tool.page_numbers.btn"), status_fn)
+        self._pipeline_supported = True
         f = self._form
 
         sec_src = section(t("tool.page_numbers.source"))

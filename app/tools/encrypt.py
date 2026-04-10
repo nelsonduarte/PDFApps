@@ -21,6 +21,7 @@ class TabEncriptar(BasePage):
         super().__init__("fa5s.lock", t("tool.encrypt.name"),
                          t("tool.encrypt.desc"),
                          t("tool.encrypt.btn"), status_fn)
+        self._pipeline_supported = True
         f = self._form
         sec_src = section(t("tool.encrypt.source"))
         f.addWidget(sec_src)

@@ -23,6 +23,7 @@ class BasePage(QWidget):
         self._status = status_fn
         self.setObjectName("content_area")
         self._pipeline_active = False
+        self._pipeline_supported = False  # subclasses set True if they emit pipeline_done
         self._pipeline_tmp_dir: str | None = None
 
         page_layout = QVBoxLayout(self)
@@ -158,7 +159,7 @@ class BasePage(QWidget):
             self._compact_link.setVisible(active)
 
         self._compact_active = active
-        self._pipeline_active = active
+        self._pipeline_active = active and self._pipeline_supported
 
     def _show_toast(self, message: str, file_path: str = "") -> None:
         """Show a brief success toast above the action bar with optional
