@@ -112,14 +112,25 @@ def ToolHeader(icon_name: str, title: str, desc: str) -> QWidget:
 
 
 def ActionBar(btn_text: str, slot) -> tuple:
-    """Bottom bar with primary action button."""
+    """Bottom bar with primary action button and optional progress bar."""
+    from PySide6.QtWidgets import QProgressBar
     bar = QWidget(); bar.setObjectName("action_bar")
-    h = QHBoxLayout(bar); h.setContentsMargins(20, 12, 20, 12)
+    v = QVBoxLayout(bar); v.setContentsMargins(20, 8, 20, 8); v.setSpacing(6)
+    progress = QProgressBar(); progress.setVisible(False)
+    progress.setFixedHeight(6); progress.setTextVisible(False)
+    progress.setObjectName("action_progress")
+    progress.setStyleSheet(
+        "QProgressBar { background: #1E293B; border-radius: 3px; }"
+        "QProgressBar::chunk { background: #10B981; border-radius: 3px; }")
+    v.addWidget(progress)
+    h = QHBoxLayout(); h.setContentsMargins(0, 0, 0, 0)
     h.addStretch()
     btn = QPushButton(btn_text); btn.setObjectName("btn_primary")
     btn.setMinimumWidth(200); btn.setFixedHeight(42)
     btn.clicked.connect(slot)
     h.addWidget(btn)
+    v.addLayout(h)
+    bar.progress = progress  # accessible by tools
     return bar, btn
 
 

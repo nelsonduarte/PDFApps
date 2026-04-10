@@ -55,7 +55,7 @@ _NAV_GROUPS = [
         ("nav.watermark",     "fa5s.stamp",              TabMarcaDagua),
     ]),
     ("nav.group.convert", [
-        ("nav.ocr",           "fa5s.search",             TabOCR),
+        ("nav.ocr",           "fa5s.eye",                TabOCR),
         ("nav.convert",       "fa5s.exchange-alt",       TabConverter),
         ("nav.import",        "fa5s.file-import",        TabImport),
     ]),
@@ -155,21 +155,13 @@ class MainWindow(QMainWindow):
         self._night_top_btn.clicked.connect(self._toggle_night_mode_top)
         wb_h.addWidget(self._night_top_btn)
 
-        self._print_top_btn = QPushButton()
-        self._print_top_btn.setIcon(qta.icon("fa5s.print", color=TEXT_PRI))
-        self._print_top_btn.setObjectName("viewer_nav_btn")
-        self._print_top_btn.setFixedSize(28, 28)
-        self._print_top_btn.setToolTip(t("viewer.print"))
-        self._print_top_btn.clicked.connect(lambda: self._viewer._print_pdf())
-        wb_h.addWidget(self._print_top_btn)
-
-        self._present_btn = QPushButton()
-        self._present_btn.setIcon(qta.icon("fa5s.tv", color=TEXT_PRI))
-        self._present_btn.setObjectName("viewer_nav_btn")
-        self._present_btn.setFixedSize(28, 28)
-        self._present_btn.setToolTip(t("viewer.presentation") + " (F5)")
-        self._present_btn.clicked.connect(self._start_presentation)
-        wb_h.addWidget(self._present_btn)
+        # Overflow "⋯" menu for secondary actions
+        self._overflow_btn = QPushButton("⋯")
+        self._overflow_btn.setObjectName("viewer_nav_btn")
+        self._overflow_btn.setFixedSize(28, 28)
+        self._overflow_btn.setToolTip(t("workspace.more"))
+        self._overflow_btn.clicked.connect(self._show_overflow_menu)
+        wb_h.addWidget(self._overflow_btn)
 
         self._search_top_btn = QPushButton()
         self._search_top_btn.setIcon(qta.icon("fa5s.search", color=TEXT_PRI))
@@ -462,6 +454,17 @@ class MainWindow(QMainWindow):
         main_h.addWidget(self._splitter, 1)
         root_v.addWidget(body, 1)
         self.setCentralWidget(central)
+
+        # Restore saved layout
+        try:
+            from app.i18n import _CONFIG_PATH
+            import json
+            with open(_CONFIG_PATH, "r", encoding="utf-8") as _cf:
+                _saved = json.load(_cf)
+            if "splitter_sizes" in _saved:
+                self._splitter.setSizes(_saved["splitter_sizes"])
+        except Exception:
+            pass
 
         self._current_tool = -1
         self.nav.itemClicked.connect(self._on_nav_clicked)
@@ -871,6 +874,18 @@ class MainWindow(QMainWindow):
             if path.lower().endswith(".pdf"):
                 self._load_and_track(path)
 
+    def _show_overflow_menu(self):
+        menu = QMenu(self)
+        if not self._dark_mode:
+            menu.setStyleSheet(
+                "QMenu { background: #FFFFFF; color: #1E293B; border: 1px solid #D1D5DB; }"
+                "QMenu::item:selected { background: #E7F0ED; }")
+        menu.addAction(qta.icon("fa5s.print", color=TEXT_PRI if self._dark_mode else _LQ),
+                       t("viewer.print"), lambda: self._viewer._print_pdf())
+        menu.addAction(qta.icon("fa5s.tv", color=TEXT_PRI if self._dark_mode else _LQ),
+                       t("viewer.presentation") + " (F5)", self._start_presentation)
+        menu.exec(self._overflow_btn.mapToGlobal(self._overflow_btn.rect().bottomLeft()))
+
     def _toggle_night_mode_top(self):
         active = self._night_top_btn.isChecked()
         self._viewer._canvas.set_night_mode(active)
@@ -928,11 +943,58 @@ class MainWindow(QMainWindow):
         )
         self._presentation.show()
 
+    def closeEvent(self, event):
+        """Save layout state on close."""
+        try:
+            from app.i18n import _CONFIG_PATH
+            import json
+            cfg = {}
+            try:
+                with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+            except Exception:
+                pass
+            cfg["splitter_sizes"] = self._splitter.sizes()
+            cfg["sidebar_width"] = self._sidebar.width()
+            with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(cfg, f)
+        except Exception:
+            pass
+        super().closeEvent(event)
+
     def _toggle_sidebar(self):
-        self._sidebar_collapsed = not self._sidebar_collapsed
-        self._sidebar.setVisible(not self._sidebar_collapsed)
-        self._sidebar_toggle_btn.setIcon(
-            self._ico_bars if self._sidebar_collapsed else self._ico_times)
+        # Cycle: full → icons-only → hidden → full
+        if not self._sidebar_collapsed and self._sidebar.width() > 60:
+            # Full → icons-only
+            self._sidebar_collapsed = False
+            self._sidebar.setFixedWidth(52)
+            self._nav_search.setVisible(False)
+            self._footer_w.setVisible(False)
+            # Hide text from nav items, keep icons
+            for r in range(self.nav.count()):
+                it = self.nav.item(r)
+                idx = it.data(Qt.ItemDataRole.UserRole)
+                if idx is not None and idx < 0:
+                    it.setHidden(True)  # hide headers & separators
+            self._sidebar_toggle_btn.setIcon(self._ico_bars)
+        elif not self._sidebar_collapsed:
+            # Icons-only → hidden
+            self._sidebar_collapsed = True
+            self._sidebar.setVisible(False)
+            self._sidebar_toggle_btn.setIcon(self._ico_bars)
+        else:
+            # Hidden → full
+            self._sidebar_collapsed = False
+            self._sidebar.setVisible(True)
+            self._sidebar.setFixedWidth(228)
+            self._nav_search.setVisible(True)
+            self._footer_w.setVisible(True)
+            for r in range(self.nav.count()):
+                it = self.nav.item(r)
+                idx = it.data(Qt.ItemDataRole.UserRole)
+                if idx is not None and idx < 0:
+                    it.setHidden(False)
+            self._sidebar_toggle_btn.setIcon(self._ico_times)
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
@@ -975,8 +1037,8 @@ class MainWindow(QMainWindow):
         self._recent_btn.setIcon(qta.icon("fa5s.history", color=bar_color))
         self._toc_top_btn.setIcon(qta.icon("fa5s.bookmark", color=bar_color))
         self._night_top_btn.setIcon(qta.icon("fa5s.moon", color=bar_color))
-        self._print_top_btn.setIcon(qta.icon("fa5s.print", color=bar_color))
-        self._present_btn.setIcon(qta.icon("fa5s.tv", color=bar_color))
+        self._undo_top_btn.setIcon(qta.icon("fa5s.undo", color=bar_color))
+        self._redo_top_btn.setIcon(qta.icon("fa5s.redo", color=bar_color))
         self._search_top_btn.setIcon(qta.icon("fa5s.search", color=bar_color))
         self._zm_btn.setIcon(qta.icon("fa5s.search-minus", color=bar_color))
         self._zp_btn.setIcon(qta.icon("fa5s.search-plus", color=bar_color))

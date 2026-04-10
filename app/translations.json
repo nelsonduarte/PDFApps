@@ -483,7 +483,8 @@
         "tool.edit.desc": "Click or drag directly on the PDF to edit.",
         "toast.open_file": "Open file",
         "toast.open_folder": "Open folder",
-        "nav.group.frequent": "Frequent"
+        "nav.group.frequent": "Frequent",
+        "workspace.more": "More..."
     },
     "pt": {
         "app.name": "PDFApps",
@@ -969,7 +970,8 @@
         "tool.edit.desc": "Clica ou arrasta diretamente no PDF para editar.",
         "toast.open_file": "Abrir ficheiro",
         "toast.open_folder": "Abrir pasta",
-        "nav.group.frequent": "Frequentes"
+        "nav.group.frequent": "Frequentes",
+        "workspace.more": "Mais..."
     },
     "es": {
         "app.name": "PDFApps",
@@ -1455,7 +1457,8 @@
         "tool.edit.desc": "Haz clic o arrastra directamente sobre el PDF para editar.",
         "toast.open_file": "Abrir archivo",
         "toast.open_folder": "Abrir carpeta",
-        "nav.group.frequent": "Frecuentes"
+        "nav.group.frequent": "Frecuentes",
+        "workspace.more": "Más..."
     },
     "fr": {
         "app.name": "PDFApps",
@@ -1941,7 +1944,8 @@
         "tool.edit.desc": "Cliquez ou glissez directement sur le PDF pour éditer.",
         "toast.open_file": "Ouvrir le fichier",
         "toast.open_folder": "Ouvrir le dossier",
-        "nav.group.frequent": "Fréquents"
+        "nav.group.frequent": "Fréquents",
+        "workspace.more": "Plus..."
     },
     "de": {
         "app.name": "PDFApps",
@@ -2427,7 +2431,8 @@
         "tool.edit.desc": "Klicken oder ziehen Sie direkt auf dem PDF, um zu bearbeiten.",
         "toast.open_file": "Datei öffnen",
         "toast.open_folder": "Ordner öffnen",
-        "nav.group.frequent": "Häufig"
+        "nav.group.frequent": "Häufig",
+        "workspace.more": "Mehr..."
     },
     "zh": {
         "app.name": "PDFApps",
@@ -2913,7 +2918,8 @@
         "tool.edit.desc": "直接在 PDF 上单击或拖动以编辑。",
         "toast.open_file": "打开文件",
         "toast.open_folder": "打开文件夹",
-        "nav.group.frequent": "常用"
+        "nav.group.frequent": "常用",
+        "workspace.more": "更多..."
     },
     "it": {
         "app.name": "PDFApps",
@@ -3399,7 +3405,8 @@
         "tool.edit.desc": "Clicca o trascina direttamente sul PDF per modificare.",
         "toast.open_file": "Apri file",
         "toast.open_folder": "Apri cartella",
-        "nav.group.frequent": "Frequenti"
+        "nav.group.frequent": "Frequenti",
+        "workspace.more": "Altro..."
     },
     "nl": {
         "app.name": "PDFApps",
@@ -3885,6 +3892,7 @@
         "tool.edit.desc": "Klik of sleep rechtstreeks op de PDF om te bewerken.",
         "toast.open_file": "Bestand openen",
         "toast.open_folder": "Map openen",
-        "nav.group.frequent": "Frequent"
+        "nav.group.frequent": "Frequent",
+        "workspace.more": "Meer..."
     }
 }
