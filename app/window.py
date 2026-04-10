@@ -149,13 +149,21 @@ class MainWindow(QMainWindow):
         self._night_top_btn.clicked.connect(self._toggle_night_mode_top)
         wb_h.addWidget(self._night_top_btn)
 
-        # Overflow "⋯" menu for secondary actions
-        self._overflow_btn = QPushButton("⋯")
-        self._overflow_btn.setObjectName("viewer_nav_btn")
-        self._overflow_btn.setFixedSize(28, 28)
-        self._overflow_btn.setToolTip(t("workspace.more"))
-        self._overflow_btn.clicked.connect(self._show_overflow_menu)
-        wb_h.addWidget(self._overflow_btn)
+        self._print_top_btn = QPushButton()
+        self._print_top_btn.setIcon(qta.icon("fa5s.print", color=TEXT_PRI))
+        self._print_top_btn.setObjectName("viewer_nav_btn")
+        self._print_top_btn.setFixedSize(28, 28)
+        self._print_top_btn.setToolTip(t("viewer.print"))
+        self._print_top_btn.clicked.connect(lambda: self._viewer._print_pdf())
+        wb_h.addWidget(self._print_top_btn)
+
+        self._present_btn = QPushButton()
+        self._present_btn.setIcon(qta.icon("fa5s.tv", color=TEXT_PRI))
+        self._present_btn.setObjectName("viewer_nav_btn")
+        self._present_btn.setFixedSize(28, 28)
+        self._present_btn.setToolTip(t("viewer.presentation") + " (F5)")
+        self._present_btn.clicked.connect(self._start_presentation)
+        wb_h.addWidget(self._present_btn)
 
         self._search_top_btn = QPushButton()
         self._search_top_btn.setIcon(qta.icon("fa5s.search", color=TEXT_PRI))
@@ -868,17 +876,6 @@ class MainWindow(QMainWindow):
             if path.lower().endswith(".pdf"):
                 self._load_and_track(path)
 
-    def _show_overflow_menu(self):
-        menu = QMenu(self)
-        if not self._dark_mode:
-            menu.setStyleSheet(
-                "QMenu { background: #FFFFFF; color: #1E293B; border: 1px solid #D1D5DB; }"
-                "QMenu::item:selected { background: #E7F0ED; }")
-        menu.addAction(qta.icon("fa5s.print", color=TEXT_PRI if self._dark_mode else _LQ),
-                       t("viewer.print"), lambda: self._viewer._print_pdf())
-        menu.addAction(qta.icon("fa5s.tv", color=TEXT_PRI if self._dark_mode else _LQ),
-                       t("viewer.presentation") + " (F5)", self._start_presentation)
-        menu.exec(self._overflow_btn.mapToGlobal(self._overflow_btn.rect().bottomLeft()))
 
     def _toggle_night_mode_top(self):
         active = self._night_top_btn.isChecked()
@@ -1031,6 +1028,8 @@ class MainWindow(QMainWindow):
         # (recent button removed)
         self._toc_top_btn.setIcon(qta.icon("fa5s.bookmark", color=bar_color))
         self._night_top_btn.setIcon(qta.icon("fa5s.moon", color=bar_color))
+        self._print_top_btn.setIcon(qta.icon("fa5s.print", color=bar_color))
+        self._present_btn.setIcon(qta.icon("fa5s.tv", color=bar_color))
         self._undo_top_btn.setIcon(qta.icon("fa5s.undo", color=bar_color))
         self._redo_top_btn.setIcon(qta.icon("fa5s.redo", color=bar_color))
         self._search_top_btn.setIcon(qta.icon("fa5s.search", color=bar_color))

@@ -128,6 +128,7 @@ class PdfViewerPanel(QWidget):
         self._recents_container = QWidget()
         rc_lay = QVBoxLayout(self._recents_container)
         rc_lay.setContentsMargins(0, 16, 0, 0); rc_lay.setSpacing(4)
+        rc_lay.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         recents = get_recent_files()
         if recents:
             rec_title = QLabel(t("viewer.recent"))
