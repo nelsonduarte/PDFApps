@@ -51,23 +51,26 @@ class PdfViewerPanel(QWidget):
             b.setEnabled(False)
             return b
 
+        def _a11y(btn, tip):
+            btn.setToolTip(tip); btn.setAccessibleName(tip)
+
         self._open_btn     = _nav_btn('fa5s.folder-open')
         self._open_btn.setEnabled(True)
-        self._open_btn.setToolTip(t("btn.open_pdf"))
+        _a11y(self._open_btn, t("btn.open_pdf"))
         self._open_btn.clicked.connect(self._open_dialog)
 
         self._toc_btn      = _nav_btn('fa5s.bookmark')
-        self._toc_btn.setToolTip(t("viewer.toc"))
+        _a11y(self._toc_btn, t("viewer.toc"))
         self._toc_btn.clicked.connect(self._toggle_toc)
         self._toc_btn.setVisible(False)  # only visible when PDF has TOC
 
         self._night_btn    = _nav_btn('fa5s.moon')
-        self._night_btn.setToolTip(t("viewer.night_mode"))
+        _a11y(self._night_btn, t("viewer.night_mode"))
         self._night_btn.setCheckable(True)
         self._night_btn.clicked.connect(self._toggle_night_mode)
 
         self._zoom_out_btn = _nav_btn('fa5s.search-minus')
-        self._zoom_out_btn.setToolTip(t("zoom.out"))
+        _a11y(self._zoom_out_btn, t("zoom.out"))
         self._zoom_out_btn.clicked.connect(lambda: self._canvas.zoom_out())
 
         self._zoom_lbl = QLabel(t("zoom.fit"))
@@ -76,14 +79,15 @@ class PdfViewerPanel(QWidget):
         self._zoom_lbl.setMinimumWidth(52)
 
         self._zoom_in_btn  = _nav_btn('fa5s.search-plus')
-        self._zoom_in_btn.setToolTip(t("zoom.in"))
+        _a11y(self._zoom_in_btn, t("zoom.in"))
         self._zoom_in_btn.clicked.connect(lambda: self._canvas.zoom_in())
 
         self._fit_btn      = _nav_btn('fa5s.compress-arrows-alt')
-        self._fit_btn.setToolTip(t("zoom.fit_tip"))
+        _a11y(self._fit_btn, t("zoom.fit_tip"))
         self._fit_btn.clicked.connect(self._zoom_fit)
 
         self._prev_btn     = _nav_btn('fa5s.chevron-left')
+        _a11y(self._prev_btn, t("nav.prev_page"))
         self._prev_btn.clicked.connect(self._prev_page)
 
         self._page_lbl = QLabel("— / —")
@@ -91,10 +95,11 @@ class PdfViewerPanel(QWidget):
         self._page_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._next_btn     = _nav_btn('fa5s.chevron-right')
+        _a11y(self._next_btn, t("nav.next_page"))
         self._next_btn.clicked.connect(self._next_page)
 
         self._print_btn    = _nav_btn('fa5s.print')
-        self._print_btn.setToolTip(t("viewer.print"))
+        _a11y(self._print_btn, t("viewer.print"))
         self._print_btn.clicked.connect(self._print_pdf)
 
         for w in (self._open_btn, self._toc_btn, self._zoom_out_btn, self._zoom_lbl,
@@ -157,10 +162,11 @@ class PdfViewerPanel(QWidget):
                 del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 del_btn.setFlat(True)
                 del_btn.setToolTip(t("btn.remove"))
+                del_btn.setAccessibleName(t("btn.remove"))
                 del_btn.setStyleSheet(
-                    "QPushButton { border: none; outline: none; background: transparent; }"
-                    "QPushButton:hover { background: rgba(239,68,68,0.15); border-radius: 4px; }"
-                    "QPushButton:focus { outline: none; border: none; }")
+                    f"QPushButton {{ border: 1px solid transparent; background: transparent; }}"
+                    f"QPushButton:hover {{ background: rgba(239,68,68,0.15); border-radius: 4px; }}"
+                    f"QPushButton:focus {{ border: 1px solid {ACCENT}; border-radius: 4px; }}")
                 del_btn.clicked.connect(lambda checked, p=rp, r=row: self._remove_recent(p, r))
                 self._recent_del_btns.append(del_btn)
                 row_h.addWidget(link, 1)
@@ -220,17 +226,17 @@ class PdfViewerPanel(QWidget):
         self._search_prev_btn = QPushButton()
         self._search_prev_btn.setIcon(qta.icon("fa5s.chevron-up", color=TEXT_SEC))
         self._search_prev_btn.setFixedSize(28, 28); self._search_prev_btn.setObjectName("viewer_nav_btn")
-        self._search_prev_btn.setToolTip(t("search.prev"))
+        self._search_prev_btn.setToolTip(t("search.prev")); self._search_prev_btn.setAccessibleName(t("search.prev"))
         self._search_prev_btn.clicked.connect(self._search_prev)
         self._search_next_btn = QPushButton()
         self._search_next_btn.setIcon(qta.icon("fa5s.chevron-down", color=TEXT_SEC))
         self._search_next_btn.setFixedSize(28, 28); self._search_next_btn.setObjectName("viewer_nav_btn")
-        self._search_next_btn.setToolTip(t("search.next"))
+        self._search_next_btn.setToolTip(t("search.next")); self._search_next_btn.setAccessibleName(t("search.next"))
         self._search_next_btn.clicked.connect(self._search_next)
         self._search_close_btn = QPushButton()
         self._search_close_btn.setIcon(qta.icon("fa5s.times", color=TEXT_SEC))
         self._search_close_btn.setFixedSize(28, 28); self._search_close_btn.setObjectName("viewer_nav_btn")
-        self._search_close_btn.setToolTip(t("search.close"))
+        self._search_close_btn.setToolTip(t("search.close")); self._search_close_btn.setAccessibleName(t("search.close"))
         self._search_close_btn.clicked.connect(self._close_search)
         sb_lay.addWidget(self._search_input, 1)
         sb_lay.addWidget(self._search_lbl)
@@ -294,11 +300,12 @@ class PdfViewerPanel(QWidget):
     @staticmethod
     def _recent_link_style(dark: bool) -> str:
         hover_bg = "rgba(255,255,255,0.05)" if dark else "rgba(0,0,0,0.05)"
+        focus_border = ACCENT
         return (
             "QPushButton#recent_link { text-align: left; padding: 4px 12px; "
-            "border: none; outline: none; background: transparent; font-size: 10pt; }"
+            "border: 1px solid transparent; background: transparent; font-size: 10pt; }"
             f"QPushButton#recent_link:hover {{ background: {hover_bg}; border-radius: 6px; }}"
-            "QPushButton#recent_link:focus { outline: none; border: none; }")
+            f"QPushButton#recent_link:focus {{ border: 1px solid {focus_border}; border-radius: 6px; }}")
 
     def update_theme(self, dark: bool) -> None:
         self._canvas.set_dark_mode(dark)
