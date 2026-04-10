@@ -118,12 +118,79 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
       - name: Generate GitHub App token
         id: app-token
         uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
         with:
           app-id: ${{ secrets.AP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PREV=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | sed -n '2p')
+          if [ -z "$PREV" ]; then PREV=$(git rev-list --max-parents=0 HEAD); fi
+
+          echo "Generating notes from $PREV to $TAG"
+
+          # Collect conventional commit messages, skip chore/ci/deps/merge
+          FEATURES=""
+          FIXES=""
+          PERF=""
+          OTHER=""
+
+          while IFS= read -r line; do
+            # Skip empty, merge, chore, ci, deps, bump, dependabot
+            echo "$line" | grep -qiE '^(chore|ci|build|Merge|docs\(deps\))' && continue
+            echo "$line" | grep -qiE 'dependabot|bump.*from.*to' && continue
+            echo "$line" | grep -qi '^$' && continue
+
+            # Clean up: remove scope prefix for display, capitalize
+            clean=$(echo "$line" | sed -E 's/^(feat|fix|perf|a11y|docs)(\([^)]*\))?:\s*//')
+            clean="$(echo "${clean:0:1}" | tr '[:lower:]' '[:upper:]')${clean:1}"
+
+            if echo "$line" | grep -qE '^feat'; then
+              FEATURES="${FEATURES}- ${clean}\n"
+            elif echo "$line" | grep -qE '^fix'; then
+              FIXES="${FIXES}- ${clean}\n"
+            elif echo "$line" | grep -qE '^perf'; then
+              PERF="${PERF}- ${clean}\n"
+            elif echo "$line" | grep -qE '^a11y'; then
+              FIXES="${FIXES}- ${clean}\n"
+            elif echo "$line" | grep -qE '^docs'; then
+              : # skip docs-only commits
+            else
+              OTHER="${OTHER}- ${clean}\n"
+            fi
+          done <<< "$(git log --pretty=format:'%s' "${PREV}..${TAG}" --no-merges)"
+
+          BODY=""
+          if [ -n "$FEATURES" ]; then
+            BODY="${BODY}## New features\n${FEATURES}\n"
+          fi
+          if [ -n "$PERF" ]; then
+            BODY="${BODY}## Performance\n${PERF}\n"
+          fi
+          if [ -n "$FIXES" ]; then
+            BODY="${BODY}## Fixes & improvements\n${FIXES}\n"
+          fi
+          if [ -n "$OTHER" ]; then
+            BODY="${BODY}## Other\n${OTHER}\n"
+          fi
+
+          if [ -z "$BODY" ]; then
+            BODY="Bug fixes and improvements."
+          fi
+
+          # Write to file (multiline output)
+          printf '%b' "$BODY" > release_notes.md
+          echo "Generated release notes:"
+          cat release_notes.md
 
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -134,7 +201,7 @@ jobs:
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
           token: ${{ steps.app-token.outputs.token }}
-          generate_release_notes: true
+          body_path: release_notes.md
           files: |
             artifacts/PDFApps-Windows/PDFAppsSetup.exe
             artifacts/PDFApps-Windows/PDFApps.exe
