@@ -1158,4 +1158,7 @@ ol.docs-list li::before {
     .why-grid { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .hero-meta { flex-direction: column; gap: 12px; }
+    .distro-card { flex-direction: column; gap: 12px; padding: 16px; }
+    .distro-card .distro-icon { width: 32px; height: 32px; }
+    .distro-card code { font-size: 0.75rem; white-space: pre-wrap; word-break: break-all; }
 }
