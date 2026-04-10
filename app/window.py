@@ -35,23 +35,39 @@ from app.tools.page_numbers import TabPageNumbers
 from app.tools.nup import TabNUp
 
 
-_NAV_KEYS = [
-    ("nav.split",     "fa5s.cut",                TabDividir),
-    ("nav.merge",     "fa5s.object-group",        TabJuntar),
-    ("nav.rotate",    "fa5s.sync-alt",            TabRotar),
-    ("nav.extract",   "fa5s.file-export",         TabExtrair),
-    ("nav.reorder",   "fa5s.sort",                TabReordenar),
-    ("nav.compress",  "fa5s.compress-arrows-alt", TabComprimir),
-    ("nav.encrypt",   "fa5s.lock",                TabEncriptar),
-    ("nav.watermark", "fa5s.stamp",               TabMarcaDagua),
-    ("nav.page_numbers", "fa5s.list-ol",          TabPageNumbers),
-    ("nav.nup",       "fa5s.th",                  TabNUp),
-    ("nav.ocr",       "fa5s.search",              TabOCR),
-    ("nav.convert",   "fa5s.exchange-alt",        TabConverter),
-    ("nav.edit",      "fa5s.edit",                TabEditar),
-    ("nav.import",    "fa5s.file-import",          TabImport),
-    ("nav.info",      "fa5s.info-circle",         TabInfo),
+# Grouped sidebar tools — order here = stack index order.
+_NAV_GROUPS = [
+    ("nav.group.organize", [
+        ("nav.split",         "fa5s.cut",                TabDividir),
+        ("nav.merge",         "fa5s.object-group",       TabJuntar),
+        ("nav.reorder",       "fa5s.sort",               TabReordenar),
+        ("nav.extract",       "fa5s.file-export",        TabExtrair),
+    ]),
+    ("nav.group.transform", [
+        ("nav.rotate",        "fa5s.sync-alt",           TabRotar),
+        ("nav.compress",      "fa5s.compress-arrows-alt",TabComprimir),
+        ("nav.page_numbers",  "fa5s.list-ol",            TabPageNumbers),
+        ("nav.nup",           "fa5s.th",                 TabNUp),
+    ]),
+    ("nav.group.security", [
+        ("nav.encrypt",       "fa5s.lock",               TabEncriptar),
+        ("nav.watermark",     "fa5s.stamp",              TabMarcaDagua),
+    ]),
+    ("nav.group.convert", [
+        ("nav.ocr",           "fa5s.search",             TabOCR),
+        ("nav.convert",       "fa5s.exchange-alt",       TabConverter),
+        ("nav.import",        "fa5s.file-import",        TabImport),
+    ]),
+    ("nav.group.annotate", [
+        ("nav.edit",          "fa5s.edit",               TabEditar),
+    ]),
+    ("nav.group.inspect", [
+        ("nav.info",          "fa5s.info-circle",        TabInfo),
+    ]),
 ]
+
+# Flat list for stack building — order must match grouped order above.
+_NAV_KEYS = [(key, icon, cls) for _, tools in _NAV_GROUPS for key, icon, cls in tools]
 
 def _build_nav_items():
     return [(t(key), icon, cls) for key, icon, cls in _NAV_KEYS]
@@ -100,12 +116,9 @@ class MainWindow(QMainWindow):
         self._sidebar_toggle_btn.clicked.connect(self._toggle_sidebar)
         wb_h.addWidget(self._sidebar_toggle_btn)
 
-        wb_col = QVBoxLayout(); wb_col.setContentsMargins(0, 0, 0, 0); wb_col.setSpacing(1)
-        wb_title = QLabel(t("workspace.title")); wb_title.setObjectName("workspace_title")
-        wb_hint = QLabel(t("workspace.subtitle"))
-        wb_hint.setObjectName("workspace_hint")
-        wb_col.addWidget(wb_title); wb_col.addWidget(wb_hint)
-        wb_h.addLayout(wb_col, 1)
+        self._breadcrumb = QLabel(t("workspace.title"))
+        self._breadcrumb.setObjectName("workspace_title")
+        wb_h.addWidget(self._breadcrumb, 1)
 
         self._open_pdf_btn = QPushButton()
         self._open_pdf_btn.setIcon(qta.icon("fa5s.folder-open", color=TEXT_PRI))
@@ -199,8 +212,7 @@ class MainWindow(QMainWindow):
         self._page_input.returnPressed.connect(self._goto_input_page)
         wb_h.addWidget(self._page_nav_widget)
 
-        self._tool_badge = QLabel(t("workspace.mode_viewer")); self._tool_badge.setObjectName("workspace_badge")
-        wb_h.addWidget(self._tool_badge)
+        # (tool badge removed — breadcrumb replaces it)
 
         self._help_btn = QPushButton("?")
         self._help_btn.setObjectName("theme_btn")
@@ -297,12 +309,33 @@ class MainWindow(QMainWindow):
         sep = QFrame(); sep.setObjectName("nav_sep"); sep.setFixedHeight(1)
         sb_lay.addWidget(sep)
 
+        self._nav_search = QLineEdit()
+        self._nav_search.setPlaceholderText("🔍 " + t("nav.search"))
+        self._nav_search.setClearButtonEnabled(True)
+        self._nav_search.setObjectName("nav_search")
+        self._nav_search.textChanged.connect(self._filter_nav)
+        sb_lay.addWidget(self._nav_search)
+
         self.nav = QListWidget(); self.nav.setObjectName("nav_list")
         self.nav.setSpacing(0)
         self.nav.setIconSize(QSize(18, 18))
-        for name, icon_name, _ in NAV_ITEMS:
-            item = QListWidgetItem(qta.icon(icon_name, color=TEXT_SEC), name)
-            self.nav.addItem(item)
+        tool_idx = 0
+        for group_key, tools in _NAV_GROUPS:
+            # Section header (non-selectable)
+            hdr = QListWidgetItem(t(group_key).upper())
+            hdr.setFlags(Qt.ItemFlag.NoItemFlags)
+            hdr.setData(Qt.ItemDataRole.UserRole, -1)
+            hdr.setForeground(QColor(TEXT_SEC))
+            from PySide6.QtGui import QFont as _QF
+            f = _QF(); f.setPointSize(7); f.setBold(True); f.setLetterSpacing(_QF.SpacingType.AbsoluteSpacing, 1.5)
+            hdr.setFont(f)
+            hdr.setSizeHint(QSize(0, 26))
+            self.nav.addItem(hdr)
+            for key, icon_name, _ in tools:
+                item = QListWidgetItem(qta.icon(icon_name, color=TEXT_SEC), t(key))
+                item.setData(Qt.ItemDataRole.UserRole, tool_idx)
+                self.nav.addItem(item)
+                tool_idx += 1
         sb_lay.addWidget(self.nav, 1)
 
         self._footer_w = QWidget(); self._footer_w.setObjectName("sidebar")
@@ -382,6 +415,10 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+P"), self, lambda: self._viewer._print_pdf())
         QShortcut(QKeySequence("Ctrl+W"), self, self._close_current_tab)
         QShortcut(QKeySequence("Ctrl+S"), self, self._save_current_tool)
+        # Quick tool shortcuts (Ctrl+1..5 for the first 5 tools)
+        for idx in range(min(5, len(NAV_ITEMS))):
+            QShortcut(QKeySequence(f"Ctrl+{idx+1}"), self,
+                      lambda i=idx: self._activate_tool(i))
         self._fullscreen = False
 
         # Apply saved theme (if light mode was saved)
@@ -478,12 +515,16 @@ class MainWindow(QMainWindow):
     def _open_tool_by_name(self, tool_name: str):
         for i, (name, _, _) in enumerate(NAV_ITEMS):
             if name == tool_name:
-                self.nav.setCurrentRow(i)
+                # Find the nav row with matching tool index
+                for r in range(self.nav.count()):
+                    if self.nav.item(r).data(Qt.ItemDataRole.UserRole) == i:
+                        self.nav.setCurrentRow(r)
+                        break
                 self._current_tool = i
                 self.stack.setCurrentIndex(i)
                 self.stack.setVisible(True)
                 self._tab_container.setVisible(False)
-                self._tool_badge.setText(t("workspace.mode_tool", name=name))
+                self._breadcrumb.setText(f"{t('workspace.title')}  ›  {name}")
                 self._try_auto_load(i)
                 return
 
@@ -526,15 +567,53 @@ class MainWindow(QMainWindow):
             canvas.zoom_changed.connect(lambda pct: self._lbl_zoom.setText(f"{pct}%"))
             self._lbl_zoom.setText(f"{round(canvas._zoom_factor * 100)}%")
 
+    def _activate_tool(self, tool_idx: int):
+        """Activate a tool by its stack index (for keyboard shortcuts)."""
+        for r in range(self.nav.count()):
+            it = self.nav.item(r)
+            if it.data(Qt.ItemDataRole.UserRole) == tool_idx:
+                self.nav.setCurrentRow(r)
+                self._on_nav_clicked(it)
+                return
+
+    def _filter_nav(self, text: str):
+        """Show/hide nav items based on search text."""
+        q = text.lower().strip()
+        visible_groups = set()
+        for r in range(self.nav.count()):
+            it = self.nav.item(r)
+            tool_idx = it.data(Qt.ItemDataRole.UserRole)
+            if tool_idx is not None and tool_idx >= 0:
+                match = not q or q in it.text().lower()
+                it.setHidden(not match)
+                if match:
+                    visible_groups.add(r)
+        # Show/hide group headers: visible if any child below is visible
+        for r in range(self.nav.count()):
+            it = self.nav.item(r)
+            if it.data(Qt.ItemDataRole.UserRole) == -1:
+                # Header — show if any tool below (until next header) is visible
+                has_visible = False
+                for r2 in range(r + 1, self.nav.count()):
+                    it2 = self.nav.item(r2)
+                    if it2.data(Qt.ItemDataRole.UserRole) == -1:
+                        break
+                    if not it2.isHidden():
+                        has_visible = True; break
+                it.setHidden(not has_visible)
+
     def _on_nav_clicked(self, item):
-        row = self.nav.row(item)
+        row = item.data(Qt.ItemDataRole.UserRole)
+        if row is None or row < 0:
+            self.nav.clearSelection()
+            return  # clicked a section header
         edit_idx = self._edit_tool_idx()
         if row == self._current_tool:
             self.nav.clearSelection()
             self._current_tool = -1
             self.stack.setVisible(False)
             self._tab_container.setVisible(True)
-            self._tool_badge.setText(t("workspace.mode_viewer"))
+            self._breadcrumb.setText(t("workspace.title"))
             self._setup_zoom_bar(True, canvas=self._viewer._canvas)
         else:
             self._setup_zoom_bar(False)
@@ -552,7 +631,7 @@ class MainWindow(QMainWindow):
             else:
                 self.stack.setFixedWidth(440)
                 self._tab_container.setVisible(True)
-            self._tool_badge.setText(t("workspace.mode_tool", name=NAV_ITEMS[row][0]))
+            self._breadcrumb.setText(f"{t('workspace.title')}  ›  {NAV_ITEMS[row][0]}")
             self._try_auto_load(row)
 
     def _open_pdf(self):
@@ -782,9 +861,15 @@ class MainWindow(QMainWindow):
         self._qapp.setPalette(_make_palette(self._dark_mode))
         self._qapp.setStyleSheet(style)
         self._theme_btn.setText("☀" if self._dark_mode else "🌙")
-        # Update sidebar nav icons
-        for i, (_, icon_name, _) in enumerate(NAV_ITEMS):
-            self.nav.item(i).setIcon(qta.icon(icon_name, color=nav_color))
+        # Update sidebar nav icons (skip section headers)
+        for r in range(self.nav.count()):
+            it = self.nav.item(r)
+            tool_idx = it.data(Qt.ItemDataRole.UserRole)
+            if tool_idx is not None and tool_idx >= 0:
+                _, icon_name, _ = _NAV_KEYS[tool_idx]
+                it.setIcon(qta.icon(icon_name, color=nav_color))
+            else:
+                it.setForeground(QColor(nav_color))
         # Update workspace bar icons
         self._ico_bars = qta.icon("fa5s.bars", color=bar_color)
         self._ico_times = qta.icon("fa5s.times", color=bar_color)

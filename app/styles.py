@@ -27,6 +27,9 @@ QScrollArea > QWidget > QWidget {{ background: transparent; }}
 
 #nav_sep   {{ background: {BORDER}; max-height: 1px; margin: 4px 12px 8px 12px; }}
 
+#nav_search {{ background: #18252E; border: 1px solid {BORDER}; border-radius: 6px;
+              color: {TEXT_PRI}; padding: 6px 10px; margin: 4px 12px 4px 12px; font-size: 10pt; }}
+
 #nav_list  {{ background: transparent; border: none; outline: none;
              color: #AFC1BC; font-size: 11pt; }}
 #nav_list::item          {{ padding: 10px 14px; margin: 2px 8px; border-radius: 6px; }}
@@ -269,6 +272,8 @@ QScrollArea > QWidget > QWidget {{ background: transparent; }}
 #app_sub    {{ font-size: 10pt; color: {_LQ};
               background: transparent; padding: 0; }}
 #nav_sep    {{ background: {_LO}; max-height: 1px; margin: 4px 12px 8px 12px; }}
+#nav_search {{ background: #FFFFFF; border: 1px solid {_LO}; border-radius: 6px;
+              color: {_LP}; padding: 6px 10px; margin: 4px 12px 4px 12px; font-size: 10pt; }}
 #nav_list   {{ background: transparent; border: none; outline: none;
               color: {_LQ}; font-size: 11pt; }}
 #nav_list::item          {{ padding: 10px 14px; margin: 2px 8px; border-radius: 6px; }}

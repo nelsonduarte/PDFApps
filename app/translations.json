@@ -470,7 +470,14 @@
         "tool.nup.done": "N-up PDF generated:\n{path}",
         "file_filter.docx": "Word Document (*.docx)",
         "file_filter.txt": "Text file (*.txt)",
-        "compact.change_source": "Change source file"
+        "compact.change_source": "Change source file",
+        "nav.group.organize": "Organize",
+        "nav.group.transform": "Transform",
+        "nav.group.security": "Security",
+        "nav.group.convert": "Convert",
+        "nav.group.annotate": "Annotate",
+        "nav.group.inspect": "Inspect",
+        "nav.search": "Search tools..."
     },
     "pt": {
         "app.name": "PDFApps",
@@ -943,7 +950,14 @@
         "tool.nup.done": "PDF gerado:\n{path}",
         "file_filter.docx": "Documento Word (*.docx)",
         "file_filter.txt": "Ficheiro de texto (*.txt)",
-        "compact.change_source": "Trocar ficheiro de origem"
+        "compact.change_source": "Trocar ficheiro de origem",
+        "nav.group.organize": "Organizar",
+        "nav.group.transform": "Transformar",
+        "nav.group.security": "Segurança",
+        "nav.group.convert": "Converter",
+        "nav.group.annotate": "Anotar",
+        "nav.group.inspect": "Inspecionar",
+        "nav.search": "Pesquisar..."
     },
     "es": {
         "app.name": "PDFApps",
@@ -1416,7 +1430,14 @@
         "tool.nup.done": "PDF generado:\n{path}",
         "file_filter.docx": "Documento Word (*.docx)",
         "file_filter.txt": "Archivo de texto (*.txt)",
-        "compact.change_source": "Cambiar archivo de origen"
+        "compact.change_source": "Cambiar archivo de origen",
+        "nav.group.organize": "Organizar",
+        "nav.group.transform": "Transformar",
+        "nav.group.security": "Seguridad",
+        "nav.group.convert": "Convertir",
+        "nav.group.annotate": "Anotar",
+        "nav.group.inspect": "Inspeccionar",
+        "nav.search": "Buscar..."
     },
     "fr": {
         "app.name": "PDFApps",
@@ -1889,7 +1910,14 @@
         "tool.nup.done": "PDF généré :\n{path}",
         "file_filter.docx": "Document Word (*.docx)",
         "file_filter.txt": "Fichier texte (*.txt)",
-        "compact.change_source": "Changer le fichier source"
+        "compact.change_source": "Changer le fichier source",
+        "nav.group.organize": "Organiser",
+        "nav.group.transform": "Transformer",
+        "nav.group.security": "Sécurité",
+        "nav.group.convert": "Convertir",
+        "nav.group.annotate": "Annoter",
+        "nav.group.inspect": "Inspecter",
+        "nav.search": "Rechercher..."
     },
     "de": {
         "app.name": "PDFApps",
@@ -2362,7 +2390,14 @@
         "tool.nup.done": "PDF erzeugt:\n{path}",
         "file_filter.docx": "Word-Dokument (*.docx)",
         "file_filter.txt": "Textdatei (*.txt)",
-        "compact.change_source": "Quelldatei ändern"
+        "compact.change_source": "Quelldatei ändern",
+        "nav.group.organize": "Ordnen",
+        "nav.group.transform": "Umwandeln",
+        "nav.group.security": "Sicherheit",
+        "nav.group.convert": "Konvertieren",
+        "nav.group.annotate": "Anmerken",
+        "nav.group.inspect": "Info",
+        "nav.search": "Suchen..."
     },
     "zh": {
         "app.name": "PDFApps",
@@ -2835,7 +2870,14 @@
         "tool.nup.done": "已生成PDF：\n{path}",
         "file_filter.docx": "Word 文档 (*.docx)",
         "file_filter.txt": "文本文件 (*.txt)",
-        "compact.change_source": "更换源文件"
+        "compact.change_source": "更换源文件",
+        "nav.group.organize": "整理",
+        "nav.group.transform": "变换",
+        "nav.group.security": "安全",
+        "nav.group.convert": "转换",
+        "nav.group.annotate": "注释",
+        "nav.group.inspect": "检查",
+        "nav.search": "搜索..."
     },
     "it": {
         "app.name": "PDFApps",
@@ -3308,7 +3350,14 @@
         "tool.nup.done": "PDF generato:\n{path}",
         "file_filter.docx": "Documento Word (*.docx)",
         "file_filter.txt": "File di testo (*.txt)",
-        "compact.change_source": "Cambia file di origine"
+        "compact.change_source": "Cambia file di origine",
+        "nav.group.organize": "Organizza",
+        "nav.group.transform": "Trasforma",
+        "nav.group.security": "Sicurezza",
+        "nav.group.convert": "Converti",
+        "nav.group.annotate": "Annota",
+        "nav.group.inspect": "Ispeziona",
+        "nav.search": "Cerca..."
     },
     "nl": {
         "app.name": "PDFApps",
@@ -3781,6 +3830,13 @@
         "tool.nup.done": "PDF gegenereerd:\n{path}",
         "file_filter.docx": "Word-document (*.docx)",
         "file_filter.txt": "Tekstbestand (*.txt)",
-        "compact.change_source": "Bronbestand wijzigen"
+        "compact.change_source": "Bronbestand wijzigen",
+        "nav.group.organize": "Ordenen",
+        "nav.group.transform": "Transformeren",
+        "nav.group.security": "Beveiliging",
+        "nav.group.convert": "Converteren",
+        "nav.group.annotate": "Annoteren",
+        "nav.group.inspect": "Inspecteren",
+        "nav.search": "Zoeken..."
     }
 }
