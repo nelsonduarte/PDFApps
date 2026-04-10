@@ -479,7 +479,11 @@
         "nav.group.inspect": "Inspect",
         "nav.search": "Search tools...",
         "viewer.drag_hint": "or drag a PDF here",
-        "viewer.recent": "Recent files"
+        "viewer.recent": "Recent files",
+        "tool.edit.desc": "Click or drag directly on the PDF to edit.",
+        "toast.open_file": "Open file",
+        "toast.open_folder": "Open folder",
+        "nav.group.frequent": "Frequent"
     },
     "pt": {
         "app.name": "PDFApps",
@@ -961,7 +965,11 @@
         "nav.group.inspect": "Inspecionar",
         "nav.search": "Pesquisar...",
         "viewer.drag_hint": "ou arrasta um PDF para aqui",
-        "viewer.recent": "Ficheiros recentes"
+        "viewer.recent": "Ficheiros recentes",
+        "tool.edit.desc": "Clica ou arrasta diretamente no PDF para editar.",
+        "toast.open_file": "Abrir ficheiro",
+        "toast.open_folder": "Abrir pasta",
+        "nav.group.frequent": "Frequentes"
     },
     "es": {
         "app.name": "PDFApps",
@@ -1443,7 +1451,11 @@
         "nav.group.inspect": "Inspeccionar",
         "nav.search": "Buscar...",
         "viewer.drag_hint": "o arrastra un PDF aquí",
-        "viewer.recent": "Archivos recientes"
+        "viewer.recent": "Archivos recientes",
+        "tool.edit.desc": "Haz clic o arrastra directamente sobre el PDF para editar.",
+        "toast.open_file": "Abrir archivo",
+        "toast.open_folder": "Abrir carpeta",
+        "nav.group.frequent": "Frecuentes"
     },
     "fr": {
         "app.name": "PDFApps",
@@ -1925,7 +1937,11 @@
         "nav.group.inspect": "Inspecter",
         "nav.search": "Rechercher...",
         "viewer.drag_hint": "ou glissez un PDF ici",
-        "viewer.recent": "Fichiers récents"
+        "viewer.recent": "Fichiers récents",
+        "tool.edit.desc": "Cliquez ou glissez directement sur le PDF pour éditer.",
+        "toast.open_file": "Ouvrir le fichier",
+        "toast.open_folder": "Ouvrir le dossier",
+        "nav.group.frequent": "Fréquents"
     },
     "de": {
         "app.name": "PDFApps",
@@ -2407,7 +2423,11 @@
         "nav.group.inspect": "Info",
         "nav.search": "Suchen...",
         "viewer.drag_hint": "oder ziehe eine PDF hierhin",
-        "viewer.recent": "Letzte Dateien"
+        "viewer.recent": "Letzte Dateien",
+        "tool.edit.desc": "Klicken oder ziehen Sie direkt auf dem PDF, um zu bearbeiten.",
+        "toast.open_file": "Datei öffnen",
+        "toast.open_folder": "Ordner öffnen",
+        "nav.group.frequent": "Häufig"
     },
     "zh": {
         "app.name": "PDFApps",
@@ -2889,7 +2909,11 @@
         "nav.group.inspect": "检查",
         "nav.search": "搜索...",
         "viewer.drag_hint": "或将PDF拖到此处",
-        "viewer.recent": "最近文件"
+        "viewer.recent": "最近文件",
+        "tool.edit.desc": "直接在 PDF 上单击或拖动以编辑。",
+        "toast.open_file": "打开文件",
+        "toast.open_folder": "打开文件夹",
+        "nav.group.frequent": "常用"
     },
     "it": {
         "app.name": "PDFApps",
@@ -3371,7 +3395,11 @@
         "nav.group.inspect": "Ispeziona",
         "nav.search": "Cerca...",
         "viewer.drag_hint": "o trascina un PDF qui",
-        "viewer.recent": "File recenti"
+        "viewer.recent": "File recenti",
+        "tool.edit.desc": "Clicca o trascina direttamente sul PDF per modificare.",
+        "toast.open_file": "Apri file",
+        "toast.open_folder": "Apri cartella",
+        "nav.group.frequent": "Frequenti"
     },
     "nl": {
         "app.name": "PDFApps",
@@ -3853,6 +3881,10 @@
         "nav.group.inspect": "Inspecteren",
         "nav.search": "Zoeken...",
         "viewer.drag_hint": "of sleep een PDF hierheen",
-        "viewer.recent": "Recente bestanden"
+        "viewer.recent": "Recente bestanden",
+        "tool.edit.desc": "Klik of sleep rechtstreeks op de PDF om te bewerken.",
+        "toast.open_file": "Bestand openen",
+        "toast.open_folder": "Map openen",
+        "nav.group.frequent": "Frequent"
     }
 }

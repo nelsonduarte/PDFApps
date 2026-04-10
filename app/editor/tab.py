@@ -129,26 +129,29 @@ class TabEditar(QWidget):
         cv.addWidget(grp_page)
         self._page_idx = 0
 
-        # -- Edit mode --
+        # -- Edit mode (compact icon grid) --
         grp_mode = QGroupBox(t("edit.mode"))
-        gm = QGridLayout(grp_mode); gm.setSpacing(4)
+        from PySide6.QtWidgets import QGridLayout as _GL
+        gm = _GL(grp_mode); gm.setSpacing(4)
         self._mode_btns: list = []
         self._mode_btn_idx: dict = {}
+        cols = 5  # 10 buttons in a 5×2 grid
         for i, (label, icon_name) in enumerate(self._MODE_DEFS):
-            btn = QPushButton(f"  {label}")
+            btn = QPushButton()
             btn.setIcon(qta.icon(icon_name, color=TEXT_SEC))
+            btn.setIconSize(QSize(18, 18))
+            btn.setToolTip(label)
             btn.setCheckable(True)
-            btn.setMinimumWidth(0)
-            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.setFixedSize(36, 36)
             self._mode_btn_idx[id(btn)] = i
             btn.clicked.connect(lambda checked, b=btn: self._on_mode_btn(b))
             self._mode_btns.append(btn)
-            gm.addWidget(btn, i, 0)
+            gm.addWidget(btn, i // cols, i % cols)
         self._mode_btns[0].setChecked(True)
         self._mode_btns[0].setIcon(qta.icon(self._MODE_DEFS[0][1], color=ACCENT))
         self._mode_btns[0].setStyleSheet(
             f"background:#0D3D38; border:1px solid {ACCENT}; "
-            f"color:{ACCENT}; border-radius:6px; padding:6px 8px; text-align:center;")
+            f"border-radius:6px;")
         cv.addWidget(grp_mode)
 
         # -- Options per mode --
@@ -382,20 +385,20 @@ class TabEditar(QWidget):
                 if dark:
                     b.setStyleSheet(
                         "background:#18252E; border:1px solid #2A3944; "
-                        "color:#93A9A3; border-radius:6px; padding:6px 8px; text-align:center;")
+                        "color:#93A9A3; border-radius:6px; border-radius:6px;")
                 else:
                     b.setStyleSheet(
                         "background:#FFFFFF; border:1px solid #C7D8D3; "
-                        "color:#5D7470; border-radius:6px; padding:6px 8px; text-align:center;")
+                        "color:#5D7470; border-radius:6px; border-radius:6px;")
             else:
                 if dark:
                     b.setStyleSheet(
                         f"background:#0D3D38; border:1px solid {ACCENT}; "
-                        f"color:{ACCENT}; border-radius:6px; padding:6px 8px; text-align:center;")
+                        f"color:{ACCENT}; border-radius:6px; border-radius:6px;")
                 else:
                     b.setStyleSheet(
                         f"background:#D6F2EC; border:1px solid #83CABB; "
-                        f"color:#0E5A51; border-radius:6px; padding:6px 8px; text-align:center;")
+                        f"color:#0E5A51; border-radius:6px; border-radius:6px;")
 
     def _update_nav(self):
         n = self._canvas.page_count()
@@ -429,20 +432,20 @@ class TabEditar(QWidget):
                 if self._dark_mode:
                     b.setStyleSheet(
                         f"background:#0D3D38; border:1px solid {ACCENT}; "
-                        f"color:{ACCENT}; border-radius:6px; padding:6px 8px; text-align:center;")
+                        f"color:{ACCENT}; border-radius:6px; border-radius:6px;")
                 else:
                     b.setStyleSheet(
                         f"background:#D6F2EC; border:1px solid #83CABB; "
-                        f"color:#0E5A51; border-radius:6px; padding:6px 8px; text-align:center;")
+                        f"color:#0E5A51; border-radius:6px; border-radius:6px;")
             else:
                 if self._dark_mode:
                     b.setStyleSheet(
                         "background:#18252E; border:1px solid #2A3944; "
-                        "color:#93A9A3; border-radius:6px; padding:6px 8px; text-align:center;")
+                        "color:#93A9A3; border-radius:6px; border-radius:6px;")
                 else:
                     b.setStyleSheet(
                         "background:#FFFFFF; border:1px solid #C7D8D3; "
-                        "color:#5D7470; border-radius:6px; padding:6px 8px; text-align:center;")
+                        "color:#5D7470; border-radius:6px; border-radius:6px;")
         self._opt_stack.setCurrentIndex(idx)
         self._canvas.set_select_mode(idx == 9)
         is_draw = (idx == 8)

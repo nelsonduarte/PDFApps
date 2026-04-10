@@ -2,8 +2,9 @@
 
 import os
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QFileDialog, QPushButton
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFileDialog,
+                               QPushButton, QLabel)
 
 from app.constants import DESKTOP, ACCENT
 from app.i18n import t
@@ -123,6 +124,48 @@ class BasePage(QWidget):
             self._compact_link.setVisible(active)
 
         self._compact_active = active
+
+    def _show_toast(self, message: str, file_path: str = "") -> None:
+        """Show a brief success toast above the action bar with optional
+        'Open file' / 'Open folder' buttons."""
+        import os, subprocess, sys
+        # Remove previous toast if any
+        old = getattr(self, "_toast_widget", None)
+        if old:
+            old.setParent(None); old.deleteLater()
+
+        toast = QWidget(); toast.setObjectName("toast")
+        toast.setStyleSheet(
+            f"#toast {{ background: #065F46; border: 1px solid #10B981; "
+            f"border-radius: 8px; padding: 8px 12px; }}"
+            f"#toast QLabel {{ color: white; font-size: 10pt; background: transparent; }}"
+            f"#toast QPushButton {{ color: #A7F3D0; border: none; background: transparent; "
+            f"font-size: 10pt; text-decoration: underline; padding: 0 4px; }}"
+            f"#toast QPushButton:hover {{ color: white; }}")
+        h = QHBoxLayout(toast); h.setContentsMargins(8, 4, 8, 4); h.setSpacing(8)
+        h.addWidget(QLabel(f"✔ {message}"), 1)
+        if file_path and os.path.exists(file_path):
+            btn_file = QPushButton(t("toast.open_file"))
+            btn_file.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_file.clicked.connect(lambda: (
+                subprocess.Popen(["explorer", "/select,", os.path.normpath(file_path)])
+                if sys.platform == "win32"
+                else subprocess.Popen(["xdg-open", file_path])))
+            h.addWidget(btn_file)
+            btn_folder = QPushButton(t("toast.open_folder"))
+            btn_folder.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_folder.clicked.connect(lambda: (
+                subprocess.Popen(["explorer", os.path.dirname(os.path.normpath(file_path))])
+                if sys.platform == "win32"
+                else subprocess.Popen(["xdg-open", os.path.dirname(file_path)])))
+            h.addWidget(btn_folder)
+
+        # Insert above action bar
+        layout = self.layout()
+        idx = layout.indexOf(self._action_bar)
+        layout.insertWidget(idx, toast)
+        self._toast_widget = toast
+        QTimer.singleShot(8000, lambda: toast.setVisible(False))
 
     def _resolve_output_dir(self, drop_widget, input_path: str = "") -> str:
         """Return the output directory, prompting via folder picker if empty."""

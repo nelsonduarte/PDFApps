@@ -215,6 +215,22 @@ class MainWindow(QMainWindow):
 
         # (tool badge removed — breadcrumb replaces it)
 
+        # Undo/redo buttons for editor (hidden by default)
+        self._undo_top_btn = QPushButton()
+        self._undo_top_btn.setIcon(qta.icon("fa5s.undo", color=TEXT_PRI))
+        self._undo_top_btn.setObjectName("viewer_nav_btn")
+        self._undo_top_btn.setFixedSize(28, 28)
+        self._undo_top_btn.setToolTip("Ctrl+Z")
+        self._undo_top_btn.setVisible(False)
+        wb_h.addWidget(self._undo_top_btn)
+        self._redo_top_btn = QPushButton()
+        self._redo_top_btn.setIcon(qta.icon("fa5s.redo", color=TEXT_PRI))
+        self._redo_top_btn.setObjectName("viewer_nav_btn")
+        self._redo_top_btn.setFixedSize(28, 28)
+        self._redo_top_btn.setToolTip("Ctrl+Y")
+        self._redo_top_btn.setVisible(False)
+        wb_h.addWidget(self._redo_top_btn)
+
         self._help_btn = QPushButton("?")
         self._help_btn.setObjectName("theme_btn")
         self._help_btn.setToolTip(t("help.tip"))
@@ -320,6 +336,36 @@ class MainWindow(QMainWindow):
         self.nav = QListWidget(); self.nav.setObjectName("nav_list")
         self.nav.setSpacing(0)
         self.nav.setIconSize(QSize(18, 18))
+
+        # Load tool usage counts for "Frequent" section
+        self._tool_usage = {}
+        try:
+            from app.i18n import _CONFIG_PATH
+            import json
+            with open(_CONFIG_PATH, "r", encoding="utf-8") as _cf:
+                self._tool_usage = json.load(_cf).get("tool_usage", {})
+        except Exception:
+            pass
+        # Add top 3 frequent tools (if any usage data)
+        sorted_usage = sorted(self._tool_usage.items(), key=lambda x: x[1], reverse=True)
+        freq_tools = [(k, v) for k, v in sorted_usage if v >= 2][:3]
+        if freq_tools:
+            hdr = QListWidgetItem(t("nav.group.frequent").upper())
+            hdr.setFlags(Qt.ItemFlag.NoItemFlags)
+            hdr.setData(Qt.ItemDataRole.UserRole, -1)
+            hdr.setForeground(QColor(ACCENT))
+            from PySide6.QtGui import QFont as _QF
+            f = _QF(); f.setPointSize(9); f.setBold(True); f.setLetterSpacing(_QF.SpacingType.AbsoluteSpacing, 1.5)
+            hdr.setFont(f); hdr.setSizeHint(QSize(0, 26))
+            self.nav.addItem(hdr)
+            for nav_key, _count in freq_tools:
+                for idx, (key, icon_name, _) in enumerate(_NAV_KEYS):
+                    if key == nav_key:
+                        item = QListWidgetItem(qta.icon(icon_name, color=ACCENT), t(key))
+                        item.setData(Qt.ItemDataRole.UserRole, idx)
+                        self.nav.addItem(item)
+                        break
+
         tool_idx = 0
         for group_key, tools in _NAV_GROUPS:
             # Separator line between groups (skip before first group)
@@ -346,6 +392,11 @@ class MainWindow(QMainWindow):
             for key, icon_name, _ in tools:
                 item = QListWidgetItem(qta.icon(icon_name, color=TEXT_SEC), t(key))
                 item.setData(Qt.ItemDataRole.UserRole, tool_idx)
+                # Tooltip with tool description
+                desc_key = key.replace("nav.", "tool.") + ".desc"
+                tip = t(desc_key)
+                if tip != desc_key:
+                    item.setToolTip(tip)
                 self.nav.addItem(item)
                 tool_idx += 1
         sb_lay.addWidget(self.nav, 1)
@@ -546,6 +597,23 @@ class MainWindow(QMainWindow):
                 return
 
     def _try_auto_load(self, index: int):
+        # Track tool usage for "Frequent" section
+        nav_key = _NAV_KEYS[index][0]
+        self._tool_usage[nav_key] = self._tool_usage.get(nav_key, 0) + 1
+        try:
+            from app.i18n import _CONFIG_PATH
+            import json
+            cfg = {}
+            try:
+                with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+            except Exception:
+                pass
+            cfg["tool_usage"] = self._tool_usage
+            with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(cfg, f)
+        except Exception:
+            pass
         widget = self.stack.widget(index)
         path = self._viewer.current_path()
         if path:
@@ -632,6 +700,8 @@ class MainWindow(QMainWindow):
             self._tab_container.setVisible(True)
             self._breadcrumb.setText(t("workspace.title"))
             self._setup_zoom_bar(True, canvas=self._viewer._canvas)
+            self._undo_top_btn.setVisible(False)
+            self._redo_top_btn.setVisible(False)
         else:
             self._setup_zoom_bar(False)
             self._current_tool = row
@@ -645,9 +715,18 @@ class MainWindow(QMainWindow):
                 self.stack.setMaximumWidth(16777215)
                 self._tab_container.setVisible(False)
                 self._setup_zoom_bar(True)
+                # Show undo/redo in workspace bar
+                edit_w = self.stack.widget(edit_idx)
+                self._undo_top_btn.setVisible(True)
+                self._redo_top_btn.setVisible(True)
+                self._undo_top_btn.clicked.connect(edit_w._undo)
+                self._redo_top_btn.clicked.connect(edit_w._redo)
             else:
-                self.stack.setFixedWidth(440)
+                self.stack.setMinimumWidth(320)
+                self.stack.setMaximumWidth(600)
                 self._tab_container.setVisible(True)
+                self._undo_top_btn.setVisible(False)
+                self._redo_top_btn.setVisible(False)
             self._breadcrumb.setText(f"{t('workspace.title')}  ›  {NAV_ITEMS[row][0]}")
             self._try_auto_load(row)
 
