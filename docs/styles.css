@@ -1145,6 +1145,9 @@ ol.docs-list li::before {
     .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
     .os-grid { grid-template-columns: 1fr; }
     .distro-grid { grid-template-columns: 1fr; }
+    .distro-card { flex-direction: column; gap: 12px; padding: 16px; }
+    .distro-card .distro-icon { width: 32px; height: 32px; }
+    .distro-card code { font-size: 0.75rem; white-space: pre-wrap; word-break: break-all; overflow-x: hidden; }
     .nav-links { display: none; }
     section { padding: 64px 0; }
     .hero { padding: 64px 0 48px; }
@@ -1158,7 +1161,4 @@ ol.docs-list li::before {
     .why-grid { grid-template-columns: 1fr; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .hero-meta { flex-direction: column; gap: 12px; }
-    .distro-card { flex-direction: column; gap: 12px; padding: 16px; }
-    .distro-card .distro-icon { width: 32px; height: 32px; }
-    .distro-card code { font-size: 0.75rem; white-space: pre-wrap; word-break: break-all; }
 }
