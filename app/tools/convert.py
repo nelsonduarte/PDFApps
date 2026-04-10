@@ -85,11 +85,10 @@ class TabConverter(BasePage):
             "background:transparent; padding:10px 4px;")
         f.addWidget(self.lbl_result)
         f.addStretch()
-        self._compact_hidden = [
-            sec_src, self.drop_in, self.lbl_info,
-            sec_out_folder, self._drop_folder,
-            self._section_file, self._drop_file,
-        ]
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info]
+        # Hide all output sections — save dialog prompts automatically
+        for w in (sec_out_folder, self._drop_folder, self._section_file, self._drop_file):
+            w.setVisible(False)
 
     # ── UI callbacks ──────────────────────────────────────────────────────
 

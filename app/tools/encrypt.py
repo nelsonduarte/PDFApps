@@ -63,7 +63,9 @@ class TabEncriptar(BasePage):
         f.addWidget(sec_out)
         self.drop_out = DropFileEdit("result.pdf", save=True, default_name="result.pdf")
         f.addWidget(self.drop_out); f.addStretch()
-        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info]
+        sec_out.setVisible(False)
+        self.drop_out.setVisible(False)
 
     def _on_mode(self, idx: int):
         self.grp_enc.setVisible(idx == 0)

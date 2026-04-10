@@ -86,7 +86,9 @@ class TabPageNumbers(BasePage):
         f.addWidget(sec_out)
         self.drop_out = DropFileEdit("numbered.pdf", save=True, default_name="numbered.pdf")
         f.addWidget(self.drop_out); f.addStretch()
-        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info]
+        sec_out.setVisible(False)
+        self.drop_out.setVisible(False)
 
     def _pick_input(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))

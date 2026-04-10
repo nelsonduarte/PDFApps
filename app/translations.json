@@ -477,7 +477,9 @@
         "nav.group.convert": "Convert",
         "nav.group.annotate": "Annotate",
         "nav.group.inspect": "Inspect",
-        "nav.search": "Search tools..."
+        "nav.search": "Search tools...",
+        "viewer.drag_hint": "or drag a PDF here",
+        "viewer.recent": "Recent files"
     },
     "pt": {
         "app.name": "PDFApps",
@@ -957,7 +959,9 @@
         "nav.group.convert": "Converter",
         "nav.group.annotate": "Anotar",
         "nav.group.inspect": "Inspecionar",
-        "nav.search": "Pesquisar..."
+        "nav.search": "Pesquisar...",
+        "viewer.drag_hint": "ou arrasta um PDF para aqui",
+        "viewer.recent": "Ficheiros recentes"
     },
     "es": {
         "app.name": "PDFApps",
@@ -1437,7 +1441,9 @@
         "nav.group.convert": "Convertir",
         "nav.group.annotate": "Anotar",
         "nav.group.inspect": "Inspeccionar",
-        "nav.search": "Buscar..."
+        "nav.search": "Buscar...",
+        "viewer.drag_hint": "o arrastra un PDF aquí",
+        "viewer.recent": "Archivos recientes"
     },
     "fr": {
         "app.name": "PDFApps",
@@ -1917,7 +1923,9 @@
         "nav.group.convert": "Convertir",
         "nav.group.annotate": "Annoter",
         "nav.group.inspect": "Inspecter",
-        "nav.search": "Rechercher..."
+        "nav.search": "Rechercher...",
+        "viewer.drag_hint": "ou glissez un PDF ici",
+        "viewer.recent": "Fichiers récents"
     },
     "de": {
         "app.name": "PDFApps",
@@ -2397,7 +2405,9 @@
         "nav.group.convert": "Konvertieren",
         "nav.group.annotate": "Anmerken",
         "nav.group.inspect": "Info",
-        "nav.search": "Suchen..."
+        "nav.search": "Suchen...",
+        "viewer.drag_hint": "oder ziehe eine PDF hierhin",
+        "viewer.recent": "Letzte Dateien"
     },
     "zh": {
         "app.name": "PDFApps",
@@ -2877,7 +2887,9 @@
         "nav.group.convert": "转换",
         "nav.group.annotate": "注释",
         "nav.group.inspect": "检查",
-        "nav.search": "搜索..."
+        "nav.search": "搜索...",
+        "viewer.drag_hint": "或将PDF拖到此处",
+        "viewer.recent": "最近文件"
     },
     "it": {
         "app.name": "PDFApps",
@@ -3357,7 +3369,9 @@
         "nav.group.convert": "Converti",
         "nav.group.annotate": "Annota",
         "nav.group.inspect": "Ispeziona",
-        "nav.search": "Cerca..."
+        "nav.search": "Cerca...",
+        "viewer.drag_hint": "o trascina un PDF qui",
+        "viewer.recent": "File recenti"
     },
     "nl": {
         "app.name": "PDFApps",
@@ -3837,6 +3851,8 @@
         "nav.group.convert": "Converteren",
         "nav.group.annotate": "Annoteren",
         "nav.group.inspect": "Inspecteren",
-        "nav.search": "Zoeken..."
+        "nav.search": "Zoeken...",
+        "viewer.drag_hint": "of sleep een PDF hierheen",
+        "viewer.recent": "Recente bestanden"
     }
 }

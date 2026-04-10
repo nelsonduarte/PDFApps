@@ -145,8 +145,40 @@ class PdfViewerPanel(QWidget):
         self._ph_btn.setObjectName("btn_primary")
         self._ph_btn.setFixedWidth(160)
         self._ph_btn.clicked.connect(self._open_dialog)
+        ph_drag = QLabel(t("viewer.drag_hint"))
+        ph_drag.setObjectName("viewer_placeholder")
+        ph_drag.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ph_drag.setStyleSheet("font-size: 10pt; opacity: 0.6;")
+
         ph_lay.addWidget(ph_icon); ph_lay.addWidget(ph_text)
         ph_lay.addWidget(self._ph_btn, 0, Qt.AlignmentFlag.AlignCenter)
+        ph_lay.addWidget(ph_drag)
+
+        # Recent files section
+        from app.i18n import get_recent_files
+        recents = get_recent_files()
+        if recents:
+            ph_lay.addSpacing(16)
+            rec_title = QLabel(t("viewer.recent"))
+            rec_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            rec_title.setStyleSheet("font-size: 10pt; font-weight: 600; opacity: 0.7;")
+            ph_lay.addWidget(rec_title)
+            for rp in recents[:5]:
+                if not os.path.isfile(rp):
+                    continue
+                fname = os.path.basename(rp)
+                link = QPushButton(f"📄  {fname}")
+                link.setObjectName("recent_link")
+                link.setToolTip(rp)
+                link.setCursor(Qt.CursorShape.PointingHandCursor)
+                link.setFlat(True)
+                link.setStyleSheet(
+                    "QPushButton#recent_link { text-align: left; padding: 4px 12px; "
+                    "border: none; background: transparent; font-size: 10pt; }"
+                    "QPushButton#recent_link:hover { background: rgba(255,255,255,0.05); border-radius: 6px; }")
+                link.clicked.connect(lambda checked, p=rp: self.load(p))
+                ph_lay.addWidget(link)
+
         self._placeholder = ph_widget
         layout.addWidget(self._placeholder, 1)
 

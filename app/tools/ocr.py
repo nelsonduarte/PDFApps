@@ -99,7 +99,9 @@ class TabOCR(BasePage):
         self.drop_out = DropFileEdit("ocr_output.pdf", save=True, default_name="ocr_output.pdf")
         f.addWidget(self.drop_out)
         f.addStretch()
-        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info, sec_out, self.drop_out]
+        self._compact_hidden = [sec_src, self.drop_in, self.lbl_info]
+        sec_out.setVisible(False)
+        self.drop_out.setVisible(False)
 
     def _on_fmt_change(self, idx):
         p = self.drop_out.path()
