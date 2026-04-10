@@ -18,6 +18,34 @@ from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_H, TEXT_SEC, 
 
 _API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
+# Section headings used in auto-generated release notes (build.yml)
+_SECTION_MAP = {
+    "## New features":          "update.section.features",
+    "## Performance":           "update.section.performance",
+    "## Fixes & improvements":  "update.section.fixes",
+    "## Other":                 "update.section.other",
+}
+
+
+def _localize_notes(body: str) -> str:
+    """Replace English section headings with translated ones."""
+    if not body:
+        return body
+    from app.i18n import t
+    for eng, key in _SECTION_MAP.items():
+        translated = t(key)
+        if translated != key:  # key exists in translations
+            body = body.replace(eng, translated)
+    # Strip markdown ## prefix for plain-text display
+    lines = []
+    for line in body.splitlines():
+        if line.startswith("## "):
+            lines.append(line[3:].upper())
+            lines.append("")
+        else:
+            lines.append(line)
+    return "\n".join(lines).strip()
+
 
 def _parse_version(tag: str) -> tuple:
     """'v1.5.0' -> (1, 5, 0)"""
@@ -168,7 +196,7 @@ class UpdateDialog(QDialog):
         notes_lbl.setStyleSheet(f"color: {_sec}; font-size: 10pt;")
         lay.addWidget(notes_lbl)
 
-        notes = (release.get("body") or "").strip() or t("update.no_notes")
+        notes = _localize_notes((release.get("body") or "").strip()) or t("update.no_notes")
         self._notes = QTextEdit()
         self._notes.setReadOnly(True)
         self._notes.setPlainText(notes)
