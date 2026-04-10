@@ -896,12 +896,19 @@ class MainWindow(QMainWindow):
             self._restart_app()
 
     def _restart_app(self):
-        """Restart the application process."""
+        """Restart the application process as a fully detached process."""
         import sys, subprocess
-        # Save layout before restarting
-        self.close()
-        subprocess.Popen([sys.executable] + sys.argv)
-        QApplication.instance().quit()
+        args = [sys.executable] + sys.argv
+        if sys.platform == "win32":
+            # DETACHED_PROCESS ensures the child survives parent exit
+            subprocess.Popen(args,
+                             creationflags=subprocess.DETACHED_PROCESS
+                             | subprocess.CREATE_NEW_PROCESS_GROUP,
+                             close_fds=True)
+        else:
+            subprocess.Popen(args, start_new_session=True, close_fds=True)
+        # Force quit without triggering closeEvent prompts
+        QApplication.instance().exit(0)
 
     # ── Drag & drop PDF on window ──────────────────────────────────────────
     def dragEnterEvent(self, e):
