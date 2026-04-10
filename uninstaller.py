@@ -198,7 +198,8 @@ def _schedule_dir_removal(install_dir: str) -> None:
         with open(bat, "w") as f:
             f.write("@echo off\n")
             f.write("timeout /t 5 /nobreak > nul\n")
-            f.write(f'rmdir /s /q "{install_dir}"\n')
+            safe_dir = install_dir.replace('"', '')
+            f.write(f'rmdir /s /q "{safe_dir}"\n')
             f.write('del "%~f0"\n')
         subprocess.Popen(["cmd", "/c", bat], **_no_window())
     else:

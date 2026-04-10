@@ -233,7 +233,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 "recommended": "/ebook",
                 "low":         "/printer",
             }
-            fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+            fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd); os.chmod(p, 0o600)
             cmd = [
                 gs, "-sDEVICE=pdfwrite",
                 "-dCompatibilityLevel=1.4",
@@ -305,7 +305,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
 
         # 4. Save with all compression flags
         _prog("passB_save")
-        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd); os.chmod(p, 0o600)
         save_kw = dict(garbage=4, deflate=True, deflate_fonts=True, clean=True)
         try:
             doc.save(p, **save_kw, use_objstms=True)
@@ -323,7 +323,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         # Optimize the best result so far (or the original)
         best_so_far = min(temps, key=lambda f: os.path.getsize(f)) if temps else src
         pdf = pikepdf.open(best_so_far)
-        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd); os.chmod(p, 0o600)
         pdf.save(p,
                  object_stream_mode=pikepdf.ObjectStreamMode.generate,
                  compress_streams=True,

@@ -106,17 +106,26 @@ def _apply_update_unix(downloaded: str):
     try:
         shutil.move(current, backup)
         dest_dir = os.path.dirname(current)
+        abs_dest = os.path.abspath(dest_dir)
         if downloaded.endswith(".tar.gz"):
             import tarfile
             with tarfile.open(downloaded, "r:gz") as tar:
                 for m in tar.getmembers():
                     if m.name != "PDFApps" or m.issym() or m.islnk():
                         continue
+                    # Prevent path traversal in tar member name
+                    extracted = os.path.abspath(os.path.join(dest_dir, m.name))
+                    if not extracted.startswith(abs_dest):
+                        continue
                     tar.extract(m, dest_dir)
         elif downloaded.endswith(".zip"):
             import zipfile
             with zipfile.ZipFile(downloaded, "r") as zf:
                 info = zf.getinfo("PDFApps")
+                # Prevent ZIP slip
+                extracted = os.path.abspath(os.path.join(dest_dir, info.filename))
+                if not extracted.startswith(abs_dest):
+                    raise ValueError("Path traversal detected in ZIP")
                 zf.extract(info, dest_dir)
         else:
             shutil.copy2(downloaded, current)
