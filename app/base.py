@@ -1,8 +1,10 @@
 """PDFApps – BasePage: standard page layout (header + scroll + action bar)."""
 
 import os
+import tempfile
+import shutil
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFileDialog,
                                QPushButton, QLabel)
 
@@ -14,10 +16,14 @@ from app.utils import ToolHeader, ActionBar, scrolled, _paint_bg
 class BasePage(QWidget):
     """Standard layout: fixed header + scroll area + action bar."""
 
+    pipeline_done = Signal(str)  # emitted with temp output path
+
     def __init__(self, icon, title, desc, action_text, status_fn):
         super().__init__()
         self._status = status_fn
         self.setObjectName("content_area")
+        self._pipeline_active = False
+        self._pipeline_tmp_dir: str | None = None
 
         page_layout = QVBoxLayout(self)
         page_layout.setContentsMargins(0, 0, 0, 0)
@@ -73,7 +79,11 @@ class BasePage(QWidget):
 
     def _resolve_output_file(self, drop_widget, input_path: str = "",
                              filter_key: str = "file_filter.pdf") -> str:
-        """Return the output file path, prompting via Save dialog if empty."""
+        """Return the output file path, prompting via Save dialog if empty.
+        In pipeline mode, returns a temp file path instead of prompting."""
+        # Pipeline mode: save to temp file, skip dialog
+        if self._pipeline_active:
+            return self._make_pipeline_temp(input_path, drop_widget)
         out = drop_widget.path()
         if out:
             return out
@@ -88,6 +98,30 @@ class BasePage(QWidget):
         if out:
             drop_widget.set_path(out)
         return out
+
+    def _make_pipeline_temp(self, input_path: str, drop_widget=None) -> str:
+        """Create a temp file path for pipeline output."""
+        if self._pipeline_tmp_dir is None:
+            self._pipeline_tmp_dir = tempfile.mkdtemp(prefix="pdfapps_")
+        default_name = (getattr(drop_widget, "_default", "") or "result.pdf") if drop_widget else "result.pdf"
+        if input_path:
+            base, ext = os.path.splitext(os.path.basename(input_path))
+            stem, sfx = os.path.splitext(default_name)
+            if sfx:
+                default_name = base + "_" + stem + sfx
+        return os.path.join(self._pipeline_tmp_dir, default_name)
+
+    def _pipeline_success(self, message: str, out_path: str) -> None:
+        """Call after a successful tool run in pipeline mode:
+        shows a toast and emits the pipeline_done signal."""
+        self._show_toast(message, out_path)
+        self.pipeline_done.emit(out_path)
+
+    def cleanup_pipeline(self) -> None:
+        """Remove temp files created during pipeline."""
+        if self._pipeline_tmp_dir and os.path.isdir(self._pipeline_tmp_dir):
+            shutil.rmtree(self._pipeline_tmp_dir, ignore_errors=True)
+            self._pipeline_tmp_dir = None
 
     def set_compact_mode(self, active: bool, path: str = "") -> None:
         """Hide source/output boilerplate when the input PDF is implicit
@@ -124,6 +158,7 @@ class BasePage(QWidget):
             self._compact_link.setVisible(active)
 
         self._compact_active = active
+        self._pipeline_active = active
 
     def _show_toast(self, message: str, file_path: str = "") -> None:
         """Show a brief success toast above the action bar with optional

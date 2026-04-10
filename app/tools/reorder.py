@@ -117,5 +117,9 @@ class TabReordenar(BasePage):
             for idx in indices: w.add_page(self._reader.pages[idx])
             with open(out, "wb") as f: w.write(f)
             self._status(f"✔  → {os.path.basename(out)}")
-            QMessageBox.information(self, t("msg.done"), t("tool.reorder.done", path=out))
+            msg = t("tool.reorder.done", path=out)
+            if self._pipeline_active:
+                self._pipeline_success(msg, out)
+            else:
+                QMessageBox.information(self, t("msg.done"), msg)
         except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QListWidget, QListWidgetItem,
     QStackedWidget, QSplitter, QStatusBar, QFrame,
     QApplication, QLineEdit, QMenu, QTabBar,
+    QFileDialog, QMessageBox,
 )
 from PySide6.QtGui import QColor
 import qtawesome as qta
@@ -475,6 +476,15 @@ class MainWindow(QMainWindow):
             for dfe in self.stack.widget(i).findChildren(DropFileEdit):
                 dfe.path_changed.connect(lambda p: self._viewer.load(p))
 
+        # Pipeline: connect tool signals to reload viewer with result
+        from app.base import BasePage
+        for i in range(self.stack.count()):
+            w = self.stack.widget(i)
+            if isinstance(w, BasePage):
+                w.pipeline_done.connect(self._on_pipeline_done)
+        # Per-viewer pipeline state: {viewer_id: {original_path, temp_path}}
+        self._pipeline_state: dict[int, dict] = {}
+
         # Keyboard shortcuts
         from PySide6.QtGui import QShortcut, QKeySequence
         QShortcut(QKeySequence("F5"), self, self._start_presentation)
@@ -555,6 +565,19 @@ class MainWindow(QMainWindow):
         self._refresh_viewer_top_buttons()
 
     def _close_tab(self, idx: int):
+        viewer = self._viewers[idx] if idx < len(self._viewers) else self._viewers[0]
+        if self._viewer_has_unsaved(viewer):
+            ans = QMessageBox.question(
+                self, t("msg.warning"), t("pipeline.unsaved_prompt"),
+                QMessageBox.StandardButton.Save
+                | QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel)
+            if ans == QMessageBox.StandardButton.Cancel:
+                return
+            if ans == QMessageBox.StandardButton.Save:
+                self._save_pipeline()
+                return  # save_pipeline reloads, don't close
+        self._cleanup_pipeline(id(viewer))
         if self._tab_bar.count() <= 1:
             # Last tab — close document and reset to placeholder
             viewer = self._viewers[0]
@@ -898,10 +921,87 @@ class MainWindow(QMainWindow):
             self._close_tab(idx)
 
     def _save_current_tool(self):
-        if self._current_tool >= 0:
+        """Ctrl+S: save pipeline result, or run current tool."""
+        vid = id(self._viewer)
+        ps = self._pipeline_state.get(vid)
+        if ps and ps.get("temp_path"):
+            self._save_pipeline()
+        elif self._current_tool >= 0:
             w = self.stack.widget(self._current_tool)
             if hasattr(w, '_run'):
                 w._run()
+
+    # ── Pipeline ─────────────────────────────────────────────────────────
+    def _on_pipeline_done(self, temp_path: str):
+        """A tool finished in pipeline mode — reload result in viewer."""
+        viewer = self._viewer
+        vid = id(viewer)
+        ps = self._pipeline_state.get(vid)
+        if ps is None:
+            ps = {"original_path": viewer.current_path(), "temp_path": None}
+            self._pipeline_state[vid] = ps
+        ps["temp_path"] = temp_path
+        # Reload the viewer with the pipeline result
+        viewer.load(temp_path)
+        # Mark tab as dirty
+        idx = self._viewer_stack.currentIndex()
+        orig_name = os.path.basename(ps["original_path"])
+        self._tab_bar.setTabText(idx, f"● {orig_name}")
+        self._sb.showMessage(t("pipeline.applied"))
+        # Re-auto-load the current tool so it picks up the new file
+        if self._current_tool >= 0:
+            w = self.stack.widget(self._current_tool)
+            fn = getattr(w, "auto_load", None)
+            if callable(fn):
+                # Reset drop_in/drop_out so auto_load can set the new path
+                # and the next run generates a fresh temp output
+                for attr in ("drop_in", "drop_out"):
+                    drop = getattr(w, attr, None)
+                    if drop:
+                        drop.clear()
+                fn(temp_path)
+
+    def _save_pipeline(self):
+        """Save the current pipeline result to a user-chosen file."""
+        import shutil
+        vid = id(self._viewer)
+        ps = self._pipeline_state.get(vid)
+        if not ps or not ps.get("temp_path"):
+            return
+        orig = ps["original_path"]
+        base, ext = os.path.splitext(os.path.basename(orig))
+        suggested = os.path.join(os.path.dirname(orig), base + "_edited" + ext)
+        path, _ = QFileDialog.getSaveFileName(
+            self, t("btn.choose"), suggested, t("file_filter.pdf"))
+        if not path:
+            return
+        shutil.copy2(ps["temp_path"], path)
+        # Load the saved file in the viewer (replaces temp)
+        self._viewer.load(path)
+        idx = self._viewer_stack.currentIndex()
+        self._tab_bar.setTabText(idx, os.path.basename(path))
+        self._tab_bar.setTabToolTip(idx, path)
+        # Cleanup pipeline state
+        self._cleanup_pipeline(vid)
+        self._sb.showMessage(t("pipeline.saved"))
+
+    def _cleanup_pipeline(self, viewer_id: int):
+        """Remove pipeline temp files and state for a viewer."""
+        ps = self._pipeline_state.pop(viewer_id, None)
+        if not ps:
+            return
+        # Cleanup temp dirs from all tools
+        from app.base import BasePage
+        for i in range(self.stack.count()):
+            w = self.stack.widget(i)
+            if isinstance(w, BasePage):
+                w.cleanup_pipeline()
+
+    def _viewer_has_unsaved(self, viewer=None) -> bool:
+        """Check if a viewer has unsaved pipeline changes."""
+        v = viewer or self._viewer
+        ps = self._pipeline_state.get(id(v))
+        return bool(ps and ps.get("temp_path"))
 
     # ── Fullscreen & Presentation ──────────────────────────────────────────
     def _toggle_fullscreen(self):
@@ -935,7 +1035,23 @@ class MainWindow(QMainWindow):
         self._presentation.show()
 
     def closeEvent(self, event):
-        """Save layout state on close."""
+        """Save layout state on close, prompt for unsaved pipeline changes."""
+        # Check for unsaved pipeline changes
+        for v in self._viewers:
+            if self._viewer_has_unsaved(v):
+                ans = QMessageBox.question(
+                    self, t("msg.warning"), t("pipeline.unsaved_prompt"),
+                    QMessageBox.StandardButton.Save
+                    | QMessageBox.StandardButton.Discard
+                    | QMessageBox.StandardButton.Cancel)
+                if ans == QMessageBox.StandardButton.Cancel:
+                    event.ignore(); return
+                if ans == QMessageBox.StandardButton.Save:
+                    self._save_pipeline()
+                break  # only prompt once
+        # Cleanup all pipeline temp files
+        for v in list(self._viewers):
+            self._cleanup_pipeline(id(v))
         try:
             from app.i18n import _CONFIG_PATH
             import json

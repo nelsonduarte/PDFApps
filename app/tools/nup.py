@@ -197,7 +197,10 @@ class TabNUp(BasePage):
             out.save(out_path, garbage=4, deflate=True)
             out.close(); src.close()
             self._status(f"✔  → {os.path.basename(out_path)}")
-            QMessageBox.information(self, t("msg.done"),
-                                    t("tool.nup.done", path=out_path))
+            msg = t("tool.nup.done", path=out_path)
+            if self._pipeline_active:
+                self._pipeline_success(msg, out_path)
+            else:
+                QMessageBox.information(self, t("msg.done"), msg)
         except Exception as e:
             QMessageBox.critical(self, t("msg.error"), str(e))

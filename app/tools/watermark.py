@@ -99,5 +99,9 @@ class TabMarcaDagua(BasePage):
                     w.pages[i].merge_page(wm_page, over=over)
             with open(out_path, "wb") as f: w.write(f)
             self._status(f"✔  → {os.path.basename(out_path)}")
-            QMessageBox.information(self, t("msg.done"), t("tool.watermark.done", path=out_path))
+            msg = t("tool.watermark.done", path=out_path)
+            if self._pipeline_active:
+                self._pipeline_success(msg, out_path)
+            else:
+                QMessageBox.information(self, t("msg.done"), msg)
         except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))

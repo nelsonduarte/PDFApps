@@ -143,9 +143,12 @@ class TabComprimir(BasePage):
             msg = t("tool.compress.done", before=f"{before/1024:.0f}", after=f"{after/1024:.0f}", pct=f"{ratio:.0f}")
             self.lbl_result.setText(msg)
             self._status(f"✔  {msg.strip()}")
-            gs_hint = "" if _find_gs() else "\n\n" + t("tool.compress.gs_hint")
-            QMessageBox.information(self, t("msg.done"),
-                t("msg.pdf_saved", path=out_path) + gs_hint)
+            if self._pipeline_active:
+                self._pipeline_success(msg, out_path)
+            else:
+                gs_hint = "" if _find_gs() else "\n\n" + t("tool.compress.gs_hint")
+                QMessageBox.information(self, t("msg.done"),
+                    t("msg.pdf_saved", path=out_path) + gs_hint)
         except CancelledError:
             progress.setValue(100)
             self._status(t("progress.cancelled"))

@@ -122,7 +122,11 @@ class TabEncriptar(BasePage):
                           owner_password=owner, use_128bit=True)
                 with open(out_path, "wb") as f: w.write(f)
                 self._status(f"✔  {os.path.basename(out_path)}")
-                QMessageBox.information(self, t("msg.done"), t("tool.encrypt.done_enc", path=out_path))
+                msg = t("tool.encrypt.done_enc", path=out_path)
+                if self._pipeline_active:
+                    self._pipeline_success(msg, out_path)
+                else:
+                    QMessageBox.information(self, t("msg.done"), msg)
             else:
                 if reader.is_encrypted:
                     result = reader.decrypt(self.edit_pwd.text())
@@ -132,5 +136,9 @@ class TabEncriptar(BasePage):
                 w = PdfWriter(); w.append(reader)
                 with open(out_path, "wb") as f: w.write(f)
                 self._status(f"✔  {os.path.basename(out_path)}")
-                QMessageBox.information(self, t("msg.done"), t("tool.encrypt.done_dec", path=out_path))
+                msg = t("tool.encrypt.done_dec", path=out_path)
+                if self._pipeline_active:
+                    self._pipeline_success(msg, out_path)
+                else:
+                    QMessageBox.information(self, t("msg.done"), msg)
         except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))

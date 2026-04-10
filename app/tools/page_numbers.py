@@ -216,7 +216,10 @@ class TabPageNumbers(BasePage):
             doc.save(out_path, garbage=4, deflate=True)
             doc.close()
             self._status(f"✔  → {os.path.basename(out_path)}")
-            QMessageBox.information(self, t("msg.done"),
-                                    t("tool.page_numbers.done", path=out_path))
+            msg = t("tool.page_numbers.done", path=out_path)
+            if self._pipeline_active:
+                self._pipeline_success(msg, out_path)
+            else:
+                QMessageBox.information(self, t("msg.done"), msg)
         except Exception as e:
             QMessageBox.critical(self, t("msg.error"), str(e))

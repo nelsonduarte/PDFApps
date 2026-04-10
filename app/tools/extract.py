@@ -84,6 +84,9 @@ class TabExtrair(BasePage):
             for p in pages: w.add_page(reader.pages[p])
             with open(out_path, "wb") as f: w.write(f)
             self._status(f"✔  {len(pages)} → {os.path.basename(out_path)}")
-            QMessageBox.information(self, t("msg.done"),
-                t("tool.extract.done", n=len(pages), path=out_path))
+            msg = t("tool.extract.done", n=len(pages), path=out_path)
+            if self._pipeline_active:
+                self._pipeline_success(msg, out_path)
+            else:
+                QMessageBox.information(self, t("msg.done"), msg)
         except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))
