@@ -2,16 +2,11 @@
 
 import os
 
-from PySide6.QtWidgets import (
-    QTextEdit, QFileDialog, QMessageBox,
-)
+from PySide6.QtWidgets import QTextEdit
 from pypdf import PdfReader
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section
-from app.constants import DESKTOP
-from app.widgets import DropFileEdit
 
 
 def _format_pdf_date(raw: str) -> str:
@@ -19,7 +14,6 @@ def _format_pdf_date(raw: str) -> str:
     s = str(raw).strip()
     if s.startswith("D:"):
         s = s[2:]
-    # Remove trailing Z, +, - timezone info
     for ch in ("Z", "'", "+00", "+01", "+02"):
         s = s.replace(ch, "")
     s = s.strip()
@@ -36,42 +30,40 @@ class TabInfo(BasePage):
                          t("tool.info.desc"),
                          t("tool.info.btn"), status_fn)
         f = self._form
-        sec_src = section(t("tool.info.source"))
-        f.addWidget(sec_src)
-        self.drop_in = DropFileEdit()
-        try: self.drop_in.btn.clicked.disconnect()
-        except RuntimeError: pass
-        self.drop_in.btn.clicked.connect(self._pick_and_show)
-        self.drop_in.path_changed.connect(self._show)
-        f.addWidget(self.drop_in)
 
         self.txt = QTextEdit()
         self.txt.setReadOnly(True)
         from PySide6.QtGui import QFont
         self.txt.setFont(QFont("Consolas", 10))
         self.txt.setMinimumHeight(260)
-        self.txt.setStyleSheet(
-            "QTextEdit { background:#0F172A; color:#94A3B8; "
-            "border:1px solid #1E293B; border-radius:8px; padding:14px; }")
+        self._dark_mode = True
+        self._apply_txt_theme()
         f.addWidget(self.txt); f.addStretch()
-        self.action_btn.setText(t("tool.info.open_show"))
-        self._compact_hidden = [sec_src, self.drop_in]
 
-    def _pick_and_show(self):
-        p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
-        if p: self.drop_in.set_path(p)
+        # No buttons needed — info is shown automatically from the viewer PDF
+        self._action_bar.setVisible(False)
+        self._path = ""
+
+    def _apply_txt_theme(self):
+        if self._dark_mode:
+            self.txt.setStyleSheet(
+                "QTextEdit { background:#0F172A; color:#94A3B8; "
+                "border:none; border-radius:8px; padding:14px; }")
+        else:
+            self.txt.setStyleSheet(
+                "QTextEdit { background:#F8FAFB; color:#1E293B; "
+                "border:none; border-radius:8px; padding:14px; }")
+
+    def update_theme(self, dark: bool):
+        self._dark_mode = dark
+        self._apply_txt_theme()
 
     def _run(self):
-        p = self.drop_in.path()
-        if not p or not os.path.isfile(p):
-            p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
-            if not p: return
-            self.drop_in.set_path(p)
-        self._show(p)
+        pass
 
     def auto_load(self, path: str):
-        if path and not self.drop_in.path():
-            self.drop_in.set_path(path)
+        if path:
+            self._path = path
             self._show(path)
 
     def _show(self, path: str):
@@ -87,7 +79,6 @@ class TabInfo(BasePage):
                 f"  {t('tool.info.size'):<16}{size/1024:.1f} KB  ({size:,} bytes)".replace(",", " "),
                 f"  {t('tool.info.encrypted'):<16}{enc}",
                 "",
-                "  " + "─" * 44,
             ]
             for key, tkey in {
                 "/Title": "tool.info.title", "/Author": "tool.info.author",

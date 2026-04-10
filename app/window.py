@@ -665,6 +665,10 @@ class MainWindow(QMainWindow):
     def _show_language_menu(self):
         _langs = [("en", "English"), ("pt", "Português"), ("es", "Español"), ("fr", "Français"), ("de", "Deutsch"), ("zh", "中文"), ("it", "Italiano"), ("nl", "Nederlands")]
         menu = QMenu(self)
+        if not self._dark_mode:
+            menu.setStyleSheet(
+                "QMenu { background: #FFFFFF; color: #1E293B; border: 1px solid #D1D5DB; }"
+                "QMenu::item:selected { background: #E7F0ED; }")
         current = get_language()
         for code, name in _langs:
             action = menu.addAction(f"  {'● ' if code == current else '  '}{name}")
@@ -799,10 +803,11 @@ class MainWindow(QMainWindow):
         self._next_pg_btn.setIcon(qta.icon("fa5s.chevron-right", color=bar_color))
         for v in self._viewers:
             v.update_theme(self._dark_mode)
-        # Update editor tool icons
-        edit_widget = self.stack.widget(self._edit_tool_idx())
-        if hasattr(edit_widget, 'update_theme'):
-            edit_widget.update_theme(self._dark_mode)
+        # Update all tools that support theme switching
+        for i in range(self.stack.count()):
+            w = self.stack.widget(i)
+            if hasattr(w, 'update_theme'):
+                w.update_theme(self._dark_mode)
 
     # ── Auto-update ───────────────────────────────────────────────────────
 

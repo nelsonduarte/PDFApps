@@ -38,7 +38,7 @@ class TabDividir(BasePage):
         grp = QGroupBox(t("tool.split.ranges"))
         vt  = QVBoxLayout(grp); vt.setSpacing(8)
         self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels([t("tool.split.start"), t("tool.split.end"), t("tool.split.output_name")])
+        self.table.setHorizontalHeaderLabels([t("tool.split.start"), t("tool.split.end"), ""])
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
