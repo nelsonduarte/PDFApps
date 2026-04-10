@@ -886,12 +886,22 @@ class MainWindow(QMainWindow):
         menu.exec(self._lang_btn.mapToGlobal(self._lang_btn.rect().bottomLeft()))
 
     def _set_language(self, code: str, name: str):
-        from PySide6.QtWidgets import QMessageBox
         set_language(code)
         _labels = {"en": "EN", "pt": "PT", "es": "ES", "fr": "FR", "de": "DE", "zh": "ZH", "it": "IT", "nl": "NL"}
         self._lang_btn.setText(_labels.get(code, "EN"))
-        QMessageBox.information(self, t("lang.selector"),
-                                t("lang.restart", lang=name))
+        ans = QMessageBox.question(
+            self, t("lang.selector"), t("lang.restart", lang=name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if ans == QMessageBox.StandardButton.Yes:
+            self._restart_app()
+
+    def _restart_app(self):
+        """Restart the application process."""
+        import sys, subprocess
+        # Save layout before restarting
+        self.close()
+        subprocess.Popen([sys.executable] + sys.argv)
+        QApplication.instance().quit()
 
     # ── Drag & drop PDF on window ──────────────────────────────────────────
     def dragEnterEvent(self, e):
