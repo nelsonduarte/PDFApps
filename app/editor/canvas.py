@@ -1,6 +1,6 @@
 """PDFApps – PdfEditCanvas: continuous-scroll visual PDF edit canvas."""
 
-from PySide6.QtCore import Qt, Signal, QRect, QPoint
+from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QRunnable, QThreadPool
 from PySide6.QtWidgets import QWidget, QSizePolicy
 
 from app.constants import ACCENT, BG_INNER, TEXT_SEC, _LN
@@ -8,6 +8,47 @@ from app.i18n import t
 
 _NOTE_ICON_SIZE = 22
 _PAGE_GAP = 4
+_BUFFER_PGS = 2
+_MAX_THREADS = 2
+
+
+class _EditRenderSignals(QObject):
+    page_ready = Signal(int, int, object)  # gen, idx, QPixmap
+
+
+class _EditPageJob(QRunnable):
+    """Renders a single page in a background thread."""
+
+    def __init__(self, path: str, idx: int, zoom: float, dpr: float,
+                 gen: int, signals: _EditRenderSignals):
+        super().__init__()
+        self._path = path
+        self._idx = idx
+        self._zoom = zoom
+        self._dpr = dpr
+        self._gen = gen
+        self.signals = signals
+        self.setAutoDelete(True)
+
+    def run(self):
+        try:
+            import fitz
+            from PySide6.QtGui import QPixmap as QP, QImage
+            doc = fitz.open(self._path)
+            page = doc[self._idx]
+            rz = self._zoom * self._dpr
+            pix = page.get_pixmap(matrix=fitz.Matrix(rz, rz), annots=False)
+            img = pix.tobytes("png")
+            doc.close()
+            qp = QP()
+            if not qp.loadFromData(img):
+                qi = QImage(pix.samples_mv, pix.width, pix.height,
+                            pix.stride, QImage.Format.Format_RGB888)
+                qp = QP.fromImage(qi)
+            qp.setDevicePixelRatio(self._dpr)
+            self.signals.page_ready.emit(self._gen, self._idx, qp)
+        except Exception:
+            pass
 
 
 class PdfEditCanvas(QWidget):
@@ -20,12 +61,17 @@ class PdfEditCanvas(QWidget):
     def __init__(self):
         super().__init__()
         self._doc         = None
+        self._path        = ""
         self._page_idx    = 0   # kept for compatibility (current page indicator)
         self._zoom        = 1.0
         self._zoom_factor = 1.0
         self._base_avail  = 300
-        self._page_pixmaps = []   # list of QPixmap, one per page
+        self._page_pixmaps: list = []   # list of QPixmap|None, one per page
         self._page_offsets = []   # list of (y_offset, width, height) per page
+        self._gen         = 0
+        self._pending: set[int] = set()
+        self._render_signals = _EditRenderSignals()
+        self._render_signals.page_ready.connect(self._on_page_ready)
         self._drag_start  = None
         self._drag_rect   = None
         self._overlays    = []    # ALL overlays (all pages)
@@ -69,22 +115,25 @@ class PdfEditCanvas(QWidget):
         import fitz
         if self._doc: self._doc.close()
         self._doc = fitz.open(path)
+        self._path = path
         self._page_idx = 0
         self._zoom_factor = 1.0
+        self._gen += 1
+        self._pending.clear()
         from PySide6.QtCore import QTimer
-        QTimer.singleShot(0, self._render)
+        QTimer.singleShot(0, self._layout_and_schedule)
 
     def zoom_in(self):
         self._zoom_factor = min(4.0, round(self._zoom_factor * 1.25, 4))
-        self._render()
+        self._invalidate_and_relayout()
 
     def zoom_out(self):
         self._zoom_factor = max(0.2, round(self._zoom_factor / 1.25, 4))
-        self._render()
+        self._invalidate_and_relayout()
 
     def zoom_reset(self):
         self._zoom_factor = 1.0
-        self._render()
+        self._invalidate_and_relayout()
 
     def wheelEvent(self, e):
         if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
@@ -140,6 +189,8 @@ class PdfEditCanvas(QWidget):
         if self._doc: self._doc.close(); self._doc = None
 
     def close_doc(self):
+        self._gen += 1
+        self._pending.clear()
         self.release_doc()
         self._page_pixmaps.clear()
         self._page_offsets.clear()
@@ -148,12 +199,22 @@ class PdfEditCanvas(QWidget):
         self.setMaximumSize(16777215, 16777215)
         self.update()
 
-    def _render(self):
-        if not self._doc: return
-        import fitz
-        from PySide6.QtGui import QPixmap as QP
+    def on_scroll(self):
+        """Called when scroll position changes — renders newly visible pages."""
+        self._schedule_visible()
 
-        # Determine available width
+    def _invalidate_and_relayout(self):
+        self._gen += 1
+        self._pending.clear()
+        self._page_pixmaps = [None] * len(self._page_pixmaps)
+        self._layout_and_schedule()
+
+    def _layout_and_schedule(self):
+        """Fast layout pass — compute page dimensions only, then schedule
+        background rendering for visible pages."""
+        if not self._doc:
+            return
+
         if self._zoom_factor == 1.0:
             from PySide6.QtWidgets import QScrollArea as _SA
             vp = self.parent()
@@ -161,34 +222,67 @@ class PdfEditCanvas(QWidget):
             avail = sa.viewport().width() - 4 if isinstance(sa, _SA) else self.width()
             self._base_avail = max(avail, 300)
 
-        dpr = self.devicePixelRatioF() or 1.0
+        ref_w = self._doc[0].rect.width
+        self._zoom = (self._base_avail / ref_w) * self._zoom_factor
+
         self._page_pixmaps.clear()
         self._page_offsets.clear()
-
         y_off = 0
         max_w = 0
         for i in range(self._doc.page_count):
-            page = self._doc[i]
-            self._zoom = (self._base_avail / page.rect.width) * self._zoom_factor
-            rz = self._zoom * dpr
-            pix = page.get_pixmap(matrix=fitz.Matrix(rz, rz), annots=False)
-            qp = QP(); qp.loadFromData(pix.tobytes("png"))
-            qp.setDevicePixelRatio(dpr)
-            pw = round(qp.width() / dpr)
-            ph = round(qp.height() / dpr)
-            self._page_pixmaps.append(qp)
+            r = self._doc[i].rect
+            pw = round(r.width * self._zoom)
+            ph = round(r.height * self._zoom)
+            self._page_pixmaps.append(None)
             self._page_offsets.append((y_off, pw, ph))
             max_w = max(max_w, pw)
             y_off += ph + _PAGE_GAP
-
-        # Store zoom for coordinate conversion (use last page's zoom — all should be same if same width)
-        if self._doc.page_count > 0:
-            self._zoom = (self._base_avail / self._doc[0].rect.width) * self._zoom_factor
 
         total_h = y_off - _PAGE_GAP if y_off > 0 else 400
         self.setFixedSize(max(max_w, 300), max(total_h, 400))
         self.zoom_changed.emit(round(self._zoom_factor * 100))
         self.update()
+        self._schedule_visible()
+
+    def _visible_range(self) -> tuple[int, int]:
+        from PySide6.QtWidgets import QScrollArea as _SA
+        vp = self.parent()
+        sa = vp.parent() if vp else None
+        n = len(self._page_offsets)
+        if not isinstance(sa, _SA) or not n:
+            return (0, min(n - 1, _BUFFER_PGS * 2))
+        y0 = sa.verticalScrollBar().value()
+        y1 = y0 + sa.viewport().height()
+        first = last = 0
+        found = False
+        for i, (yo, pw, ph) in enumerate(self._page_offsets):
+            if not found and yo + ph >= y0:
+                first = i; found = True
+            if yo <= y1:
+                last = i
+        return (max(0, first - _BUFFER_PGS), min(n - 1, last + _BUFFER_PGS))
+
+    def _schedule_visible(self):
+        if not self._page_offsets or not self._path:
+            return
+        first, last = self._visible_range()
+        dpr = self.devicePixelRatioF() or 1.0
+        gen = self._gen
+        pool = QThreadPool.globalInstance()
+        pool.setMaxThreadCount(_MAX_THREADS)
+        for i in range(first, last + 1):
+            if self._page_pixmaps[i] is None and i not in self._pending:
+                self._pending.add(i)
+                pool.start(_EditPageJob(self._path, i, self._zoom, dpr,
+                                        gen, self._render_signals))
+
+    def _on_page_ready(self, gen: int, idx: int, pixmap):
+        if gen != self._gen:
+            return
+        self._pending.discard(idx)
+        if 0 <= idx < len(self._page_pixmaps):
+            self._page_pixmaps[idx] = pixmap
+            self.update()
 
     def _page_and_local(self, sx, sy):
         """Convert screen coords to (page_index, local_x, local_y)."""
@@ -219,10 +313,18 @@ class PdfEditCanvas(QWidget):
             p.end()
             return
 
-        # Draw pages
+        # Draw pages (or placeholder if not yet rendered)
         for i, qpix in enumerate(self._page_pixmaps):
             yo, pw, ph = self._page_offsets[i]
-            p.drawPixmap(0, yo, qpix)
+            if qpix is not None:
+                p.drawPixmap(0, yo, qpix)
+            else:
+                p.fillRect(QRect(0, yo, pw, ph), QColor("#FFFFFF"))
+                p.setPen(QColor(TEXT_SEC))
+                f = QFont(); f.setPointSize(9); p.setFont(f)
+                p.drawText(QRect(0, yo, pw, ph), Qt.AlignmentFlag.AlignCenter, f"⏳ {i+1}")
+                p.setPen(QColor("#E0E0E0"))
+                p.drawRect(QRect(0, yo, pw - 1, ph - 1))
 
         # Draw overlays
         z = self._zoom

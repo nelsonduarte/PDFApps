@@ -93,6 +93,8 @@ class TabEditar(QWidget):
         canvas_scroll.setWidget(self._canvas)
         canvas_scroll.setMinimumWidth(320)
         canvas_scroll.viewport().installEventFilter(self)
+        canvas_scroll.verticalScrollBar().valueChanged.connect(
+            lambda _: self._canvas.on_scroll())
         self._canvas_scroll = canvas_scroll
         body_h.addWidget(canvas_scroll, 1)
 
@@ -353,7 +355,7 @@ class TabEditar(QWidget):
         from PySide6.QtCore import QTimer
         if obj is self._canvas_scroll.viewport() and event.type() == QEvent.Type.Resize:
             if self._canvas._doc and self._canvas._zoom_factor == 1.0:
-                QTimer.singleShot(0, self._canvas._render)
+                QTimer.singleShot(0, self._canvas._layout_and_schedule)
         return super().eventFilter(obj, event)
 
     # ── helpers ──────────────────────────────────────────────────────────────
@@ -492,8 +494,10 @@ class TabEditar(QWidget):
         n = self._canvas.page_count()
         self._lbl_info.setText(t("edit.status.pages", n=n))
         self._update_nav()
-        self._load_existing_annotations()
-        self._load_form_fields(p)
+        # Defer annotation/form loading so the UI stays responsive
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self._load_existing_annotations)
+        QTimer.singleShot(200, lambda: self._load_form_fields(p))
 
     def _load_existing_annotations(self):
         """Load existing text annotations from the PDF as note overlays."""
@@ -572,12 +576,14 @@ class TabEditar(QWidget):
         self._form_table.setRowCount(0)
         try:
             from pypdf import PdfReader
+            self._form_table.setUpdatesEnabled(False)
             for name, field in (PdfReader(path).get_fields() or {}).items():
                 r = self._form_table.rowCount(); self._form_table.insertRow(r)
                 self._form_table.setItem(r, 0, QTableWidgetItem(name))
                 self._form_table.setItem(r, 1, QTableWidgetItem(str(field.get("/V", "") or "")))
+            self._form_table.setUpdatesEnabled(True)
         except Exception:
-            pass
+            self._form_table.setUpdatesEnabled(True)
 
     # ── canvas callbacks ─────────────────────────────────────────────────────
 
