@@ -120,13 +120,15 @@ class PdfViewerPanel(QWidget):
         self._ph_btn.setFixedWidth(160)
         self._ph_btn.clicked.connect(self._open_dialog)
 
-        ph_lay.addWidget(ph_drag)
         ph_lay.addWidget(self._ph_btn, 0, Qt.AlignmentFlag.AlignCenter)
+        ph_lay.addWidget(ph_drag)
 
         # Recent files section
         from app.i18n import get_recent_files, add_recent_file
         self._recents_container = QWidget()
         self._recents_container.setMaximumWidth(400)
+        self._recent_links: list[QPushButton] = []
+        self._recent_del_btns: list[QPushButton] = []
         rc_lay = QVBoxLayout(self._recents_container)
         rc_lay.setContentsMargins(0, 16, 0, 0); rc_lay.setSpacing(4)
         recents = get_recent_files()
@@ -146,23 +148,21 @@ class PdfViewerPanel(QWidget):
                 link.setToolTip(rp)
                 link.setCursor(Qt.CursorShape.PointingHandCursor)
                 link.setFlat(True)
-                link.setStyleSheet(
-                    "QPushButton#recent_link { text-align: left; padding: 4px 12px; "
-                    "border: none; outline: none; background: transparent; font-size: 10pt; }"
-                    "QPushButton#recent_link:hover { background: rgba(255,255,255,0.05); border-radius: 6px; }"
-                    "QPushButton#recent_link:focus { outline: none; border: none; }")
+                link.setStyleSheet(self._recent_link_style(dark=True))
                 link.clicked.connect(lambda checked, p=rp: self.load(p))
-                del_btn = QPushButton("✕")
+                self._recent_links.append(link)
+                del_btn = QPushButton()
+                del_btn.setIcon(qta.icon("fa5s.trash-alt", color=TEXT_SEC))
                 del_btn.setFixedSize(28, 28)
                 del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 del_btn.setFlat(True)
                 del_btn.setToolTip(t("btn.remove"))
                 del_btn.setStyleSheet(
-                    "QPushButton { color: #9CA3AF; border: none; outline: none; "
-                    "background: transparent; font-size: 12pt; font-weight: bold; }"
-                    "QPushButton:hover { color: #EF4444; }"
+                    "QPushButton { border: none; outline: none; background: transparent; }"
+                    "QPushButton:hover { background: rgba(239,68,68,0.15); border-radius: 4px; }"
                     "QPushButton:focus { outline: none; border: none; }")
                 del_btn.clicked.connect(lambda checked, p=rp, r=row: self._remove_recent(p, r))
+                self._recent_del_btns.append(del_btn)
                 row_h.addWidget(link, 1)
                 row_h.addWidget(del_btn)
                 rc_lay.addWidget(row)
@@ -291,6 +291,15 @@ class PdfViewerPanel(QWidget):
                     QTimer.singleShot(0, self._canvas._layout_and_schedule)
         return super().eventFilter(obj, event)
 
+    @staticmethod
+    def _recent_link_style(dark: bool) -> str:
+        hover_bg = "rgba(255,255,255,0.05)" if dark else "rgba(0,0,0,0.05)"
+        return (
+            "QPushButton#recent_link { text-align: left; padding: 4px 12px; "
+            "border: none; outline: none; background: transparent; font-size: 10pt; }"
+            f"QPushButton#recent_link:hover {{ background: {hover_bg}; border-radius: 6px; }}"
+            "QPushButton#recent_link:focus { outline: none; border: none; }")
+
     def update_theme(self, dark: bool) -> None:
         self._canvas.set_dark_mode(dark)
         c = TEXT_SEC if dark else _LQ
@@ -306,6 +315,12 @@ class PdfViewerPanel(QWidget):
         self._search_prev_btn.setIcon(qta.icon('fa5s.chevron-up',     color=c))
         self._search_next_btn.setIcon(qta.icon('fa5s.chevron-down',   color=c))
         self._search_close_btn.setIcon(qta.icon('fa5s.times',         color=c))
+        # Update recent files section
+        link_style = self._recent_link_style(dark)
+        for link in self._recent_links:
+            link.setStyleSheet(link_style)
+        for btn in self._recent_del_btns:
+            btn.setIcon(qta.icon("fa5s.trash-alt", color=c))
 
     # ── Drag & drop ──────────────────────────────────────────────────────────
     def dragEnterEvent(self, e: QDragEnterEvent):

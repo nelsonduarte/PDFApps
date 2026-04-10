@@ -732,6 +732,10 @@ class MainWindow(QMainWindow):
                 self._tab_container.setVisible(True)
                 self._undo_top_btn.setVisible(False)
                 self._redo_top_btn.setVisible(False)
+                # Ensure the splitter allocates space for the tool panel
+                total = self._splitter.width()
+                tool_w = max(380, min(450, total // 3))
+                self._splitter.setSizes([total - tool_w, tool_w])
             self._breadcrumb.setText(f"{t('workspace.title')}  ›  {NAV_ITEMS[row][0]}")
             self._try_auto_load(row)
 
@@ -845,10 +849,6 @@ class MainWindow(QMainWindow):
     def _show_language_menu(self):
         _langs = [("en", "English"), ("pt", "Português"), ("es", "Español"), ("fr", "Français"), ("de", "Deutsch"), ("zh", "中文"), ("it", "Italiano"), ("nl", "Nederlands")]
         menu = QMenu(self)
-        if not self._dark_mode:
-            menu.setStyleSheet(
-                "QMenu { background: #FFFFFF; color: #1E293B; border: 1px solid #D1D5DB; }"
-                "QMenu::item:selected { background: #E7F0ED; }")
         current = get_language()
         for code, name in _langs:
             action = menu.addAction(f"  {'● ' if code == current else '  '}{name}")

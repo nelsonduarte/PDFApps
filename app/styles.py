@@ -12,6 +12,10 @@ STYLE = f"""
 QMainWindow {{ background: {BG_BASE}; }}
 QWidget     {{ background: transparent; color: {TEXT_PRI};
               font-family: "Segoe UI Variable Text", "Segoe UI", Arial, sans-serif; font-size: 12pt; }}
+QDialog     {{ background: {BG_CARD}; color: {TEXT_PRI}; }}
+QMenu       {{ background: {BG_CARD}; color: {TEXT_PRI}; border: 1px solid {BORDER}; }}
+QMenu::item:selected {{ background: #22303A; }}
+QMessageBox {{ background: {BG_CARD}; color: {TEXT_PRI}; }}
 QScrollArea {{ background: transparent; border: none; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
 
@@ -228,7 +232,7 @@ QStatusBar {{ background: {BG_SIDE}; border-top: 1px solid {BORDER};
 #viewer_nav_btn:disabled {{ background: #141827; border-color: #1E2235; }}
 #page_input {{ background: #1E2235; border: 1px solid {BORDER}; border-radius: 4px;
                color: {TEXT_PRI}; font-size: 10pt; padding: 2px; }}
-#viewer_placeholder {{ font-size: 12pt; color: #4A5C7A; background: {BG_SIDE}; }}
+#viewer_placeholder {{ font-size: 12pt; color: #8BA0B8; background: {BG_SIDE}; }}
 #viewer_sel_status  {{ font-size: 9pt; color: {TEXT_SEC}; background: {BG_CARD};
                        border-top: 1px solid {BORDER}; padding: 4px 8px; }}
 QPdfView {{ background: {BG_INNER}; border: none; }}
@@ -264,6 +268,10 @@ STYLE_LIGHT = f"""
 QMainWindow {{ background: {_LB}; }}
 QWidget     {{ background: transparent; color: {_LP};
               font-family: "Segoe UI Variable Text", "Segoe UI", Arial, sans-serif; font-size: 12pt; }}
+QDialog     {{ background: {_LC}; color: {_LP}; }}
+QMenu       {{ background: {_LC}; color: {_LP}; border: 1px solid {_LO}; }}
+QMenu::item:selected {{ background: #E7F0ED; }}
+QMessageBox {{ background: {_LC}; color: {_LP}; }}
 QScrollArea {{ background: transparent; border: none; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
 
