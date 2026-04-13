@@ -406,6 +406,10 @@ class PdfViewerPanel(QWidget):
         self._toc_tree.setVisible(not visible)
         if not visible:
             self._viewer_splitter.setSizes([220, max(800, self._viewer_splitter.width() - 220)])
+        # Re-layout pages after splitter change
+        if self._canvas._doc and self._canvas._zoom_factor == 1.0:
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(50, self._canvas._layout_and_schedule)
 
     def _toggle_night_mode(self):
         self._canvas.set_night_mode(self._night_btn.isChecked())

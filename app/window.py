@@ -1122,6 +1122,14 @@ class MainWindow(QMainWindow):
                 if idx is not None and idx < 0:
                     it.setHidden(False)
             self._sidebar_toggle_btn.setIcon(self._ico_times)
+        # Re-layout viewer pages after sidebar width change
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(50, self._relayout_viewer)
+
+    def _relayout_viewer(self):
+        for v in self._viewers:
+            if v._canvas._doc and v._canvas._zoom_factor == 1.0:
+                v._canvas._layout_and_schedule()
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
