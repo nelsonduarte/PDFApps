@@ -412,17 +412,26 @@ def _no_window():
 # ── Shortcuts / launchers ───────────────────────────────────────────────────────
 
 def create_shortcut_windows(target: str, lnk: str) -> None:
-    # Escape single quotes for PowerShell here-strings
-    t_safe = target.replace("'", "''")
-    l_safe = lnk.replace("'", "''")
-    ps = (
-        f"$s=(New-Object -COM WScript.Shell).CreateShortcut('{l_safe}');"
-        f"$s.TargetPath='{t_safe}';$s.IconLocation='{t_safe}';$s.Save()"
-    )
-    subprocess.run(
-        ["powershell", "-NoProfile", "-Command", ps],
-        capture_output=True, **_no_window()
-    )
+    # Use COM directly via win32com — no shell interpolation
+    import comtypes.client  # noqa: bundled with Windows Python
+    try:
+        shell = comtypes.client.CreateObject("WScript.Shell")
+        shortcut = shell.CreateShortcut(lnk)
+        shortcut.TargetPath = target
+        shortcut.IconLocation = target
+        shortcut.Save()
+    except Exception:
+        # Fallback: PowerShell with strict escaping
+        t_safe = target.replace("'", "''")
+        l_safe = lnk.replace("'", "''")
+        ps = (
+            f"$s=(New-Object -COM WScript.Shell).CreateShortcut('{l_safe}');"
+            f"$s.TargetPath='{t_safe}';$s.IconLocation='{t_safe}';$s.Save()"
+        )
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, **_no_window()
+        )
 
 
 def create_desktop_entry_linux(exe: str, desktop_file: str) -> None:

@@ -66,6 +66,23 @@ def _load_config_language() -> str:
         return ""
 
 
+def _atomic_write_config(cfg: dict):
+    """Write config atomically: write to temp file, then rename."""
+    import tempfile
+    dir_name = os.path.dirname(_CONFIG_PATH)
+    fd, tmp = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(cfg, f)
+        os.replace(tmp, _CONFIG_PATH)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def _save_config_language(lang: str):
     cfg = {}
     try:
@@ -74,8 +91,7 @@ def _save_config_language(lang: str):
     except Exception:
         pass
     cfg["language"] = lang
-    with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(cfg, f)
+    _atomic_write_config(cfg)
 
 
 def init():
@@ -144,8 +160,7 @@ def add_recent_file(path: str):
     except Exception:
         pass
     cfg["recent_files"] = recents
-    with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(cfg, f)
+    _atomic_write_config(cfg)
 
 
 _SIGNATURE_PATH = os.path.join(os.path.expanduser("~"), ".pdfapps_signature.png")

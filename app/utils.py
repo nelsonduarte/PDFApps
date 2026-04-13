@@ -62,6 +62,7 @@ def _paint_bg(widget: QWidget) -> None:
 
 
 def parse_pages(text: str, total: int) -> list:
+    _MAX_PAGES = 100_000
     pages: list = []
     for part in text.split(","):
         part = part.strip()
@@ -69,9 +70,14 @@ def parse_pages(text: str, total: int) -> list:
             continue
         if "-" in part:
             a, b = part.split("-", 1)
-            pages.extend(range(int(a) - 1, int(b)))
+            a_int, b_int = int(a), int(b)
+            if b_int - a_int + 1 > _MAX_PAGES:
+                raise ValueError(f"Range too large: {a}-{b} (max {_MAX_PAGES})")
+            pages.extend(range(a_int - 1, b_int))
         else:
             pages.append(int(part) - 1)
+        if len(pages) > _MAX_PAGES:
+            raise ValueError(f"Too many pages selected (max {_MAX_PAGES})")
     invalid = [p for p in pages if p < 0 or p >= total]
     if invalid:
         raise ValueError(f"Pages out of range: {[p+1 for p in invalid]}  (total: {total})")
@@ -179,17 +185,18 @@ def _find_gs():
              if _pl.system() == "Windows" else ["gs"])
     for n in names:
         p = _sh.which(n)
-        if p:
-            return p
+        if p and os.path.isfile(p):
+            return os.path.abspath(p)
     # Windows: check common install paths
     if _pl.system() == "Windows":
-        for p in [r"C:\Program Files\gs\gs10.05.0\bin\gswin64c.exe",
-                  r"C:\Program Files\gs\gs10.04.0\bin\gswin64c.exe",
-                  r"C:\Program Files\gs\gs10.03.1\bin\gswin64c.exe",
-                  r"C:\Program Files\gs\gs10.02.1\bin\gswin64c.exe",
-                  r"C:\Program Files (x86)\gs"]:
-            if os.path.isfile(p):
-                return p
+        import glob
+        for pattern in [r"C:\Program Files\gs\gs*\bin\gswin64c.exe",
+                        r"C:\Program Files\gs\gs*\bin\gswin32c.exe",
+                        r"C:\Program Files (x86)\gs\gs*\bin\gswin32c.exe"]:
+            matches = sorted(glob.glob(pattern), reverse=True)
+            for p in matches:
+                if os.path.isfile(p):
+                    return os.path.abspath(p)
     return None
 
 
@@ -244,7 +251,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 "recommended": "/ebook",
                 "low":         "/printer",
             }
-            fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd); os.chmod(p, 0o600)
+            fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
             cmd = [
                 gs, "-sDEVICE=pdfwrite",
                 "-dCompatibilityLevel=1.4",
@@ -316,7 +323,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
 
         # 4. Save with all compression flags
         _prog("passB_save")
-        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd); os.chmod(p, 0o600)
+        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
         save_kw = dict(garbage=4, deflate=True, deflate_fonts=True, clean=True)
         try:
             doc.save(p, **save_kw, use_objstms=True)
@@ -334,7 +341,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         # Optimize the best result so far (or the original)
         best_so_far = min(temps, key=lambda f: os.path.getsize(f)) if temps else src
         pdf = pikepdf.open(best_so_far)
-        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd); os.chmod(p, 0o600)
+        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
         pdf.save(p,
                  object_stream_mode=pikepdf.ObjectStreamMode.generate,
                  compress_streams=True,

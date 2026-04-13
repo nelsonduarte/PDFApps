@@ -87,22 +87,47 @@ def _find_asset(release: dict) -> dict | None:
     return None
 
 
-def _download(url: str, dest: str, signals: _Signals):
-    """Download file with progress callback."""
+def _get_expected_hash(release: dict, asset_name: str) -> str | None:
+    """Extract SHA256 hash from release body (checksums section)."""
+    body = release.get("body") or ""
+    for line in body.splitlines():
+        stripped = line.strip()
+        # Format: "<sha256>  <filename>" or "<sha256> <filename>"
+        if asset_name in stripped:
+            parts = stripped.split()
+            if len(parts) >= 2 and len(parts[0]) == 64:
+                try:
+                    int(parts[0], 16)
+                    return parts[0].lower()
+                except ValueError:
+                    pass
+    return None
+
+
+def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None = None):
+    """Download file with progress callback and optional SHA256 verification."""
+    import hashlib
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "PDFApps"})
         with urllib.request.urlopen(req, timeout=60) as resp:
             total = int(resp.headers.get("Content-Length", 0))
             downloaded = 0
+            sha = hashlib.sha256()
             with open(dest, "wb") as f:
                 while True:
                     chunk = resp.read(65536)
                     if not chunk:
                         break
                     f.write(chunk)
+                    sha.update(chunk)
                     downloaded += len(chunk)
                     if total:
                         signals.progress.emit(int(downloaded * 100 / total))
+        if expected_hash and sha.hexdigest() != expected_hash:
+            raise ValueError(
+                f"SHA256 mismatch: expected {expected_hash}, "
+                f"got {sha.hexdigest()}"
+            )
         signals.finished.emit(dest)
     except Exception as exc:
         try:
@@ -138,23 +163,29 @@ def _apply_update_unix(downloaded: str):
         if downloaded.endswith(".tar.gz"):
             import tarfile
             with tarfile.open(downloaded, "r:gz") as tar:
+                # Validate ALL members before extracting any
                 for m in tar.getmembers():
-                    if m.name != "PDFApps" or m.issym() or m.islnk():
-                        continue
-                    # Prevent path traversal in tar member name
+                    if m.issym() or m.islnk():
+                        raise ValueError(f"Symlink/hardlink rejected: {m.name}")
                     extracted = os.path.abspath(os.path.join(dest_dir, m.name))
-                    if not extracted.startswith(abs_dest):
-                        continue
+                    if not extracted.startswith(abs_dest + os.sep) and extracted != abs_dest:
+                        raise ValueError(f"Path traversal detected: {m.name}")
+                    if m.name != "PDFApps":
+                        raise ValueError(f"Unexpected member: {m.name}")
+                # Safe to extract after full validation
+                for m in tar.getmembers():
                     tar.extract(m, dest_dir)
         elif downloaded.endswith(".zip"):
             import zipfile
             with zipfile.ZipFile(downloaded, "r") as zf:
-                info = zf.getinfo("PDFApps")
-                # Prevent ZIP slip
-                extracted = os.path.abspath(os.path.join(dest_dir, info.filename))
-                if not extracted.startswith(abs_dest):
-                    raise ValueError("Path traversal detected in ZIP")
-                zf.extract(info, dest_dir)
+                # Validate ALL members before extracting any
+                for info in zf.infolist():
+                    extracted = os.path.abspath(os.path.join(dest_dir, info.filename))
+                    if not extracted.startswith(abs_dest + os.sep) and extracted != abs_dest:
+                        raise ValueError(f"Path traversal detected: {info.filename}")
+                    if info.filename != "PDFApps":
+                        raise ValueError(f"Unexpected member: {info.filename}")
+                zf.extract("PDFApps", dest_dir)
         else:
             shutil.copy2(downloaded, current)
         os.chmod(current, os.stat(current).st_mode | stat.S_IEXEC)
@@ -252,18 +283,20 @@ class UpdateDialog(QDialog):
             tempfile.gettempdir(), self._asset["name"]
         )
         url = self._asset["browser_download_url"]
+        expected_hash = _get_expected_hash(self._release, self._asset["name"])
 
         class _Worker(QObject):
-            def __init__(self, url, dest, signals):
+            def __init__(self, url, dest, signals, expected_hash):
                 super().__init__()
                 self._url = url
                 self._dest = dest
                 self._signals = signals
+                self._expected_hash = expected_hash
             def run(self):
-                _download(self._url, self._dest, self._signals)
+                _download(self._url, self._dest, self._signals, self._expected_hash)
 
         self._dl_thread = QThread()
-        self._dl_worker = _Worker(url, self._dest, self._signals)
+        self._dl_worker = _Worker(url, self._dest, self._signals, expected_hash)
         self._dl_worker.moveToThread(self._dl_thread)
         self._dl_thread.started.connect(self._dl_worker.run)
         self._signals.finished.connect(self._dl_thread.quit)
