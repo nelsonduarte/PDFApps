@@ -279,9 +279,10 @@ class UpdateDialog(QDialog):
         self._progress.setVisible(True)
         self._start_dots_animation(t("update.downloading"))
 
-        self._dest = os.path.join(
-            tempfile.gettempdir(), self._asset["name"]
-        )
+        # Use unique temp file to avoid permission errors from prior attempts
+        suffix = os.path.splitext(self._asset["name"])[1] or ".tmp"
+        fd, self._dest = tempfile.mkstemp(suffix=suffix, prefix="PDFApps_update_")
+        os.close(fd)
         url = self._asset["browser_download_url"]
         expected_hash = _get_expected_hash(self._release, self._asset["name"])
 
