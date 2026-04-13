@@ -1,7 +1,7 @@
 name: pdfapps
 title: PDFApps
 base: core22
-version: '1.12.0'
+version: '1.12.1'
 summary: Fast, offline, subscription-free PDF editor
 description: |
   PDFApps is an all-in-one PDF editor with 13 built-in tools: split, merge,
