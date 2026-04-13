@@ -341,13 +341,50 @@ def _detect_lang() -> str:
 
 _LANG = _detect_lang()
 
-# Update splash screen with translated text
+# Close PyInstaller splash and show animated tkinter splash
 try:
     import pyi_splash
-    _loading = _INSTALLER_STRINGS.get(_LANG, {}).get("loading", "Loading…")
-    pyi_splash.update_text(_loading)
+    pyi_splash.close()
 except ImportError:
     pass
+
+_loading_text = _INSTALLER_STRINGS.get(_LANG, {}).get("loading", "Loading…").rstrip("…").rstrip(".")
+
+
+def _show_loading_splash(root: tk.Tk):
+    """Show a small centered splash with animated dots while the main UI builds."""
+    splash = tk.Toplevel(root)
+    splash.overrideredirect(True)
+    splash.configure(bg="#1E3A5F")
+    sw, sh = 400, 200
+    x = (root.winfo_screenwidth() - sw) // 2
+    y = (root.winfo_screenheight() - sh) // 2
+    splash.geometry(f"{sw}x{sh}+{x}+{y}")
+    splash.attributes("-topmost", True)
+
+    tk.Label(splash, text="PDFApps", bg="#1E3A5F", fg="#FFFFFF",
+             font=("Segoe UI", 28, "bold")).pack(pady=(40, 10))
+    line = tk.Frame(splash, bg="#3B82F6", height=3, width=160)
+    line.pack(pady=(0, 20))
+
+    loading_var = tk.StringVar(value=_loading_text + ".")
+    tk.Label(splash, textvariable=loading_var, bg="#1E3A5F", fg="#94A3B8",
+             font=("Segoe UI", 11)).pack()
+
+    splash._dots = 1
+    splash._loading_var = loading_var
+
+    def _animate():
+        try:
+            splash._dots = (splash._dots % 3) + 1
+            loading_var.set(_loading_text + "." * splash._dots)
+            splash.after(400, _animate)
+        except Exception:
+            pass
+
+    splash.after(400, _animate)
+    splash.update()
+    return splash
 
 
 def _t(key: str, **kwargs) -> str:
@@ -719,6 +756,9 @@ def install_ghostscript_linux(step_fn) -> None:
 class InstallerApp(tk.Tk):
     def __init__(self):
         super().__init__()
+        # Show loading splash immediately
+        self._splash = _show_loading_splash(self)
+        self.withdraw()  # hide main window while building UI
         self.title(_t("title", app=APP_NAME, ver=APP_VERSION))
         self.geometry("520x470")
         self.resizable(False, False)
@@ -728,12 +768,15 @@ class InstallerApp(tk.Tk):
         except Exception:
             pass
         self._build()
-        # Close PyInstaller splash screen if present
+        # Ensure splash is visible for at least 1 second
+        self.after(1000, self._close_splash)
+
+    def _close_splash(self):
         try:
-            import pyi_splash
-            pyi_splash.close()
-        except ImportError:
+            self._splash.destroy()
+        except Exception:
             pass
+        self.deiconify()
 
     def _build(self):
         hdr = tk.Frame(self, bg=HEADER_BG, height=88)
