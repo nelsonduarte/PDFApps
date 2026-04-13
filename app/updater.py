@@ -277,7 +277,7 @@ class UpdateDialog(QDialog):
         self._update_btn.setEnabled(False)
         self._cancel_btn.setEnabled(False)
         self._progress.setVisible(True)
-        self._status.setText(t("update.downloading"))
+        self._start_dots_animation(t("update.downloading"))
 
         self._dest = os.path.join(
             tempfile.gettempdir(), self._asset["name"]
@@ -306,10 +306,28 @@ class UpdateDialog(QDialog):
     def _on_progress(self, pct: int):
         self._progress.setValue(pct)
 
+    def _start_dots_animation(self, base_text: str):
+        """Animate trailing dots: '...' cycling 1-3 dots."""
+        from PySide6.QtCore import QTimer
+        self._dots_base = base_text.rstrip(".")
+        self._dots_count = 0
+        self._dots_timer = QTimer(self)
+        self._dots_timer.timeout.connect(self._tick_dots)
+        self._dots_timer.start(400)
+
+    def _tick_dots(self):
+        self._dots_count = (self._dots_count % 3) + 1
+        self._status.setText(self._dots_base + "." * self._dots_count)
+
+    def _stop_dots_animation(self):
+        if hasattr(self, "_dots_timer") and self._dots_timer.isActive():
+            self._dots_timer.stop()
+
     def _on_finished(self, path: str):
         from app.i18n import t
+        self._stop_dots_animation()
         self._progress.setValue(100)
-        self._status.setText(t("update.applying"))
+        self._start_dots_animation(t("update.applying"))
 
         try:
             if sys.platform == "win32":
@@ -326,6 +344,7 @@ class UpdateDialog(QDialog):
             self._on_error(str(exc))
 
     def _on_error(self, msg: str):
+        self._stop_dots_animation()
         self._cancel_btn.setEnabled(True)
         self._update_btn.setEnabled(True)
         from app.i18n import t
