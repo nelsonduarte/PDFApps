@@ -15,6 +15,7 @@ TEXT_L      = "#64748B"
 
 _INSTALLER_STRINGS = {
     "en": {
+        "loading": "Loading…",
         "title": "Install {app} {ver}",
         "folder": "Installation folder:",
         "browse": "  Browse  ",
@@ -52,6 +53,7 @@ _INSTALLER_STRINGS = {
         "inst_gs_pkg": "Installing Ghostscript via package manager…",
     },
     "pt": {
+        "loading": "A carregar…",
         "title": "Instalar {app} {ver}",
         "folder": "Pasta de instalação:",
         "browse": "  Procurar  ",
@@ -89,6 +91,7 @@ _INSTALLER_STRINGS = {
         "inst_gs_pkg": "A instalar Ghostscript via gestor de pacotes…",
     },
     "es": {
+        "loading": "Cargando…",
         "title": "Instalar {app} {ver}",
         "folder": "Carpeta de instalación:",
         "browse": "  Examinar  ",
@@ -126,6 +129,7 @@ _INSTALLER_STRINGS = {
         "inst_gs_pkg": "Instalando Ghostscript via gestor de paquetes…",
     },
     "fr": {
+        "loading": "Chargement…",
         "title": "Installer {app} {ver}",
         "folder": "Dossier d'installation :",
         "browse": "  Parcourir  ",
@@ -163,6 +167,7 @@ _INSTALLER_STRINGS = {
         "inst_gs_pkg": "Installation de Ghostscript via le gestionnaire de paquets…",
     },
     "de": {
+        "loading": "Laden…",
         "title": "{app} {ver} installieren",
         "folder": "Installationsordner:",
         "browse": "  Durchsuchen  ",
@@ -200,6 +205,7 @@ _INSTALLER_STRINGS = {
         "inst_gs_pkg": "Ghostscript wird über Paketmanager installiert…",
     },
     "zh": {
+        "loading": "加载中…",
         "title": "安装 {app} {ver}",
         "folder": "安装文件夹：",
         "browse": "  浏览  ",
@@ -237,6 +243,7 @@ _INSTALLER_STRINGS = {
         "inst_gs_pkg": "正在通过包管理器安装 Ghostscript…",
     },
     "it": {
+        "loading": "Caricamento…",
         "title": "Installa {app} {ver}",
         "folder": "Cartella di installazione:",
         "browse": "  Sfoglia  ",
@@ -274,6 +281,7 @@ _INSTALLER_STRINGS = {
         "inst_gs_pkg": "Installazione di Ghostscript via gestore pacchetti…",
     },
     "nl": {
+        "loading": "Laden…",
         "title": "{app} {ver} installeren",
         "folder": "Installatiemap:",
         "browse": "  Bladeren  ",
@@ -332,6 +340,15 @@ def _detect_lang() -> str:
     return "en"
 
 _LANG = _detect_lang()
+
+# Update splash screen with translated text
+try:
+    import pyi_splash
+    _loading = _INSTALLER_STRINGS.get(_LANG, {}).get("loading", "Loading…")
+    pyi_splash.update_text(_loading)
+except ImportError:
+    pass
+
 
 def _t(key: str, **kwargs) -> str:
     val = _INSTALLER_STRINGS.get(_LANG, {}).get(key)
@@ -711,6 +728,12 @@ class InstallerApp(tk.Tk):
         except Exception:
             pass
         self._build()
+        # Close PyInstaller splash screen if present
+        try:
+            import pyi_splash
+            pyi_splash.close()
+        except ImportError:
+            pass
 
     def _build(self):
         hdr = tk.Frame(self, bg=HEADER_BG, height=88)

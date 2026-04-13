@@ -14,8 +14,17 @@ a = Analysis(
     noarchive=False,
 )
 pyz = PYZ(a.pure)
+splash = Splash(
+    'splash.png',
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=(200, 160),
+    text_size=12,
+    text_color='#94A3B8',
+    text_default='Loading...',
+)
 exe = EXE(
-    pyz, a.scripts, a.binaries, a.datas, [],
+    pyz, a.scripts, a.binaries, a.datas, splash, splash.binaries, [],
     name='PDFAppsSetup',
     debug=False, strip=False, upx=True,
     console=False,
