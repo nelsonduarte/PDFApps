@@ -404,7 +404,8 @@ class MainWindow(QMainWindow):
         self._footer_w = QWidget(); self._footer_w.setObjectName("sidebar")
         footer_h = QHBoxLayout(self._footer_w)
         footer_h.setContentsMargins(14, 8, 14, 10); footer_h.setSpacing(0)
-        footer_lbl = QLabel(t("app.credits")); footer_lbl.setObjectName("sidebar_footer")
+        from app.constants import APP_VERSION
+        footer_lbl = QLabel(f"v{APP_VERSION}  ·  {t('app.credits')}"); footer_lbl.setObjectName("sidebar_footer")
         footer_h.addWidget(footer_lbl, 1)
         sb_lay.addWidget(self._footer_w)
         self._sidebar_collapsed = False
