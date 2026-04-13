@@ -140,13 +140,34 @@ class TabImport(BasePage):
                     all_lines.extend(f.read().split("\n"))
                 all_lines.append("")  # separator between files
             doc = fitz.open()
-            chunk = 60
-            for i in range(0, max(len(all_lines), 1), chunk):
-                page = doc.new_page(width=595, height=842)  # A4
-                block = "\n".join(all_lines[i:i + chunk])
-                rect = fitz.Rect(50, 50, 545, 792)
-                page.insert_textbox(rect, block, fontsize=10,
-                                    fontname="courier", encoding=fitz.TEXT_ENCODING_LATIN)
+            page = None
+            y = 50
+            fontsize = 10
+            line_height = fontsize * 1.4
+            margin_x = 50
+            max_y = 792
+            max_width = 495  # 595 - 2*50
+            for line in all_lines:
+                if page is None or y + fontsize > max_y:
+                    page = doc.new_page(width=595, height=842)  # A4
+                    y = 50
+                if not line.strip():
+                    y += line_height
+                    continue
+                # Use textbox for automatic word wrapping
+                rect = fitz.Rect(margin_x, y, margin_x + max_width, max_y)
+                used = page.insert_textbox(rect, line, fontsize=fontsize,
+                                           fontname="helv")
+                if used < 0:
+                    # Text didn't fit — overflow to new page
+                    page = doc.new_page(width=595, height=842)
+                    y = 50
+                    rect = fitz.Rect(margin_x, y, margin_x + max_width, max_y)
+                    used = page.insert_textbox(rect, line, fontsize=fontsize,
+                                               fontname="helv")
+                # Estimate lines used by the textbox
+                est_lines = max(1, len(line) * fontsize * 0.5 / max_width + 1)
+                y += line_height * est_lines
             doc.save(out_path)
             doc.close()
             self._done(out_path)
