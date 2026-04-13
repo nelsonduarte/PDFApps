@@ -42,17 +42,19 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"></noscript>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<a href="#main" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:8px 16px;background:#14B8A6;color:#fff;text-decoration:none;font-weight:700;border-radius:0 0 6px 0;" onfocus="this.style.cssText='position:fixed;left:0;top:0;z-index:9999;padding:8px 16px;background:#14B8A6;color:#fff;text-decoration:none;font-weight:700;border-radius:0 0 6px 0;'" onblur="this.style.cssText='position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;'">Skip to main content</a>
+<a href="#main" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:8px 16px;background:#10a597;color:#fff;text-decoration:none;font-weight:700;border-radius:0 0 6px 0;" onfocus="this.style.cssText='position:fixed;left:0;top:0;z-index:9999;padding:8px 16px;background:#10a597;color:#fff;text-decoration:none;font-weight:700;border-radius:0 0 6px 0;'" onblur="this.style.cssText='position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;'">Skip to main content</a>
 
 <header class="site-header">
     <div class="container">
         <a href="index.html" class="brand">
-            <img src="icon.png" alt="">
+            <img src="icon.png" alt="" width="28" height="28">
             PDFApps
         </a>
         <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu"><span></span><span></span><span></span></button>
@@ -93,7 +95,7 @@
         <div class="hero-meta">
             <a href="https://github.com/nelsonduarte/PDFApps" class="hero-meta-item" style="text-decoration:none;color:inherit;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                <img src="https://img.shields.io/github/stars/nelsonduarte/PDFApps?style=flat&label=Stars&color=f59e0b" alt="GitHub Stars" style="height:20px;vertical-align:middle;">
+                <img src="https://img.shields.io/github/stars/nelsonduarte/PDFApps?style=flat&label=Stars&color=f59e0b" alt="GitHub Stars" width="72" height="20" style="height:20px;vertical-align:middle;">
             </a>
             <span class="hero-meta-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -245,27 +247,27 @@
 
         <div class="platforms-grid">
             <a href="download.html" class="platform-item">
-                <img src="icons/windows.svg" alt="Windows">
+                <img src="icons/windows.svg" alt="" width="40" height="40">
                 <span>Windows</span>
             </a>
             <a href="download.html" class="platform-item">
-                <img src="icons/apple.svg" alt="macOS">
+                <img src="icons/apple.svg" alt="" width="40" height="40">
                 <span>macOS</span>
             </a>
             <a href="download.html" class="platform-item">
-                <img src="icons/ubuntu.svg" alt="Ubuntu">
+                <img src="icons/ubuntu.svg" alt="" width="40" height="40">
                 <span>Ubuntu</span>
             </a>
             <a href="download.html" class="platform-item">
-                <img src="icons/fedora.svg" alt="Fedora">
+                <img src="icons/fedora.svg" alt="" width="40" height="40">
                 <span>Fedora</span>
             </a>
             <a href="download.html" class="platform-item">
-                <img src="icons/archlinux.svg" alt="Arch">
+                <img src="icons/archlinux.svg" alt="" width="40" height="40">
                 <span>Arch</span>
             </a>
             <a href="download.html" class="platform-item">
-                <img src="icons/appimage.svg" alt="AppImage">
+                <img src="icons/appimage.svg" alt="" width="40" height="40">
                 <span>AppImage</span>
             </a>
         </div>
@@ -290,11 +292,11 @@
     <div class="container">
         <div class="footer-grid">
             <div class="footer-brand">
-                <a href="index.html" class="brand"><img src="icon.png" alt="">PDFApps</a>
+                <a href="index.html" class="brand"><img src="icon.png" alt="" width="28" height="28">PDFApps</a>
                 <p>Fast, offline, subscription-free PDF editor. Open source under the MIT license.</p>
             </div>
             <div class="footer-col">
-                <h4>Product</h4>
+                <p class="footer-heading">Product</p>
                 <ul>
                     <li><a href="features.html">Features</a></li>
                     <li><a href="download.html">Download</a></li>
@@ -303,7 +305,7 @@
                 </ul>
             </div>
             <div class="footer-col">
-                <h4>Resources</h4>
+                <p class="footer-heading">Resources</p>
                 <ul>
                     <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/CONTRIBUTING.md">Contributing</a></li>
                     <li><a href="https://github.com/nelsonduarte/PDFApps/issues">Issues</a></li>
@@ -311,14 +313,14 @@
                 </ul>
             </div>
             <div class="footer-col">
-                <h4>Community</h4>
+                <p class="footer-heading">Community</p>
                 <ul>
                     <li><a href="https://github.com/nelsonduarte/PDFApps">GitHub</a></li>
                     <li><a href="https://github.com/sponsors/nelsonduarte">Sponsor</a></li>
                 </ul>
             </div>
             <div class="footer-col">
-                <h4>Legal</h4>
+                <p class="footer-heading">Legal</p>
                 <ul>
                     <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/LICENSE">MIT License</a></li>
                 </ul>

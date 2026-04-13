@@ -9,10 +9,10 @@
     --border-strong: #2a3744;
     --text: #f8fafc;
     --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --accent: #14b8a6;
-    --accent-hover: #0d9488;
-    --accent-glow: rgba(20, 184, 166, 0.15);
+    --text-muted: #8292a4;
+    --accent: #10a597;
+    --accent-hover: #0d8f83;
+    --accent-glow: rgba(16, 165, 151, 0.15);
     --accent-2: #06b6d4;
     --header-bg: rgba(10, 15, 20, 0.85);
     --hover-bg: #1d2a33;
@@ -42,10 +42,10 @@
     --border-strong: #cdd5dc;
     --text: #0f172a;
     --text-secondary: #475569;
-    --text-muted: #64748b;
-    --accent: #0d9488;
-    --accent-hover: #0f766e;
-    --accent-glow: rgba(13, 148, 136, 0.1);
+    --text-muted: #5b6b7d;
+    --accent: #0d8f83;
+    --accent-hover: #0b7a70;
+    --accent-glow: rgba(13, 143, 131, 0.1);
     --accent-2: #0891b2;
     --header-bg: rgba(255, 255, 255, 0.85);
     --hover-bg: #f1f5f9;
@@ -155,7 +155,7 @@ p {
     background: var(--accent-glow);
     padding: 6px 14px;
     border-radius: 999px;
-    border: 1px solid rgba(20,184,166,0.25);
+    border: 1px solid rgba(16,165,151,0.25);
 }
 
 .gradient-text {
@@ -491,7 +491,7 @@ section {
     height: 48px;
     border-radius: 12px;
     background: var(--accent-glow);
-    border: 1px solid rgba(20,184,166,0.25);
+    border: 1px solid rgba(16,165,151,0.25);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -653,7 +653,7 @@ section {
     max-width: 280px;
 }
 
-.footer-col h4 {
+.footer-heading {
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -1017,7 +1017,7 @@ ol.docs-list li::before {
 .docs-content a {
     color: var(--accent);
     text-decoration: underline;
-    text-decoration-color: rgba(20, 184, 166, 0.3);
+    text-decoration-color: rgba(16, 165, 151, 0.3);
     text-underline-offset: 3px;
 }
 
@@ -1104,7 +1104,7 @@ ol.docs-list li::before {
     font-size: 0.875rem;
     font-weight: 600;
     background: var(--accent-glow);
-    border: 1px solid rgba(20, 184, 166, 0.25);
+    border: 1px solid rgba(16, 165, 151, 0.25);
     color: var(--accent);
     padding: 4px 12px;
     border-radius: 6px;

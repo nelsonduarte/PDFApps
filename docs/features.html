@@ -19,17 +19,19 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"></noscript>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<a href="#main" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:8px 16px;background:#14B8A6;color:#fff;text-decoration:none;font-weight:700;border-radius:0 0 6px 0;" onfocus="this.style.cssText='position:fixed;left:0;top:0;z-index:9999;padding:8px 16px;background:#14B8A6;color:#fff;text-decoration:none;font-weight:700;border-radius:0 0 6px 0;'" onblur="this.style.cssText='position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;'">Skip to main content</a>
+<a href="#main" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:8px 16px;background:#10a597;color:#fff;text-decoration:none;font-weight:700;border-radius:0 0 6px 0;" onfocus="this.style.cssText='position:fixed;left:0;top:0;z-index:9999;padding:8px 16px;background:#10a597;color:#fff;text-decoration:none;font-weight:700;border-radius:0 0 6px 0;'" onblur="this.style.cssText='position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;'">Skip to main content</a>
 
 <header class="site-header">
     <div class="container">
         <a href="index.html" class="brand">
-            <img src="icon.png" alt="">
+            <img src="icon.png" alt="" width="28" height="28">
             PDFApps
         </a>
         <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu"><span></span><span></span><span></span></button>
@@ -285,11 +287,11 @@
     <div class="container">
         <div class="footer-grid">
             <div class="footer-brand">
-                <a href="index.html" class="brand"><img src="icon.png" alt="">PDFApps</a>
+                <a href="index.html" class="brand"><img src="icon.png" alt="" width="28" height="28">PDFApps</a>
                 <p>Fast, offline, subscription-free PDF editor. Open source under the MIT license.</p>
             </div>
             <div class="footer-col">
-                <h4>Product</h4>
+                <p class="footer-heading">Product</p>
                 <ul>
                     <li><a href="features.html">Features</a></li>
                     <li><a href="download.html">Download</a></li>
@@ -298,7 +300,7 @@
                 </ul>
             </div>
             <div class="footer-col">
-                <h4>Resources</h4>
+                <p class="footer-heading">Resources</p>
                 <ul>
                     <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/CONTRIBUTING.md">Contributing</a></li>
                     <li><a href="https://github.com/nelsonduarte/PDFApps/issues">Issues</a></li>
@@ -306,14 +308,14 @@
                 </ul>
             </div>
             <div class="footer-col">
-                <h4>Community</h4>
+                <p class="footer-heading">Community</p>
                 <ul>
                     <li><a href="https://github.com/nelsonduarte/PDFApps">GitHub</a></li>
                     <li><a href="https://github.com/sponsors/nelsonduarte">Sponsor</a></li>
                 </ul>
             </div>
             <div class="footer-col">
-                <h4>Legal</h4>
+                <p class="footer-heading">Legal</p>
                 <ul>
                     <li><a href="https://github.com/nelsonduarte/PDFApps/blob/main/LICENSE">MIT License</a></li>
                 </ul>
