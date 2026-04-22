@@ -45,3 +45,30 @@ exe = EXE(
     entitlements_file=None,
     icon=['icon.ico'],
 )
+
+# macOS .app bundle (ignored on other platforms)
+import sys as _sys
+if _sys.platform == 'darwin':
+    _icon = 'icon.icns' if os.path.isfile('icon.icns') else 'icon.ico'
+    app = BUNDLE(
+        exe,
+        name='PDFApps.app',
+        icon=_icon,
+        bundle_identifier='com.pdfapps.app',
+        version='1.13.1',
+        info_plist={
+            'CFBundleName': 'PDFApps',
+            'CFBundleDisplayName': 'PDFApps',
+            'CFBundleExecutable': 'PDFApps',
+            'CFBundleIdentifier': 'com.pdfapps.app',
+            'CFBundleVersion': '1.13.1',
+            'CFBundleShortVersionString': '1.13.1',
+            'LSMinimumSystemVersion': '10.14',
+            'NSHighResolutionCapable': True,
+            'CFBundleDocumentTypes': [{
+                'CFBundleTypeName': 'PDF Document',
+                'CFBundleTypeRole': 'Editor',
+                'LSItemContentTypes': ['com.adobe.pdf'],
+            }],
+        },
+    )

@@ -80,15 +80,21 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           python -m PyInstaller --noconfirm pdfapps.spec
-          chmod +x dist/PDFApps
-          cd dist && zip -r PDFApps-macOS.zip PDFApps
+          # Create DMG with the .app bundle and an Applications shortcut
+          mkdir -p dist/dmg
+          cp -R dist/PDFApps.app dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname "PDFApps" \
+            -srcfolder dist/dmg \
+            -ov -format UDZO \
+            dist/PDFApps-macOS.dmg
 
       - name: Upload (macOS)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.artifact }}
-          path: dist/PDFApps-macOS.zip
+          path: dist/PDFApps-macOS.dmg
 
   appimage:
     runs-on: ubuntu-22.04
@@ -206,5 +212,5 @@ jobs:
             artifacts/PDFApps-Windows/PDFAppsSetup.exe
             artifacts/PDFApps-Windows/PDFApps.exe
             artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz
-            artifacts/PDFApps-macOS/PDFApps-macOS.zip
+            artifacts/PDFApps-macOS/PDFApps-macOS.dmg
             artifacts/PDFApps-AppImage/PDFApps-*.AppImage

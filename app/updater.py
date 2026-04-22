@@ -96,7 +96,7 @@ def _find_asset(release: dict) -> dict | None:
     if sys.platform == "win32":
         name = "PDFAppsSetup.exe"
     elif sys.platform == "darwin":
-        name = "PDFApps-macOS.zip"
+        name = "PDFApps-macOS.dmg"
     else:
         name = "PDFApps-Linux.tar.gz"
     for asset in release.get("assets", []):
@@ -168,8 +168,20 @@ def _apply_update_windows(downloaded_installer: str):
 
 
 
+def _apply_update_macos_dmg(dmg_path: str):
+    """Open the DMG so the user can drag the new .app to Applications."""
+    import subprocess
+    subprocess.Popen(["open", dmg_path])
+    # App should quit so user can replace it in /Applications
+    import PySide6.QtWidgets as _qw
+    _qw.QApplication.instance().quit()
+
+
 def _apply_update_unix(downloaded: str):
-    """Replace the running binary and restart."""
+    """Replace the running binary and restart, or open DMG on macOS."""
+    if downloaded.endswith(".dmg"):
+        _apply_update_macos_dmg(downloaded)
+        return
     import shutil
     import stat
     current = sys.executable

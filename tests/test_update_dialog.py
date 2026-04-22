@@ -45,8 +45,8 @@ MOCK_RELEASE = {
             "browser_download_url": "https://example.com/fake.tar.gz",
         },
         {
-            "name": "PDFApps-macOS.zip",
-            "browser_download_url": "https://example.com/fake.zip",
+            "name": "PDFApps-macOS.dmg",
+            "browser_download_url": "https://example.com/fake.dmg",
         },
     ],
 }
