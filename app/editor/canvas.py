@@ -1,7 +1,7 @@
 """PDFApps – PdfEditCanvas: continuous-scroll visual PDF edit canvas."""
 
-from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QRunnable, QThreadPool
-from PySide6.QtWidgets import QWidget, QSizePolicy
+from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QRunnable, QThreadPool, QEvent
+from PySide6.QtWidgets import QWidget, QSizePolicy, QLineEdit
 
 from app.constants import ACCENT, BG_INNER, TEXT_SEC, _LN
 from app.i18n import t
@@ -57,6 +57,8 @@ class PdfEditCanvas(QWidget):
     stroke_finished = Signal(int, object)        # (page_idx, list[fitz.Point])
     note_deleted    = Signal(dict)
     zoom_changed    = Signal(int)
+    text_edit_committed = Signal(int, dict)      # (page_idx, edit_dict)
+    text_inserted       = Signal(int, dict)      # (page_idx, edit_dict)
 
     def __init__(self):
         super().__init__()
@@ -77,6 +79,7 @@ class PdfEditCanvas(QWidget):
         self._overlays    = []    # ALL overlays (all pages)
         self._select_mode = False
         self._draw_mode   = False
+        self._text_mode   = False
         self._draw_color  = (1.0, 0.0, 0.0)
         self._draw_width  = 2
         self._current_stroke = None   # list of (sx, sy) screen coords while drawing
@@ -87,6 +90,19 @@ class PdfEditCanvas(QWidget):
         self.setMinimumSize(300, 400)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._bg_color = BG_INNER
+        # Inline text editor (overlayed on span for real-time edit)
+        self._inline_edit = QLineEdit(self)
+        self._inline_edit.hide()
+        self._inline_edit.installEventFilter(self)
+        self._inline_edit.returnPressed.connect(self._commit_inline)
+        self._inline_span = None
+        self._inline_page_idx = -1
+        self._inline_original = ""
+        self._inline_mode = None  # "edit" | "insert"
+        self._inline_insert_point = None  # (pdf_x, pdf_y) for insert mode
+        self._inline_insert_size = 12
+        self._inline_insert_color = (0, 0, 0)
+        self._inline_insert_font = ""
 
     def set_dark_mode(self, dark: bool):
         self._bg_color = BG_INNER if dark else _LN
@@ -94,6 +110,12 @@ class PdfEditCanvas(QWidget):
 
     def set_select_mode(self, active: bool):
         self._select_mode = active
+
+    def set_text_mode(self, active: bool):
+        """Unified text mode — IBeamCursor over spans, CrossCursor elsewhere."""
+        self._text_mode = active
+        if not active:
+            self.setCursor(Qt.CursorShape.CrossCursor)
 
     def set_draw_mode(self, active: bool, color=None, width=None):
         self._draw_mode = active
@@ -164,13 +186,17 @@ class PdfEditCanvas(QWidget):
                 return i
         return max(0, len(self._page_offsets) - 1)
 
-    def get_span_at(self, page_idx, pdf_pt):
-        """Returns the closest fitz span to pdf_pt on the given page."""
+    def get_span_at(self, page_idx, pdf_pt, max_dist: float = 30.0):
+        """Returns the closest fitz span to pdf_pt on the given page.
+
+        `max_dist` is in PDF points. A hit inside a bbox returns immediately;
+        otherwise the closest span within `max_dist` (if any) is returned.
+        """
         if not self._doc: return None
         import fitz
         page = self._doc[page_idx]
         click = fitz.Point(pdf_pt.x, pdf_pt.y)
-        found, best_dist = None, 30.0
+        found, best_dist = None, float(max_dist)
         for block in page.get_text("dict")["blocks"]:
             if block.get("type") != 0: continue
             for line in block.get("lines", []):
@@ -185,10 +211,193 @@ class PdfEditCanvas(QWidget):
                         best_dist = dist; found = span
         return found
 
+    # ── inline text edit ────────────────────────────────────────────────
+
+    def begin_inline_text_edit(self, span: dict, page_idx: int):
+        """Show a QLineEdit positioned over the span, pre-filled and focused."""
+        if self._inline_edit.isVisible():
+            self._commit_inline()
+        self._inline_mode = "edit"
+        self._inline_span = dict(span)
+        self._inline_page_idx = page_idx
+        self._inline_original = span.get("text", "")
+        self._inline_edit.setText(self._inline_original)
+        self._style_inline_edit(span)
+        self._reposition_inline()
+        self._inline_edit.show()
+        self._inline_edit.raise_()
+        self._inline_edit.setFocus(Qt.FocusReason.OtherFocusReason)
+        self._inline_edit.selectAll()
+
+    def begin_inline_text_insert(self, page_idx: int, pdf_point, size: float, color: tuple, font: str = ""):
+        """Show an empty QLineEdit at the click point for real-time text insertion."""
+        if self._inline_edit.isVisible():
+            self._commit_inline()
+        self._inline_mode = "insert"
+        self._inline_span = None
+        self._inline_page_idx = page_idx
+        self._inline_original = ""
+        self._inline_insert_point = (float(pdf_point.x), float(pdf_point.y))
+        self._inline_insert_size = float(size)
+        self._inline_insert_color = tuple(color)
+        self._inline_insert_font = font or ""
+        self._inline_edit.setText("")
+        self._style_inline_insert()
+        self._reposition_inline()
+        self._inline_edit.show()
+        self._inline_edit.raise_()
+        self._inline_edit.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def _style_inline_insert(self):
+        from PySide6.QtGui import QFont
+        fname = (self._inline_insert_font or "").lower()
+        if "times" in fname or "serif" in fname or "roman" in fname:
+            family = "Times New Roman"
+        elif "mono" in fname or "courier" in fname or "consol" in fname:
+            family = "Consolas"
+        else:
+            family = "Helvetica"
+        fnt = QFont(family)
+        fnt.setPointSizeF(max(4.0, self._inline_insert_size * self._zoom * 0.75))
+        if "bold" in fname or "black" in fname or "heavy" in fname:
+            fnt.setBold(True)
+        if "italic" in fname or "oblique" in fname:
+            fnt.setItalic(True)
+        self._inline_edit.setFont(fnt)
+        c = self._inline_insert_color
+        r, g, b = int(c[0]*255), int(c[1]*255), int(c[2]*255)
+        hex_color = f"#{r:02x}{g:02x}{b:02x}"
+        self._inline_edit.setStyleSheet(
+            f"QLineEdit {{ background: transparent; color: {hex_color};"
+            f" border: none; border-bottom: 1px dashed {ACCENT}; padding: 0; }}")
+
+    def _style_inline_edit(self, span: dict):
+        from PySide6.QtGui import QFont, QColor
+        bb = span["bbox"]
+        visual_size = max(float(span.get("size") or 0), float(bb[3] - bb[1]))
+        fname = (span.get("font", "") or "").lower()
+        if "times" in fname or "serif" in fname or "roman" in fname:
+            family = "Times New Roman"
+        elif "mono" in fname or "courier" in fname or "consol" in fname:
+            family = "Consolas"
+        else:
+            family = "Helvetica"
+        fnt = QFont(family)
+        fnt.setPointSizeF(max(4.0, visual_size * self._zoom * 0.75))
+        if "bold" in fname or "black" in fname or "heavy" in fname:
+            fnt.setBold(True)
+        if "italic" in fname or "oblique" in fname:
+            fnt.setItalic(True)
+        self._inline_edit.setFont(fnt)
+        c = span.get("color", 0)
+        if isinstance(c, int):
+            r, g, b = (c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF
+        elif isinstance(c, (list, tuple)) and len(c) >= 3:
+            r, g, b = int(c[0]*255), int(c[1]*255), int(c[2]*255)
+        else:
+            r, g, b = 0, 0, 0
+        hex_color = f"#{r:02x}{g:02x}{b:02x}"
+        self._inline_edit.setStyleSheet(
+            f"QLineEdit {{ background: #FFFFFFE6; color: {hex_color};"
+            f" border: none; border-bottom: 1px dashed {ACCENT}; padding: 0; }}")
+
+    def _reposition_inline(self):
+        if self._inline_mode is None:
+            return
+        if self._inline_page_idx < 0 or self._inline_page_idx >= len(self._page_offsets):
+            return
+        z = self._zoom
+        yo = self._page_offsets[self._inline_page_idx][0]
+        if self._inline_mode == "edit" and self._inline_span is not None:
+            bb = self._inline_span["bbox"]
+            x = int(bb[0] * z) - 2
+            y = yo + int(bb[1] * z) - 2
+            w = max(40, int((bb[2] - bb[0]) * z) + 40)
+            h = max(20, int((bb[3] - bb[1]) * z) + 4)
+            self._inline_edit.setGeometry(x, y, w, h)
+            self._style_inline_edit(self._inline_span)
+        elif self._inline_mode == "insert" and self._inline_insert_point is not None:
+            px, py = self._inline_insert_point
+            size = self._inline_insert_size
+            # PyMuPDF's insert_text treats point as the baseline; place editor so
+            # its baseline roughly matches py. Approximate: top = py - size*0.8.
+            x = int(px * z) - 2
+            y = yo + int((py - size * 0.85) * z) - 2
+            w = max(120, int(size * z * 8))
+            h = max(20, int(size * z * 1.4) + 4)
+            self._inline_edit.setGeometry(x, y, w, h)
+            self._style_inline_insert()
+
+    def _commit_inline(self):
+        if self._inline_mode is None or not self._inline_edit.isVisible():
+            return
+        new_text = self._inline_edit.text()
+        mode = self._inline_mode
+        page_idx = self._inline_page_idx
+        span = self._inline_span
+        ipoint = self._inline_insert_point
+        isize = self._inline_insert_size
+        icolor = self._inline_insert_color
+        ifont = self._inline_insert_font
+        original = self._inline_original
+        self._inline_edit.hide()
+        self._inline_mode = None
+        self._inline_span = None
+        self._inline_page_idx = -1
+        self._inline_insert_point = None
+        self._inline_insert_font = ""
+        if mode == "edit" and span is not None:
+            if new_text == original:
+                return
+            bb = span["bbox"]
+            visual_size = max(float(span.get("size") or 0), float(bb[3] - bb[1]))
+            edit = {
+                "type": "text_edit", "page": page_idx,
+                "bbox": list(bb), "old_text": span.get("text", ""),
+                "new_text": new_text, "size": visual_size,
+                "color": span.get("color", 0),
+                "font": span.get("font", ""),
+                "origin": list(span.get("origin", (bb[0], bb[3]))),
+            }
+            self.text_edit_committed.emit(page_idx, edit)
+        elif mode == "insert" and ipoint is not None:
+            if not new_text.strip():
+                return
+            import fitz
+            edit = {
+                "type": "text", "page": page_idx,
+                "point": fitz.Point(ipoint[0], ipoint[1]),
+                "text": new_text, "size": isize, "color": icolor,
+                "font": ifont,
+            }
+            self.text_inserted.emit(page_idx, edit)
+
+    def _cancel_inline(self):
+        self._inline_edit.hide()
+        self._inline_mode = None
+        self._inline_span = None
+        self._inline_page_idx = -1
+        self._inline_insert_point = None
+
+    def eventFilter(self, obj, event):
+        if obj is self._inline_edit:
+            if event.type() == QEvent.Type.KeyPress:
+                if event.key() == Qt.Key.Key_Escape:
+                    self._cancel_inline()
+                    return True
+                if event.key() == Qt.Key.Key_Tab:
+                    self._commit_inline()
+                    return True
+            elif event.type() == QEvent.Type.FocusOut:
+                self._commit_inline()
+                return False
+        return super().eventFilter(obj, event)
+
     def release_doc(self):
         if self._doc: self._doc.close(); self._doc = None
 
     def close_doc(self):
+        self._cancel_inline()
         self._gen += 1
         self._pending.clear()
         self.release_doc()
@@ -243,6 +452,8 @@ class PdfEditCanvas(QWidget):
         self.zoom_changed.emit(round(self._zoom_factor * 100))
         self.update()
         self._schedule_visible()
+        if self._inline_edit.isVisible():
+            self._reposition_inline()
 
     def _visible_range(self) -> tuple[int, int]:
         from PySide6.QtWidgets import QScrollArea as _SA
@@ -470,6 +681,15 @@ class PdfEditCanvas(QWidget):
         if self._drag_start and (e.buttons() & Qt.MouseButton.LeftButton):
             self._drag_rect = QRect(self._drag_start, e.position().toPoint()).normalized()
             self.update()
+            return
+        if self._text_mode and self._doc and self._page_offsets:
+            pos = e.position().toPoint()
+            page_idx, lx, ly = self._page_and_local(pos.x(), pos.y())
+            if 0 <= page_idx < len(self._page_offsets):
+                pdf_pt = self._to_pdf(page_idx, lx, ly)
+                hit = self.get_span_at(page_idx, pdf_pt, max_dist=0.0)
+                self.setCursor(Qt.CursorShape.IBeamCursor if hit
+                               else Qt.CursorShape.CrossCursor)
 
     def _note_icon_at(self, pos: QPoint) -> int:
         z = self._zoom

@@ -34,7 +34,6 @@ class TabEditar(QWidget):
         ("edit.mode.highlight", "fa5s.highlighter"),
         ("edit.mode.note",      "fa5s.sticky-note"),
         ("edit.mode.forms",     "fa5s.clipboard-list"),
-        ("edit.mode.edit_text", "fa5s.i-cursor"),
         ("edit.mode.signature", "fa5s.signature"),
         ("edit.mode.draw",      "fa5s.pencil-alt"),
         ("edit.mode.select",    "fa5s.mouse-pointer"),
@@ -85,6 +84,8 @@ class TabEditar(QWidget):
         # Scroll to page when arrows are used
         self._canvas_scroll_to_page = None  # set after canvas_scroll is created
         self._canvas.note_deleted.connect(self._on_note_deleted)
+        self._canvas.text_edit_committed.connect(self._on_text_edit_committed)
+        self._canvas.text_inserted.connect(self._on_text_edit_committed)
         from app.constants import BG_INNER
         canvas_scroll = QScrollArea()
         canvas_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -173,7 +174,17 @@ class TabEditar(QWidget):
         self._opt_stack.addWidget(w0)
 
         # 1 - Text
-        w1 = QWidget(); v1 = QVBoxLayout(w1); v1.setContentsMargins(0,4,0,0)
+        w1 = QWidget(); v1 = QVBoxLayout(w1); v1.setContentsMargins(0,4,0,0); v1.setSpacing(4)
+        row1 = QHBoxLayout(); row1.setSpacing(8)
+        row1.addWidget(QLabel(t("dialog.insert_size")))
+        from PySide6.QtWidgets import QSpinBox as _QSpinBox
+        self._text_size = _QSpinBox(); self._text_size.setMinimum(4); self._text_size.setMaximum(144); self._text_size.setValue(12)
+        row1.addWidget(self._text_size)
+        row1.addSpacing(8)
+        row1.addWidget(QLabel(t("dialog.insert_color")))
+        self._text_color = ColorPickerButton((0, 0, 0))
+        row1.addWidget(self._text_color); row1.addStretch()
+        v1.addLayout(row1)
         hint1 = QLabel(t("edit.hint.text"))
         hint1.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         v1.addWidget(hint1); v1.addStretch()
@@ -221,15 +232,7 @@ class TabEditar(QWidget):
         v5.addWidget(self._form_table)
         self._opt_stack.addWidget(w5)
 
-        # 6 - Edit existing text
-        w6 = QWidget(); v6 = QVBoxLayout(w6); v6.setContentsMargins(0,4,0,0)
-        hint6 = QLabel(t("edit.hint.edit_text"))
-        hint6.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
-        hint6.setWordWrap(True)
-        v6.addWidget(hint6); v6.addStretch()
-        self._opt_stack.addWidget(w6)
-
-        # 7 - Signature
+        # 6 - Signature
         w7 = QWidget(); v7s = QVBoxLayout(w7); v7s.setContentsMargins(0,4,0,0); v7s.setSpacing(6)
         self._sig_preview = QLabel(t("edit.signature.none"))
         self._sig_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -261,7 +264,7 @@ class TabEditar(QWidget):
                     200, 50, Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation))
 
-        # 8 - Draw (freehand ink)
+        # 7 - Draw (freehand ink)
         w_draw = QWidget(); v_d = QVBoxLayout(w_draw); v_d.setContentsMargins(0,4,0,0); v_d.setSpacing(4)
         v_d.addWidget(QLabel(t("edit.color")))
         self._draw_color_cb = ColorPickerButton((1, 0, 0))
@@ -280,7 +283,7 @@ class TabEditar(QWidget):
         v_d.addWidget(hint_d); v_d.addStretch()
         self._opt_stack.addWidget(w_draw)
 
-        # 9 - Select / Copy text
+        # 8 - Select / Copy text
         w7 = QWidget(); v7 = QVBoxLayout(w7); v7.setContentsMargins(0,4,0,0); v7.setSpacing(6)
         hint7 = QLabel(t("edit.hint.select"))
         hint7.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
@@ -450,23 +453,24 @@ class TabEditar(QWidget):
                         "background:#FFFFFF; border:1px solid #C7D8D3; "
                         "color:#5D7470; border-radius:6px; border-radius:6px;")
         self._opt_stack.setCurrentIndex(idx)
-        self._canvas.set_select_mode(idx == 9)
-        is_draw = (idx == 8)
+        self._canvas.set_select_mode(idx == 8)
+        is_draw = (idx == 7)
         self._canvas.set_draw_mode(
             is_draw,
             color=self._draw_color_cb.color_tuple() if is_draw else None,
             width=self._draw_width_slider.value() if is_draw else None,
         )
-        # Text-related modes get a text cursor
-        if idx in (1, 4, 6):
+        # Text mode: hover-aware cursor (IBeam over spans, Cross elsewhere)
+        self._canvas.set_text_mode(idx == 1)
+        if idx == 4:
             self._canvas.setCursor(Qt.CursorShape.IBeamCursor)
-        elif idx == 9:
+        elif idx == 8:
             pass  # default arrow handled by select mode
-        else:
+        elif idx != 1:
             self._canvas.setCursor(Qt.CursorShape.CrossCursor)
         if idx == 2:
             self._pick_image()
-        elif idx == 7:
+        elif idx == 6:
             if not self._signature_path or not os.path.isfile(self._signature_path):
                 self._pick_signature()
 
@@ -589,13 +593,13 @@ class TabEditar(QWidget):
     # ── canvas callbacks ─────────────────────────────────────────────────────
 
     def _on_draw_color_changed(self, _color_tuple):
-        self._canvas.set_draw_mode(self._mode_idx == 8,
+        self._canvas.set_draw_mode(self._mode_idx == 7,
                                    color=self._draw_color_cb.color_tuple(),
                                    width=self._draw_width_slider.value())
 
     def _on_draw_width_changed(self, v):
         self._draw_width_lbl.setText(str(v))
-        self._canvas.set_draw_mode(self._mode_idx == 8,
+        self._canvas.set_draw_mode(self._mode_idx == 7,
                                    color=self._draw_color_cb.color_tuple(),
                                    width=v)
 
@@ -614,7 +618,7 @@ class TabEditar(QWidget):
         self._page_idx = page_idx
         self._update_nav()
         mode = self._mode_idx
-        if mode == 9:
+        if mode == 8:
             doc = self._canvas._doc
             if not doc: return
             text = doc[page_idx].get_text("text", clip=pdf_rect).strip()
@@ -625,7 +629,7 @@ class TabEditar(QWidget):
             else:
                 self._status("ℹ  No text found in selection")
             return
-        if mode in (1, 4, 6):
+        if mode in (1, 4):
             import fitz
             center = fitz.Point((pdf_rect.x0 + pdf_rect.x1) / 2,
                                 (pdf_rect.y0 + pdf_rect.y1) / 2)
@@ -640,7 +644,7 @@ class TabEditar(QWidget):
                 img = self._img_drop.path()
                 if not img or not os.path.isfile(img): return
             self._add({"type": "image", "page": self._page_idx, "rect": pdf_rect, "path": img})
-        elif mode == 7:
+        elif mode == 6:
             sig = self._signature_path
             if not sig or not os.path.isfile(sig):
                 self._pick_signature()
@@ -668,31 +672,43 @@ class TabEditar(QWidget):
                             return
         mode = self._mode_idx
         if mode == 1:
-            dlg = _TextDialog(self)
-            if dlg.exec() != QDialog.DialogCode.Accepted: return
-            txt = dlg.edit.text().strip()
-            if not txt: return
-            self._add({"type": "text", "page": self._page_idx, "point": pdf_pt,
-                       "text": txt, "size": dlg.font_size.value(), "color": dlg.color_tuple()})
+            # Unified text mode: click on a span → edit that span; click in empty
+            # space → insert new text, inheriting style from the nearest span.
+            import fitz
+            hit = self._canvas.get_span_at(page_idx, pdf_pt, max_dist=0.0)
+            if hit:
+                self._canvas.begin_inline_text_edit(hit, page_idx)
+                return
+            near = self._canvas.get_span_at(page_idx, pdf_pt, max_dist=300.0)
+            if near:
+                bb = near["bbox"]
+                size = max(float(near.get("size") or 0), float(bb[3] - bb[1]))
+                cr = near.get("color", 0)
+                if isinstance(cr, int):
+                    color = (((cr>>16)&0xFF)/255, ((cr>>8)&0xFF)/255, (cr&0xFF)/255)
+                elif isinstance(cr, (list, tuple)) and len(cr) >= 3:
+                    color = tuple(float(v) for v in cr[:3])
+                else:
+                    color = (0, 0, 0)
+                font = near.get("font", "")
+                origin = near.get("origin")
+                baseline_y = float(origin[1]) if origin else float(bb[3])
+                insert_pt = fitz.Point(pdf_pt.x, baseline_y)
+            else:
+                size = self._text_size.value()
+                color = self._text_color.color_tuple()
+                font = ""
+                insert_pt = pdf_pt
+            self._canvas.begin_inline_text_insert(page_idx, insert_pt, size, color, font)
         elif mode == 4:
             dlg = _NoteDialog(self)
             if dlg.exec() != QDialog.DialogCode.Accepted: return
             txt = dlg.edit.toPlainText().strip()
             if not txt: return
             self._add({"type": "note", "page": self._page_idx, "point": pdf_pt, "text": txt})
-        elif mode == 6:
-            if not self._doc_path: return
-            found_span = self._canvas.get_span_at(page_idx, pdf_pt)
-            if not found_span:
-                QMessageBox.information(self, t("msg.info"), t("edit.status.no_text")); return
-            dlg = _TextEditDialog(found_span["text"], found_span["size"], self)
-            if dlg.exec() != QDialog.DialogCode.Accepted: return
-            new_txt = dlg.new_text()
-            if new_txt == found_span["text"]: return
-            self._add({"type": "text_edit", "page": self._page_idx,
-                       "bbox": list(found_span["bbox"]), "old_text": found_span["text"],
-                       "new_text": new_txt, "size": found_span["size"],
-                       "color": found_span.get("color", 0)})
+
+    def _on_text_edit_committed(self, page_idx, edit):
+        self._add(edit)
 
     def _add(self, edit: dict):
         self._redo_stack.clear()
@@ -771,7 +787,15 @@ class TabEditar(QWidget):
                 if e["type"] == "redact":
                     pg.add_redact_annot(e["rect"], fill=e["fill"]); pg.apply_redactions()
                 elif e["type"] == "text":
-                    pg.insert_text(e["point"], e["text"], fontsize=e["size"], color=e["color"])
+                    fname = (e.get("font", "") or "").lower()
+                    if "times" in fname or "serif" in fname or "roman" in fname:
+                        fontname = "tiro"
+                    elif "mono" in fname or "courier" in fname or "consol" in fname:
+                        fontname = "cour"
+                    else:
+                        fontname = "helv"
+                    pg.insert_text(e["point"], e["text"], fontsize=e["size"],
+                                   color=e["color"], fontname=fontname)
                 elif e["type"] in ("image", "signature"):
                     pg.insert_image(e["rect"], filename=e["path"])
                 elif e["type"] == "highlight":
@@ -796,8 +820,19 @@ class TabEditar(QWidget):
                             color = (((c>>16)&0xFF)/255, ((c>>8)&0xFF)/255, (c&0xFF)/255)
                         else:
                             color = c if c else (0, 0, 0)
-                        pg.insert_text(fitz.Point(bbox.x0, bbox.y1),
-                                       new_txt, fontsize=max(4, e["size"]), color=color)
+                        orig = e.get("origin") or (bbox.x0, bbox.y1)
+                        fname = (e.get("font", "") or "").lower()
+                        if "times" in fname or "serif" in fname or "roman" in fname:
+                            fontname = "tiro"
+                        elif "mono" in fname or "courier" in fname or "consol" in fname:
+                            fontname = "cour"
+                        else:
+                            fontname = "helv"
+                        bbox_h = bbox.y1 - bbox.y0
+                        fontsize = max(4.0, float(e.get("size") or 0), bbox_h)
+                        pg.insert_text(fitz.Point(orig[0], orig[1]),
+                                       new_txt, fontsize=fontsize,
+                                       fontname=fontname, color=color)
             doc.save(out, garbage=4, deflate=True); doc.close()
             self._pending.clear(); self._pending_list.clear()
             self._status(f"✔  Saved → {out}")
