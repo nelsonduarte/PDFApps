@@ -58,8 +58,26 @@ class _Signals(QObject):
     error = Signal(str)
 
 
+def is_system_install() -> bool:
+    """True when running from a system package manager (AUR, Snap, Flatpak, apt, rpm)."""
+    if sys.platform == "win32":
+        return False
+    # Sandboxed runtimes
+    if os.environ.get("SNAP") or os.environ.get("FLATPAK_ID") or os.environ.get("APPIMAGE"):
+        return True
+    # System-wide Python (Arch AUR, Fedora rpm, Debian apt) — executable in system paths
+    exe = os.path.realpath(sys.executable)
+    system_prefixes = ("/usr/bin/", "/usr/local/bin/", "/usr/lib/", "/opt/")
+    if exe.startswith(system_prefixes):
+        return True
+    return False
+
+
 def check_for_update() -> dict | None:
     """Return release info dict if a newer version exists, else None."""
+    # System-managed installs (AUR, Snap, Flatpak, rpm, apt) must be updated via the package manager.
+    if is_system_install():
+        return None
     try:
         req = urllib.request.Request(_API_URL, headers={"User-Agent": "PDFApps"})
         with urllib.request.urlopen(req, timeout=10) as resp:
