@@ -86,6 +86,9 @@
                 <li><a href="#tool-encrypt">Encrypt</a></li>
                 <li><a href="#tool-ocr">OCR</a></li>
                 <li><a href="#tool-convert">Convert</a></li>
+                <li><a href="#tool-import">Import to PDF</a></li>
+                <li><a href="#tool-nup">N-up layout</a></li>
+                <li><a href="#tool-page-numbers">Page numbers</a></li>
                 <li><a href="#tool-edit">Visual Editor</a></li>
             </ul>
             <h4>Reference</h4>
@@ -194,8 +197,47 @@
             <p>Convert PDF pages to:</p>
             <ul class="docs-list">
                 <li><strong>PNG / JPG</strong> — choose the DPI (72, 150, or 300). One image per page.</li>
-                <li><strong>DOCX</strong> — Word document with the extracted text. Layout is approximated.</li>
+                <li><strong>DOCX</strong> — Word document with headings, images, and formatting preserved.</li>
                 <li><strong>TXT</strong> — plain text extraction.</li>
+                <li><strong>PPTX</strong> — PowerPoint presentation with one slide per page (page rendered as image).</li>
+                <li><strong>XLSX</strong> — Excel workbook with one sheet per page, text blocks as rows.</li>
+                <li><strong>HTML</strong> — HTML file with semantic headings and styled text.</li>
+                <li><strong>EPUB</strong> — E-book with one chapter per page for readers and Kindle.</li>
+            </ul>
+        </section>
+
+        <section id="tool-import">
+            <h2>Import to PDF</h2>
+            <p>Convert other document types to PDF. Supports batch import and drag-and-drop reordering:</p>
+            <ul class="docs-list">
+                <li><strong>TXT</strong> — plain text with automatic word wrapping.</li>
+                <li><strong>Images</strong> — PNG, JPG, JPEG, BMP, TIFF, WebP, GIF. One image per page.</li>
+                <li><strong>Markdown</strong> — headings, lists, bold, and italic formatting.</li>
+                <li><strong>DOCX</strong> — Word documents with paragraphs and tables.</li>
+                <li><strong>PPTX</strong> — PowerPoint slides rendered to PDF pages.</li>
+                <li><strong>XLSX</strong> — Excel sheets laid out as PDF tables.</li>
+                <li><strong>HTML</strong> — web pages with headings, paragraphs, and lists.</li>
+                <li><strong>EPUB</strong> — E-books converted to searchable PDF.</li>
+            </ul>
+        </section>
+
+        <section id="tool-nup">
+            <h2>N-up (page layout)</h2>
+            <p>Combine multiple PDF pages onto a single sheet — useful for printing or saving paper.</p>
+            <ul class="docs-list">
+                <li><strong>Layouts:</strong> 2, 4, 6, 9, or 16 pages per sheet.</li>
+                <li><strong>Paper size:</strong> A4, A3, or Letter.</li>
+                <li><strong>Orientation:</strong> portrait, landscape, or auto (picks the best fit).</li>
+            </ul>
+        </section>
+
+        <section id="tool-page-numbers">
+            <h2>Page numbers</h2>
+            <p>Add page numbers to any PDF with full control over format and placement.</p>
+            <ul class="docs-list">
+                <li><strong>Positions:</strong> top-left, top-center, top-right, bottom-left, bottom-center, bottom-right.</li>
+                <li><strong>Formats:</strong> <code>1</code>, <code>Page 1</code>, <code>1/10</code>, <code>1 of 10</code>.</li>
+                <li><strong>Options:</strong> starting number, font size, skip pages, remove existing numbers first.</li>
             </ul>
         </section>
 

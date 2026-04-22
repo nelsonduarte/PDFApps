@@ -68,8 +68,38 @@
         <div class="release">
             <div class="release-header">
                 <span class="version-tag">v1.13.1</span>
-                <span class="release-date">April 7, 2026</span>
+                <span class="release-date">April 22, 2026</span>
                 <span class="release-badge">Latest</span>
+            </div>
+            <h3>Stability, security audit, and installer splash</h3>
+            <ul class="docs-list">
+                <li><strong>Security hardening</strong> — SHA256 checksum validation on update downloads, stricter ZIP/TAR extraction with symlink rejection, atomic config file writes, and 100k page limit in parse_pages.</li>
+                <li><strong>9 bug fixes across tools</strong> — merge validates files exist, watermark guards empty PDFs, encrypt allows empty user password, OCR handles missing language packs, convert shows progress dialog, reorder no longer leaks file handles.</li>
+                <li><strong>Translated installer splash</strong> — two-stage splash (static logo during extraction + animated "Loading…" text in the user's language).</li>
+                <li><strong>pypdf bumped to 6.10.2</strong> — multiple security patches (XMP metadata RAM exhaustion, FlateDecode limits, xref stream limits).</li>
+                <li><strong>Updater title and error messages</strong> translated in 8 languages. Animated dots (.../../...) while downloading and applying.</li>
+                <li><strong>Download thread cleanup</strong> — cancelling the update dialog mid-download no longer leaks QThreads.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.12.0</span>
+                <span class="release-date">April 13, 2026</span>
+            </div>
+            <h3>5 import formats and 4 export formats</h3>
+            <ul class="docs-list">
+                <li><strong>Import to PDF</strong> — new formats: DOCX, PPTX, XLSX, HTML, and EPUB (on top of TXT, Markdown, and images).</li>
+                <li><strong>Convert from PDF</strong> — new targets: PPTX (slides rendered as images), XLSX (text blocks as rows), HTML (semantic headings), EPUB (e-book chapters).</li>
+                <li><strong>Website</strong> — hamburger menu, OS-detect CTA, scroll animations, and GitHub stars badge.</li>
+                <li><strong>Performance</strong> — non-blocking Google Fonts, explicit image dimensions, WCAG AA contrast fixes.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.11.0</span>
+                <span class="release-date">April 10, 2026</span>
             </div>
             <h3>Bookmarks, night mode, and release notes in updater</h3>
             <ul class="docs-list">
