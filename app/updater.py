@@ -207,7 +207,8 @@ class UpdateDialog(QDialog):
         self._asset = _find_asset(release)
         tag = release.get("tag_name", "?")
 
-        self.setWindowTitle(f"PDFApps — Update")
+        from app.i18n import t as _t
+        self.setWindowTitle(f"PDFApps — {_t('update.dialog_title')}")
         self.setMinimumSize(520, 420)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
 
@@ -351,3 +352,19 @@ class UpdateDialog(QDialog):
         from app.i18n import t
         self._status.setText(t("update.error") + f" {msg}")
         self._status.setStyleSheet("color: #DC2626; font-size: 12px;")
+
+    def closeEvent(self, event):
+        """Clean up download thread if dialog is closed mid-download."""
+        self._stop_dots_animation()
+        if hasattr(self, "_dl_thread") and self._dl_thread.isRunning():
+            self._dl_thread.quit()
+            self._dl_thread.wait(3000)
+        super().closeEvent(event)
+
+    def reject(self):
+        """Handle Cancel button — also cleans up thread."""
+        self._stop_dots_animation()
+        if hasattr(self, "_dl_thread") and self._dl_thread.isRunning():
+            self._dl_thread.quit()
+            self._dl_thread.wait(3000)
+        super().reject()

@@ -20,7 +20,7 @@ class TabReordenar(BasePage):
         super().__init__("fa5s.sort", t("tool.reorder.name"),
                          t("tool.reorder.desc"),
                          t("tool.reorder.btn"), status_fn)
-        self._reader = None
+        self._page_count = 0
         f = self._form
         sec_src = section(t("tool.reorder.source"))
         f.addWidget(sec_src)
@@ -73,10 +73,15 @@ class TabReordenar(BasePage):
             base, ext = os.path.splitext(p)
             self.drop_out.set_path(base + "_reordered" + ext)
         try:
-            reader = PdfReader(p); self._reader = reader
-            n = len(reader.pages); self.lbl_info.setText(t("edit.status.pages", n=n))
+            with open(p, "rb") as fh:
+                reader = PdfReader(fh)
+                n = len(reader.pages)
+            self._page_count = n
+            self.lbl_info.setText(t("edit.status.pages", n=n))
             self._populate(list(range(n)))
-        except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
+        except Exception as e:
+            self._page_count = 0
+            self.lbl_info.setText(t("tool.split.error_info", e=e))
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
@@ -104,18 +109,20 @@ class TabReordenar(BasePage):
         if r >= 0: self.lst.takeItem(r)
 
     def _reset(self):
-        if self._reader: self._populate(list(range(len(self._reader.pages))))
+        if self._page_count: self._populate(list(range(self._page_count)))
 
     def _run(self):
-        if not self._reader:
+        if not self._page_count:
             QMessageBox.warning(self, t("msg.warning"), t("msg.open_pdf_first")); return
         out = self._resolve_output_file(self.drop_out, self.drop_in.path())
         if not out: return
         try:
             indices = [self.lst.item(i).data(256) for i in range(self.lst.count())]
-            w = PdfWriter()
-            for idx in indices: w.add_page(self._reader.pages[idx])
-            with open(out, "wb") as f: w.write(f)
+            with open(self.drop_in.path(), "rb") as fin:
+                reader = PdfReader(fin)
+                w = PdfWriter()
+                for idx in indices: w.add_page(reader.pages[idx])
+                with open(out, "wb") as f: w.write(f)
             self._status(f"✔  → {os.path.basename(out)}")
             msg = t("tool.reorder.done", path=out)
             if self._pipeline_active:

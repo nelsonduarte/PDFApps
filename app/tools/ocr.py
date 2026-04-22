@@ -208,7 +208,11 @@ class TabOCR(BasePage):
             return
         try:
             codes = getattr(self, "_lang_codes", [c for _, c in self._LANGS])
-            lang  = codes[self.cmb_lang.currentIndex()]
+            if not codes:
+                QMessageBox.warning(self, t("msg.warning"), t("tool.ocr.no_langs"))
+                return
+            idx = max(0, min(self.cmb_lang.currentIndex(), len(codes) - 1))
+            lang = codes[idx]
             fmt  = self.cmb_fmt.currentIndex()
             doc  = fitz.open(pdf_path)
             n    = doc.page_count

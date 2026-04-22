@@ -515,7 +515,13 @@
                                 "tool.convert.done_html": "HTML saved at:\n{path}",
                                 "tool.convert.done_epub": "EPUB saved at:\n{path}",
                                 "btn.undo": "Undo",
-                                "btn.redo": "Redo"
+                                "btn.redo": "Redo",
+                                "tool.merge.missing_files": "Some files no longer exist:\n{files}",
+                                "tool.watermark.empty_wm": "The watermark PDF has no pages.",
+                                "tool.watermark.empty_source": "The source PDF has no pages.",
+                                "update.dialog_title": "Update",
+                                "tool.convert.converting": "Converting pages...",
+                                "tool.ocr.no_langs": "No OCR languages available. Install Tesseract language packs."
                 },
                 "pt": {
                                 "app.name": "PDFApps",
@@ -1033,7 +1039,13 @@
                                 "tool.convert.done_html": "HTML guardado em:\n{path}",
                                 "tool.convert.done_epub": "EPUB guardado em:\n{path}",
                                 "btn.undo": "Desfazer",
-                                "btn.redo": "Refazer"
+                                "btn.redo": "Refazer",
+                                "tool.merge.missing_files": "Alguns ficheiros já não existem:\n{files}",
+                                "tool.watermark.empty_wm": "O PDF de marca dágua não tem páginas.",
+                                "tool.watermark.empty_source": "O PDF de origem não tem páginas.",
+                                "update.dialog_title": "Atualização",
+                                "tool.convert.converting": "A converter páginas...",
+                                "tool.ocr.no_langs": "Sem idiomas OCR disponíveis. Instala os pacotes de idioma do Tesseract."
                 },
                 "es": {
                                 "app.name": "PDFApps",
@@ -1551,7 +1563,13 @@
                                 "tool.convert.done_html": "HTML guardado en:\n{path}",
                                 "tool.convert.done_epub": "EPUB guardado en:\n{path}",
                                 "btn.undo": "Deshacer",
-                                "btn.redo": "Rehacer"
+                                "btn.redo": "Rehacer",
+                                "tool.merge.missing_files": "Algunos archivos ya no existen:\n{files}",
+                                "tool.watermark.empty_wm": "El PDF de marca de agua no tiene páginas.",
+                                "tool.watermark.empty_source": "El PDF de origen no tiene páginas.",
+                                "update.dialog_title": "Actualización",
+                                "tool.convert.converting": "Convirtiendo páginas...",
+                                "tool.ocr.no_langs": "No hay idiomas OCR disponibles. Instala los paquetes de idioma de Tesseract."
                 },
                 "fr": {
                                 "app.name": "PDFApps",
@@ -2069,7 +2087,13 @@
                                 "tool.convert.done_html": "HTML enregistré dans :\n{path}",
                                 "tool.convert.done_epub": "EPUB enregistré dans :\n{path}",
                                 "btn.undo": "Annuler",
-                                "btn.redo": "Rétablir"
+                                "btn.redo": "Rétablir",
+                                "tool.merge.missing_files": "Certains fichiers n'existent plus :\n{files}",
+                                "tool.watermark.empty_wm": "Le PDF de filigrane n’a aucune page.",
+                                "tool.watermark.empty_source": "Le PDF source n’a aucune page.",
+                                "update.dialog_title": "Mise à jour",
+                                "tool.convert.converting": "Conversion des pages...",
+                                "tool.ocr.no_langs": "Aucune langue OCR disponible. Installez les packs de langue Tesseract."
                 },
                 "de": {
                                 "app.name": "PDFApps",
@@ -2587,7 +2611,13 @@
                                 "tool.convert.done_html": "HTML gespeichert unter:\n{path}",
                                 "tool.convert.done_epub": "EPUB gespeichert unter:\n{path}",
                                 "btn.undo": "Rückgängig",
-                                "btn.redo": "Wiederholen"
+                                "btn.redo": "Wiederholen",
+                                "tool.merge.missing_files": "Einige Dateien existieren nicht mehr:\n{files}",
+                                "tool.watermark.empty_wm": "Das Wasserzeichen-PDF hat keine Seiten.",
+                                "tool.watermark.empty_source": "Das Quell-PDF hat keine Seiten.",
+                                "update.dialog_title": "Aktualisierung",
+                                "tool.convert.converting": "Seiten werden konvertiert...",
+                                "tool.ocr.no_langs": "Keine OCR-Sprachen verfügbar. Installieren Sie Tesseract-Sprachpakete."
                 },
                 "zh": {
                                 "app.name": "PDFApps",
@@ -3105,7 +3135,13 @@
                                 "tool.convert.done_html": "HTML 已保存至：\n{path}",
                                 "tool.convert.done_epub": "EPUB 已保存至：\n{path}",
                                 "btn.undo": "撤销",
-                                "btn.redo": "重做"
+                                "btn.redo": "重做",
+                                "tool.merge.missing_files": "部分文件不再存在：\n{files}",
+                                "tool.watermark.empty_wm": "水印 PDF 没有页面。",
+                                "tool.watermark.empty_source": "源 PDF 没有页面。",
+                                "update.dialog_title": "更新",
+                                "tool.convert.converting": "正在转换页面...",
+                                "tool.ocr.no_langs": "没有可用的 OCR 语言。请安装 Tesseract 语言包。"
                 },
                 "it": {
                                 "app.name": "PDFApps",
@@ -3623,7 +3659,13 @@
                                 "tool.convert.done_html": "HTML salvato in:\n{path}",
                                 "tool.convert.done_epub": "EPUB salvato in:\n{path}",
                                 "btn.undo": "Annulla",
-                                "btn.redo": "Ripristina"
+                                "btn.redo": "Ripristina",
+                                "tool.merge.missing_files": "Alcuni file non esistono più:\n{files}",
+                                "tool.watermark.empty_wm": "Il PDF filigrana non ha pagine.",
+                                "tool.watermark.empty_source": "Il PDF sorgente non ha pagine.",
+                                "update.dialog_title": "Aggiornamento",
+                                "tool.convert.converting": "Conversione delle pagine...",
+                                "tool.ocr.no_langs": "Nessuna lingua OCR disponibile. Installa i pacchetti lingua di Tesseract."
                 },
                 "nl": {
                                 "app.name": "PDFApps",
@@ -4141,6 +4183,12 @@
                                 "tool.convert.done_html": "HTML opgeslagen op:\n{path}",
                                 "tool.convert.done_epub": "EPUB opgeslagen op:\n{path}",
                                 "btn.undo": "Ongedaan maken",
-                                "btn.redo": "Opnieuw"
+                                "btn.redo": "Opnieuw",
+                                "tool.merge.missing_files": "Sommige bestanden bestaan niet meer:\n{files}",
+                                "tool.watermark.empty_wm": "Het watermerk-PDF heeft geen pagina’s.",
+                                "tool.watermark.empty_source": "Het bron-PDF heeft geen pagina’s.",
+                                "update.dialog_title": "Update",
+                                "tool.convert.converting": "Pagina's converteren...",
+                                "tool.ocr.no_langs": "Geen OCR-talen beschikbaar. Installeer Tesseract taalpakketten."
                 }
 }

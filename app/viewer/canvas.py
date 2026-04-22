@@ -63,8 +63,8 @@ class _PageJob(QRunnable):
             qp.setDevicePixelRatio(self._dpr)
             self.signals.page_ready.emit(self._gen, self._idx, qp, words)
         except Exception:
-            import traceback
-            traceback.print_exc()
+            import traceback, logging
+            logging.error("Page render failed:\n%s", traceback.format_exc())
 
 
 # ── Page entry ─────────────────────────────────────────────────────────

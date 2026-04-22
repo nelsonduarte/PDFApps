@@ -13,7 +13,7 @@ def _clean(text: str) -> str:
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QComboBox, QLabel, QFileDialog,
-    QMessageBox, QApplication,
+    QMessageBox, QApplication, QProgressDialog,
 )
 from pypdf import PdfReader
 
@@ -179,6 +179,14 @@ class TabConverter(BasePage):
         }
         converters[fmt](pdf_path)
 
+    def _make_progress(self, total: int, label: str) -> QProgressDialog:
+        progress = QProgressDialog(label, t("progress.cancel"), 0, total, self)
+        progress.setWindowTitle(t("progress.compress.title"))
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        return progress
+
     def _convert_images(self, pdf_path: str, fmt: int):
         out_dir = self._resolve_output_dir(self._drop_folder, pdf_path)
         if not out_dir:
@@ -193,7 +201,11 @@ class TabConverter(BasePage):
             doc = fitz.open(pdf_path)
             matrix = fitz.Matrix(dpi / 72, dpi / 72)
             total = doc.page_count
+            progress = self._make_progress(total, t("tool.convert.converting"))
             for i, page in enumerate(doc):
+                if progress.wasCanceled():
+                    doc.close()
+                    return
                 pix = page.get_pixmap(matrix=matrix)
                 if pix.alpha:
                     pix = fitz.Pixmap(pix, 0)
@@ -210,8 +222,10 @@ class TabConverter(BasePage):
                         img.save(out_file, "JPEG", quality=95)
                     except ImportError:
                         pix.save(out_file)
+                progress.setValue(i + 1)
                 self._status(f"{i + 1}/{total}…")
                 QApplication.processEvents()
+            progress.setValue(total)
             doc.close()
             self.lbl_result.setText(f"  {total} → {out_dir}")
             self._status(f"✔  {total} images")

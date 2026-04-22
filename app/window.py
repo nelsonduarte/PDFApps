@@ -637,7 +637,7 @@ class MainWindow(QMainWindow):
         nav_key = _NAV_KEYS[index][0]
         self._tool_usage[nav_key] = self._tool_usage.get(nav_key, 0) + 1
         try:
-            from app.i18n import _CONFIG_PATH
+            from app.i18n import _CONFIG_PATH, _atomic_write_config
             import json
             cfg = {}
             try:
@@ -646,8 +646,7 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
             cfg["tool_usage"] = self._tool_usage
-            with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-                json.dump(cfg, f)
+            _atomic_write_config(cfg)
         except Exception:
             pass
         widget = self.stack.widget(index)
@@ -814,13 +813,12 @@ class MainWindow(QMainWindow):
 
     def _clear_recent(self):
         import json
-        from app.i18n import _CONFIG_PATH
+        from app.i18n import _CONFIG_PATH, _atomic_write_config
         try:
             with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
             cfg["recent_files"] = []
-            with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-                json.dump(cfg, f)
+            _atomic_write_config(cfg)
         except Exception:
             pass
 
@@ -1073,7 +1071,7 @@ class MainWindow(QMainWindow):
         for v in list(self._viewers):
             self._cleanup_pipeline(id(v))
         try:
-            from app.i18n import _CONFIG_PATH
+            from app.i18n import _CONFIG_PATH, _atomic_write_config
             import json
             cfg = {}
             try:
@@ -1083,8 +1081,7 @@ class MainWindow(QMainWindow):
                 pass
             cfg["splitter_sizes"] = self._splitter.sizes()
             cfg["sidebar_width"] = self._sidebar.width()
-            with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-                json.dump(cfg, f)
+            _atomic_write_config(cfg)
         except Exception:
             pass
         super().closeEvent(event)
@@ -1135,7 +1132,7 @@ class MainWindow(QMainWindow):
         self._dark_mode = not self._dark_mode
         self._apply_theme()
         # Save preference
-        from app.i18n import _CONFIG_PATH
+        from app.i18n import _CONFIG_PATH, _atomic_write_config
         import json
         cfg = {}
         try:
@@ -1144,8 +1141,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         cfg["dark_mode"] = self._dark_mode
-        with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(cfg, f)
+        _atomic_write_config(cfg)
 
     def _apply_theme(self):
         style = STYLE if self._dark_mode else STYLE_LIGHT

@@ -117,7 +117,8 @@ class TabEncriptar(BasePage):
                     QMessageBox.warning(self, t("msg.warning"), t("tool.encrypt.enter_owner")); return
                 if owner != self.edit_owner_confirm.text():
                     QMessageBox.warning(self, t("msg.warning"), t("tool.encrypt.mismatch")); return
-                user_pwd = self.edit_user.text() or owner
+                # Empty user password = PDF opens without prompt (owner restrictions still apply)
+                user_pwd = self.edit_user.text()
                 w = PdfWriter(); w.append(reader)
                 w.encrypt(user_password=user_pwd,
                           owner_password=owner, use_128bit=True)

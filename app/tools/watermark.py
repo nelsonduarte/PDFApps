@@ -88,7 +88,14 @@ class TabMarcaDagua(BasePage):
         if not out_path: return
         try:
             reader  = PdfReader(pdf_path)
-            wm_page = PdfReader(wm_path).pages[0]
+            wm_reader = PdfReader(wm_path)
+            if not wm_reader.pages:
+                QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.empty_wm"))
+                return
+            if not reader.pages:
+                QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.empty_source"))
+                return
+            wm_page = wm_reader.pages[0]
             total   = len(reader.pages)
             txt     = self.edit_pages.text().strip()
             targets = set(parse_pages(txt, total)) if txt else set(range(total))

@@ -86,12 +86,20 @@ class TabJuntar(BasePage):
         paths = [self.lst.item(i).text() for i in range(self.lst.count())]
         if len(paths) < 2:
             QMessageBox.warning(self, t("msg.warning"), t("tool.merge.min2")); return
-        out = self._resolve_output_file(self.drop_out, paths[0] if paths else "")
+        # Validate all files exist before starting
+        missing = [p for p in paths if not os.path.isfile(p)]
+        if missing:
+            QMessageBox.critical(self, t("msg.error"),
+                                 t("tool.merge.missing_files", files="\n".join(missing)))
+            return
+        out = self._resolve_output_file(self.drop_out, paths[0])
         if not out: return
         try:
             w = PdfWriter()
             for p in paths:
-                for page in PdfReader(p).pages: w.add_page(page)
+                with open(p, "rb") as fin:
+                    for page in PdfReader(fin).pages:
+                        w.add_page(page)
             with open(out, "wb") as f: w.write(f)
             self._status(f"✔  PDF → {os.path.basename(out)}")
             QMessageBox.information(self, t("msg.done"), t("tool.merge.done", path=out))
