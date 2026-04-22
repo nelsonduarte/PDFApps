@@ -1,5 +1,5 @@
 PackageIdentifier: nelsonduarte.PDFApps
-PackageVersion: 1.13.0
+PackageVersion: 1.13.1
 PackageLocale: en-US
 Publisher: Nelson Duarte
 PublisherUrl: https://github.com/nelsonduarte
@@ -41,6 +41,6 @@ ReleaseNotes: |-
   - Night reading mode (invert PDF colors)
   - Release notes shown in update dialog
   - TOC and night mode buttons in workspace bar
-ReleaseNotesUrl: https://github.com/nelsonduarte/PDFApps/releases/tag/v1.13.0
+ReleaseNotesUrl: https://github.com/nelsonduarte/PDFApps/releases/tag/v1.13.1
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0
