@@ -476,6 +476,14 @@ class MainWindow(QMainWindow):
                     and all(isinstance(s, int) and s >= 0 for s in sizes)
                     and sum(sizes) > 0):
                 self._splitter.setSizes(sizes)
+            # Restore sidebar mode: full (default) | icons | hidden.
+            # _toggle_sidebar cycles full -> icons -> hidden -> full.
+            mode = _saved.get("sidebar_mode")
+            if mode == "icons":
+                self._toggle_sidebar()
+            elif mode == "hidden":
+                self._toggle_sidebar()
+                self._toggle_sidebar()
         except Exception:
             pass
 
@@ -506,7 +514,11 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("PgUp"), self, self._goto_prev_page)
         QShortcut(QKeySequence("PgDown"), self, self._goto_next_page)
         # Quick tool shortcuts: Ctrl+1..9 for tools 1-9,
-        # Ctrl+Shift+1..6 for tools 10-15
+        # Ctrl+Shift+1..6 for tools 10-15. Tools beyond idx=14 have no
+        # dedicated shortcut — guard against silent overflow.
+        assert len(NAV_ITEMS) <= 15, (
+            f"Only 15 tool shortcuts are defined (Ctrl+1..9, "
+            f"Ctrl+Shift+1..6) but NAV_ITEMS has {len(NAV_ITEMS)}.")
         for idx in range(len(NAV_ITEMS)):
             if idx < 9:
                 QShortcut(QKeySequence(f"Ctrl+{idx+1}"), self,
@@ -1087,6 +1099,16 @@ class MainWindow(QMainWindow):
                 if ans == QMessageBox.StandardButton.Save:
                     self._save_pipeline()
                 break  # only prompt once
+        # Check for unsaved edits in the editor tool (drawings, redactions,
+        # text edits, signatures, notes added but not yet applied/saved)
+        edit_w = self.stack.widget(self._edit_tool_idx())
+        if edit_w and getattr(edit_w, "_pending", None):
+            ans = QMessageBox.question(
+                self, t("msg.warning"), t("pipeline.unsaved_prompt"),
+                QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel)
+            if ans == QMessageBox.StandardButton.Cancel:
+                event.ignore(); return
         # Cleanup all pipeline temp files
         for v in list(self._viewers):
             self._cleanup_pipeline(id(v))
@@ -1100,7 +1122,12 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
             cfg["splitter_sizes"] = self._splitter.sizes()
-            cfg["sidebar_width"] = self._sidebar.width()
+            if self._sidebar_collapsed:
+                cfg["sidebar_mode"] = "hidden"
+            elif self._sidebar.width() <= 60:
+                cfg["sidebar_mode"] = "icons"
+            else:
+                cfg["sidebar_mode"] = "full"
             _atomic_write_config(cfg)
         except Exception:
             pass

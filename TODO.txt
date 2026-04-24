@@ -28,55 +28,26 @@
 
 ─── BAIXOS / melhorias de UX ──────────────────────────────────────────
 
-[ ] Hit zone do text mode é 0px
-    app/editor/canvas.py:685 — get_span_at(max_dist=0.0) exige hit exato.
-    Fix: max_dist=max(4.0, 10.0 * zoom)
+[DONE] Hit zone do text mode — tolerância de 3pt em get_span_at
+[N/A]  Hit zone dos notes — FALSO POSITIVO (ícone é em screen px, já
+       invariante ao zoom)
+[DONE] Temp files de signature limpos ao trocar/limpar assinatura
+[DONE] Sidebar collapse state persiste (full/icons/hidden em cfg)
+[DONE] parse_pages: mensagem mostra "(valid: 1-{total})" claro
+[DONE] PdfReader com close em info.py (via "with open()")
+[N/A]  Erro silenciado em encrypt — FALSO POSITIVO (wrong password já
+       tem mensagem própria; outros erros mostram str(e) não genérico)
+[DONE] Convert: regex para apanhar "Page N", "N of M", etc.
+[DONE] Confirmação ao fechar app com pending edits no editor
+[DONE] Config path honra XDG_CONFIG_HOME em Linux (fresh installs);
+       existing installs mantêm legacy sem migração disruptiva
+[DONE] Assert len(NAV_ITEMS) <= 15 (fail-fast se adicionarem 16ª tool)
 
-[ ] Hit zone dos notes não escala com zoom
-    app/editor/canvas.py:694-708 — margin=10 fixo.
-    Fix: margin = max(6, int(10 * zoom))
+─── Feature requests (scope > bug fix) ────────────────────────────────
 
-[ ] Temp files de signature/dialogs não limpos em cancel
-    app/editor/dialogs.py:387-421 — tempfile.mkstemp() fica em %TEMP%.
-    Fix: try/finally com os.unlink OU dir dedicada limpa no startup.
-
-[ ] Sidebar collapse state não persiste
-    Reseta em cada arranque.
-    Fix: cfg["sidebar_mode"] guardado e restaurado.
-
-[ ] parse_pages: mensagens com índices 0-based confundem users
-    app/utils.py:74-84 — "Pages out of range: [0]" quando user digita 0.
-    Fix: "Page {p+1} is out of range (valid: 1-{total})"
-
-[ ] PdfReader sem close explícito em info.py
-    app/tools/info.py:71 — em Windows pode bloquear o ficheiro brevemente.
-    Fix: reader.close() OU "with open(path, 'rb') as f: PdfReader(f)"
-
-[ ] Erro silenciado em encrypt
-    app/tools/encrypt.py:136 — password errada vs PDF corrupto dão a
-    mesma mensagem genérica.
-    Fix: diferenciar PdfReadError.
-
-[ ] Convert: detecção de page numbers em texto é frágil
-    app/tools/convert.py:299-300 — isdigit() não apanha "Page 3 of 10"
-    Fix: regex ^\s*(page\s+)?\d+(\s+of\s+\d+)?\s*$ case-insensitive.
-
-[ ] Sem confirmação ao fechar tab com pending edits
-    Ctrl+W perde silenciosamente as anotações em self._pending.
-    Fix: prompt de confirmação em _close_tab se há pending.
-
-[ ] Config path ignora XDG_CONFIG_HOME em Linux
-    app/i18n.py:10 — ~/.pdfapps_config.json.
-    Fix: preferir $XDG_CONFIG_HOME/pdfapps/config.json + migration shim.
-
-[ ] Keyboard shortcuts: Ctrl+Shift+1-6 conflito latente se >15 tools
-    Actualmente seguro (15 exatos).
-    Fix: assert len(NAV_ITEMS) <= 15 em _setup_nav().
-
-[ ] Search sem whole-word / regex — nice-to-have
-
-[ ] Sem auto-save de rascunhos do editor — crash = perde edits
-    (ver também "Auto-save de sessão" na roadmap).
+[ ] Search sem whole-word / regex — precisa de UI
+[ ] Auto-save de rascunhos do editor — precisa de design
+    (ver "Auto-save de sessão" na roadmap)
 
 ========================================================================
  ROADMAP DE FUNCIONALIDADES

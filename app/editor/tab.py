@@ -567,12 +567,28 @@ class TabEditar(QWidget):
             self._img_drop.set_path(p)
             self._img_drop.blockSignals(False)
 
+    def _cleanup_signature_temp(self):
+        """Delete the previous signature temp file if it lives in the
+        system temp directory. Keeps the persistent saved signature
+        (~/.pdfapps_signature.png) untouched."""
+        old = self._signature_path
+        if not old or not os.path.isfile(old):
+            return
+        try:
+            old_dir = os.path.normcase(os.path.dirname(old))
+            tmp_dir = os.path.normcase(tempfile.gettempdir())
+            if old_dir.startswith(tmp_dir):
+                os.unlink(old)
+        except OSError:
+            pass
+
     def _pick_signature(self):
         from app.editor.dialogs import _SignatureDialog
         dlg = _SignatureDialog(self)
         if dlg.exec() == _SignatureDialog.DialogCode.Accepted:
             path = dlg.result_path()
             if path and os.path.isfile(path):
+                self._cleanup_signature_temp()
                 self._signature_path = path
                 from PySide6.QtGui import QPixmap
                 pix = QPixmap(path)
@@ -583,6 +599,7 @@ class TabEditar(QWidget):
 
     def _clear_signature(self):
         from PySide6.QtGui import QPixmap
+        self._cleanup_signature_temp()
         self._signature_path = None
         self._sig_preview.setText(t("edit.signature.none"))
         self._sig_preview.setPixmap(QPixmap())
@@ -687,7 +704,10 @@ class TabEditar(QWidget):
             # Unified text mode: click on a span → edit that span; click in empty
             # space → insert new text, inheriting style from the nearest span.
             import fitz
-            hit = self._canvas.get_span_at(page_idx, pdf_pt, max_dist=0.0)
+            # Small PDF-point tolerance so thin glyphs / bbox edges are
+            # still considered a "hit". Too large and clicks between
+            # paragraphs would hijack the edit flow.
+            hit = self._canvas.get_span_at(page_idx, pdf_pt, max_dist=3.0)
             if hit:
                 self._canvas.begin_inline_text_edit(hit, page_idx)
                 return

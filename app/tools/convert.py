@@ -294,8 +294,9 @@ class TabConverter(BasePage):
                         if not block_text:
                             continue
 
-                        # Skip standalone page numbers
-                        if block_text.isdigit() and len(block_text) <= 4:
+                        # Skip standalone page numbers: "42", "Page 3", "3 of 10"
+                        if _re.match(r"^\s*(?:page\s+)?\d{1,4}(?:\s+of\s+\d{1,4})?\s*$",
+                                     block_text, _re.IGNORECASE):
                             continue
 
                         # Skip TOC dot-leader lines

@@ -80,7 +80,12 @@ def parse_pages(text: str, total: int) -> list:
             raise ValueError(f"Too many pages selected (max {_MAX_PAGES})")
     invalid = [p for p in pages if p < 0 or p >= total]
     if invalid:
-        raise ValueError(f"Pages out of range: {[p+1 for p in invalid]}  (total: {total})")
+        # p is the 0-based internal index. Convert to the 1-based number the
+        # user actually typed, and be explicit about the valid range so
+        # entering 0 doesn't produce a confusing "[0]" message.
+        bad = sorted({(p + 1) if p >= 0 else 0 for p in invalid})
+        raise ValueError(
+            f"Pages out of range: {bad}  (valid: 1-{total})")
     return pages
 
 

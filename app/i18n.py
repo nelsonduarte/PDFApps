@@ -7,7 +7,29 @@ import sys
 
 _TRANSLATIONS: dict = {}
 _LANG: str = "en"
-_CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".pdfapps_config.json")
+
+_LEGACY_CONFIG = os.path.join(os.path.expanduser("~"), ".pdfapps_config.json")
+_LEGACY_SIGNATURE = os.path.join(os.path.expanduser("~"), ".pdfapps_signature.png")
+
+
+def _resolve_config_paths() -> tuple[str, str]:
+    """Return (config_path, signature_path).
+
+    To avoid disrupting existing installs, the legacy home-dir dotfiles
+    are used whenever the legacy config already exists. Windows and
+    macOS also keep the home-dir paths. Fresh Linux installs instead
+    honour XDG_CONFIG_HOME (or ~/.config/pdfapps/) per freedesktop.org."""
+    if os.path.isfile(_LEGACY_CONFIG):
+        return _LEGACY_CONFIG, _LEGACY_SIGNATURE
+    if sys.platform in ("win32", "darwin"):
+        return _LEGACY_CONFIG, _LEGACY_SIGNATURE
+    xdg = os.environ.get("XDG_CONFIG_HOME") or os.path.join(
+        os.path.expanduser("~"), ".config")
+    d = os.path.join(xdg, "pdfapps")
+    return os.path.join(d, "config.json"), os.path.join(d, "signature.png")
+
+
+_CONFIG_PATH, _SIGNATURE_PATH = _resolve_config_paths()
 
 
 def _load_translations():
@@ -70,6 +92,7 @@ def _atomic_write_config(cfg: dict):
     """Write config atomically: write to temp file, then rename."""
     import tempfile
     dir_name = os.path.dirname(_CONFIG_PATH)
+    os.makedirs(dir_name, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -164,9 +187,6 @@ def add_recent_file(path: str):
     _atomic_write_config(cfg)
 
 
-_SIGNATURE_PATH = os.path.join(os.path.expanduser("~"), ".pdfapps_signature.png")
-
-
 def get_saved_signature() -> str | None:
     """Return path to saved signature image, or None."""
     if os.path.isfile(_SIGNATURE_PATH):
@@ -177,6 +197,7 @@ def get_saved_signature() -> str | None:
 def save_signature(img_path: str):
     """Copy signature image to persistent location."""
     import shutil
+    os.makedirs(os.path.dirname(_SIGNATURE_PATH), exist_ok=True)
     shutil.copy2(img_path, _SIGNATURE_PATH)
 
 

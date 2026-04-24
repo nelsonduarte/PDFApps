@@ -68,37 +68,40 @@ class TabInfo(BasePage):
 
     def _show(self, path: str):
         try:
-            reader = PdfReader(path); meta = reader.metadata or {}
-            size   = os.path.getsize(path)
-            enc = t("tool.info.yes") if reader.is_encrypted else t("tool.info.no")
-            lines  = [
-                f"  📄  {os.path.basename(path)}",
-                f"  📁  {path}",
-                "",
-                f"  {t('tool.info.pages'):<16}{len(reader.pages)}",
-                f"  {t('tool.info.size'):<16}{size/1024:.1f} KB  ({size:,} bytes)".replace(",", " "),
-                f"  {t('tool.info.encrypted'):<16}{enc}",
-                "",
-            ]
-            for key, tkey in {
-                "/Title": "tool.info.title", "/Author": "tool.info.author",
-                "/Subject": "tool.info.subject", "/Creator": "tool.info.creator",
-                "/Producer": "tool.info.producer", "/CreationDate": "tool.info.created",
-                "/ModDate": "tool.info.modified",
-            }.items():
-                val = meta.get(key, "")
-                if val:
-                    if key in ("/CreationDate", "/ModDate"):
-                        val = _format_pdf_date(val)
-                    lines.append(f"  {t(tkey):<16}{val}")
-            if len(reader.pages) > 0:
-                pg = reader.pages[0]
-                w, h = float(pg.mediabox.width), float(pg.mediabox.height)
-                lines += ["",
-                    f"  {t('tool.info.page_size')}  {w:.0f} × {h:.0f} pt",
-                    f"                   {w/72*25.4:.0f} × {h/72*25.4:.0f} mm",
+            with open(path, "rb") as f:
+                reader = PdfReader(f)
+                meta = reader.metadata or {}
+                size = os.path.getsize(path)
+                enc = t("tool.info.yes") if reader.is_encrypted else t("tool.info.no")
+                page_count = len(reader.pages)
+                lines = [
+                    f"  📄  {os.path.basename(path)}",
+                    f"  📁  {path}",
+                    "",
+                    f"  {t('tool.info.pages'):<16}{page_count}",
+                    f"  {t('tool.info.size'):<16}{size/1024:.1f} KB  ({size:,} bytes)".replace(",", " "),
+                    f"  {t('tool.info.encrypted'):<16}{enc}",
+                    "",
                 ]
+                for key, tkey in {
+                    "/Title": "tool.info.title", "/Author": "tool.info.author",
+                    "/Subject": "tool.info.subject", "/Creator": "tool.info.creator",
+                    "/Producer": "tool.info.producer", "/CreationDate": "tool.info.created",
+                    "/ModDate": "tool.info.modified",
+                }.items():
+                    val = meta.get(key, "")
+                    if val:
+                        if key in ("/CreationDate", "/ModDate"):
+                            val = _format_pdf_date(val)
+                        lines.append(f"  {t(tkey):<16}{val}")
+                if page_count > 0:
+                    pg = reader.pages[0]
+                    w, h = float(pg.mediabox.width), float(pg.mediabox.height)
+                    lines += ["",
+                        f"  {t('tool.info.page_size')}  {w:.0f} × {h:.0f} pt",
+                        f"                   {w/72*25.4:.0f} × {h/72*25.4:.0f} mm",
+                    ]
             self.txt.setPlainText("\n".join(lines))
-            self._status(f"ℹ  {os.path.basename(path)}  ·  {len(reader.pages)} {t('tool.info.pages').lower()}  ·  {size/1024:.1f} KB")
+            self._status(f"ℹ  {os.path.basename(path)}  ·  {page_count} {t('tool.info.pages').lower()}  ·  {size/1024:.1f} KB")
         except Exception as e:
             self.txt.setPlainText(t("tool.info.error", e=e))
