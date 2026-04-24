@@ -192,14 +192,24 @@ def remove_shortcuts() -> None:
 def _schedule_dir_removal(install_dir: str) -> None:
     """Delete the installation folder after the process exits."""
     if sys.platform == "win32":
+        # Normalise and validate the path before writing it into a BAT file.
+        # install_dir ultimately comes from the HKCU uninstall registry key
+        # (user-writable), so a value containing newlines or BAT
+        # metacharacters could otherwise inject commands into the generated
+        # script that cmd /c will execute.
+        install_dir = os.path.normpath(install_dir)
+        if not os.path.isabs(install_dir):
+            return  # refuse relative paths outright
+        if any(c in install_dir for c in ('\r', '\n', '"', '%', '&', '|',
+                                          '<', '>', '^')):
+            return
         import tempfile
         fd, bat = tempfile.mkstemp(prefix="pdfapps_", suffix=".bat")
         os.close(fd)
         with open(bat, "w") as f:
             f.write("@echo off\n")
             f.write("timeout /t 5 /nobreak > nul\n")
-            safe_dir = install_dir.replace('"', '')
-            f.write(f'rmdir /s /q "{safe_dir}"\n')
+            f.write(f'rmdir /s /q "{install_dir}"\n')
             f.write('del "%~f0"\n')
         subprocess.Popen(["cmd", "/c", bat], **_no_window())
     else:

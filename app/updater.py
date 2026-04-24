@@ -119,26 +119,40 @@ def _find_asset(release: dict) -> dict | None:
 
 
 def _get_expected_hash(release: dict, asset_name: str) -> str | None:
-    """Extract SHA256 hash from release body (checksums section)."""
+    """Extract SHA256 hash from release body (checksums section).
+
+    Expects lines of the form "<sha256>  <filename>". The filename must
+    match exactly (not as a substring) so a stray line like
+    "<hash>  PDFAppsSetup.exe.old" cannot poison the hash for
+    "PDFAppsSetup.exe".
+    """
     body = release.get("body") or ""
     for line in body.splitlines():
-        stripped = line.strip()
-        # Format: "<sha256>  <filename>" or "<sha256> <filename>"
-        if asset_name in stripped:
-            parts = stripped.split()
-            if len(parts) >= 2 and len(parts[0]) == 64:
-                try:
-                    int(parts[0], 16)
-                    return parts[0].lower()
-                except ValueError:
-                    pass
+        parts = line.strip().split()
+        if len(parts) < 2 or parts[-1] != asset_name or len(parts[0]) != 64:
+            continue
+        try:
+            int(parts[0], 16)
+            return parts[0].lower()
+        except ValueError:
+            continue
     return None
 
 
 def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None = None):
-    """Download file with progress callback and optional SHA256 verification."""
+    """Download file and verify its SHA256 against expected_hash.
+
+    Refuses to proceed if expected_hash is missing — a release without a
+    published hash could otherwise be executed unverified if the upstream
+    release body is ever stripped or the parse fails.
+    """
     import hashlib
+    import hmac
     try:
+        if not expected_hash:
+            raise ValueError(
+                "Missing SHA256 hash for this release — refusing to download "
+                "an unverifiable update. Please re-run the release workflow.")
         req = urllib.request.Request(url, headers={"User-Agent": "PDFApps"})
         with urllib.request.urlopen(req, timeout=60) as resp:
             total = int(resp.headers.get("Content-Length", 0))
@@ -154,7 +168,7 @@ def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None 
                     downloaded += len(chunk)
                     if total:
                         signals.progress.emit(int(downloaded * 100 / total))
-        if expected_hash and sha.hexdigest() != expected_hash:
+        if not hmac.compare_digest(sha.hexdigest(), expected_hash):
             raise ValueError(
                 f"SHA256 mismatch: expected {expected_hash}, "
                 f"got {sha.hexdigest()}"
