@@ -148,11 +148,10 @@ def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None 
     """
     import hashlib
     import hmac
+    from app.i18n import t
     try:
         if not expected_hash:
-            raise ValueError(
-                "Missing SHA256 hash for this release — refusing to download "
-                "an unverifiable update. Please re-run the release workflow.")
+            raise ValueError(t("update.error.missing_hash"))
         req = urllib.request.Request(url, headers={"User-Agent": "PDFApps"})
         with urllib.request.urlopen(req, timeout=60) as resp:
             total = int(resp.headers.get("Content-Length", 0))
@@ -168,11 +167,10 @@ def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None 
                     downloaded += len(chunk)
                     if total:
                         signals.progress.emit(int(downloaded * 100 / total))
-        if not hmac.compare_digest(sha.hexdigest(), expected_hash):
-            raise ValueError(
-                f"SHA256 mismatch: expected {expected_hash}, "
-                f"got {sha.hexdigest()}"
-            )
+        got = sha.hexdigest()
+        if not hmac.compare_digest(got, expected_hash):
+            raise ValueError(t("update.error.hash_mismatch",
+                                expected=expected_hash, got=got))
         signals.finished.emit(dest)
     except Exception as exc:
         try:
