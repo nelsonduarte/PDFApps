@@ -35,6 +35,7 @@ class DropFileEdit(QWidget):
                  save=False, default_name="result.pdf"):
         super().__init__()
         self._filters      = filters or t("file_filter.pdf")
+        self._accept_exts  = self._parse_extensions(self._filters)
         self._save         = save
         self._default      = default_name
         self._path_value   = ""
@@ -100,8 +101,27 @@ class DropFileEdit(QWidget):
             w.style().unpolish(w); w.style().polish(w)
 
     # ── drag & drop ──────────────────────────────────────────────────────────
+    @staticmethod
+    def _parse_extensions(filter_str: str) -> tuple:
+        """Extract accepted extensions from a Qt file filter like
+        'PDF Files (*.pdf);;All (*.*)'. Uses only the primary group
+        (before ';;'). Returns () if the filter is empty or only '*.*'."""
+        import re
+        if not filter_str:
+            return ()
+        first = filter_str.split(";;")[0]
+        exts = tuple("." + m.lower()
+                     for m in re.findall(r"\*\.([A-Za-z0-9]+)", first))
+        return () if not exts or exts == (".*",) else exts
+
+    def _url_accepted(self, url) -> bool:
+        if not self._accept_exts:
+            return True
+        return url.toLocalFile().lower().endswith(self._accept_exts)
+
     def dragEnterEvent(self, e: QDragEnterEvent):
-        if e.mimeData().hasUrls():
+        urls = e.mimeData().urls() if e.mimeData().hasUrls() else []
+        if urls and self._url_accepted(urls[0]):
             e.acceptProposedAction()
             self.setProperty("drag_active", "true")
             self.style().unpolish(self); self.style().polish(self)
@@ -114,7 +134,7 @@ class DropFileEdit(QWidget):
         self.setProperty("drag_active", "false")
         self.style().unpolish(self); self.style().polish(self)
         urls = e.mimeData().urls()
-        if urls:
+        if urls and self._url_accepted(urls[0]):
             self.set_path(urls[0].toLocalFile())
 
     def _browse(self):

@@ -421,7 +421,9 @@ class PdfEditCanvas(QWidget):
                     self._commit_inline()
                     return True
             elif event.type() == QEvent.Type.FocusOut:
-                self._commit_inline()
+                # Clicking outside cancels the edit (matches VSCode/most
+                # editors). Enter/Tab still commit; Escape still cancels.
+                self._cancel_inline()
                 return False
         return super().eventFilter(obj, event)
 

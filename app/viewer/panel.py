@@ -3,7 +3,6 @@
 import os
 
 from PySide6.QtCore import Qt, QEvent
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QFileDialog, QMessageBox, QDialog,
@@ -25,7 +24,6 @@ class PdfViewerPanel(QWidget):
         super().__init__()
         self.setObjectName("viewer_panel")
         self.setMinimumWidth(260)
-        self.setAcceptDrops(False)
         self._current_path = ""
         self._fitz_doc     = None
 
@@ -329,15 +327,7 @@ class PdfViewerPanel(QWidget):
         for btn in self._recent_del_btns:
             btn.setIcon(qta.icon("fa5s.trash-alt", color=c))
 
-    # ── Drag & drop ──────────────────────────────────────────────────────────
-    def dragEnterEvent(self, e: QDragEnterEvent):
-        if e.mimeData().hasUrls():
-            urls = e.mimeData().urls()
-            if urls and urls[0].toLocalFile().lower().endswith(".pdf"):
-                e.acceptProposedAction()
-
-    def dropEvent(self, e: QDropEvent):
-        self.load(e.mimeData().urls()[0].toLocalFile())
+    # Drag & drop is handled at the MainWindow level (see window.py).
 
     # ── Open dialog ────────────────────────────────────────────────────────
     def _remove_recent(self, path: str, row_widget):

@@ -78,7 +78,7 @@ class TabPageNumbers(BasePage):
         form.addRow(t("tool.page_numbers.start_number"), self.spin_start_number)
 
         self.edit_pages = QLineEdit()
-        self.edit_pages.setPlaceholderText(t("tool.watermark.pages_hint"))
+        self.edit_pages.setPlaceholderText(t("tool.page_numbers.pages_hint"))
         form.addRow(t("tool.page_numbers.pages_label"), self.edit_pages)
 
         f.addWidget(grp)
@@ -122,100 +122,99 @@ class TabPageNumbers(BasePage):
 
         try:
             import fitz, re
-            doc = fitz.open(pdf_path)
-            total = doc.page_count
+            with fitz.open(pdf_path) as doc:
+                total = doc.page_count
 
-            txt = self.edit_pages.text().strip()
-            targets = set(parse_pages(txt, total)) if txt else set(range(total))
+                txt = self.edit_pages.text().strip()
+                targets = set(parse_pages(txt, total)) if txt else set(range(total))
 
-            fmt_template = _FORMATS[self.cmb_format.currentIndex()][1]
-            pos_code = _POSITIONS[self.cmb_position.currentIndex()][1]
-            font_size = self.spin_size.value()
-            start_page = self.spin_start_page.value() - 1  # 0-indexed
-            start_num = self.spin_start_number.value()
-            margin = max(18, font_size + 8)
+                fmt_template = _FORMATS[self.cmb_format.currentIndex()][1]
+                pos_code = _POSITIONS[self.cmb_position.currentIndex()][1]
+                font_size = self.spin_size.value()
+                start_page = self.spin_start_page.value() - 1  # 0-indexed
+                start_num = self.spin_start_number.value()
+                margin = max(18, font_size + 8)
 
-            # ── detect existing page numbers in the chosen margin band ──
-            band_h = max(50, font_size * 4)
-            num_re = re.compile(
-                r"^\s*(?:\d+\s*(?:/\s*\d+)?|"
-                r"(?:page|página|pagina|seite|stránka)\s+\d+(?:\s+(?:of|de|sur|von|di|van)\s+\d+)?)\s*$",
-                re.IGNORECASE,
-            )
-            existing = []  # list of (page_idx, [fitz.Rect])
-            for i in range(total):
-                if i not in targets or i < start_page:
-                    continue
-                page = doc[i]
-                rect = page.rect
-                if pos_code[0] == "t":
-                    band = fitz.Rect(0, 0, rect.width, band_h)
-                else:
-                    band = fitz.Rect(0, rect.height - band_h, rect.width, rect.height)
-                hits = []
-                for block in page.get_text("dict", clip=band).get("blocks", []):
-                    if block.get("type") != 0:
-                        continue
-                    for line in block.get("lines", []):
-                        for span in line.get("spans", []):
-                            stxt = span.get("text", "").strip()
-                            if stxt and num_re.match(stxt):
-                                hits.append(fitz.Rect(span["bbox"]))
-                if hits:
-                    existing.append((i, hits))
-
-            replace = False
-            if existing:
-                ans = QMessageBox.question(
-                    self, t("msg.warning"),
-                    t("tool.page_numbers.existing_found", n=len(existing)),
-                    QMessageBox.StandardButton.Yes
-                    | QMessageBox.StandardButton.No
-                    | QMessageBox.StandardButton.Cancel,
+                # ── detect existing page numbers in the chosen margin band ──
+                band_h = max(50, font_size * 4)
+                num_re = re.compile(
+                    r"^\s*(?:\d+\s*(?:/\s*\d+)?|"
+                    r"(?:page|página|pagina|seite|stránka)\s+\d+(?:\s+(?:of|de|sur|von|di|van)\s+\d+)?)\s*$",
+                    re.IGNORECASE,
                 )
-                if ans == QMessageBox.StandardButton.Cancel:
-                    doc.close(); return
-                replace = (ans == QMessageBox.StandardButton.Yes)
+                existing = []  # list of (page_idx, [fitz.Rect])
+                for i in range(total):
+                    if i not in targets or i < start_page:
+                        continue
+                    page = doc[i]
+                    rect = page.rect
+                    if pos_code[0] == "t":
+                        band = fitz.Rect(0, 0, rect.width, band_h)
+                    else:
+                        band = fitz.Rect(0, rect.height - band_h, rect.width, rect.height)
+                    hits = []
+                    for block in page.get_text("dict", clip=band).get("blocks", []):
+                        if block.get("type") != 0:
+                            continue
+                        for line in block.get("lines", []):
+                            for span in line.get("spans", []):
+                                stxt = span.get("text", "").strip()
+                                if stxt and num_re.match(stxt):
+                                    hits.append(fitz.Rect(span["bbox"]))
+                    if hits:
+                        existing.append((i, hits))
 
-            if replace:
-                for pg_idx, rects in existing:
-                    pg = doc[pg_idx]
-                    for r in rects:
-                        pg.add_redact_annot(r, fill=(1, 1, 1))
-                    pg.apply_redactions()
+                replace = False
+                if existing:
+                    ans = QMessageBox.question(
+                        self, t("msg.warning"),
+                        t("tool.page_numbers.existing_found", n=len(existing)),
+                        QMessageBox.StandardButton.Yes
+                        | QMessageBox.StandardButton.No
+                        | QMessageBox.StandardButton.Cancel,
+                    )
+                    if ans == QMessageBox.StandardButton.Cancel:
+                        return
+                    replace = (ans == QMessageBox.StandardButton.Yes)
 
-            # numbered_total = how many pages will actually be numbered
-            numbered_total = sum(1 for i in range(total)
-                                 if i in targets and i >= start_page)
+                if replace:
+                    for pg_idx, rects in existing:
+                        pg = doc[pg_idx]
+                        for r in rects:
+                            pg.add_redact_annot(r, fill=(1, 1, 1))
+                        pg.apply_redactions()
 
-            counter = 0
-            for i in range(total):
-                if i not in targets or i < start_page:
-                    continue
-                counter += 1
-                n_display = start_num + counter - 1
-                label = fmt_template.format(n=n_display, total=numbered_total + start_num - 1)
+                # numbered_total = how many pages will actually be numbered
+                numbered_total = sum(1 for i in range(total)
+                                     if i in targets and i >= start_page)
 
-                page = doc[i]
-                rect = page.rect
-                # Estimate text width (rough: 0.5 * font_size per char for Helvetica)
-                tw = len(label) * font_size * 0.5
-                if pos_code[0] == "t":
-                    y = margin
-                else:
-                    y = rect.height - margin + font_size * 0.3
-                if pos_code[1] == "l":
-                    x = margin
-                elif pos_code[1] == "c":
-                    x = (rect.width - tw) / 2
-                else:
-                    x = rect.width - margin - tw
+                counter = 0
+                for i in range(total):
+                    if i not in targets or i < start_page:
+                        continue
+                    counter += 1
+                    n_display = start_num + counter - 1
+                    label = fmt_template.format(n=n_display, total=numbered_total + start_num - 1)
 
-                page.insert_text(fitz.Point(x, y), label,
-                                 fontsize=font_size, fontname="helv", color=(0, 0, 0))
+                    page = doc[i]
+                    rect = page.rect
+                    # Estimate text width (rough: 0.5 * font_size per char for Helvetica)
+                    tw = len(label) * font_size * 0.5
+                    if pos_code[0] == "t":
+                        y = margin
+                    else:
+                        y = rect.height - margin + font_size * 0.3
+                    if pos_code[1] == "l":
+                        x = margin
+                    elif pos_code[1] == "c":
+                        x = (rect.width - tw) / 2
+                    else:
+                        x = rect.width - margin - tw
 
-            doc.save(out_path, garbage=4, deflate=True)
-            doc.close()
+                    page.insert_text(fitz.Point(x, y), label,
+                                     fontsize=font_size, fontname="helv", color=(0, 0, 0))
+
+                doc.save(out_path, garbage=4, deflate=True)
             self._status(f"✔  → {os.path.basename(out_path)}")
             msg = t("tool.page_numbers.done", path=out_path)
             if self._pipeline_active:

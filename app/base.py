@@ -1,6 +1,8 @@
 """PDFApps – BasePage: standard page layout (header + scroll + action bar)."""
 
 import os
+import subprocess
+import sys
 import tempfile
 import shutil
 
@@ -11,6 +13,34 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFileDialog,
 from app.constants import DESKTOP, ACCENT
 from app.i18n import t
 from app.utils import ToolHeader, ActionBar, scrolled, _paint_bg
+
+
+def _reveal_file(path: str) -> None:
+    """Open the OS file manager and highlight the given file when possible.
+    Falls back to opening the parent folder on Linux (xdg-open can't select)."""
+    try:
+        if sys.platform == "win32":
+            subprocess.Popen(["explorer", "/select,", os.path.normpath(path)])
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", "-R", path])
+        else:
+            subprocess.Popen(["xdg-open", os.path.dirname(path) or "."])
+    except OSError:
+        pass
+
+
+def _open_folder(path: str) -> None:
+    """Open the folder containing the given file (or the folder itself)."""
+    try:
+        folder = os.path.dirname(path) if os.path.isfile(path) else path
+        if sys.platform == "win32":
+            subprocess.Popen(["explorer", os.path.normpath(folder)])
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", folder])
+        else:
+            subprocess.Popen(["xdg-open", folder])
+    except OSError:
+        pass
 
 
 class BasePage(QWidget):
@@ -164,7 +194,7 @@ class BasePage(QWidget):
     def _show_toast(self, message: str, file_path: str = "") -> None:
         """Show a brief success toast above the action bar with optional
         'Open file' / 'Open folder' buttons."""
-        import os, subprocess, sys
+        import os
         # Remove previous toast if any
         old = getattr(self, "_toast_widget", None)
         if old:
@@ -183,17 +213,11 @@ class BasePage(QWidget):
         if file_path and os.path.exists(file_path):
             btn_file = QPushButton(t("toast.open_file"))
             btn_file.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_file.clicked.connect(lambda: (
-                subprocess.Popen(["explorer", "/select,", os.path.normpath(file_path)])
-                if sys.platform == "win32"
-                else subprocess.Popen(["xdg-open", file_path])))
+            btn_file.clicked.connect(lambda: _reveal_file(file_path))
             h.addWidget(btn_file)
             btn_folder = QPushButton(t("toast.open_folder"))
             btn_folder.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_folder.clicked.connect(lambda: (
-                subprocess.Popen(["explorer", os.path.dirname(os.path.normpath(file_path))])
-                if sys.platform == "win32"
-                else subprocess.Popen(["xdg-open", os.path.dirname(file_path)])))
+            btn_folder.clicked.connect(lambda: _open_folder(file_path))
             h.addWidget(btn_folder)
 
         # Insert above action bar

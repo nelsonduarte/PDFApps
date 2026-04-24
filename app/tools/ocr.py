@@ -214,46 +214,47 @@ class TabOCR(BasePage):
             idx = max(0, min(self.cmb_lang.currentIndex(), len(codes) - 1))
             lang = codes[idx]
             fmt  = self.cmb_fmt.currentIndex()
-            doc  = fitz.open(pdf_path)
-            n    = doc.page_count
+            with fitz.open(pdf_path) as doc:
+                n = doc.page_count
 
-            progress = QProgressDialog(t("progress.ocr.page", current=1, total=n),
-                                       t("progress.cancel"), 0, n, self)
-            progress.setWindowTitle(t("progress.ocr.title"))
-            progress.setWindowModality(Qt.WindowModality.WindowModal)
-            progress.setMinimumDuration(0)
-            progress.setValue(0)
-            cancelled = False
+                progress = QProgressDialog(t("progress.ocr.page", current=1, total=n),
+                                           t("progress.cancel"), 0, n, self)
+                progress.setWindowTitle(t("progress.ocr.title"))
+                progress.setWindowModality(Qt.WindowModality.WindowModal)
+                progress.setMinimumDuration(0)
+                progress.setValue(0)
+                cancelled = False
 
-            if fmt == 1:
-                texts = []
-                for i, page in enumerate(doc):
-                    progress.setLabelText(t("progress.ocr.page", current=i+1, total=n))
-                    progress.setValue(i)
-                    QApplication.processEvents()
-                    if progress.wasCanceled():
-                        cancelled = True; break
-                    pix = page.get_pixmap(dpi=300)
-                    img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-                    texts.append(pytesseract.image_to_string(img, lang=lang))
-                doc.close()
-                if not cancelled:
+                if fmt == 1:
+                    texts = []
+                    for i, page in enumerate(doc):
+                        progress.setLabelText(t("progress.ocr.page", current=i+1, total=n))
+                        progress.setValue(i)
+                        QApplication.processEvents()
+                        if progress.wasCanceled():
+                            cancelled = True; break
+                        pix = page.get_pixmap(dpi=300)
+                        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                        texts.append(pytesseract.image_to_string(img, lang=lang))
+                else:
+                    pdf_pages = []
+                    for i, page in enumerate(doc):
+                        progress.setLabelText(t("progress.ocr.page", current=i+1, total=n))
+                        progress.setValue(i)
+                        QApplication.processEvents()
+                        if progress.wasCanceled():
+                            cancelled = True; break
+                        pix = page.get_pixmap(dpi=300)
+                        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                        pdf_bytes = pytesseract.image_to_pdf_or_hocr(img, lang=lang, extension="pdf")
+                        pdf_pages.append(pdf_bytes)
+
+            # doc closed here via context manager; write output if not cancelled
+            if not cancelled:
+                if fmt == 1:
                     with open(out_path, "w", encoding="utf-8") as fh:
                         fh.write("\f".join(texts))
-            else:
-                pdf_pages = []
-                for i, page in enumerate(doc):
-                    progress.setLabelText(t("progress.ocr.page", current=i+1, total=n))
-                    progress.setValue(i)
-                    QApplication.processEvents()
-                    if progress.wasCanceled():
-                        cancelled = True; break
-                    pix = page.get_pixmap(dpi=300)
-                    img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-                    pdf_bytes = pytesseract.image_to_pdf_or_hocr(img, lang=lang, extension="pdf")
-                    pdf_pages.append(pdf_bytes)
-                doc.close()
-                if not cancelled:
+                else:
                     writer = PdfWriter()
                     for page_bytes in pdf_pages:
                         writer.append(PdfReader(_io.BytesIO(page_bytes)))

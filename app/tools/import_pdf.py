@@ -181,16 +181,22 @@ class TabImport(BasePage):
             import fitz
             doc = fitz.open()
             count = len(sources)
+            skipped = 0
             for i, img_path in enumerate(sources):
                 img = fitz.open(img_path)
-                # Get image dimensions
-                rect = img[0].rect
-                # Create page with image dimensions
-                page = doc.new_page(width=rect.width, height=rect.height)
-                page.insert_image(page.rect, filename=img_path)
-                img.close()
+                try:
+                    if img.page_count == 0:
+                        skipped += 1
+                        continue
+                    rect = img[0].rect
+                    page = doc.new_page(width=rect.width, height=rect.height)
+                    page.insert_image(page.rect, filename=img_path)
+                finally:
+                    img.close()
                 self._status(f"{i + 1}/{count}…")
                 QApplication.processEvents()
+            if skipped:
+                self._status(f"Skipped {skipped} unreadable image(s)")
             doc.save(out_path)
             doc.close()
             self._done(out_path)

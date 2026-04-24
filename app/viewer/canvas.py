@@ -205,7 +205,7 @@ class _SelectCanvas(QWidget):
     def _layout_and_schedule(self):
         """Calculate dimensions of all pages (fast — no pixel rendering)
         and schedule rendering of visible pages in background."""
-        if not self._doc:
+        if not self._doc or self._doc.page_count == 0:
             return
 
         if self._zoom_factor == 1.0:

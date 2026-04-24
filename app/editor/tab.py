@@ -24,6 +24,8 @@ from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
 class TabEditar(QWidget):
     """Visual editor: click/drag directly on the rendered PDF."""
 
+    _MAX_REDO = 100   # cap redo history to avoid unbounded memory growth
+
     _HI_COLORS_KEYS  = ["color.yellow", "color.green", "color.pink", "color.light_blue"]
     _HI_COLORS_VALS  = [(1,1,0), (0,1,0), (1,0.4,0.7), (0.5,0.8,1)]
     _RED_FILLS_KEYS  = ["color.black", "color.white", "color.grey"]
@@ -743,6 +745,8 @@ class TabEditar(QWidget):
             return
         edit = self._pending.pop()
         self._redo_stack.append(edit)
+        if len(self._redo_stack) > self._MAX_REDO:
+            self._redo_stack.pop(0)
         self._pending_list.takeItem(self._pending_list.count() - 1)
         self._canvas.set_overlays(self._pending)
         self._status(f"↩  Undo — {len(self._pending)} pending edit(s)")

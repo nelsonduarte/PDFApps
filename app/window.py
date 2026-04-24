@@ -470,8 +470,12 @@ class MainWindow(QMainWindow):
             import json
             with open(_CONFIG_PATH, "r", encoding="utf-8") as _cf:
                 _saved = json.load(_cf)
-            if "splitter_sizes" in _saved:
-                self._splitter.setSizes(_saved["splitter_sizes"])
+            sizes = _saved.get("splitter_sizes")
+            if (isinstance(sizes, list)
+                    and len(sizes) == self._splitter.count()
+                    and all(isinstance(s, int) and s >= 0 for s in sizes)
+                    and sum(sizes) > 0):
+                self._splitter.setSizes(sizes)
         except Exception:
             pass
 
@@ -894,14 +898,21 @@ class MainWindow(QMainWindow):
         menu.exec(self._lang_btn.mapToGlobal(self._lang_btn.rect().bottomLeft()))
 
     def _set_language(self, code: str, name: str):
+        if code == get_language():
+            return
+        # Prompt before persisting. Tooltips, menus and many labels are
+        # cached at widget construction, so a full restart is required to
+        # apply the new language consistently. If the user declines, keep
+        # everything as it was instead of leaving a mixed state.
+        ans = QMessageBox.question(
+            self, t("lang.selector"), t("lang.restart", lang=name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+        if ans != QMessageBox.StandardButton.Yes:
+            return
         set_language(code)
         _labels = {"en": "EN", "pt": "PT", "es": "ES", "fr": "FR", "de": "DE", "zh": "ZH", "it": "IT", "nl": "NL"}
         self._lang_btn.setText(_labels.get(code, "EN"))
-        ans = QMessageBox.question(
-            self, t("lang.selector"), t("lang.restart", lang=name),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if ans == QMessageBox.StandardButton.Yes:
-            self._restart_app()
+        self._restart_app()
 
     def _restart_app(self):
         """Restart the application as a fully detached process."""
