@@ -11,6 +11,34 @@ _PAGE_GAP = 4
 _BUFFER_PGS = 2
 _MAX_THREADS = 2
 
+_ICON_CURSORS: dict = {}
+
+
+def _get_icon_cursor(icon_name: str, hx: int, hy: int,
+                     size: int = 28, rotate: float = 0.0):
+    """Cached QCursor built from a qtawesome icon with a white halo so the
+    cursor stays visible on both light and dark PDF backgrounds."""
+    key = (icon_name, hx, hy, size, rotate)
+    cur = _ICON_CURSORS.get(key)
+    if cur is not None:
+        return cur
+    from PySide6.QtGui import QCursor, QPixmap, QPainter
+    import qtawesome as qta
+    pix = QPixmap(size, size)
+    pix.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pix)
+    pad = (size - 24) // 2
+    extra = {"rotated": rotate} if rotate else {}
+    halo = qta.icon(icon_name, color="white", **extra).pixmap(24, 24)
+    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        p.drawPixmap(pad + dx, pad + dy, halo)
+    body = qta.icon(icon_name, color="black", **extra).pixmap(24, 24)
+    p.drawPixmap(pad, pad, body)
+    p.end()
+    cur = QCursor(pix, hx, hy)
+    _ICON_CURSORS[key] = cur
+    return cur
+
 
 class _EditRenderSignals(QObject):
     page_ready = Signal(int, int, object)  # gen, idx, QPixmap
@@ -114,10 +142,10 @@ class PdfEditCanvas(QWidget):
         self._select_mode = active
 
     def set_text_mode(self, active: bool):
-        """Unified text mode — IBeamCursor over spans, CrossCursor elsewhere."""
+        """Text mode uses IBeamCursor consistently (edit existing or add new)."""
         self._text_mode = active
-        if not active:
-            self.setCursor(Qt.CursorShape.CrossCursor)
+        if active:
+            self.setCursor(Qt.CursorShape.IBeamCursor)
 
     def set_draw_mode(self, active: bool, color=None, width=None):
         self._draw_mode = active
@@ -125,7 +153,9 @@ class PdfEditCanvas(QWidget):
             self._draw_color = color
         if width is not None:
             self._draw_width = max(1, int(width))
-        if not active:
+        if active:
+            self.setCursor(_get_icon_cursor("fa5s.pencil-alt", 14, 2, rotate=135))
+        else:
             self._current_stroke = None
             self._stroke_page = -1
             self.update()
@@ -684,14 +714,7 @@ class PdfEditCanvas(QWidget):
             self._drag_rect = QRect(self._drag_start, e.position().toPoint()).normalized()
             self.update()
             return
-        if self._text_mode and self._doc and self._page_offsets:
-            pos = e.position().toPoint()
-            page_idx, lx, ly = self._page_and_local(pos.x(), pos.y())
-            if 0 <= page_idx < len(self._page_offsets):
-                pdf_pt = self._to_pdf(page_idx, lx, ly)
-                hit = self.get_span_at(page_idx, pdf_pt, max_dist=0.0)
-                self.setCursor(Qt.CursorShape.IBeamCursor if hit
-                               else Qt.CursorShape.CrossCursor)
+        # Text mode keeps a constant IBeam cursor (set once in set_text_mode).
 
     def _note_icon_at(self, pos: QPoint) -> int:
         z = self._zoom

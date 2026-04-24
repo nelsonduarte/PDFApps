@@ -17,7 +17,7 @@ from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, DESKTOP, _LQ, _LP
 from app.utils import ToolHeader, ActionBar, info_lbl, _paint_bg
 from app.i18n import t
 from app.widgets import DropFileEdit, ColorPickerButton
-from app.editor.canvas import PdfEditCanvas
+from app.editor.canvas import PdfEditCanvas, _get_icon_cursor
 from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
 
 
@@ -461,14 +461,23 @@ class TabEditar(QWidget):
             color=self._draw_color_cb.color_tuple() if is_draw else None,
             width=self._draw_width_slider.value() if is_draw else None,
         )
-        # Text mode: hover-aware cursor (IBeam over spans, Cross elsewhere)
         self._canvas.set_text_mode(idx == 1)
-        if idx == 4:
-            self._canvas.setCursor(Qt.CursorShape.IBeamCursor)
-        elif idx == 8:
-            pass  # default arrow handled by select mode
-        elif idx != 1:
-            self._canvas.setCursor(Qt.CursorShape.CrossCursor)
+        # Cursor per mode. Text (1) and draw (7) are already set above by
+        # set_text_mode / set_draw_mode.
+        if idx == 0:     # redact
+            self._canvas.setCursor(_get_icon_cursor("fa5s.eraser", 22, 22))
+        elif idx == 2:   # image
+            self._canvas.setCursor(_get_icon_cursor("fa5s.image", 14, 14))
+        elif idx == 3:   # highlight
+            self._canvas.setCursor(_get_icon_cursor("fa5s.highlighter", 14, 2, rotate=135))
+        elif idx == 4:   # note
+            self._canvas.setCursor(_get_icon_cursor("fa5s.sticky-note", 4, 4))
+        elif idx == 5:   # forms — no canvas interaction
+            self._canvas.setCursor(Qt.CursorShape.ArrowCursor)
+        elif idx == 6:   # signature
+            self._canvas.setCursor(_get_icon_cursor("fa5s.signature", 14, 14))
+        elif idx == 8:   # select
+            self._canvas.setCursor(Qt.CursorShape.ArrowCursor)
         if idx == 2:
             self._pick_image()
         elif idx == 6:
