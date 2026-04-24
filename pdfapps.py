@@ -12,6 +12,15 @@ except ImportError:
                          "Install the pypdf library:\n\npip install pypdf")
     sys.exit(1)
 
+try:
+    import fitz  # PyMuPDF — used by viewer render, editor, most tools
+    del fitz
+except ImportError:
+    _app = QApplication(sys.argv)
+    QMessageBox.critical(None, "Missing dependency",
+                         "Install PyMuPDF:\n\npip install pymupdf")
+    sys.exit(1)
+
 from app.window import MainWindow
 from app.styles import STYLE, STYLE_LIGHT
 from app.utils import _make_palette
