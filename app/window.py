@@ -750,16 +750,21 @@ class MainWindow(QMainWindow):
                 self.stack.setMaximumWidth(16777215)
                 self._tab_container.setVisible(False)
                 self._setup_zoom_bar(True)
-                # Show undo/redo in workspace bar
+                # Show undo/redo in workspace bar. Disconnect the previous
+                # handler first (if any) so switching in/out of the editor
+                # doesn't accumulate connections and multi-fire on click.
                 edit_w = self.stack.widget(edit_idx)
                 self._undo_top_btn.setVisible(True)
                 self._redo_top_btn.setVisible(True)
-                try: self._undo_top_btn.clicked.disconnect()
-                except RuntimeError: pass
-                try: self._redo_top_btn.clicked.disconnect()
-                except RuntimeError: pass
+                prev = getattr(self, "_undo_redo_handlers", None)
+                if prev is not None:
+                    try: self._undo_top_btn.clicked.disconnect(prev[0])
+                    except (RuntimeError, TypeError): pass
+                    try: self._redo_top_btn.clicked.disconnect(prev[1])
+                    except (RuntimeError, TypeError): pass
                 self._undo_top_btn.clicked.connect(edit_w._undo)
                 self._redo_top_btn.clicked.connect(edit_w._redo)
+                self._undo_redo_handlers = (edit_w._undo, edit_w._redo)
             else:
                 self.stack.setMinimumWidth(320)
                 self.stack.setMaximumWidth(600)
