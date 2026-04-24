@@ -141,9 +141,10 @@ def get_recent_files() -> list[str]:
     try:
         with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
             cfg = json.load(f)
-            return cfg.get("recent_files", [])
+            recents = cfg.get("recent_files", [])
     except Exception:
         return []
+    return [p for p in recents if isinstance(p, str) and os.path.isfile(p)]
 
 
 def add_recent_file(path: str):

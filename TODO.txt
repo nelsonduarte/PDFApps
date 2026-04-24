@@ -1,24 +1,146 @@
-Alta prioridade (UX diário)
-[DONE] Assinatura digital — desenhar/importar assinatura e colocar no PDF
-[DONE] Atalhos de teclado globais — Ctrl+O (abrir), Ctrl+S (guardar), Ctrl+P (imprimir), Ctrl+W (fechar tab)
-[DONE] Bookmarks/Índice — painel lateral com o índice do PDF (TOC), clicável para navegar
-[DONE] Anotações com caneta — desenho livre no editor (freehand drawing direto no PDF)
-[DONE] Dark mode no canvas do viewer — inverter cores do PDF para leitura noturna
-[DONE] Selecionar e abrir varios pdfs de uma vez
+========================================================================
+ AUDITORIA DE CÓDIGO — bugs e melhorias verificadas
+========================================================================
 
-Média prioridade (funcionalidades úteis)
-Comparar PDFs — vista lado a lado com diferenças destacadas
-Preencher formulários — melhor suporte a PDF forms (checkboxes, dropdowns, radio buttons)
-Batch processing — aplicar uma operação (comprimir, watermark, etc.) a vários PDFs de uma vez
-Crop/Trim páginas — cortar margens brancas ou redimensionar páginas
-[DONE] Número de páginas — adicionar numeração (header/footer) a um PDF
-[DONE] Juntar páginas lado a lado — 2 páginas por folha (N-up printing)
+─── ALTOS (corrigir primeiro) ─────────────────────────────────────────
+
+[DONE] Leak de clicked.connect no undo/redo da workspace bar
+[DONE] Editor grava PDFs sem atomic write
+[DONE] _EditPageJob.run silencia todos os erros
+[DONE] _parse_version rebenta em tags não canónicas
+[DONE] Recent files não valida existência
+
+─── MÉDIOS ────────────────────────────────────────────────────────────
+
+[ ] _redo_stack e _pending do editor sem limite
+    app/editor/tab.py:65, 735 — crescem indefinidamente em sessões longas.
+    Fix: if len(self._redo_stack) > 200: self._redo_stack.pop(0)
+
+[ ] FocusOut no inline edit faz commit (devia cancelar)
+    Convenção (VSCode, Office): FocusOut = cancela, Enter = aplica.
+    Actualmente clicar fora aplica edição — destrutivo por engano.
+    Fix: FocusOut → _cancel_inline() em vez de _commit_inline().
+
+[ ] Search case-sensitive no viewer
+    page.search_for() respeita maiúsculas. Users esperam Aa insensitive.
+    Fix: checkbox "Aa" na barra de search, default OFF.
+
+[ ] doc[0] sem bounds check
+    app/tools/import_pdf.py:187 — img[0].rect
+    app/tools/convert.py:397,404 — doc[0]
+    app/viewer/canvas.py:218 — self._doc[0].rect.width
+    PDFs com 0 páginas crasham.
+    Fix: if doc.page_count == 0: return em cada um.
+
+[ ] Resource leaks em fitz.open sem try/finally
+    app/tools/ocr.py:217, page_numbers.py:125, import_pdf.py:184,
+    convert.py:184 — close só no happy path.
+    Fix: "with fitz.open(...) as doc:" (PyMuPDF 1.24+) OU try/finally.
+
+[ ] setAcceptDrops(False) no viewer panel com drag/drop events
+    app/viewer/panel.py:28, 333, 339 — funciona (window trata), mas
+    código morto confuso.
+    Fix: remover dragEnterEvent/dropEvent do panel.
+
+[ ] page_numbers reutiliza placeholder do watermark
+    app/tools/page_numbers.py:81 — t("tool.watermark.pages_hint")
+    Fix: criar chave tool.page_numbers.pages_hint em translations.json.
+
+[ ] Validação de splitter sizes
+    app/window.py:472-476 — config corrupto faz setSizes() ignorar.
+    Fix: all(isinstance(s, int) and s >= 0 for s in sizes) and sum>0.
+
+[ ] DropFileEdit não valida .pdf no drop (só no dragEnter)
+    app/widgets.py:113-130 — repetir check de extensão em dropEvent.
+
+[ ] Tooltips não se atualizam em language change sem restart
+    _a11y() caches tooltip na init. Inconsistente com ícones que
+    atualizam via update_theme().
+    Fix: reaplicar setToolTip(t(...)) em update_theme() OU forçar
+         restart sempre.
+
+[ ] Subprocess explorer não é cross-platform
+    app/base.py:187-189 — "Abrir pasta" do toast só funciona em Windows.
+    Fix: branch por sys.platform → xdg-open (Linux), open -R (macOS),
+         explorer /select, (Windows).
+
+─── BAIXOS / melhorias de UX ──────────────────────────────────────────
+
+[ ] Hit zone do text mode é 0px
+    app/editor/canvas.py:685 — get_span_at(max_dist=0.0) exige hit exato.
+    Fix: max_dist=max(4.0, 10.0 * zoom)
+
+[ ] Hit zone dos notes não escala com zoom
+    app/editor/canvas.py:694-708 — margin=10 fixo.
+    Fix: margin = max(6, int(10 * zoom))
+
+[ ] Temp files de signature/dialogs não limpos em cancel
+    app/editor/dialogs.py:387-421 — tempfile.mkstemp() fica em %TEMP%.
+    Fix: try/finally com os.unlink OU dir dedicada limpa no startup.
+
+[ ] Sidebar collapse state não persiste
+    Reseta em cada arranque.
+    Fix: cfg["sidebar_mode"] guardado e restaurado.
+
+[ ] parse_pages: mensagens com índices 0-based confundem users
+    app/utils.py:74-84 — "Pages out of range: [0]" quando user digita 0.
+    Fix: "Page {p+1} is out of range (valid: 1-{total})"
+
+[ ] PdfReader sem close explícito em info.py
+    app/tools/info.py:71 — em Windows pode bloquear o ficheiro brevemente.
+    Fix: reader.close() OU "with open(path, 'rb') as f: PdfReader(f)"
+
+[ ] Erro silenciado em encrypt
+    app/tools/encrypt.py:136 — password errada vs PDF corrupto dão a
+    mesma mensagem genérica.
+    Fix: diferenciar PdfReadError.
+
+[ ] Convert: detecção de page numbers em texto é frágil
+    app/tools/convert.py:299-300 — isdigit() não apanha "Page 3 of 10"
+    Fix: regex ^\s*(page\s+)?\d+(\s+of\s+\d+)?\s*$ case-insensitive.
+
+[ ] Sem confirmação ao fechar tab com pending edits
+    Ctrl+W perde silenciosamente as anotações em self._pending.
+    Fix: prompt de confirmação em _close_tab se há pending.
+
+[ ] Config path ignora XDG_CONFIG_HOME em Linux
+    app/i18n.py:10 — ~/.pdfapps_config.json.
+    Fix: preferir $XDG_CONFIG_HOME/pdfapps/config.json + migration shim.
+
+[ ] Keyboard shortcuts: Ctrl+Shift+1-6 conflito latente se >15 tools
+    Actualmente seguro (15 exatos).
+    Fix: assert len(NAV_ITEMS) <= 15 em _setup_nav().
+
+[ ] Search sem whole-word / regex — nice-to-have
+
+[ ] Sem auto-save de rascunhos do editor — crash = perde edits
+    (ver também "Auto-save de sessão" na roadmap).
+
+========================================================================
+ ROADMAP DE FUNCIONALIDADES
+========================================================================
+
+Alta prioridade (UX diário)
+[DONE] Assinatura digital — desenhar/importar e colocar no PDF
+[DONE] Atalhos de teclado globais — Ctrl+O/S/P/W/F, F5, F11
+[DONE] Bookmarks/Índice — painel lateral TOC clicável
+[DONE] Anotações com caneta — desenho livre no editor
+[DONE] Dark mode no canvas do viewer — leitura noturna
+[DONE] Selecionar e abrir vários PDFs de uma vez
+
+Média prioridade
+[ ] Comparar PDFs — vista lado a lado com diferenças destacadas
+[ ] Preencher formulários — melhor suporte a checkboxes/dropdowns/radio
+[ ] Batch processing — aplicar uma operação a vários PDFs de uma vez
+[ ] Crop/Trim páginas — cortar margens ou redimensionar
+[DONE] Número de páginas — numeração header/footer
+[DONE] Juntar páginas lado a lado — N-up printing
 
 Baixa prioridade (nice to have)
-Plugins/extensões — sistema para adicionar tools custom
-Auto-save de sessão — reabrir os PDFs que estavam abertos quando a app fechou
-Thumbnails na sidebar — pré-visualização de páginas ao lado do viewer
-Export para PDF/A — formato de arquivo para preservação a longo prazo
-Speech-to-text — ler o PDF em voz alta (acessibilidade)
-[DONE] color picker no add text
-[DONE] verificar cor dos modais no light mode
+[ ] Plugins/extensões — tools custom
+[ ] Auto-save de sessão — reabrir PDFs da sessão anterior
+[ ] Thumbnails na sidebar — pré-visualização de páginas
+[ ] Export para PDF/A — preservação de longo prazo
+[ ] Speech-to-text — ler PDF em voz alta (acessibilidade)
+[DONE] Color picker no add text
+[DONE] Verificar cor dos modais no light mode

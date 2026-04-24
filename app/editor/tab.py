@@ -1,6 +1,7 @@
 """PDFApps – TabEditar: visual PDF editor tool tab."""
 
 import os
+import tempfile
 
 from PySide6.QtCore import Qt, QEvent, QSize
 from PySide6.QtWidgets import (
@@ -833,7 +834,16 @@ class TabEditar(QWidget):
                         pg.insert_text(fitz.Point(orig[0], orig[1]),
                                        new_txt, fontsize=fontsize,
                                        fontname=fontname, color=color)
-            doc.save(out, garbage=4, deflate=True); doc.close()
+            fd, tmp = tempfile.mkstemp(prefix=".pdfapps_save_", suffix=".pdf",
+                                       dir=os.path.dirname(out) or ".")
+            os.close(fd)
+            try:
+                doc.save(tmp, garbage=4, deflate=True); doc.close()
+                os.replace(tmp, out)
+            except Exception:
+                try: os.unlink(tmp)
+                except OSError: pass
+                raise
             self._pending.clear(); self._pending_list.clear()
             self._status(f"✔  Saved → {out}")
             QMessageBox.information(self, t("msg.done"), t("msg.pdf_saved", path=out))
@@ -851,7 +861,16 @@ class TabEditar(QWidget):
                       for r in range(self._form_table.rowCount())}
             for page in writer.pages:
                 writer.update_page_form_field_values(page, fields, auto_regenerate=False)
-            with open(out, "wb") as f: writer.write(f)
+            fd, tmp = tempfile.mkstemp(prefix=".pdfapps_save_", suffix=".pdf",
+                                       dir=os.path.dirname(out) or ".")
+            os.close(fd)
+            try:
+                with open(tmp, "wb") as f: writer.write(f)
+                os.replace(tmp, out)
+            except Exception:
+                try: os.unlink(tmp)
+                except OSError: pass
+                raise
             self._status(f"✔  Form saved → {out}")
             QMessageBox.information(self, t("msg.done"), t("msg.form_saved", path=out))
         except Exception as e:

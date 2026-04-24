@@ -754,6 +754,10 @@ class MainWindow(QMainWindow):
                 edit_w = self.stack.widget(edit_idx)
                 self._undo_top_btn.setVisible(True)
                 self._redo_top_btn.setVisible(True)
+                try: self._undo_top_btn.clicked.disconnect()
+                except RuntimeError: pass
+                try: self._redo_top_btn.clicked.disconnect()
+                except RuntimeError: pass
                 self._undo_top_btn.clicked.connect(edit_w._undo)
                 self._redo_top_btn.clicked.connect(edit_w._redo)
             else:

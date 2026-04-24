@@ -48,7 +48,9 @@ class _EditPageJob(QRunnable):
             qp.setDevicePixelRatio(self._dpr)
             self.signals.page_ready.emit(self._gen, self._idx, qp)
         except Exception:
-            pass
+            import traceback, logging
+            logging.error("Edit page render failed (idx=%d):\n%s",
+                          self._idx, traceback.format_exc())
 
 
 class PdfEditCanvas(QWidget):

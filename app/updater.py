@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sys
 import tempfile
 import urllib.request
@@ -47,9 +48,21 @@ def _localize_notes(body: str) -> str:
     return "\n".join(lines).strip()
 
 
+_VERSION_RE = re.compile(r"v?(\d+)(?:\.(\d+))?(?:\.(\d+))?", re.IGNORECASE)
+
+
 def _parse_version(tag: str) -> tuple:
-    """'v1.5.0' -> (1, 5, 0)"""
-    return tuple(int(x) for x in tag.lstrip("v").split("."))
+    """Parse a version tag into a (major, minor, patch) tuple.
+
+    Tolerant of 'v1.5' (padded to 1,5,0), 'v1.13.2-rc1', 'v1.13.2+hotfix'.
+    Returns (0, 0, 0) for unparseable input (empty, 'latest', etc.).
+    """
+    if not tag:
+        return (0, 0, 0)
+    m = _VERSION_RE.match(tag.strip())
+    if not m:
+        return (0, 0, 0)
+    return tuple(int(g) if g else 0 for g in m.groups())
 
 
 class _Signals(QObject):
