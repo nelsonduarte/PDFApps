@@ -203,6 +203,30 @@ jobs:
         with:
           path: artifacts
 
+      - name: Append SHA256 checksums to release notes
+        run: |
+          # The in-app auto-updater parses lines of the form
+          # "<64-hex>  <filename>" from the release body and refuses to
+          # run an update whose asset hash is not published. Any artifact
+          # that is uploaded below MUST also appear here.
+          echo "" >> release_notes.md
+          echo "## Checksums (SHA256)" >> release_notes.md
+          for f in artifacts/PDFApps-Windows/PDFAppsSetup.exe \
+                   artifacts/PDFApps-Windows/PDFApps.exe \
+                   artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz \
+                   artifacts/PDFApps-macOS/PDFApps-macOS.dmg \
+                   artifacts/PDFApps-AppImage/PDFApps-*.AppImage; do
+            for match in $f; do
+              if [ -f "$match" ]; then
+                sha=$(sha256sum "$match" | awk '{print $1}')
+                name=$(basename "$match")
+                echo "${sha}  ${name}" >> release_notes.md
+              fi
+            done
+          done
+          echo "Final release notes:"
+          cat release_notes.md
+
       - name: Create Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2
         with:
