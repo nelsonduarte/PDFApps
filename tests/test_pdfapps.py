@@ -6,8 +6,17 @@ import os
 import sys
 import pytest
 import tempfile
+from pathlib import Path
+
+# Make the project root importable so `from app.utils import ...` works.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pypdf import PdfReader, PdfWriter
+
+# Import the real parse_pages from app.utils so the test catches drift —
+# previously this file shipped a local replica that diverged from the
+# production helper (no _MAX_PAGES cap, different error message).
+from app.utils import parse_pages
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -42,24 +51,6 @@ def pdf5(tmp):
 
 # ── parse_pages ───────────────────────────────────────────────────────────────
 
-def parse_pages(text: str, total: int) -> list:
-    """Replica of the parse_pages function from pdfapps.py."""
-    pages = []
-    for part in text.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        if "-" in part:
-            a, b = part.split("-", 1)
-            pages.extend(range(int(a) - 1, int(b)))
-        else:
-            pages.append(int(part) - 1)
-    invalid = [p for p in pages if p < 0 or p >= total]
-    if invalid:
-        raise ValueError(f"Pages out of range: {[p+1 for p in invalid]}  (total: {total})")
-    return pages
-
-
 class TestParsePages:
     def test_single_page(self):
         assert parse_pages("2", 5) == [1]
@@ -92,6 +83,19 @@ class TestParsePages:
 
     def test_full_range(self):
         assert parse_pages("1-3", 3) == [0, 1, 2]
+
+    def test_max_pages_cap_blocks_dos(self):
+        # Regression: the real parse_pages caps at 100_000 entries to
+        # prevent memory exhaustion via huge ranges like "1-9999999999".
+        with pytest.raises(ValueError, match="Range too large"):
+            parse_pages("1-200000", 1_000_000)
+
+    def test_error_message_uses_valid_range(self):
+        # The production helper formats invalid pages as
+        # "valid: 1-N", not the legacy "(total: N)" — the replica that
+        # used to live here had drifted from the real implementation.
+        with pytest.raises(ValueError, match=r"valid: 1-5"):
+            parse_pages("99", 5)
 
 
 # ── Split ───────────────────────────────────────────────────────────────
@@ -358,12 +362,17 @@ class TestReordenar:
 # ── Encrypt / Decrypt ──────────────────────────────────────────────────
 
 class TestEncriptar:
+    # The production code uses algorithm="AES-256" (not the legacy
+    # use_128bit RC4 path). These tests mirror that path so the suite
+    # catches regressions in pypdf or in the cryptography dependency.
+
     def test_encrypt_creates_encrypted_pdf(self, pdf3, tmp):
         reader = PdfReader(pdf3)
         out = str(tmp / "encrypted.pdf")
         w = PdfWriter()
         w.append(reader)
-        w.encrypt(user_password="user123", owner_password="owner123", use_128bit=True)
+        w.encrypt(user_password="user123", owner_password="owner123",
+                  algorithm="AES-256")
         with open(out, "wb") as f:
             w.write(f)
 
@@ -371,15 +380,14 @@ class TestEncriptar:
         assert r.is_encrypted
 
     def test_decrypt_with_correct_password(self, pdf3, tmp):
-        # encrypt
         enc = str(tmp / "enc.pdf")
         w = PdfWriter()
         w.append(PdfReader(pdf3))
-        w.encrypt(user_password="pass", owner_password="pass", use_128bit=True)
+        w.encrypt(user_password="pass", owner_password="pass",
+                  algorithm="AES-256")
         with open(enc, "wb") as f:
             w.write(f)
 
-        # decrypt
         out = str(tmp / "dec.pdf")
         r = PdfReader(enc)
         result = r.decrypt("pass")
@@ -397,7 +405,8 @@ class TestEncriptar:
         enc = str(tmp / "enc2.pdf")
         w = PdfWriter()
         w.append(PdfReader(pdf3))
-        w.encrypt(user_password="correct", owner_password="correct", use_128bit=True)
+        w.encrypt(user_password="correct", owner_password="correct",
+                  algorithm="AES-256")
         with open(enc, "wb") as f:
             w.write(f)
 
@@ -405,9 +414,38 @@ class TestEncriptar:
         result = r.decrypt("wrong")
         assert result == 0  # wrong password
 
+    def test_owner_password_distinguished_from_user(self, pdf3, tmp):
+        # AES-256 keeps the user/owner roles separate. Empty user
+        # password = anyone can open with restrictions; owner password
+        # unlocks full access. pypdf returns 1 for user-pwd auth and
+        # 2 for owner-pwd auth.
+        enc = str(tmp / "owner.pdf")
+        w = PdfWriter()
+        w.append(PdfReader(pdf3))
+        w.encrypt(user_password="", owner_password="topsecret",
+                  algorithm="AES-256")
+        with open(enc, "wb") as f:
+            w.write(f)
+
+        assert PdfReader(enc).decrypt("") == 1
+        assert PdfReader(enc).decrypt("topsecret") == 2
+        assert PdfReader(enc).decrypt("wrong") == 0
+
     def test_non_encrypted_pdf_not_encrypted(self, pdf3):
         r = PdfReader(pdf3)
         assert not r.is_encrypted
+
+    def test_encrypt_py_uses_aes_256(self):
+        # Regression: encrypt.py used the deprecated use_128bit=True
+        # (RC4) before v1.13.4 — the audit flagged it as weak. This
+        # test fails if anyone reverts to RC4.
+        import inspect
+        from app.tools.encrypt import TabEncriptar
+        src = inspect.getsource(TabEncriptar._run)
+        assert 'algorithm="AES-256"' in src, \
+            "encrypt.py must use AES-256, not legacy RC4 (use_128bit)"
+        assert "use_128bit" not in src, \
+            "use_128bit RC4 path is forbidden — use algorithm='AES-256'"
 
 
 # ── Watermark ──────────────────────────────────────────────────────────────
@@ -496,3 +534,98 @@ class TestInfo:
         # metadata may be empty, but should not raise an exception
         meta = r.metadata
         assert meta is None or isinstance(meta, dict)
+
+
+# ── Audit regressions ────────────────────────────────────────────────
+#
+# These tests pin specific findings from the v1.13.4 detailed app review
+# so future refactors don't silently undo the fixes.
+
+class TestAuditRegressions:
+    def test_reorder_supports_pipeline(self):
+        # The reorder tool emits pipeline_done but the flag was never
+        # set, so its _pipeline_active branch was dead code. The fix is
+        # `self._pipeline_supported = True` in TabReordenar.__init__.
+        import inspect
+        from app.tools.reorder import TabReordenar
+        src = inspect.getsource(TabReordenar.__init__)
+        assert "_pipeline_supported = True" in src, \
+            "reorder.py must opt into pipeline mode"
+
+    def test_pipeline_compatible_tools_all_opt_in(self):
+        # All 8 tools listed as pipeline-compatible must set the flag.
+        import inspect
+        from app.tools import (
+            rotate, compress, extract, reorder, encrypt,
+            watermark, page_numbers, nup,
+        )
+        modules = {
+            "rotate": rotate, "compress": compress, "extract": extract,
+            "reorder": reorder, "encrypt": encrypt, "watermark": watermark,
+            "page_numbers": page_numbers, "nup": nup,
+        }
+        missing = []
+        for name, mod in modules.items():
+            src = inspect.getsource(mod)
+            if "_pipeline_supported = True" not in src:
+                missing.append(name)
+        assert not missing, f"pipeline flag missing in: {missing}"
+
+    def test_toast_guard_uses_shiboken_not_qpointer(self):
+        # PySide6 has no QPointer — the toast hide-timer must guard the
+        # widget liveness check via shiboken6.isValid(). Importing
+        # QPointer from PySide6 would fail with ImportError at load.
+        src = open("app/base.py", encoding="utf-8").read()
+        assert "from shiboken6 import isValid" in src
+        assert "isValid(t)" in src
+        # No QPointer import or instantiation — only the explanatory
+        # comment may mention the name.
+        import re
+        assert not re.search(r"from\s+PySide6[^\n]*\bQPointer\b", src), \
+            "QPointer cannot be imported from PySide6"
+        assert "QPointer(" not in src, \
+            "QPointer is unavailable in PySide6 — use shiboken6.isValid"
+
+    def test_restart_app_handles_pyinstaller_frozen(self):
+        # _restart_app must branch on sys.frozen — using
+        # os.path.dirname(__file__) + "pdfapps.py" breaks in frozen
+        # bundles because __file__ points inside _MEIPASS.
+        src = open("app/window.py", encoding="utf-8").read()
+        # The fixed implementation references sys.frozen.
+        assert 'getattr(sys, "frozen"' in src, \
+            "_restart_app must check sys.frozen"
+        # And must not reconstruct a path from __file__ for the script.
+        # (The function should use sys.argv[0] instead.)
+        assert 'os.path.dirname(__file__)' not in src or \
+               'sys.argv[0]' in src
+
+    def test_pdfapps_spec_reads_version_dynamically(self):
+        # Avoids drift between APP_VERSION and the macOS BUNDLE
+        # CFBundleVersion / CFBundleShortVersionString.
+        spec = open("pdfapps.spec", encoding="utf-8").read()
+        assert "_app_version" in spec
+        assert "APP_VERSION" in spec  # parsed from app/constants.py
+        assert "CFBundleVersion': '1.13" not in spec, \
+            "macOS bundle version must be dynamic, not hardcoded"
+
+    def test_installer_pins_third_party_hashes(self):
+        # Tesseract and Ghostscript exes are downloaded and run with
+        # admin — they MUST be hash-pinned in installer.py.
+        src = open("installer.py", encoding="utf-8").read()
+        assert "TESSERACT_SHA256" in src
+        assert "GHOSTSCRIPT_SHA256" in src
+        assert "hmac.compare_digest" in src
+        # And download_file must accept the verification arg.
+        assert "expected_sha256" in src
+
+    def test_flatpak_manifest_tag_is_current(self):
+        # Flatpak tag was hardcoded to v1.8.3 long after release v1.13.x.
+        # Bump script now keeps it in sync; this test ensures it matches
+        # APP_VERSION at any given point.
+        import re
+        const = open("app/constants.py", encoding="utf-8").read()
+        version = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', const).group(1)
+        manifest = open("flatpak/io.github.nelsonduarte.PDFApps.yml",
+                        encoding="utf-8").read()
+        assert f"tag: v{version}" in manifest, \
+            f"Flatpak manifest tag must match APP_VERSION ({version})"
