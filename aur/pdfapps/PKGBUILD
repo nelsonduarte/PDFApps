@@ -15,6 +15,7 @@ depends=(
     'python-pytesseract'
     'python-docx'
     'python-qtawesome'
+    'python-cryptography'
     'hicolor-icon-theme'
 )
 optdepends=(

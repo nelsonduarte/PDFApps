@@ -18,6 +18,7 @@ Requires:       python3-pyside6
 Requires:       python3-pypdf
 Requires:       python3-pymupdf
 Requires:       python3-pillow
+Requires:       python3-cryptography
 Requires:       hicolor-icon-theme
 
 # OCR/compression engines

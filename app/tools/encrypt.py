@@ -121,7 +121,7 @@ class TabEncriptar(BasePage):
                 user_pwd = self.edit_user.text()
                 w = PdfWriter(); w.append(reader)
                 w.encrypt(user_password=user_pwd,
-                          owner_password=owner, use_128bit=True)
+                          owner_password=owner, algorithm="AES-256")
                 with open(out_path, "wb") as f: w.write(f)
                 self._status(f"✔  {os.path.basename(out_path)}")
                 msg = t("tool.encrypt.done_enc", path=out_path)

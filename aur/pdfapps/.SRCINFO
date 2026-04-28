@@ -13,6 +13,7 @@ pkgbase = pdfapps
 	depends = python-pytesseract
 	depends = python-docx
 	depends = python-qtawesome
+	depends = python-cryptography
 	depends = hicolor-icon-theme
 	optdepends = tesseract: OCR text recognition
 	optdepends = tesseract-data-eng: English OCR
