@@ -6,7 +6,7 @@ import sys
 import tempfile
 import shutil
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal, QPointer
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFileDialog,
                                QPushButton, QLabel)
 
@@ -225,7 +225,10 @@ class BasePage(QWidget):
         idx = layout.indexOf(self._action_bar)
         layout.insertWidget(idx, toast)
         self._toast_widget = toast
-        QTimer.singleShot(8000, lambda: toast.setVisible(False))
+        # Guard the timer with QPointer: if a newer toast already deleteLater'd
+        # this one, the lambda must not touch the dead C++ object.
+        ptr = QPointer(toast)
+        QTimer.singleShot(8000, lambda: ptr.setVisible(False) if ptr else None)
 
     def _resolve_output_dir(self, drop_widget, input_path: str = "") -> str:
         """Return the output directory, prompting via folder picker if empty."""

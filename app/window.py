@@ -927,13 +927,22 @@ class MainWindow(QMainWindow):
         self._restart_app()
 
     def _restart_app(self):
-        """Restart the application as a fully detached process."""
+        """Restart the application as a fully detached process.
+        Frozen PyInstaller builds relaunch the exe directly; source runs
+        relaunch the original .py via the current Python interpreter."""
         import sys
         from PySide6.QtCore import QProcess
-        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "pdfapps.py")
-        # Pass any PDF arguments that were on the original command line
-        args = [script] + [a for a in sys.argv[1:] if a.lower().endswith(".pdf")]
-        QProcess.startDetached(sys.executable, args, os.path.dirname(script))
+        pdf_args = [a for a in sys.argv[1:] if a.lower().endswith(".pdf")]
+        if getattr(sys, "frozen", False):
+            program = sys.executable
+            args = pdf_args
+            cwd = os.path.dirname(sys.executable) or os.getcwd()
+        else:
+            script = os.path.abspath(sys.argv[0])
+            program = sys.executable
+            args = [script] + pdf_args
+            cwd = os.path.dirname(script) or os.getcwd()
+        QProcess.startDetached(program, args, cwd)
         QApplication.instance().exit(0)
 
     # ── Drag & drop PDF on window ──────────────────────────────────────────

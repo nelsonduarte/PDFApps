@@ -111,6 +111,9 @@ jobs:
               ("winget/nelsonduarte.PDFApps.yaml", [
                   (rf'PackageVersion:\s*{old_re}', f'PackageVersion: {new}'),
               ]),
+              ("flatpak/io.github.nelsonduarte.PDFApps.yml", [
+                  (rf'tag:\s*v{old_re}', f'tag: v{new}'),
+              ]),
           ]
 
           for path_str, subs in targets:

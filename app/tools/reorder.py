@@ -20,6 +20,7 @@ class TabReordenar(BasePage):
         super().__init__("fa5s.sort", t("tool.reorder.name"),
                          t("tool.reorder.desc"),
                          t("tool.reorder.btn"), status_fn)
+        self._pipeline_supported = True
         self._page_count = 0
         f = self._form
         sec_src = section(t("tool.reorder.source"))

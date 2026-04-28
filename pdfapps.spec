@@ -1,8 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
-import importlib, os
+import importlib, os, re
 _qa = os.path.dirname(importlib.import_module('qtawesome').__file__)
+
+# Read APP_VERSION from app/constants.py so the macOS bundle stays in sync.
+with open('app/constants.py', encoding='utf-8') as _f:
+    _m = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', _f.read())
+_app_version = _m.group(1) if _m else '0.0.0'
 
 a = Analysis(
     ['pdfapps.py'],
@@ -55,14 +60,14 @@ if _sys.platform == 'darwin':
         name='PDFApps.app',
         icon=_icon,
         bundle_identifier='com.pdfapps.app',
-        version='1.13.1',
+        version=_app_version,
         info_plist={
             'CFBundleName': 'PDFApps',
             'CFBundleDisplayName': 'PDFApps',
             'CFBundleExecutable': 'PDFApps',
             'CFBundleIdentifier': 'com.pdfapps.app',
-            'CFBundleVersion': '1.13.1',
-            'CFBundleShortVersionString': '1.13.1',
+            'CFBundleVersion': _app_version,
+            'CFBundleShortVersionString': _app_version,
             'LSMinimumSystemVersion': '10.14',
             'NSHighResolutionCapable': True,
             'CFBundleDocumentTypes': [{
