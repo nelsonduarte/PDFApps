@@ -1,5 +1,5 @@
 """PDFApps — Cross-platform Installer (Windows / macOS / Linux)"""
-import os, sys, shutil, subprocess, threading, urllib.request, time, locale
+import os, sys, shutil, subprocess, threading, urllib.request, time, locale, hashlib, hmac
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
@@ -51,6 +51,7 @@ _INSTALLER_STRINGS = {
         "inst_gs": "Installing Ghostscript…",
         "inst_gs_brew": "Installing Ghostscript via Homebrew…",
         "inst_gs_pkg": "Installing Ghostscript via package manager…",
+        "verify_failed": "Download verification failed for {name} — file may be corrupted or tampered with.",
     },
     "pt": {
         "loading": "A carregar…",
@@ -89,6 +90,7 @@ _INSTALLER_STRINGS = {
         "inst_gs": "A instalar Ghostscript…",
         "inst_gs_brew": "A instalar Ghostscript via Homebrew…",
         "inst_gs_pkg": "A instalar Ghostscript via gestor de pacotes…",
+        "verify_failed": "Verificação do download falhou para {name} — o ficheiro pode estar corrompido ou alterado.",
     },
     "es": {
         "loading": "Cargando…",
@@ -127,6 +129,7 @@ _INSTALLER_STRINGS = {
         "inst_gs": "Instalando Ghostscript…",
         "inst_gs_brew": "Instalando Ghostscript via Homebrew…",
         "inst_gs_pkg": "Instalando Ghostscript via gestor de paquetes…",
+        "verify_failed": "La verificación de la descarga falló para {name} — el archivo puede estar dañado o alterado.",
     },
     "fr": {
         "loading": "Chargement…",
@@ -165,6 +168,7 @@ _INSTALLER_STRINGS = {
         "inst_gs": "Installation de Ghostscript…",
         "inst_gs_brew": "Installation de Ghostscript via Homebrew…",
         "inst_gs_pkg": "Installation de Ghostscript via le gestionnaire de paquets…",
+        "verify_failed": "Échec de la vérification du téléchargement pour {name} — le fichier peut être corrompu ou altéré.",
     },
     "de": {
         "loading": "Laden…",
@@ -203,6 +207,7 @@ _INSTALLER_STRINGS = {
         "inst_gs": "Ghostscript wird installiert…",
         "inst_gs_brew": "Ghostscript wird über Homebrew installiert…",
         "inst_gs_pkg": "Ghostscript wird über Paketmanager installiert…",
+        "verify_failed": "Download-Überprüfung fehlgeschlagen für {name} — die Datei könnte beschädigt oder manipuliert sein.",
     },
     "zh": {
         "loading": "加载中…",
@@ -241,6 +246,7 @@ _INSTALLER_STRINGS = {
         "inst_gs": "正在安装 Ghostscript…",
         "inst_gs_brew": "正在通过 Homebrew 安装 Ghostscript…",
         "inst_gs_pkg": "正在通过包管理器安装 Ghostscript…",
+        "verify_failed": "{name} 下载校验失败 — 文件可能已损坏或被篡改。",
     },
     "it": {
         "loading": "Caricamento…",
@@ -279,6 +285,7 @@ _INSTALLER_STRINGS = {
         "inst_gs": "Installazione di Ghostscript…",
         "inst_gs_brew": "Installazione di Ghostscript via Homebrew…",
         "inst_gs_pkg": "Installazione di Ghostscript via gestore pacchetti…",
+        "verify_failed": "Verifica del download fallita per {name} — il file potrebbe essere danneggiato o alterato.",
     },
     "nl": {
         "loading": "Laden…",
@@ -317,6 +324,7 @@ _INSTALLER_STRINGS = {
         "inst_gs": "Ghostscript installeren…",
         "inst_gs_brew": "Ghostscript installeren via Homebrew…",
         "inst_gs_pkg": "Ghostscript installeren via pakketbeheerder…",
+        "verify_failed": "Download-verificatie mislukt voor {name} — het bestand is mogelijk beschadigd of gemanipuleerd.",
     },
 }
 
@@ -407,14 +415,19 @@ if sys.platform == "win32":
         "https://github.com/UB-Mannheim/tesseract/releases/download/"
         "v5.4.0.20240606/tesseract-ocr-w64-setup-5.4.0.20240606.exe"
     )
+    # Pinned SHA256 of the installer above. If the URL/version changes,
+    # recompute via:  python -c "import urllib.request,hashlib;print(hashlib.sha256(urllib.request.urlopen(URL).read()).hexdigest())"
+    TESSERACT_SHA256 = "c885fff6998e0608ba4bb8ab51436e1c6775c2bafc2559a19b423e18678b60c9"
 elif sys.platform == "darwin":
     TESSERACT_EXE  = shutil.which("tesseract") or "/opt/homebrew/bin/tesseract"
     TESSDATA_DIR   = "/opt/homebrew/share/tessdata"
     TESSERACT_URL  = None
+    TESSERACT_SHA256 = None
 else:
     TESSERACT_EXE  = shutil.which("tesseract") or "/usr/bin/tesseract"
     TESSDATA_DIR   = "/usr/share/tesseract-ocr/5/tessdata"
     TESSERACT_URL  = None
+    TESSERACT_SHA256 = None
 
 LANG_PACKS = ["eng", "por"]
 
@@ -425,12 +438,15 @@ if sys.platform == "win32":
         "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/"
         "gs10050/gs10050w64.exe"
     )
+    GHOSTSCRIPT_SHA256 = "11fcfb85b14ada095946bcfc39a3a3ef96a72fee8bdfa673ed7500e9e83c3648"
 elif sys.platform == "darwin":
     GHOSTSCRIPT_EXE = shutil.which("gs") or "/opt/homebrew/bin/gs"
     GHOSTSCRIPT_URL = None
+    GHOSTSCRIPT_SHA256 = None
 else:
     GHOSTSCRIPT_EXE = shutil.which("gs") or "/usr/bin/gs"
     GHOSTSCRIPT_URL = None
+    GHOSTSCRIPT_SHA256 = None
 
 
 def resource(rel: str) -> str:
@@ -618,7 +634,14 @@ def tesseract_installed() -> bool:
     return os.path.isfile(TESSERACT_EXE) or bool(shutil.which("tesseract"))
 
 
-def download_file(url: str, dest: str, on_progress=None) -> None:
+def download_file(url: str, dest: str, on_progress=None,
+                  expected_sha256: str | None = None,
+                  asset_name: str = "") -> None:
+    """Download URL to dest. If expected_sha256 is set, verify the SHA256
+    of the written file using a constant-time compare; on mismatch, delete
+    the file and raise RuntimeError. Refuses to proceed for executables
+    that should be hash-pinned but aren't."""
+    h = hashlib.sha256() if expected_sha256 else None
     with urllib.request.urlopen(url, timeout=60) as resp:
         total = int(resp.headers.get("Content-Length", 0))
         downloaded = 0
@@ -628,9 +651,19 @@ def download_file(url: str, dest: str, on_progress=None) -> None:
                 if not chunk:
                     break
                 f.write(chunk)
+                if h is not None:
+                    h.update(chunk)
                 downloaded += len(chunk)
                 if on_progress and total:
                     on_progress(downloaded / total)
+    if expected_sha256 is not None:
+        actual = h.hexdigest()
+        if not hmac.compare_digest(actual.lower(), expected_sha256.lower()):
+            try:
+                os.remove(dest)
+            except OSError:
+                pass
+            raise RuntimeError(_t("verify_failed", name=asset_name or os.path.basename(dest)))
 
 
 def install_tesseract_windows(step_fn) -> None:
@@ -638,7 +671,8 @@ def install_tesseract_windows(step_fn) -> None:
     temp = tempfile.gettempdir()
     installer = os.path.join(temp, "tesseract_setup.exe")
     step_fn(_t("dl_tesseract"), 42)
-    download_file(TESSERACT_URL, installer)
+    download_file(TESSERACT_URL, installer,
+                  expected_sha256=TESSERACT_SHA256, asset_name="Tesseract OCR")
     step_fn(_t("inst_tesseract"), 52)
     subprocess.run([installer, "/S"], check=True)
     for _ in range(30):
@@ -710,7 +744,8 @@ def install_ghostscript_windows(step_fn) -> None:
     temp = tempfile.gettempdir()
     installer = os.path.join(temp, "gs_setup.exe")
     step_fn(_t("dl_gs"), 76)
-    download_file(GHOSTSCRIPT_URL, installer)
+    download_file(GHOSTSCRIPT_URL, installer,
+                  expected_sha256=GHOSTSCRIPT_SHA256, asset_name="Ghostscript")
     step_fn(_t("inst_gs"), 82)
     subprocess.run([installer, "/S"], check=True)
     for _ in range(30):
