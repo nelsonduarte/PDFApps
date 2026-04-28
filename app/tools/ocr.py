@@ -5,13 +5,14 @@ import os
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QComboBox, QFileDialog, QMessageBox,
-    QApplication, QProgressDialog,
+    QProgressDialog,
 )
 from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
 from app.i18n import t
 from app.utils import section, info_lbl
+from app.worker import TaskRunner, run_task
 from app.constants import TEXT_SEC, DESKTOP
 from app.widgets import DropFileEdit
 
@@ -185,7 +186,6 @@ class TabOCR(BasePage):
         self._lang_codes = current_codes
 
     def _run(self):
-        import io as _io
         pdf_path = self.drop_in.path()
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
@@ -199,76 +199,101 @@ class TabOCR(BasePage):
         tess = self._ensure_tesseract()
         if tess is None: return
         try:
-            import fitz
+            import fitz  # noqa: F401 — surface ImportError before launching thread
         except ImportError:
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pymupdf"))
             return
         try:
-            from PIL import Image
+            from PIL import Image  # noqa: F401
         except ImportError:
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pillow"))
             return
+
+        codes = getattr(self, "_lang_codes", [c for _, c in self._LANGS])
+        if not codes:
+            QMessageBox.warning(self, t("msg.warning"), t("tool.ocr.no_langs"))
+            return
+        idx = max(0, min(self.cmb_lang.currentIndex(), len(codes) - 1))
+        lang = codes[idx]
+        fmt = self.cmb_fmt.currentIndex()
+        pwd = self._pdf_password
+
+        # Quickly count pages so the progress dialog has the correct max.
         try:
-            codes = getattr(self, "_lang_codes", [c for _, c in self._LANGS])
-            if not codes:
-                QMessageBox.warning(self, t("msg.warning"), t("tool.ocr.no_langs"))
-                return
-            idx = max(0, min(self.cmb_lang.currentIndex(), len(codes) - 1))
-            lang = codes[idx]
-            fmt  = self.cmb_fmt.currentIndex()
-            with self._open_fitz(pdf_path) as doc:
-                n = doc.page_count
-
-                progress = QProgressDialog(t("progress.ocr.page", current=1, total=n),
-                                           t("progress.cancel"), 0, n, self)
-                progress.setWindowTitle(t("progress.ocr.title"))
-                progress.setWindowModality(Qt.WindowModality.WindowModal)
-                progress.setMinimumDuration(0)
-                progress.setValue(0)
-                cancelled = False
-
-                if fmt == 1:
-                    texts = []
-                    for i, page in enumerate(doc):
-                        progress.setLabelText(t("progress.ocr.page", current=i+1, total=n))
-                        progress.setValue(i)
-                        QApplication.processEvents()
-                        if progress.wasCanceled():
-                            cancelled = True; break
-                        pix = page.get_pixmap(dpi=300)
-                        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-                        texts.append(pytesseract.image_to_string(img, lang=lang))
-                else:
-                    pdf_pages = []
-                    for i, page in enumerate(doc):
-                        progress.setLabelText(t("progress.ocr.page", current=i+1, total=n))
-                        progress.setValue(i)
-                        QApplication.processEvents()
-                        if progress.wasCanceled():
-                            cancelled = True; break
-                        pix = page.get_pixmap(dpi=300)
-                        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-                        pdf_bytes = pytesseract.image_to_pdf_or_hocr(img, lang=lang, extension="pdf")
-                        pdf_pages.append(pdf_bytes)
-
-            # doc closed here via context manager; write output if not cancelled
-            if not cancelled:
-                if fmt == 1:
-                    with open(out_path, "w", encoding="utf-8") as fh:
-                        fh.write("\f".join(texts))
-                else:
-                    writer = PdfWriter()
-                    for page_bytes in pdf_pages:
-                        writer.append(PdfReader(_io.BytesIO(page_bytes)))
-                    with open(out_path, "wb") as fh:
-                        writer.write(fh)
-
-            progress.setValue(n)
-            if cancelled:
-                self._status(t("progress.cancelled"))
-            else:
-                self._status(f"✔  OCR → {out_path}")
-                QMessageBox.information(self, t("msg.done"),
-                    t("tool.ocr.done", path=out_path))
+            with self._open_fitz(pdf_path) as _doc:
+                n_pages = _doc.page_count
         except Exception as e:
-            QMessageBox.critical(self, t("tool.ocr.error"), str(e))
+            QMessageBox.critical(self, t("tool.ocr.error"), str(e)); return
+
+        progress = QProgressDialog(t("progress.ocr.page", current=1, total=n_pages),
+                                   t("progress.cancel"), 0, n_pages, self)
+        progress.setWindowTitle(t("progress.ocr.title"))
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+
+        class _OcrRunner(TaskRunner):
+            def do_work(_self):
+                import io as _io
+                import fitz
+                from PIL import Image
+                import pytesseract
+                doc = fitz.open(pdf_path)
+                if doc.needs_pass and pwd:
+                    doc.authenticate(pwd)
+                try:
+                    if fmt == 1:
+                        texts = []
+                        for i, page in enumerate(doc):
+                            if _self.is_cancelled():
+                                return None
+                            _self.progress.emit(
+                                i, t("progress.ocr.page",
+                                     current=i + 1, total=n_pages))
+                            pix = page.get_pixmap(dpi=300)
+                            img = Image.frombytes(
+                                "RGB", (pix.width, pix.height), pix.samples)
+                            texts.append(
+                                pytesseract.image_to_string(img, lang=lang))
+                        with open(out_path, "w", encoding="utf-8") as fh:
+                            fh.write("\f".join(texts))
+                    else:
+                        pdf_pages = []
+                        for i, page in enumerate(doc):
+                            if _self.is_cancelled():
+                                return None
+                            _self.progress.emit(
+                                i, t("progress.ocr.page",
+                                     current=i + 1, total=n_pages))
+                            pix = page.get_pixmap(dpi=300)
+                            img = Image.frombytes(
+                                "RGB", (pix.width, pix.height), pix.samples)
+                            pdf_pages.append(
+                                pytesseract.image_to_pdf_or_hocr(
+                                    img, lang=lang, extension="pdf"))
+                        writer = PdfWriter()
+                        for page_bytes in pdf_pages:
+                            writer.append(PdfReader(_io.BytesIO(page_bytes)))
+                        with open(out_path, "wb") as fh:
+                            writer.write(fh)
+                finally:
+                    doc.close()
+                return out_path
+
+        self.action_btn.setEnabled(False)
+
+        def _on_done(result):
+            self.action_btn.setEnabled(True)
+            if result is None:
+                self._status(t("progress.cancelled"))
+                return
+            self._status(f"✔  OCR → {result}")
+            QMessageBox.information(self, t("msg.done"),
+                                    t("tool.ocr.done", path=result))
+
+        def _on_err(msg):
+            self.action_btn.setEnabled(True)
+            QMessageBox.critical(self, t("tool.ocr.error"), msg)
+
+        self._runner = _OcrRunner()
+        self._runner_thread = run_task(self, self._runner, progress, _on_done, _on_err)

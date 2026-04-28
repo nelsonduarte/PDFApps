@@ -5,13 +5,14 @@ import os
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QComboBox, QLabel, QFileDialog, QMessageBox,
-    QApplication, QProgressDialog,
+    QProgressDialog,
 )
 from pypdf import PdfReader
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl, _compress_pdf, _find_gs, CancelledError
+from app.utils import section, info_lbl, _compress_pdf, _find_gs
+from app.worker import TaskRunner, run_task
 from app.constants import DESKTOP, TEXT_SEC
 from app.widgets import DropFileEdit
 
@@ -126,25 +127,48 @@ class TabComprimir(BasePage):
             "passC":        t("progress.compress.passC"),
         }
 
-        def on_progress(stage, cur=0, tot=0):
-            if stage == "passB_images":
-                pct = 25 + int((cur / max(tot, 1)) * 40)
-                progress.setLabelText(t("progress.compress.passB_images", current=cur, total=tot))
-            else:
-                pct = {"passA": 10, "passB_setup": 20, "passB_save": 70,
-                       "passC": 85}.get(stage, 0)
-                progress.setLabelText(_stage_labels.get(stage, ""))
-            progress.setValue(pct)
-            QApplication.processEvents()
-            if progress.wasCanceled():
-                return False
-            return True
+        class _CompressRunner(TaskRunner):
+            def do_work(_self):
+                def progress_fn(stage, cur=0, tot=0):
+                    if _self.is_cancelled():
+                        return False
+                    if stage == "passB_images":
+                        pct = 25 + int((cur / max(tot, 1)) * 40)
+                        label = t("progress.compress.passB_images",
+                                  current=cur, total=tot)
+                    else:
+                        pct = {"passA": 10, "passB_setup": 20,
+                               "passB_save": 70, "passC": 85}.get(stage, 0)
+                        label = _stage_labels.get(stage, "")
+                    _self.progress.emit(pct, label)
+                    return True
+                try:
+                    return _compress_pdf(pdf_path, out_path, level,
+                                         progress_fn=progress_fn)
+                except ValueError as ve:
+                    # "no gain" is a friendly outcome, not an error.
+                    return ("__no_gain__", str(ve))
 
-        try:
-            before, after = _compress_pdf(pdf_path, out_path, level, progress_fn=on_progress)
-            progress.setValue(100)
+        self.action_btn.setEnabled(False)
+
+        def _on_done(result):
+            self.action_btn.setEnabled(True)
+            if result is None:
+                self._status(t("progress.cancelled"))
+                return
+            if isinstance(result, tuple) and result and result[0] == "__no_gain__":
+                before_kb = os.path.getsize(pdf_path) / 1024
+                self.lbl_result.setText(f"  {before_kb:.0f} KB")
+                self._status(f"ℹ  {t('msg.no_gain')}")
+                QMessageBox.information(self, t("msg.no_gain"),
+                    t("tool.compress.no_gain", e=result[1]))
+                return
+            before, after = result
             ratio = (1 - after / before) * 100 if before else 0
-            msg = t("tool.compress.done", before=f"{before/1024:.0f}", after=f"{after/1024:.0f}", pct=f"{ratio:.0f}")
+            msg = t("tool.compress.done",
+                    before=f"{before/1024:.0f}",
+                    after=f"{after/1024:.0f}",
+                    pct=f"{ratio:.0f}")
             self.lbl_result.setText(msg)
             self._status(f"✔  {msg.strip()}")
             if self._pipeline_active:
@@ -153,16 +177,10 @@ class TabComprimir(BasePage):
                 gs_hint = "" if _find_gs() else "\n\n" + t("tool.compress.gs_hint")
                 QMessageBox.information(self, t("msg.done"),
                     t("msg.pdf_saved", path=out_path) + gs_hint)
-        except CancelledError:
-            progress.setValue(100)
-            self._status(t("progress.cancelled"))
-        except ValueError as e:
-            progress.setValue(100)
-            before_kb = os.path.getsize(pdf_path) / 1024
-            self.lbl_result.setText(f"  {before_kb:.0f} KB")
-            self._status(f"ℹ  {t('msg.no_gain')}")
-            QMessageBox.information(self, t("msg.no_gain"),
-                t("tool.compress.no_gain", e=e))
-        except Exception as e:
-            progress.setValue(100)
-            QMessageBox.critical(self, t("msg.error"), str(e))
+
+        def _on_err(msg):
+            self.action_btn.setEnabled(True)
+            QMessageBox.critical(self, t("msg.error"), msg)
+
+        self._runner = _CompressRunner()
+        self._runner_thread = run_task(self, self._runner, progress, _on_done, _on_err)

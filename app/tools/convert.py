@@ -198,16 +198,26 @@ class TabConverter(BasePage):
         ext = "png" if fmt == 0 else "jpg"
         dpi = self._DPI_VALUES[self.cmb_dpi.currentIndex()]
         self._status(f"→ {ext.upper()} @ {dpi} DPI…")
-        QApplication.processEvents()
+
         try:
+            with self._open_fitz(pdf_path) as _probe:
+                total = _probe.page_count
+        except Exception as e:
+            QMessageBox.critical(self, t("msg.error"), str(e)); return
+
+        pwd = self._pdf_password
+
+        def do_work(worker):
             import fitz
-            with self._open_fitz(pdf_path) as doc:
+            doc = fitz.open(pdf_path)
+            if doc.needs_pass and pwd:
+                doc.authenticate(pwd)
+            try:
                 matrix = fitz.Matrix(dpi / 72, dpi / 72)
-                total = doc.page_count
-                progress = self._make_progress(total, t("tool.convert.converting"))
                 for i, page in enumerate(doc):
-                    if progress.wasCanceled():
-                        return
+                    if worker.is_cancelled():
+                        return None
+                    worker.progress.emit(i, f"{i + 1}/{total}…")
                     pix = page.get_pixmap(matrix=matrix)
                     if pix.alpha:
                         pix = fitz.Pixmap(pix, 0)
@@ -224,16 +234,19 @@ class TabConverter(BasePage):
                             img.save(out_file, "JPEG", quality=95)
                         except ImportError:
                             pix.save(out_file)
-                    progress.setValue(i + 1)
-                    self._status(f"{i + 1}/{total}…")
-                    QApplication.processEvents()
-                progress.setValue(total)
-            self.lbl_result.setText(f"  {total} → {out_dir}")
-            self._status(f"✔  {total} images")
+            finally:
+                doc.close()
+            return total
+
+        def on_done(result):
+            self.lbl_result.setText(f"  {result} → {out_dir}")
+            self._status(f"✔  {result} images")
             QMessageBox.information(self, t("msg.done"),
-                                    t("tool.convert.done_images", n=total, folder=out_dir))
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+                                    t("tool.convert.done_images",
+                                      n=result, folder=out_dir))
+
+        self._run_background(do_work, total, t("tool.convert.converting"),
+                             on_done=on_done)
 
     def _convert_docx(self, pdf_path: str):
         out_path = self._resolve_output_file(self._drop_file, pdf_path,

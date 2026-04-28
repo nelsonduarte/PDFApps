@@ -295,3 +295,55 @@ class BasePage(QWidget):
         if doc.needs_pass and self._pdf_password:
             doc.authenticate(self._pdf_password)
         return doc
+
+    # ── background-task helper ────────────────────────────────────────────
+
+    def _run_background(self, do_work_fn, total: int, label: str,
+                        on_done=None, on_err=None,
+                        cancelled_status: str = "") -> None:
+        """Run `do_work_fn(worker)` in a QThread with a progress dialog.
+
+        do_work_fn receives the TaskRunner so it can emit
+        `worker.progress.emit(pct, label)` and check
+        `worker.is_cancelled()`. Returning None signals cancel.
+
+        Connections are routed back to the main thread:
+            - on_done(result)  → success path
+            - on_err(message)  → exception path (default: QMessageBox.critical)
+        Disables the action button while the task is running.
+        """
+        from PySide6.QtCore import Qt as _Qt
+        from PySide6.QtWidgets import QProgressDialog, QMessageBox
+        from app.worker import TaskRunner, run_task
+
+        progress = QProgressDialog(label, t("progress.cancel"), 0, total, self)
+        progress.setWindowModality(_Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+
+        class _Run(TaskRunner):
+            def do_work(_self):
+                return do_work_fn(_self)
+
+        self.action_btn.setEnabled(False)
+
+        def _wrap_done(r):
+            self.action_btn.setEnabled(True)
+            if r is None:
+                self._status(cancelled_status or t("progress.cancelled"))
+                return
+            if on_done:
+                on_done(r)
+
+        def _wrap_err(m):
+            self.action_btn.setEnabled(True)
+            if on_err:
+                on_err(m)
+            else:
+                QMessageBox.critical(self, t("msg.error"), m)
+
+        # Keep the runner + thread alive until they finish — Qt owns them
+        # but Python may garbage-collect the wrapping objects otherwise.
+        self._bg_runner = _Run()
+        self._bg_thread = run_task(self, self._bg_runner, progress,
+                                   _wrap_done, _wrap_err)

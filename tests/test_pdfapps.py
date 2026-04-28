@@ -687,6 +687,61 @@ class TestAuditRegressions:
         assert "doc.authenticate(self._password)" in canvas_src, \
             "_EditPageJob.run must authenticate the document"
 
+    def test_taskrunner_runs_in_qthread_with_progress_and_finished(self):
+        # Functional check: a TaskRunner subclass is run in a QThread,
+        # emits progress, finishes successfully, and routes the result
+        # back to the main thread via the on_finished handler.
+        from PySide6.QtWidgets import QApplication, QProgressDialog
+        from PySide6.QtCore import QEventLoop, QTimer
+        from app.worker import TaskRunner, run_task
+
+        QApplication.instance() or QApplication([])
+
+        class _Sum(TaskRunner):
+            def do_work(_self):
+                total = 0
+                for i in range(5):
+                    if _self.is_cancelled():
+                        return None
+                    _self.progress.emit(int(100 * i / 5), f"step {i}")
+                    total += i
+                return total
+
+        runner = _Sum()
+        dlg = QProgressDialog("starting", "cancel", 0, 100)
+        dlg.setMinimumDuration(60_000)  # never actually shown during test
+        results = {}
+        run_task(None, runner, dlg, lambda r: results.setdefault("r", r),
+                 lambda e: results.setdefault("e", e))
+        loop = QEventLoop()
+        QTimer.singleShot(800, loop.quit)
+        loop.exec()
+        assert results.get("r") == 0 + 1 + 2 + 3 + 4 == 10, results
+
+    def test_long_running_tools_use_background_runner(self):
+        # Regression: compress / ocr / convert._convert_images must run
+        # off the UI thread. Audit flagged that they used to call
+        # QApplication.processEvents() inside per-page loops, freezing
+        # the UI on large PDFs and leaving cancel almost unresponsive.
+        from app.tools.compress import TabComprimir
+        from app.tools.ocr import TabOCR
+        from app.tools.convert import TabConverter
+        import inspect
+
+        compress_src = inspect.getsource(TabComprimir._run)
+        ocr_src      = inspect.getsource(TabOCR._run)
+        images_src   = inspect.getsource(TabConverter._convert_images)
+
+        # No processEvents in the migrated paths.
+        assert "QApplication.processEvents" not in compress_src
+        assert "QApplication.processEvents" not in ocr_src
+        assert "QApplication.processEvents" not in images_src
+
+        # Each runs via TaskRunner / _run_background.
+        assert "TaskRunner" in compress_src or "run_task" in compress_src
+        assert "TaskRunner" in ocr_src or "run_task" in ocr_src
+        assert "_run_background" in images_src
+
     def test_draw_ink_annot_uses_tuple_points(self):
         # PyMuPDF 1.27+ rejects fitz.Point as ink-annot input with
         # ValueError: arg must be seq of seq of float pairs.
