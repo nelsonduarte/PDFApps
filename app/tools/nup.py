@@ -114,12 +114,14 @@ class TabNUp(BasePage):
         self.drop_in.blockSignals(True)
         self.drop_in.set_path(p)
         self.drop_in.blockSignals(False)
+        if not self._maybe_prompt_password(p):
+            self.drop_in.blockSignals(True); self.drop_in.set_path("")
+            self.drop_in.blockSignals(False); return
         if not self.drop_out.path():
             base, ext = os.path.splitext(p)
             self.drop_out.set_path(base + "_nup" + ext)
         try:
-            from pypdf import PdfReader
-            r = PdfReader(p)
+            r = self._open_reader(p)
             self.lbl_info.setText(t("edit.status.pages", n=len(r.pages)))
         except Exception as e:
             self.lbl_info.setText(t("tool.split.error_info", e=e))
@@ -137,7 +139,7 @@ class TabNUp(BasePage):
 
         try:
             import fitz
-            src = fitz.open(pdf_path)
+            src = self._open_fitz(pdf_path)
             total = src.page_count
             if total == 0:
                 QMessageBox.warning(self, t("msg.warning"), t("tool.nup.empty_doc")); return

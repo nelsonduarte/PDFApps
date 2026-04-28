@@ -56,6 +56,10 @@ class BasePage(QWidget):
         self._pipeline_active = False
         self._pipeline_supported = False  # subclasses set True if they emit pipeline_done
         self._pipeline_tmp_dir: str | None = None
+        # Password captured by _maybe_prompt_password for the loaded PDF.
+        # Persists for the lifetime of one input file so _run can re-open
+        # the same PDF (or fitz.Document) without re-prompting.
+        self._pdf_password: str = ""
 
         page_layout = QVBoxLayout(self)
         page_layout.setContentsMargins(0, 0, 0, 0)
@@ -242,3 +246,52 @@ class BasePage(QWidget):
         if out:
             drop_widget.set_path(out)
         return out
+
+    # ── encrypted-PDF helpers ──────────────────────────────────────────────
+
+    def _maybe_prompt_password(self, path: str) -> bool:
+        """If the PDF at `path` is encrypted, prompt the user; on success
+        store the password on `self._pdf_password` and return True. Plain
+        PDFs return True with the password cleared. Returns False if the
+        user cancelled the prompt — caller should abort the load.
+
+        If a password is already stored (e.g. propagated from the viewer
+        in compact mode), it is tried silently first. Only if it fails
+        is the user prompted."""
+        try:
+            import fitz
+            doc = fitz.open(path)
+        except Exception:
+            return True  # let downstream surface its own error
+        try:
+            if not doc.needs_pass:
+                self._pdf_password = ""
+                return True
+            if self._pdf_password and doc.authenticate(self._pdf_password):
+                return True
+        finally:
+            doc.close()
+        from app.utils import prompt_pdf_password
+        ok, pwd = prompt_pdf_password(path, self)
+        if not ok:
+            return False
+        self._pdf_password = pwd
+        return True
+
+    def _open_reader(self, path: str):
+        """Open a pypdf PdfReader, decrypting with the stored password if
+        the file is encrypted."""
+        from pypdf import PdfReader
+        r = PdfReader(path)
+        if r.is_encrypted and self._pdf_password:
+            r.decrypt(self._pdf_password)
+        return r
+
+    def _open_fitz(self, path: str):
+        """Open a PyMuPDF Document, authenticating with the stored
+        password if needed."""
+        import fitz
+        doc = fitz.open(path)
+        if doc.needs_pass and self._pdf_password:
+            doc.authenticate(self._pdf_password)
+        return doc

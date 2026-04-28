@@ -48,13 +48,14 @@ class _EditPageJob(QRunnable):
     """Renders a single page in a background thread."""
 
     def __init__(self, path: str, idx: int, zoom: float, dpr: float,
-                 gen: int, signals: _EditRenderSignals):
+                 gen: int, signals: _EditRenderSignals, password: str = ""):
         super().__init__()
         self._path = path
         self._idx = idx
         self._zoom = zoom
         self._dpr = dpr
         self._gen = gen
+        self._password = password
         self.signals = signals
         self.setAutoDelete(True)
 
@@ -63,6 +64,8 @@ class _EditPageJob(QRunnable):
             import fitz
             from PySide6.QtGui import QPixmap as QP, QImage
             doc = fitz.open(self._path)
+            if doc.needs_pass and self._password:
+                doc.authenticate(self._password)
             page = doc[self._idx]
             rz = self._zoom * self._dpr
             pix = page.get_pixmap(matrix=fitz.Matrix(rz, rz), annots=False)
@@ -94,6 +97,7 @@ class PdfEditCanvas(QWidget):
         super().__init__()
         self._doc         = None
         self._path        = ""
+        self._password    = ""
         self._page_idx    = 0   # kept for compatibility (current page indicator)
         self._zoom        = 1.0
         self._zoom_factor = 1.0
@@ -165,11 +169,14 @@ class PdfEditCanvas(QWidget):
         self._open_note = None
         self.update()
 
-    def load(self, path: str):
+    def load(self, path: str, password: str = ""):
         import fitz
         if self._doc: self._doc.close()
         self._doc = fitz.open(path)
+        if self._doc.needs_pass and password:
+            self._doc.authenticate(password)
         self._path = path
+        self._password = password
         self._page_idx = 0
         self._zoom_factor = 1.0
         self._gen += 1
@@ -519,7 +526,8 @@ class PdfEditCanvas(QWidget):
             if self._page_pixmaps[i] is None and i not in self._pending:
                 self._pending.add(i)
                 pool.start(_EditPageJob(self._path, i, self._zoom, dpr,
-                                        gen, self._render_signals))
+                                        gen, self._render_signals,
+                                        password=getattr(self, "_password", "")))
 
     def _on_page_ready(self, gen: int, idx: int, pixmap):
         if gen != self._gen:

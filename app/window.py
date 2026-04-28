@@ -668,6 +668,11 @@ class MainWindow(QMainWindow):
         widget = self.stack.widget(index)
         path = self._viewer.current_path()
         if path:
+            # Propagate the viewer's PDF password so compact-mode tools
+            # don't re-prompt the user for the same encrypted file.
+            viewer_pwd = getattr(self._viewer, "_pdf_password", "")
+            if hasattr(widget, "_pdf_password"):
+                widget._pdf_password = viewer_pwd
             fn = getattr(widget, "auto_load", None)
             if callable(fn):
                 fn(path)

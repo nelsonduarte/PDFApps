@@ -89,12 +89,15 @@ class TabComprimir(BasePage):
         self.drop_in.blockSignals(True)
         self.drop_in.set_path(p)
         self.drop_in.blockSignals(False)
+        if not self._maybe_prompt_password(p):
+            self.drop_in.blockSignals(True); self.drop_in.set_path("")
+            self.drop_in.blockSignals(False); return
         if not self.drop_out.path():
             base, ext = os.path.splitext(p)
             self.drop_out.set_path(base + "_compressed" + ext)
         size = os.path.getsize(p)
         try:
-            r = PdfReader(p)
+            r = self._open_reader(p)
             self.lbl_info.setText(t("tool.compress.pages_info", n=len(r.pages), size=f"{size/1024:.1f}"))
         except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
 

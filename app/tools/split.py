@@ -75,9 +75,12 @@ class TabDividir(BasePage):
         self.drop_in.blockSignals(True)
         self.drop_in.set_path(p)
         self.drop_in.blockSignals(False)
+        if not self._maybe_prompt_password(p):
+            self.drop_in.blockSignals(True); self.drop_in.set_path("")
+            self.drop_in.blockSignals(False); return
         if not self.drop_out.path(): self.drop_out.set_path(os.path.dirname(p))
         try:
-            r = PdfReader(p); self._total = len(r.pages)
+            r = self._open_reader(p); self._total = len(r.pages)
             self.lbl_info.setText(t("tool.split.pages_info", n=self._total))
         except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
 
@@ -108,7 +111,7 @@ class TabDividir(BasePage):
         if not out_dir:
             return
         try:
-            reader = PdfReader(pdf_path); total = len(reader.pages)
+            reader = self._open_reader(pdf_path); total = len(reader.pages)
         except Exception as e:
             QMessageBox.critical(self, t("msg.error"), str(e)); return
         os.makedirs(out_dir, exist_ok=True)

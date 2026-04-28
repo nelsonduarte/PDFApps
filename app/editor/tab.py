@@ -67,6 +67,7 @@ class TabEditar(QWidget):
         self._pending  = []
         self._redo_stack = []
         self._doc_path = None
+        self._pdf_password = ""
         self._mode_idx = 0
         self._dark_mode = True
         self.setObjectName("content_area")
@@ -493,6 +494,26 @@ class TabEditar(QWidget):
     def _load_pdf(self, p: str):
         if not p or not os.path.isfile(p):
             return
+        # Prompt for password if encrypted (reuses any password already
+        # stored, e.g. propagated from the viewer).
+        try:
+            import fitz
+            probe = fitz.open(p)
+            needs_pass = bool(probe.needs_pass)
+            if needs_pass and self._pdf_password:
+                if not probe.authenticate(self._pdf_password):
+                    self._pdf_password = ""
+            probe.close()
+        except Exception:
+            needs_pass = False
+        if needs_pass and not self._pdf_password:
+            from app.utils import prompt_pdf_password
+            ok, pwd = prompt_pdf_password(p, self)
+            if not ok:
+                return
+            self._pdf_password = pwd
+        elif not needs_pass:
+            self._pdf_password = ""
         self._doc_path = p
         self._drop_in.blockSignals(True)
         self._drop_in.set_path(p)
@@ -501,7 +522,7 @@ class TabEditar(QWidget):
             self._drop_out.set_path(os.path.splitext(p)[0] + "_edited.pdf")
         self._pending.clear(); self._pending_list.clear()
         try:
-            self._canvas.load(p)
+            self._canvas.load(p, password=self._pdf_password)
         except ModuleNotFoundError as ex:
             QMessageBox.critical(self, t("msg.missing_dep"), t("msg.dep_pymupdf", ex=ex))
             return
@@ -611,7 +632,10 @@ class TabEditar(QWidget):
         try:
             from pypdf import PdfReader
             self._form_table.setUpdatesEnabled(False)
-            for name, field in (PdfReader(path).get_fields() or {}).items():
+            _r = PdfReader(path)
+            if _r.is_encrypted and self._pdf_password:
+                _r.decrypt(self._pdf_password)
+            for name, field in (_r.get_fields() or {}).items():
                 r = self._form_table.rowCount(); self._form_table.insertRow(r)
                 self._form_table.setItem(r, 0, QTableWidgetItem(name))
                 self._form_table.setItem(r, 1, QTableWidgetItem(str(field.get("/V", "") or "")))
@@ -814,6 +838,8 @@ class TabEditar(QWidget):
             # Release the file lock without resetting the canvas
             self._canvas.release_doc()
             doc = fitz.open(self._doc_path)
+            if doc.needs_pass and self._pdf_password:
+                doc.authenticate(self._pdf_password)
             for e in self._pending:
                 if e.get("_existing"):
                     continue  # already saved in the PDF
@@ -893,7 +919,10 @@ class TabEditar(QWidget):
     def _apply_forms(self, out):
         try:
             from pypdf import PdfWriter, PdfReader
-            writer = PdfWriter(); writer.append(PdfReader(self._doc_path))
+            _r = PdfReader(self._doc_path)
+            if _r.is_encrypted and self._pdf_password:
+                _r.decrypt(self._pdf_password)
+            writer = PdfWriter(); writer.append(_r)
             fields = {self._form_table.item(r, 0).text():
                       (self._form_table.item(r, 1).text() if self._form_table.item(r, 1) else "")
                       for r in range(self._form_table.rowCount())}

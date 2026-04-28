@@ -68,11 +68,14 @@ class TabMarcaDagua(BasePage):
         self.drop_in.blockSignals(True)
         self.drop_in.set_path(p)
         self.drop_in.blockSignals(False)
+        if not self._maybe_prompt_password(p):
+            self.drop_in.blockSignals(True); self.drop_in.set_path("")
+            self.drop_in.blockSignals(False); return
         if not self.drop_out.path():
             base, ext = os.path.splitext(p)
             self.drop_out.set_path(base + "_watermark" + ext)
         try:
-            r = PdfReader(p); self.lbl_info.setText(t("edit.status.pages", n=len(r.pages)))
+            r = self._open_reader(p); self.lbl_info.setText(t("edit.status.pages", n=len(r.pages)))
         except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
 
     def auto_load(self, path: str):
@@ -87,8 +90,8 @@ class TabMarcaDagua(BasePage):
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
         try:
-            reader  = PdfReader(pdf_path)
-            wm_reader = PdfReader(wm_path)
+            reader    = self._open_reader(pdf_path)
+            wm_reader = PdfReader(wm_path)  # watermark file: not the prompted PDF
             if not wm_reader.pages:
                 QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.empty_wm"))
                 return

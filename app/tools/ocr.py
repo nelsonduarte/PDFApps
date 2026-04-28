@@ -117,13 +117,15 @@ class TabOCR(BasePage):
         self.drop_in.blockSignals(True)
         self.drop_in.set_path(p)
         self.drop_in.blockSignals(False)
+        if not self._maybe_prompt_password(p):
+            self.drop_in.blockSignals(True); self.drop_in.set_path("")
+            self.drop_in.blockSignals(False); return
         if not self.drop_out.path():
             base = os.path.splitext(p)[0]
             ext = ".pdf" if self.cmb_fmt.currentIndex() == 0 else ".txt"
             self.drop_out.set_path(base + "_ocr" + ext)
         try:
-            import fitz
-            doc = fitz.open(p)
+            doc = self._open_fitz(p)
             self.lbl_info.setText(t("edit.status.pages", n=doc.page_count))
             doc.close()
         except Exception as e:
@@ -214,7 +216,7 @@ class TabOCR(BasePage):
             idx = max(0, min(self.cmb_lang.currentIndex(), len(codes) - 1))
             lang = codes[idx]
             fmt  = self.cmb_fmt.currentIndex()
-            with fitz.open(pdf_path) as doc:
+            with self._open_fitz(pdf_path) as doc:
                 n = doc.page_count
 
                 progress = QProgressDialog(t("progress.ocr.page", current=1, total=n),

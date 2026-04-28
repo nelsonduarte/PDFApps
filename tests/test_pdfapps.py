@@ -618,6 +618,75 @@ class TestAuditRegressions:
         # And download_file must accept the verification arg.
         assert "expected_sha256" in src
 
+    def test_encrypted_pdf_helpers_unlock_with_stored_password(self, tmp):
+        # Functional check: BasePage._open_reader / _open_fitz must
+        # transparently decrypt when self._pdf_password is set.
+        from app.base import BasePage
+
+        plain = make_pdf(str(tmp / "src.pdf"), 2)
+        enc   = str(tmp / "enc.pdf")
+        w = PdfWriter(); w.append(PdfReader(plain))
+        w.encrypt(user_password="topsecret", owner_password="topsecret",
+                  algorithm="AES-256")
+        with open(enc, "wb") as f: w.write(f)
+
+        # Stand-alone object that mimics a tool with a stored password
+        class _Stub:
+            _pdf_password = "topsecret"
+            _open_reader = BasePage._open_reader
+            _open_fitz   = BasePage._open_fitz
+        stub = _Stub()
+
+        r = stub._open_reader(enc)
+        assert len(r.pages) == 2, "pypdf reader must decrypt with stored pwd"
+
+        d = stub._open_fitz(enc)
+        assert d.page_count == 2, "fitz doc must authenticate with stored pwd"
+        d.close()
+
+    def test_password_helpers_present_on_basepage(self):
+        # Wiring regression: every encrypted-aware tool relies on these
+        # three helpers being on BasePage (not duplicated per tool).
+        from app.base import BasePage
+        assert callable(getattr(BasePage, "_maybe_prompt_password", None))
+        assert callable(getattr(BasePage, "_open_reader", None))
+        assert callable(getattr(BasePage, "_open_fitz", None))
+
+    def test_tools_use_password_helper_on_load(self):
+        # Each tool that opens user PDFs must call _maybe_prompt_password
+        # in _load_input, otherwise encrypted files crash silently.
+        import inspect
+        from app.tools import (
+            split, reorder, extract, rotate, watermark,
+            compress, page_numbers, nup, ocr, convert,
+        )
+        modules = [split, reorder, extract, rotate, watermark,
+                   compress, page_numbers, nup, ocr, convert]
+        for mod in modules:
+            cls = next(c for c_name, c in vars(mod).items()
+                       if isinstance(c, type) and c_name.startswith("Tab"))
+            src = inspect.getsource(cls._load_input)
+            assert "_maybe_prompt_password" in src, \
+                f"{cls.__name__}._load_input must call _maybe_prompt_password"
+
+    def test_editor_handles_encrypted_pdfs(self):
+        # The editor's _load_pdf must prompt for a password and pass it
+        # through to the canvas. The audit flagged this as broken — the
+        # job opened with fitz.open without authenticate().
+        src = open("app/editor/tab.py", encoding="utf-8").read()
+        # _load_pdf integrates the password prompt
+        i = src.find("def _load_pdf(self, p: str):")
+        assert i > 0
+        block = src[i:i + 1500]
+        assert "prompt_pdf_password" in block, \
+            "editor _load_pdf must call prompt_pdf_password"
+        assert "password=self._pdf_password" in block, \
+            "canvas.load must receive the password"
+        # The canvas job must accept and apply the password
+        canvas_src = open("app/editor/canvas.py", encoding="utf-8").read()
+        assert "doc.authenticate(self._password)" in canvas_src, \
+            "_EditPageJob.run must authenticate the document"
+
     def test_draw_ink_annot_uses_tuple_points(self):
         # PyMuPDF 1.27+ rejects fitz.Point as ink-annot input with
         # ValueError: arg must be seq of seq of float pairs.

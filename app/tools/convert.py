@@ -128,9 +128,12 @@ class TabConverter(BasePage):
         self.drop_in.blockSignals(True)
         self.drop_in.set_path(p)
         self.drop_in.blockSignals(False)
+        if not self._maybe_prompt_password(p):
+            self.drop_in.blockSignals(True); self.drop_in.set_path("")
+            self.drop_in.blockSignals(False); return
         size = os.path.getsize(p)
         try:
-            r = PdfReader(p)
+            r = self._open_reader(p)
             self.lbl_info.setText(t("tool.compress.pages_info", n=len(r.pages), size=f"{size/1024:.1f}"))
         except Exception as e:
             self.lbl_info.setText(t("tool.split.error_info", e=e))
@@ -198,7 +201,7 @@ class TabConverter(BasePage):
         QApplication.processEvents()
         try:
             import fitz
-            with fitz.open(pdf_path) as doc:
+            with self._open_fitz(pdf_path) as doc:
                 matrix = fitz.Matrix(dpi / 72, dpi / 72)
                 total = doc.page_count
                 progress = self._make_progress(total, t("tool.convert.converting"))
@@ -253,7 +256,7 @@ class TabConverter(BasePage):
             from docx import Document
             from docx.shared import Pt, RGBColor, Inches
             import io, re as _re
-            doc = fitz.open(pdf_path)
+            doc = self._open_fitz(pdf_path)
             try:
                 docx_doc = Document()
                 total = doc.page_count
@@ -365,7 +368,7 @@ class TabConverter(BasePage):
         QApplication.processEvents()
         try:
             import fitz
-            with fitz.open(pdf_path) as doc:
+            with self._open_fitz(pdf_path) as doc:
                 with open(out_path, 'w', encoding='utf-8') as f:
                     for i, page in enumerate(doc):
                         if i > 0:
@@ -391,7 +394,7 @@ class TabConverter(BasePage):
             import fitz
             from pptx import Presentation
             from pptx.util import Inches, Pt, Emu
-            with fitz.open(pdf_path) as doc:
+            with self._open_fitz(pdf_path) as doc:
                 if doc.page_count == 0:
                     QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf"))
                     return
@@ -432,7 +435,7 @@ class TabConverter(BasePage):
         try:
             import fitz
             from openpyxl import Workbook
-            doc = fitz.open(pdf_path)
+            doc = self._open_fitz(pdf_path)
             try:
                 wb = Workbook()
                 wb.remove(wb.active)
@@ -475,7 +478,7 @@ class TabConverter(BasePage):
         QApplication.processEvents()
         try:
             import fitz
-            doc = fitz.open(pdf_path)
+            doc = self._open_fitz(pdf_path)
             try:
                 parts = [
                     "<!DOCTYPE html>",
@@ -546,7 +549,7 @@ class TabConverter(BasePage):
         try:
             import fitz
             from ebooklib import epub
-            doc = fitz.open(pdf_path)
+            doc = self._open_fitz(pdf_path)
             try:
                 book = epub.EpubBook()
                 book.set_identifier(f"pdfapps-{os.path.basename(pdf_path)}")

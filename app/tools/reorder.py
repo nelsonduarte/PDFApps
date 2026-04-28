@@ -70,13 +70,15 @@ class TabReordenar(BasePage):
         self.drop_in.blockSignals(True)
         self.drop_in.set_path(p)
         self.drop_in.blockSignals(False)
+        if not self._maybe_prompt_password(p):
+            self.drop_in.blockSignals(True); self.drop_in.set_path("")
+            self.drop_in.blockSignals(False); return
         if not self.drop_out.path():
             base, ext = os.path.splitext(p)
             self.drop_out.set_path(base + "_reordered" + ext)
         try:
-            with open(p, "rb") as fh:
-                reader = PdfReader(fh)
-                n = len(reader.pages)
+            reader = self._open_reader(p)
+            n = len(reader.pages)
             self._page_count = n
             self.lbl_info.setText(t("edit.status.pages", n=n))
             self._populate(list(range(n)))
@@ -119,11 +121,10 @@ class TabReordenar(BasePage):
         if not out: return
         try:
             indices = [self.lst.item(i).data(256) for i in range(self.lst.count())]
-            with open(self.drop_in.path(), "rb") as fin:
-                reader = PdfReader(fin)
-                w = PdfWriter()
-                for idx in indices: w.add_page(reader.pages[idx])
-                with open(out, "wb") as f: w.write(f)
+            reader = self._open_reader(self.drop_in.path())
+            w = PdfWriter()
+            for idx in indices: w.add_page(reader.pages[idx])
+            with open(out, "wb") as f: w.write(f)
             self._status(f"✔  → {os.path.basename(out)}")
             msg = t("tool.reorder.done", path=out)
             if self._pipeline_active:

@@ -99,6 +99,46 @@ def pick_folder(parent: QWidget) -> str:
     return QFileDialog.getExistingDirectory(parent, t("btn.select_folder"))
 
 
+def prompt_pdf_password(path: str, parent=None) -> tuple[bool, str]:
+    """Open the PDF and, if encrypted, prompt the user for a password.
+
+    Returns:
+        (True, "")          → PDF is not encrypted, just open normally
+        (True, "<pwd>")     → PDF is encrypted and the password authenticated
+        (False, "")         → user cancelled the dialog (silent abort)
+
+    Detects encryption with PyMuPDF (handles all PDF flavours). The caller
+    opens the file with whatever library (pypdf, fitz) using the returned
+    password.
+
+    On any unexpected error during detection the function returns
+    `(True, "")` so the caller can still try to open and surface its own
+    library-specific error message — i.e. password prompting is best-effort,
+    never a hard gate.
+    """
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(path)
+    except Exception:
+        return True, ""
+    try:
+        if not doc.needs_pass:
+            return True, ""
+        from app.editor.dialogs import _PdfPasswordDialog
+        from PySide6.QtWidgets import QDialog
+        wrong = False
+        while True:
+            dlg = _PdfPasswordDialog(os.path.basename(path), wrong=wrong, parent=parent)
+            if dlg.exec() != QDialog.DialogCode.Accepted:
+                return False, ""
+            pwd = dlg.password()
+            if doc.authenticate(pwd):
+                return True, pwd
+            wrong = True
+    finally:
+        doc.close()
+
+
 # ── UI factory helpers ────────────────────────────────────────────────────────
 
 def ToolHeader(icon_name: str, title: str, desc: str) -> QWidget:

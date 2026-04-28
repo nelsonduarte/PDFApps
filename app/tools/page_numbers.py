@@ -99,12 +99,14 @@ class TabPageNumbers(BasePage):
         self.drop_in.blockSignals(True)
         self.drop_in.set_path(p)
         self.drop_in.blockSignals(False)
+        if not self._maybe_prompt_password(p):
+            self.drop_in.blockSignals(True); self.drop_in.set_path("")
+            self.drop_in.blockSignals(False); return
         if not self.drop_out.path():
             base, ext = os.path.splitext(p)
             self.drop_out.set_path(base + "_numbered" + ext)
         try:
-            from pypdf import PdfReader
-            r = PdfReader(p)
+            r = self._open_reader(p)
             self.lbl_info.setText(t("edit.status.pages", n=len(r.pages)))
         except Exception as e:
             self.lbl_info.setText(t("tool.split.error_info", e=e))
@@ -122,7 +124,7 @@ class TabPageNumbers(BasePage):
 
         try:
             import fitz, re
-            with fitz.open(pdf_path) as doc:
+            with self._open_fitz(pdf_path) as doc:
                 total = doc.page_count
 
                 txt = self.edit_pages.text().strip()
