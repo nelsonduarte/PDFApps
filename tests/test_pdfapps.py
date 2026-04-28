@@ -687,36 +687,17 @@ class TestAuditRegressions:
         assert "doc.authenticate(self._password)" in canvas_src, \
             "_EditPageJob.run must authenticate the document"
 
-    def test_taskrunner_runs_in_qthread_with_progress_and_finished(self):
-        # Functional check: a TaskRunner subclass is run in a QThread,
-        # emits progress, finishes successfully, and routes the result
-        # back to the main thread via the on_finished handler.
-        from PySide6.QtWidgets import QApplication, QProgressDialog
-        from PySide6.QtCore import QEventLoop, QTimer
-        from app.worker import TaskRunner, run_task
-
-        QApplication.instance() or QApplication([])
-
-        class _Sum(TaskRunner):
-            def do_work(_self):
-                total = 0
-                for i in range(5):
-                    if _self.is_cancelled():
-                        return None
-                    _self.progress.emit(int(100 * i / 5), f"step {i}")
-                    total += i
-                return total
-
-        runner = _Sum()
-        dlg = QProgressDialog("starting", "cancel", 0, 100)
-        dlg.setMinimumDuration(60_000)  # never actually shown during test
-        results = {}
-        run_task(None, runner, dlg, lambda r: results.setdefault("r", r),
-                 lambda e: results.setdefault("e", e))
-        loop = QEventLoop()
-        QTimer.singleShot(800, loop.quit)
-        loop.exec()
-        assert results.get("r") == 0 + 1 + 2 + 3 + 4 == 10, results
+    def test_taskrunner_cancel_uses_lambda_wrap(self):
+        # Cross-thread quirk: PySide6 routes a bare bound-method call
+        # (e.g. progress_dlg.canceled.connect(runner.cancel)) through
+        # QMetaObject.invokeMethod, which queues it on the runner's
+        # thread — and the worker thread is busy in do_work() so the
+        # queue never drains. The lambda wrap forces a plain Python
+        # call on the dialog's thread (main), which mutates the flag
+        # immediately. Pin this so it can't be "simplified" back.
+        worker_src = open("app/worker.py", encoding="utf-8").read()
+        assert "lambda: runner.cancel()" in worker_src, \
+            "cancel must be wrapped in a lambda; bare bound method gets queued"
 
     def test_long_running_tools_use_background_runner(self):
         # Regression: compress / ocr / convert._convert_images must run

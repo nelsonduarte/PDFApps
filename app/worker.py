@@ -44,8 +44,12 @@ class TaskRunner(QObject):
         super().__init__()
         self._cancelled = False
 
-    @Slot()
     def cancel(self) -> None:
+        # NOT a @Slot: cross-thread signal→slot would queue this on the
+        # worker thread, which is busy inside do_work() and would never
+        # process the queue. We need cancel to mutate the flag *now*.
+        # Python bool assignment is atomic under the GIL, so this is
+        # safe from any thread.
         self._cancelled = True
 
     def is_cancelled(self) -> bool:
@@ -93,7 +97,14 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
             progress_dlg.setLabelText(label)
 
     runner.progress.connect(_on_progress)
-    progress_dlg.canceled.connect(runner.cancel)
+    # Wrap runner.cancel in a lambda so the call dispatches as a plain
+    # Python invocation on the dialog's (main) thread — not as a queued
+    # cross-thread Qt slot call. With a bare bound method, PySide6
+    # routes the invocation through QMetaObject.invokeMethod which
+    # respects the runner's thread affinity and the call ends up
+    # queued on the worker thread, where do_work() never gets to
+    # process it.
+    progress_dlg.canceled.connect(lambda: runner.cancel())
 
     def _final(handler, arg):
         try:
