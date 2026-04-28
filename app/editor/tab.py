@@ -837,7 +837,12 @@ class TabEditar(QWidget):
                 elif e["type"] == "note":
                     pg.add_text_annot(e["point"], e["text"])
                 elif e["type"] == "draw":
-                    stroke = [fitz.Point(x, y) for x, y in e.get("points", [])]
+                    # PyMuPDF's add_ink_annot expects a list of strokes, where
+                    # each stroke is a list of (x, y) float pairs — NOT a list
+                    # of fitz.Point. Passing Points raises
+                    # `ValueError: arg must be seq of seq of float pairs`.
+                    stroke = [(float(x), float(y))
+                              for x, y in e.get("points", [])]
                     if len(stroke) >= 2:
                         annot = pg.add_ink_annot([stroke])
                         annot.set_colors(stroke=e.get("color", (1, 0, 0)))

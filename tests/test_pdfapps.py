@@ -618,6 +618,21 @@ class TestAuditRegressions:
         # And download_file must accept the verification arg.
         assert "expected_sha256" in src
 
+    def test_draw_ink_annot_uses_tuple_points(self):
+        # PyMuPDF 1.27+ rejects fitz.Point as ink-annot input with
+        # ValueError: arg must be seq of seq of float pairs.
+        # tab.py builds the stroke as plain (float, float) tuples now;
+        # this test fails if anyone reintroduces fitz.Point wrapping.
+        src = open("app/editor/tab.py", encoding="utf-8").read()
+        # Locate the draw branch
+        i = src.find('elif e["type"] == "draw":')
+        assert i > 0, "draw branch missing in tab.py"
+        block = src[i:i + 600]
+        assert "[fitz.Point(x, y) for x, y in" not in block, \
+            "ink-annot strokes must be (x,y) tuples, not fitz.Point"
+        assert "(float(x), float(y))" in block, \
+            "expected explicit float tuple conversion in draw branch"
+
     def test_flatpak_manifest_tag_is_current(self):
         # Flatpak tag was hardcoded to v1.8.3 long after release v1.13.x.
         # Bump script now keeps it in sync; this test ensures it matches
