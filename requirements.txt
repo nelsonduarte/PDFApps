@@ -9,4 +9,4 @@ python-pptx>=1.0.2
 openpyxl>=3.1.5
 beautifulsoup4>=4.14.3
 ebooklib>=0.20
-pyinstaller>=6.19.0
+pyinstaller>=6.20.0
