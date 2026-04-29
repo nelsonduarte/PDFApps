@@ -90,11 +90,34 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
     thread = QThread(parent)
     runner.moveToThread(thread)
 
+    # QProgressDialog.setValue() calls QApplication.processEvents() internally
+    # to keep the cancel button responsive. Combined with rapid queued
+    # progress signals, that drains more _on_progress slots while we're
+    # already painting the dialog — causing recursive repaints, "endPaint
+    # with active painter" warnings, and crashes. We guard against
+    # re-entrancy and coalesce pending values: an inner call just stores
+    # the latest pct/label; the outermost call drains them in a loop.
+    _state = {"in": False, "pct": None, "label": None}
+
+    def _drain():
+        _state["in"] = True
+        try:
+            while _state["pct"] is not None or _state["label"]:
+                p = _state["pct"]; l = _state["label"]
+                _state["pct"] = None; _state["label"] = None
+                if p is not None:
+                    progress_dlg.setValue(int(p))
+                if l:
+                    progress_dlg.setLabelText(l)
+        finally:
+            _state["in"] = False
+
     def _on_progress(pct, label):
-        if pct is not None:
-            progress_dlg.setValue(int(pct))
-        if label:
-            progress_dlg.setLabelText(label)
+        _state["pct"] = pct
+        _state["label"] = label
+        if _state["in"]:
+            return
+        _drain()
 
     # Force QueuedConnection on cross-thread signals whose receivers are
     # plain Python callables (closures / lambdas). PySide6 cannot infer a
