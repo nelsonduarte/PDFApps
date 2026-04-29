@@ -13,7 +13,7 @@ This module provides:
     sane cleanup so each tool needs only the do_work() body.
 """
 
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
 
 from app.utils import CancelledError  # re-exported for convenience  # noqa: F401
 
@@ -96,7 +96,14 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
         if label:
             progress_dlg.setLabelText(label)
 
-    runner.progress.connect(_on_progress)
+    # Force QueuedConnection on cross-thread signals whose receivers are
+    # plain Python callables (closures / lambdas). PySide6 cannot infer a
+    # callable's thread affinity, so it falls back to DirectConnection —
+    # which would run _on_progress on the worker thread and call
+    # progress_dlg.setValue() across threads, deadlocking against the
+    # main thread's GUI mutex. Queued dispatch posts the call onto the
+    # main thread's event loop, where the dialog actually lives.
+    runner.progress.connect(_on_progress, Qt.ConnectionType.QueuedConnection)
     # Wrap runner.cancel in a lambda so the call dispatches as a plain
     # Python invocation on the dialog's (main) thread — not as a queued
     # cross-thread Qt slot call. With a bare bound method, PySide6
@@ -115,8 +122,10 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
             handler(arg)
         thread.quit()
 
-    runner.finished.connect(lambda r: _final(on_finished, r))
-    runner.error.connect(lambda e: _final(on_error, e))
+    runner.finished.connect(lambda r: _final(on_finished, r),
+                            Qt.ConnectionType.QueuedConnection)
+    runner.error.connect(lambda e: _final(on_error, e),
+                         Qt.ConnectionType.QueuedConnection)
     thread.finished.connect(thread.deleteLater)
     thread.finished.connect(runner.deleteLater)
     thread.started.connect(runner.run)
