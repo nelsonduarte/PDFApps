@@ -1126,6 +1126,25 @@ class MainWindow(QMainWindow):
         # Cleanup all pipeline temp files
         for v in list(self._viewers):
             self._cleanup_pipeline(id(v))
+        # Wait for any active background workers (compress / ocr /
+        # convert) so their QThreads are not destroyed mid-flight.
+        for i in range(self.stack.count()):
+            page = self.stack.widget(i)
+            wait_fn = getattr(page, "wait_for_workers", None)
+            if callable(wait_fn):
+                try: wait_fn()
+                except Exception: pass
+        # Same for the update-check thread (usually a short HTTP
+        # request, but the user can close the app immediately on
+        # launch and Qt will warn if it's still running).
+        upd = getattr(self, "_update_thread", None)
+        if upd is not None:
+            try:
+                if upd.isRunning():
+                    upd.quit()
+                    upd.wait(1000)
+            except RuntimeError:
+                pass
         try:
             from app.i18n import _CONFIG_PATH, _atomic_write_config
             import json

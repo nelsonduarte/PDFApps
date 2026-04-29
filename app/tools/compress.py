@@ -133,7 +133,15 @@ class TabComprimir(BasePage):
                     if _self.is_cancelled():
                         return False
                     if stage == "passB_images":
-                        pct = 25 + int((cur / max(tot, 1)) * 40)
+                        # PyMuPDF's rewrite_images is a single blocking
+                        # call with no per-page callback — emit -1
+                        # (busy bar) on entry so the dialog doesn't
+                        # appear frozen at 25% for 5–30 s, and emit a
+                        # real pct once it returns.
+                        if cur < tot:
+                            pct = -1
+                        else:
+                            pct = 65
                         label = t("progress.compress.passB_images",
                                   current=cur, total=tot)
                     else:

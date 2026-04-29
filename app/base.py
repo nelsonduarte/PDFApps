@@ -347,3 +347,64 @@ class BasePage(QWidget):
         self._bg_runner = _Run()
         self._bg_thread = run_task(self, self._bg_runner, progress,
                                    _wrap_done, _wrap_err)
+
+    def wait_for_workers(self, timeout_ms: int = 2000) -> None:
+        """Cancel any active background workers and wait for them to
+        finish. Called by the main window's closeEvent so QThreads
+        are not destroyed while do_work() is still running — Qt
+        otherwise emits 'QThread: Destroyed while thread is still
+        running' and may crash.
+
+        Implementation note: we don't call `thread.wait()`. The
+        runner's `finished` signal is delivered via QueuedConnection
+        to a closure on the main thread; if we block here, the
+        closure never runs, and Qt then teardown-deletes the runner
+        (via `thread.finished -> runner.deleteLater` direct-connected
+        on the worker thread) — at which point the main-thread queued
+        slot is silently discarded because its sender is gone.
+        Instead we cancel + pump events: the normal flow (finished →
+        _final → thread.quit) gets to run, the worker exits cleanly,
+        and on_done/_drain fire while the page is still valid."""
+        from PySide6.QtCore import QCoreApplication, QEventLoop
+        import time
+
+        threads = []
+        for runner_attr, thread_attr in (("_runner", "_runner_thread"),
+                                          ("_bg_runner", "_bg_thread")):
+            runner = getattr(self, runner_attr, None)
+            thread = getattr(self, thread_attr, None)
+            if thread is None:
+                continue
+            try:
+                if not isValid(thread) or not thread.isRunning():
+                    continue
+            except RuntimeError:
+                continue
+            # cancel() is best-effort — blocking calls inside do_work
+            # only honour it at the next checkpoint.
+            if runner is not None and isValid(runner):
+                try: runner.cancel()
+                except Exception: pass
+            threads.append(thread)
+        if not threads:
+            return
+        deadline = time.monotonic() + timeout_ms / 1000
+        flags = QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
+        while time.monotonic() < deadline:
+            still_running = False
+            for thread in threads:
+                try:
+                    if isValid(thread) and thread.isRunning():
+                        still_running = True
+                        break
+                except RuntimeError:
+                    pass
+            if not still_running:
+                break
+            remaining_ms = int((deadline - time.monotonic()) * 1000)
+            if remaining_ms <= 0:
+                break
+            # Pump events for up to 50 ms — gives the queued
+            # runner.finished slot a chance to run _final, which
+            # calls thread.quit() and lets the worker exit cleanly.
+            QCoreApplication.processEvents(flags, min(50, remaining_ms))

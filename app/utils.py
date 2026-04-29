@@ -223,15 +223,25 @@ _COMPRESS_LEVELS = {
 }
 
 
+_GS_CACHE: tuple[bool, str | None] = (False, None)  # (resolved, path)
+
+
 def _find_gs():
-    """Find Ghostscript executable."""
+    """Find Ghostscript executable. Cached at module level — the lookup
+    runs `glob.glob` over `C:\\Program Files\\gs\\...` on Windows, which
+    stutters on slow disks and was being repeated on every compress run
+    plus once per `_on_done` callback."""
+    global _GS_CACHE
+    if _GS_CACHE[0]:
+        return _GS_CACHE[1]
     import shutil as _sh, platform as _pl
     names = (["gswin64c", "gswin32c", "gs"]
              if _pl.system() == "Windows" else ["gs"])
     for n in names:
         p = _sh.which(n)
         if p and os.path.isfile(p):
-            return os.path.abspath(p)
+            _GS_CACHE = (True, os.path.abspath(p))
+            return _GS_CACHE[1]
     # Windows: check common install paths
     if _pl.system() == "Windows":
         import glob
@@ -241,7 +251,9 @@ def _find_gs():
             matches = sorted(glob.glob(pattern), reverse=True)
             for p in matches:
                 if os.path.isfile(p):
-                    return os.path.abspath(p)
+                    _GS_CACHE = (True, os.path.abspath(p))
+                    return _GS_CACHE[1]
+    _GS_CACHE = (True, None)
     return None
 
 
@@ -269,7 +281,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     Falls back gracefully if Ghostscript or pikepdf are not available.
     Raises ValueError if no pass reduced the file.
     """
-    import tempfile, shutil, subprocess
+    import tempfile, shutil, subprocess, time
 
     cfg     = _COMPRESS_LEVELS.get(level, _COMPRESS_LEVELS["recommended"])
     dpi     = cfg["dpi"]
@@ -280,8 +292,16 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
 
     def _prog(stage, cur=0, tot=0):
         if progress_fn and progress_fn(stage, cur, tot) is False:
-            for t in temps:
-                try: os.unlink(t)
+            # Loop var is `_p`, not `t` — the module-level `t` from
+            # app.i18n is shadowed inside this function otherwise, and
+            # any future translated string here would silently call a
+            # str path. Best-effort cleanup; the outer try/except at
+            # the bottom retries any survivors after each pass's
+            # finally has had a chance to release file handles
+            # (Windows can't unlink a tempfile while pikepdf/fitz
+            # still has it open).
+            for _p in temps:
+                try: os.unlink(_p)
                 except Exception: pass
             raise CancelledError()
 
@@ -318,12 +338,44 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                         "-dProcessColorModel=/DeviceGray",
                         "-dOverrideICC"]
             cmd += [f"-sOutputFile={p}", src]
-            result = subprocess.run(cmd, capture_output=True, timeout=120)
-            if result.returncode == 0 and os.path.isfile(p) and os.path.getsize(p) > 0:
+            # Spawn gs as a polled subprocess so the cancel button works
+            # mid-render. subprocess.run(timeout=120) blocks the worker
+            # thread for the whole timeout window, leaving Cancel dead
+            # for up to two minutes on big PDFs.
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+            deadline = time.monotonic() + 120
+            cancelled = False
+            try:
+                while True:
+                    if proc.poll() is not None:
+                        break
+                    if progress_fn and progress_fn("passA", 0, 0) is False:
+                        cancelled = True
+                        break
+                    if time.monotonic() > deadline:
+                        break
+                    time.sleep(0.2)
+            finally:
+                if proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        try: proc.wait(timeout=2)
+                        except subprocess.TimeoutExpired: pass
+            if cancelled:
+                try: os.unlink(p)
+                except Exception: pass
+                raise CancelledError()
+            if proc.returncode == 0 and os.path.isfile(p) and os.path.getsize(p) > 0:
                 temps.append(p)
             else:
                 try: os.unlink(p)
                 except Exception: pass
+        except CancelledError:
+            raise
         except Exception:
             if p:
                 try: os.unlink(p)
@@ -331,6 +383,8 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
 
     # ── Pass B : PyMuPDF — scrub + rewrite_images ────────────────────────
     _prog("passB_setup")
+    doc = None
+    p = None
     try:
         import fitz
         doc = fitz.open(src)
@@ -341,6 +395,10 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                       thumbnails=True, attached_files=True)
         except Exception:
             pass
+
+        # Cancel checkpoint between scrub (slow on heavy XMP /
+        # attachments) and subset_fonts (also slow on font-heavy PDFs).
+        _prog("passB_setup")
 
         # 2. Font subsetting
         try:
@@ -374,32 +432,69 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             doc.save(p, **save_kw, use_objstms=True)
         except TypeError:
             doc.save(p, **save_kw)
-        doc.close()
-        temps.append(p)
+        if os.path.isfile(p) and os.path.getsize(p) > 0:
+            temps.append(p)
+            p = None  # ownership transferred to temps
+    except CancelledError:
+        # Re-raise so do_work cancels cleanly. The bare `except
+        # Exception:` below would otherwise swallow it and the pipeline
+        # would silently continue into Pass C.
+        raise
     except Exception:
         pass
+    finally:
+        if doc is not None:
+            try: doc.close()
+            except Exception: pass
+        if p:
+            try: os.unlink(p)
+            except Exception: pass
 
     # ── Pass C : pikepdf — structural optimization ───────────────────────
     _prog("passC")
+    pdf = None
+    p = None
     try:
         import pikepdf
         # Optimize the best result so far (or the original)
         best_so_far = min(temps, key=lambda f: os.path.getsize(f)) if temps else src
         pdf = pikepdf.open(best_so_far)
         fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+        # Cancel checkpoint between open and save — pdf.save is the
+        # slow part (linearize + recompress_flate). Without this, a
+        # cancel during the parse window would still pay the full save
+        # cost before honouring the request.
+        _prog("passC")
         pdf.save(p,
                  object_stream_mode=pikepdf.ObjectStreamMode.generate,
                  compress_streams=True,
                  recompress_flate=True,
                  linearize=True)
-        pdf.close()
         if os.path.isfile(p) and os.path.getsize(p) > 0:
             temps.append(p)
-        else:
-            try: os.unlink(p)
+            p = None  # ownership transferred to temps
+    except CancelledError:
+        # Close pdf eagerly so any tempfile pikepdf was holding open
+        # (Pass A/B's output passed in as `best_so_far`) can be
+        # unlinked. Then retry the temps cleanup that _prog attempted
+        # but Windows refused while the handle was live.
+        if pdf is not None:
+            try: pdf.close()
             except Exception: pass
+            pdf = None
+        for _p in temps:
+            try: os.unlink(_p)
+            except Exception: pass
+        raise
     except Exception:
         pass
+    finally:
+        if pdf is not None:
+            try: pdf.close()
+            except Exception: pass
+        if p:
+            try: os.unlink(p)
+            except Exception: pass
 
     if not temps:
         raise RuntimeError("Install pypdf and/or PyMuPDF:\n"
@@ -409,9 +504,9 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     best      = min(temps, key=lambda p: os.path.getsize(p))
     best_size = os.path.getsize(best)
 
-    for p in temps:
-        if p != best:
-            try: os.unlink(p)
+    for _p in temps:
+        if _p != best:
+            try: os.unlink(_p)
             except Exception: pass
 
     if best_size >= before:
@@ -419,5 +514,24 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         except Exception: pass
         raise ValueError(f"No gain: {before/1024:.0f} KB → {best_size/1024:.0f} KB")
 
-    shutil.move(best, dst)
+    # Atomic write: rename within the same volume, else copy to a temp
+    # file next to dst and atomic-rename. shutil.move falls back to a
+    # plain copy + unlink across volumes (best lives in %TEMP%, dst
+    # usually on the user's disk) — a crash mid-copy would leave dst
+    # truncated and overwrite a previous good output.
+    dst_dir = os.path.dirname(dst) or "."
+    try:
+        os.replace(best, dst)
+    except OSError:
+        fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=dst_dir)
+        os.close(fd)
+        try:
+            shutil.copyfile(best, tmp)
+            os.replace(tmp, dst)
+        except Exception:
+            try: os.unlink(tmp)
+            except Exception: pass
+            raise
+        try: os.unlink(best)
+        except Exception: pass
     return before, best_size

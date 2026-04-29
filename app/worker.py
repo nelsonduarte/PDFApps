@@ -105,10 +105,27 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
             while _state["pct"] is not None or _state["label"]:
                 p = _state["pct"]; l = _state["label"]
                 _state["pct"] = None; _state["label"] = None
-                if p is not None:
-                    progress_dlg.setValue(int(p))
-                if l:
-                    progress_dlg.setLabelText(l)
+                try:
+                    if p is not None:
+                        # Sentinel: pct = -1 → indeterminate / busy bar
+                        # (used by tools that wrap a single blocking
+                        # call with no progress callback). Any non-
+                        # negative pct restores the 0–100 range.
+                        if p < 0:
+                            if progress_dlg.maximum() != 0:
+                                progress_dlg.setRange(0, 0)
+                        else:
+                            if progress_dlg.maximum() == 0:
+                                progress_dlg.setRange(0, 100)
+                            progress_dlg.setValue(int(p))
+                    if l:
+                        progress_dlg.setLabelText(l)
+                except RuntimeError:
+                    # Dialog already destroyed (page closed mid-task,
+                    # window quit during a queued progress signal).
+                    # Drop any further pending updates.
+                    _state["pct"] = None; _state["label"] = None
+                    return
         finally:
             _state["in"] = False
 
@@ -138,6 +155,11 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
 
     def _final(handler, arg):
         try:
+            # If the dialog is in busy/indeterminate mode (max==0),
+            # setValue(max) is a no-op and the dialog won't auto-hide.
+            # Restore the 0–100 range first, then snap to max.
+            if progress_dlg.maximum() == 0:
+                progress_dlg.setRange(0, 100)
             progress_dlg.setValue(progress_dlg.maximum())
         except RuntimeError:
             pass  # dialog destroyed (e.g. user closed window)
