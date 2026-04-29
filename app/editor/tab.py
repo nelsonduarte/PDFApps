@@ -243,10 +243,10 @@ class TabEditar(QWidget):
         self._sig_preview.setMinimumHeight(50)
         self._sig_preview.setStyleSheet("background: white; border: 1px solid #ccc; border-radius: 4px;")
         v7s.addWidget(self._sig_preview)
-        sig_choose = QPushButton(t("edit.signature.choose"))
-        sig_choose.setIcon(qta.icon("fa5s.signature", color=TEXT_PRI))
-        sig_choose.clicked.connect(self._pick_signature)
-        v7s.addWidget(sig_choose)
+        self._sig_choose = QPushButton(t("edit.signature.choose"))
+        self._sig_choose.setIcon(qta.icon("fa5s.signature", color=TEXT_PRI))
+        self._sig_choose.clicked.connect(self._pick_signature)
+        v7s.addWidget(self._sig_choose)
         sig_clear = QPushButton(t("edit.signature.clear"))
         sig_clear.clicked.connect(self._clear_signature)
         v7s.addWidget(sig_clear)
@@ -388,6 +388,7 @@ class TabEditar(QWidget):
         self._btn_undo.setIcon(qta.icon("fa5s.undo", color=pri))
         self._btn_redo.setIcon(qta.icon("fa5s.redo", color=pri))
         self._btn_copy.setIcon(qta.icon("fa5s.copy", color=pri))
+        self._sig_choose.setIcon(qta.icon("fa5s.signature", color=pri))
         # Update mode buttons (inactive ones)
         for i, b in enumerate(self._mode_btns):
             if not b.isChecked():

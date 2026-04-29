@@ -85,11 +85,15 @@ class TabEncriptar(BasePage):
         self.drop_in.blockSignals(True)
         self.drop_in.set_path(p)
         self.drop_in.blockSignals(False)
+        if not self._maybe_prompt_password(p):
+            self.drop_in.blockSignals(True); self.drop_in.set_path("")
+            self.drop_in.blockSignals(False); return
         base, ext = os.path.splitext(p)
         suffix = "_enc" if self.cmb_mode.currentIndex() == 0 else "_dec"
         self.drop_out.set_path(base + suffix + ext)
         try:
-            r = PdfReader(p)
+            r = self._open_reader(p)
+            # is_encrypted reflects the on-disk state, even after decrypt()
             encrypted = r.is_encrypted
             status = t("tool.encrypt.status_enc") if encrypted else t("tool.encrypt.status_dec")
             try:
@@ -110,7 +114,7 @@ class TabEncriptar(BasePage):
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
         try:
-            reader = PdfReader(pdf_path)
+            reader = self._open_reader(pdf_path)
             if self.cmb_mode.currentIndex() == 0:
                 owner = self.edit_owner.text()
                 if not owner:
@@ -130,8 +134,12 @@ class TabEncriptar(BasePage):
                 else:
                     QMessageBox.information(self, t("msg.done"), msg)
             else:
-                if reader.is_encrypted:
-                    result = reader.decrypt(self.edit_pwd.text())
+                # _open_reader already decrypted with self._pdf_password (if any).
+                # The edit_pwd field acts as a manual override — if non-empty,
+                # use it (e.g. user skipped the prompt or wants a different pwd).
+                manual_pwd = self.edit_pwd.text()
+                if reader.is_encrypted and manual_pwd:
+                    result = reader.decrypt(manual_pwd)
                     if result == 0:
                         QMessageBox.warning(self, t("msg.warning"), t("tool.encrypt.wrong_pass"))
                         return

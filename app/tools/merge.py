@@ -19,6 +19,9 @@ class TabJuntar(BasePage):
         super().__init__("fa5s.object-group", t("tool.merge.name"),
                          t("tool.merge.desc"),
                          t("tool.merge.btn"), status_fn)
+        # Per-file password map. BasePage._pdf_password is single-string;
+        # merge needs one password per input PDF since they may differ.
+        self._pwd_map: dict[str, str] = {}
         f = self._form
 
         grp = QGroupBox(t("tool.merge.list"))
@@ -40,7 +43,7 @@ class TabJuntar(BasePage):
             ("▲", self._up,         t("btn.up")),
             ("▼", self._dn,         t("btn.down")),
             ("−", self._remove,     t("btn.remove")),
-            ("✕", self.lst.clear,   t("btn.clear")),
+            ("✕", self._clear_all,  t("btn.clear")),
         ]:
             btn = danger_btn(icon) if slot == self._remove else QPushButton(icon)
             btn.setToolTip(tip)
@@ -54,11 +57,21 @@ class TabJuntar(BasePage):
         f.addWidget(self.drop_out)
         f.addStretch()
 
+    def _add_path(self, p: str) -> bool:
+        """Prompt for password if encrypted, store it, append to list."""
+        if not self._maybe_prompt_password(p):
+            return False
+        self._pwd_map[p] = self._pdf_password
+        self.lst.addItem(QListWidgetItem(p))
+        return True
+
     def _on_drop(self, paths: list):
-        for p in paths: self.lst.addItem(QListWidgetItem(p))
+        for p in paths:
+            self._add_path(p)
 
     def _add_files(self):
-        for p in pick_pdfs(self): self.lst.addItem(QListWidgetItem(p))
+        for p in pick_pdfs(self):
+            self._add_path(p)
 
     def _up(self):
         r = self.lst.currentRow()
@@ -74,13 +87,19 @@ class TabJuntar(BasePage):
 
     def _remove(self):
         r = self.lst.currentRow()
-        if r >= 0: self.lst.takeItem(r)
+        if r >= 0:
+            item = self.lst.takeItem(r)
+            self._pwd_map.pop(item.text(), None)
+
+    def _clear_all(self):
+        self.lst.clear()
+        self._pwd_map.clear()
 
     def auto_load(self, path: str):
         if not path: return
         existing = [self.lst.item(i).text() for i in range(self.lst.count())]
         if path not in existing:
-            self.lst.addItem(QListWidgetItem(path))
+            self._add_path(path)
 
     def _run(self):
         paths = [self.lst.item(i).text() for i in range(self.lst.count())]
@@ -97,9 +116,13 @@ class TabJuntar(BasePage):
         try:
             w = PdfWriter()
             for p in paths:
-                with open(p, "rb") as fin:
-                    for page in PdfReader(fin).pages:
-                        w.add_page(page)
+                reader = PdfReader(p)
+                if reader.is_encrypted:
+                    pwd = self._pwd_map.get(p, "")
+                    if pwd:
+                        reader.decrypt(pwd)
+                for page in reader.pages:
+                    w.add_page(page)
             with open(out, "wb") as f: w.write(f)
             self._status(f"✔  PDF → {os.path.basename(out)}")
             QMessageBox.information(self, t("msg.done"), t("tool.merge.done", path=out))

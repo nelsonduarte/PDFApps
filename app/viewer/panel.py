@@ -332,7 +332,7 @@ class PdfViewerPanel(QWidget):
     # ── Open dialog ────────────────────────────────────────────────────────
     def _remove_recent(self, path: str, row_widget):
         """Remove a file from recents and hide its row."""
-        from app.i18n import _CONFIG_PATH
+        from app.i18n import _CONFIG_PATH, _atomic_write_config
         import json
         try:
             with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -341,8 +341,7 @@ class PdfViewerPanel(QWidget):
             normed = os.path.normpath(path)
             recents = [r for r in recents if os.path.normpath(r) != normed]
             cfg["recent_files"] = recents
-            with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-                json.dump(cfg, f)
+            _atomic_write_config(cfg)
         except Exception:
             pass
         row_widget.setVisible(False)
