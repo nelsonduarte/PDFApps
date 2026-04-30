@@ -45,6 +45,38 @@ def _find_tesseract() -> str | None:
     return None
 
 
+def _find_tessdata(tess_exe: str | None) -> str | None:
+    """Locate the tessdata directory across platforms.
+
+    Windows / macOS Homebrew put tessdata next to the binary. Debian /
+    Ubuntu put it under /usr/share/tesseract-ocr/<version>/tessdata,
+    and the binary itself often has a default path baked in that
+    points at the wrong version (Ubuntu 24.04 ships v5 but the
+    default still points at .../4.00/tessdata, see issue #27).
+    Without TESSDATA_PREFIX set explicitly, OCR fails with
+    'Error opening data file .../4.00/tessdata/eng.traineddata'."""
+    import sys
+    if tess_exe:
+        adjacent = os.path.join(os.path.dirname(tess_exe), "tessdata")
+        if os.path.isdir(adjacent):
+            return adjacent
+    if sys.platform.startswith(("linux", "darwin")):
+        import glob
+        # Sort descending so the latest version wins (5 over 4.00 on
+        # Ubuntu 24.04 where both folders may coexist).
+        for p in sorted(glob.glob("/usr/share/tesseract-ocr/*/tessdata"),
+                        reverse=True):
+            if os.path.isdir(p):
+                return p
+        # Older Debian, manual installs, snap fallbacks.
+        for p in ("/usr/share/tessdata",
+                  "/usr/local/share/tessdata",
+                  "/snap/tesseract/current/usr/share/tesseract-ocr/tessdata"):
+            if os.path.isdir(p):
+                return p
+    return None
+
+
 class TabOCR(BasePage):
     _LANG_KEYS = [
         ("tool.ocr.lang.pt",    "por"),
@@ -142,10 +174,9 @@ class TabOCR(BasePage):
 
         if tess_exe:
             pytesseract.pytesseract.tesseract_cmd = tess_exe
-            tess_dir = os.path.dirname(tess_exe)
-            tessdata = os.path.join(tess_dir, "tessdata")
-            if os.path.isdir(tessdata):
-                os.environ["TESSDATA_PREFIX"] = tessdata
+        tessdata = _find_tessdata(tess_exe)
+        if tessdata:
+            os.environ["TESSDATA_PREFIX"] = tessdata
 
         try:
             pytesseract.get_tesseract_version()
