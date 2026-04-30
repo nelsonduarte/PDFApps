@@ -78,13 +78,18 @@ jobs:
       # ── macOS ───────────────────────────────────────────────────
       - name: Free macOS disk space
         if: runner.os == 'macOS'
-        # Default macos-latest image ships with Xcode + CommandLineTools
-        # (~25 GB combined). Our build is pure Python wheels — neither
-        # is used. Without this, hdiutil runs out of scratch space
-        # while building the DMG.
+        # macos-latest ships with Xcode (~16 GB) which our pure-Python
+        # build doesn't use. Removing it frees enough disk for hdiutil
+        # to create the DMG. We keep CommandLineTools because
+        # PyInstaller calls lipo / codesign / otool to slice and re-
+        # sign Mach-O binaries — without those, the build dies with
+        # "lipo command ... failed with error code 1".
         run: |
           sudo rm -rf /Applications/Xcode*.app
-          sudo rm -rf /Library/Developer/CommandLineTools
+          # The default xcode-select path points at the (now gone)
+          # Xcode bundle; redirect to CommandLineTools so /usr/bin/lipo
+          # and friends resolve.
+          sudo xcode-select -s /Library/Developer/CommandLineTools || true
           df -h /
 
       - name: Build (macOS)
