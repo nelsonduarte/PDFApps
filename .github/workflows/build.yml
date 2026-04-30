@@ -76,27 +76,13 @@ jobs:
           path: dist/PDFApps-Linux.tar.gz
 
       # ── macOS ───────────────────────────────────────────────────
-      - name: Free macOS disk space
-        if: runner.os == 'macOS'
-        # Default macos-latest image ships with Xcode + CommandLineTools
-        # (~25 GB combined). Our build is pure Python wheels — neither
-        # is used. Without this, hdiutil runs out of scratch space
-        # while building the DMG.
-        run: |
-          sudo rm -rf /Applications/Xcode*.app
-          sudo rm -rf /Library/Developer/CommandLineTools
-          df -h /
-
       - name: Build (macOS)
         if: runner.os == 'macOS'
         run: |
           python -m PyInstaller --noconfirm pdfapps.spec
-          # Create DMG with the .app bundle and an Applications
-          # shortcut. `mv` (not cp -R) — we don't need to keep the
-          # source .app after the DMG is built, and avoiding the
-          # duplicate keeps the runner well below its disk quota.
+          # Create DMG with the .app bundle and an Applications shortcut
           mkdir -p dist/dmg
-          mv dist/PDFApps.app dist/dmg/
+          cp -R dist/PDFApps.app dist/dmg/
           ln -s /Applications dist/dmg/Applications
           hdiutil create -volname "PDFApps" \
             -srcfolder dist/dmg \
