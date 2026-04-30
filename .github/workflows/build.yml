@@ -104,32 +104,41 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           echo "── before PyInstaller ──"
-          df -h /
+          df -h
           python -m PyInstaller --noconfirm pdfapps.spec
           echo "── after PyInstaller ──"
-          df -h /
+          df -h
+          du -sh dist/PDFApps.app
           # PyInstaller intermediates (~3-7 GB in build/ + the
           # bootloader cache) and the loose Unix exe under dist/ are
-          # not needed for the DMG — only dist/PDFApps.app is. Clear
-          # them so hdiutil has scratch space to build the disk image.
+          # not needed for the DMG — only dist/PDFApps.app is.
           rm -rf build/
           rm -rf "$HOME/Library/Application Support/pyinstaller"
           rm -f dist/PDFApps
-          echo "── after intermediates cleanup ──"
-          df -h /
           # Create DMG with the .app bundle and an Applications
           # shortcut. `mv` (not cp -R) — we don't need to keep the
-          # source .app after the DMG is built, and avoiding the
-          # duplicate keeps the runner well below its disk quota.
+          # source .app after the DMG is built.
           mkdir -p dist/dmg
           mv dist/PDFApps.app dist/dmg/
           ln -s /Applications dist/dmg/Applications
+          du -sh dist/dmg
+          # The previous `hdiutil create -srcfolder` (no -size)
+          # auto-estimated the intermediate sparse image too tight and
+          # died with "No space left on device" while *copying into
+          # the new DMG* — i.e. the runner had 83 GB free, but the
+          # mounted image at /Volumes/PDFApps/ ran out of bytes mid-
+          # copy. The .app has thousands of tiny files (Qt
+          # frameworks, qtawesome fonts, etc.) so HFS+ slack space
+          # blows past the auto-estimate. Force the intermediate to
+          # 1 GB; UDZO compression makes the final .dmg much smaller.
           hdiutil create -volname "PDFApps" \
             -srcfolder dist/dmg \
             -ov -format UDZO \
+            -size 1g \
             dist/PDFApps-macOS.dmg
           echo "── after DMG ──"
-          df -h /
+          df -h
+          ls -lh dist/PDFApps-macOS.dmg
 
       - name: Upload (macOS)
         if: runner.os == 'macOS'
