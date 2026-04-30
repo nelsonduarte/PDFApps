@@ -42,4 +42,4 @@ modules:
     sources:
       - type: git
         url: https://github.com/nelsonduarte/PDFApps.git
-        tag: v1.13.4
+        tag: v1.13.5
