@@ -246,11 +246,17 @@ class BasePage(QWidget):
         idx = layout.indexOf(self._action_bar)
         layout.insertWidget(idx, toast)
         self._toast_widget = toast
-        # Guard the timer: if a newer toast already deleteLater'd this one,
-        # the lambda must not touch the dead C++ object. PySide6 has no
-        # QPointer, so use shiboken6.isValid() to check liveness.
-        QTimer.singleShot(
-            8000, lambda t=toast: t.setVisible(False) if isValid(t) else None)
+        # In pipeline mode (save_callback provided) the toast is the
+        # ONLY UI that surfaces the unsaved-state save action. Don't
+        # auto-hide it — the user needs time to notice and click. In
+        # plain "operation done" mode the toast is just confirmation,
+        # so the original 8 s auto-hide is fine.
+        # Guard the timer: if a newer toast already deleteLater'd this
+        # one, the lambda must not touch the dead C++ object. PySide6
+        # has no QPointer, so use shiboken6.isValid() to check liveness.
+        if save_callback is None:
+            QTimer.singleShot(
+                8000, lambda t=toast: t.setVisible(False) if isValid(t) else None)
 
     def _resolve_output_dir(self, drop_widget, input_path: str = "") -> str:
         """Return the output directory, prompting via folder picker if empty."""
