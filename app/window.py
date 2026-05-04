@@ -1272,6 +1272,18 @@ class MainWindow(QMainWindow):
         # Skip auto-update inside Flatpak/Snap (package manager handles updates)
         if os.environ.get("FLATPAK_ID") or os.environ.get("SNAP"):
             return
+        # Pre-import the updater module on the main thread BEFORE the
+        # worker thread starts. The worker would otherwise lazy-import
+        # `app.updater`, which transitively pulls in `urllib.request`
+        # → `http.client` → `ssl`. On Python 3.14, importing those
+        # heavy modules from a non-main thread while the main thread
+        # is still busy creating Qt widgets races against each other
+        # (CPython's import machinery + Qt's widget construction +
+        # garbage collection on the worker side) and produces a
+        # Windows access-violation crash. Doing the import here keeps
+        # all that import work on the main thread; the worker only
+        # calls the already-imported function.
+        from app.updater import check_for_update
         from PySide6.QtCore import QThread, QObject, Signal as _Sig
 
         class _Worker(QObject):
@@ -1280,7 +1292,6 @@ class MainWindow(QMainWindow):
                 super().__init__()
                 self.release = None
             def run(self):
-                from app.updater import check_for_update
                 self.release = check_for_update()
                 if self.release:
                     self.done.emit()
