@@ -500,6 +500,7 @@ class MainWindow(QMainWindow):
             w = self.stack.widget(i)
             if isinstance(w, BasePage):
                 w.pipeline_done.connect(self._on_pipeline_done)
+                w.pipeline_save_requested.connect(self._save_pipeline)
         # Per-viewer pipeline state: {viewer_id: {original_path, temp_path}}
         self._pipeline_state: dict[int, dict] = {}
 
