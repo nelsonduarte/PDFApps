@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QSplitter, QTreeWidget, QTreeWidgetItem,
 )
 from PySide6.QtGui import QKeySequence, QShortcut
+from shiboken6 import isValid
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_SEC, _LQ, DESKTOP
@@ -272,10 +273,16 @@ class PdfViewerPanel(QWidget):
         else:
             self._sel_status.setText(t("viewer.no_text"))
             self._sel_status.setStyleSheet("color: #D97706; padding: 4px;")
-        QTimer.singleShot(4000, lambda: (
-            self._sel_status.setText(t("viewer.select_copy")),
-            self._sel_status.setStyleSheet(""),
-        ))
+        # Guard against tab-close within the 4 s window: if the user
+        # closes the viewer tab after copying, the C++ widget is gone
+        # and the lambda would crash. PySide6 has no QPointer, so use
+        # shiboken6.isValid() to check liveness.
+        def _reset():
+            if not isValid(self._sel_status):
+                return
+            self._sel_status.setText(t("viewer.select_copy"))
+            self._sel_status.setStyleSheet("")
+        QTimer.singleShot(4000, _reset)
 
     def paintEvent(self, event):
         _paint_bg(self)
