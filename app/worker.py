@@ -162,8 +162,11 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
     # `parent` (a main-thread QObject), QueuedConnection metacalls are
     # posted to the main thread's event loop.
     class _Dispatcher(QObject):
+        # Method names are `relay_*`, not `on_*`, to avoid shadowing
+        # the closure variables `on_finished` / `on_error` captured
+        # from run_task's parameters.
         @Slot(int, str)
-        def on_progress(_self, pct, label):
+        def relay_progress(self, pct, label):
             _state["pct"] = pct
             _state["label"] = label
             if _state["in"]:
@@ -171,20 +174,20 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
             _drain()
 
         @Slot(object)
-        def on_finished(_self, r):
+        def relay_finished(self, r):
             _final(on_finished, r)
 
         @Slot(str)
-        def on_error(_self, e):
+        def relay_error(self, e):
             _final(on_error, e)
 
     dispatcher = _Dispatcher(parent)
 
-    runner.progress.connect(dispatcher.on_progress,
+    runner.progress.connect(dispatcher.relay_progress,
                             Qt.ConnectionType.QueuedConnection)
-    runner.finished.connect(dispatcher.on_finished,
+    runner.finished.connect(dispatcher.relay_finished,
                             Qt.ConnectionType.QueuedConnection)
-    runner.error.connect(dispatcher.on_error,
+    runner.error.connect(dispatcher.relay_error,
                          Qt.ConnectionType.QueuedConnection)
     # cancel mutates a Python bool atomically under the GIL; lambda
     # keeps it as a plain Python call rather than letting PySide6
