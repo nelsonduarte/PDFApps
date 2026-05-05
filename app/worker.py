@@ -129,30 +129,6 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
         finally:
             _state["in"] = False
 
-    def _on_progress(pct, label):
-        _state["pct"] = pct
-        _state["label"] = label
-        if _state["in"]:
-            return
-        _drain()
-
-    # Force QueuedConnection on cross-thread signals whose receivers are
-    # plain Python callables (closures / lambdas). PySide6 cannot infer a
-    # callable's thread affinity, so it falls back to DirectConnection —
-    # which would run _on_progress on the worker thread and call
-    # progress_dlg.setValue() across threads, deadlocking against the
-    # main thread's GUI mutex. Queued dispatch posts the call onto the
-    # main thread's event loop, where the dialog actually lives.
-    runner.progress.connect(_on_progress, Qt.ConnectionType.QueuedConnection)
-    # Wrap runner.cancel in a lambda so the call dispatches as a plain
-    # Python invocation on the dialog's (main) thread — not as a queued
-    # cross-thread Qt slot call. With a bare bound method, PySide6
-    # routes the invocation through QMetaObject.invokeMethod which
-    # respects the runner's thread affinity and the call ends up
-    # queued on the worker thread, where do_work() never gets to
-    # process it.
-    progress_dlg.canceled.connect(lambda: runner.cancel())
-
     def _final(handler, arg):
         try:
             # If the dialog is in busy/indeterminate mode (max==0),
@@ -167,10 +143,55 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
             handler(arg)
         thread.quit()
 
-    runner.finished.connect(lambda r: _final(on_finished, r),
+    # Pin the queued slots to a QObject parented on the main thread.
+    # Without this, PySide6 connects worker signals to plain Python
+    # lambdas with no QObject thread affinity; on Windows + Python 3.14
+    # the queued dispatch ends up running the slot on the SENDER's
+    # thread (the worker), so _final → user's _on_done → _show_toast
+    # all execute on the worker. The QWidgets created in _show_toast
+    # then take worker-thread affinity, and parenting them to a main-
+    # thread layout triggers "QObject::setParent: Cannot set parent,
+    # new parent is in a different thread" — and corrupts subsequent
+    # signal dispatch from the page (pipeline_done.emit returns
+    # without invoking its slot, app hangs). On Linux this happened to
+    # work because PySide6's lambda dispatch fell through to the main
+    # thread there.
+    #
+    # Decorating the relay methods with @Slot makes Qt treat them as
+    # native slots on _Dispatcher; since _Dispatcher is parented to
+    # `parent` (a main-thread QObject), QueuedConnection metacalls are
+    # posted to the main thread's event loop.
+    class _Dispatcher(QObject):
+        @Slot(int, str)
+        def on_progress(_self, pct, label):
+            _state["pct"] = pct
+            _state["label"] = label
+            if _state["in"]:
+                return
+            _drain()
+
+        @Slot(object)
+        def on_finished(_self, r):
+            _final(on_finished, r)
+
+        @Slot(str)
+        def on_error(_self, e):
+            _final(on_error, e)
+
+    dispatcher = _Dispatcher(parent)
+
+    runner.progress.connect(dispatcher.on_progress,
                             Qt.ConnectionType.QueuedConnection)
-    runner.error.connect(lambda e: _final(on_error, e),
+    runner.finished.connect(dispatcher.on_finished,
+                            Qt.ConnectionType.QueuedConnection)
+    runner.error.connect(dispatcher.on_error,
                          Qt.ConnectionType.QueuedConnection)
+    # cancel mutates a Python bool atomically under the GIL; lambda
+    # keeps it as a plain Python call rather than letting PySide6
+    # route through the runner's thread affinity (worker, busy in
+    # do_work, would never process the queued cancel).
+    progress_dlg.canceled.connect(lambda: runner.cancel())
+
     thread.finished.connect(thread.deleteLater)
     thread.finished.connect(runner.deleteLater)
     thread.started.connect(runner.run)

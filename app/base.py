@@ -152,8 +152,7 @@ class BasePage(QWidget):
         """Call after a successful tool run in pipeline mode:
         shows a toast (with a prominent "Save as..." button) and emits
         the pipeline_done signal."""
-        self._show_toast(message, out_path,
-                         save_callback=self.pipeline_save_requested.emit)
+        self._show_toast(message, out_path, with_save=True)
         self.pipeline_done.emit(out_path)
 
     def cleanup_pipeline(self) -> None:
@@ -200,14 +199,20 @@ class BasePage(QWidget):
         self._pipeline_active = active and self._pipeline_supported
 
     def _show_toast(self, message: str, file_path: str = "",
-                    save_callback=None) -> None:
+                    with_save: bool = False) -> None:
         """Show a brief success toast above the action bar with optional
         'Save as...' / 'Open file' / 'Open folder' buttons.
 
-        When save_callback is provided (pipeline mode), a prominent
-        'Save as...' button is rendered first to make the save action
-        discoverable — without it, users assume the result is already
-        saved (it isn't; it's in a temp dir until Ctrl+S)."""
+        When with_save is True (pipeline mode), a prominent 'Save as...'
+        button is rendered first to make the save action discoverable —
+        without it, users assume the result is already saved (it isn't;
+        it's in a temp dir until Ctrl+S). The button is wired
+        signal-to-signal to pipeline_save_requested; passing
+        `pipeline_save_requested.emit` as a Python callable instead
+        wraps it in a hidden QObject whose thread affinity gets garbled
+        on Python 3.14, breaking subsequent signal dispatch from this
+        page (pipeline_done.emit appeared to return without invoking
+        any slot)."""
         import os
         # Remove previous toast if any
         old = getattr(self, "_toast_widget", None)
@@ -225,11 +230,11 @@ class BasePage(QWidget):
             f"#toast QPushButton#toast_save {{ color: white; font-weight: 600; }}")
         h = QHBoxLayout(toast); h.setContentsMargins(8, 4, 8, 4); h.setSpacing(8)
         h.addWidget(QLabel(f"✔ {message}"), 1)
-        if save_callback is not None:
+        if with_save:
             btn_save = QPushButton(t("widget.save_as"))
             btn_save.setObjectName("toast_save")
             btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_save.clicked.connect(save_callback)
+            btn_save.clicked.connect(self.pipeline_save_requested)
             h.addWidget(btn_save)
         if file_path and os.path.exists(file_path):
             btn_file = QPushButton(t("toast.open_file"))
@@ -246,15 +251,15 @@ class BasePage(QWidget):
         idx = layout.indexOf(self._action_bar)
         layout.insertWidget(idx, toast)
         self._toast_widget = toast
-        # In pipeline mode (save_callback provided) the toast is the
-        # ONLY UI that surfaces the unsaved-state save action. Don't
-        # auto-hide it — the user needs time to notice and click. In
-        # plain "operation done" mode the toast is just confirmation,
-        # so the original 8 s auto-hide is fine.
-        # Guard the timer: if a newer toast already deleteLater'd this
-        # one, the lambda must not touch the dead C++ object. PySide6
-        # has no QPointer, so use shiboken6.isValid() to check liveness.
-        if save_callback is None:
+        # In pipeline mode (with_save=True) the toast is the ONLY UI
+        # that surfaces the unsaved-state save action. Don't auto-hide
+        # it — the user needs time to notice and click. In plain
+        # "operation done" mode the toast is just confirmation, so the
+        # original 8 s auto-hide is fine. Guard the timer: if a newer
+        # toast already deleteLater'd this one, the lambda must not
+        # touch the dead C++ object. PySide6 has no QPointer, so use
+        # shiboken6.isValid() to check liveness.
+        if not with_save:
             QTimer.singleShot(
                 8000, lambda t=toast: t.setVisible(False) if isValid(t) else None)
 
