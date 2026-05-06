@@ -5,7 +5,7 @@ import os
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QComboBox, QLabel, QFileDialog,
-    QMessageBox, QApplication, QListWidget, QListWidgetItem,
+    QMessageBox, QListWidget, QListWidgetItem,
     QAbstractItemView, QHBoxLayout, QPushButton,
 )
 
@@ -129,16 +129,18 @@ class TabImport(BasePage):
         converters[fmt](files, out)
 
     def _convert_txt(self, sources: list, out_path: str):
-        self._status(t("tool.import.converting"))
-        QApplication.processEvents()
-        try:
+        n = len(sources)
+
+        def do_work(worker):
             import fitz
-            # Concatenate all text files
             all_lines = []
-            for src in sources:
+            for i, src in enumerate(sources):
+                if worker.is_cancelled():
+                    return None
                 with open(src, "r", encoding="utf-8") as f:
                     all_lines.extend(f.read().split("\n"))
                 all_lines.append("")  # separator between files
+                worker.progress.emit(i + 1, f"{i + 1}/{n}…")
             doc = fitz.open()
             page = None
             y = 50
@@ -148,94 +150,113 @@ class TabImport(BasePage):
             max_y = 792
             max_width = 495  # 595 - 2*50
             for line in all_lines:
+                if worker.is_cancelled():
+                    doc.close()
+                    return None
                 if page is None or y + fontsize > max_y:
                     page = doc.new_page(width=595, height=842)  # A4
                     y = 50
                 if not line.strip():
                     y += line_height
                     continue
-                # Use textbox for automatic word wrapping
                 rect = fitz.Rect(margin_x, y, margin_x + max_width, max_y)
                 used = page.insert_textbox(rect, line, fontsize=fontsize,
                                            fontname="helv")
                 if used < 0:
-                    # Text didn't fit — overflow to new page
                     page = doc.new_page(width=595, height=842)
                     y = 50
                     rect = fitz.Rect(margin_x, y, margin_x + max_width, max_y)
                     used = page.insert_textbox(rect, line, fontsize=fontsize,
                                                fontname="helv")
-                # Estimate lines used by the textbox
                 est_lines = max(1, len(line) * fontsize * 0.5 / max_width + 1)
                 y += line_height * est_lines
-            doc.save(out_path)
-            doc.close()
-            self._done(out_path)
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+            try:
+                doc.save(out_path)
+            finally:
+                doc.close()
+            return out_path
+
+        self._run_background(do_work, total=max(n, 1),
+                             label=t("tool.import.converting"),
+                             on_done=lambda _r: self._done(out_path))
 
     def _convert_images(self, sources: list, out_path: str):
-        self._status(t("tool.import.converting"))
-        QApplication.processEvents()
-        try:
+        n = len(sources)
+
+        def do_work(worker):
             import fitz
             doc = fitz.open()
-            count = len(sources)
             skipped = 0
-            for i, img_path in enumerate(sources):
-                img = fitz.open(img_path)
-                try:
-                    if img.page_count == 0:
-                        skipped += 1
-                        continue
-                    rect = img[0].rect
-                    page = doc.new_page(width=rect.width, height=rect.height)
-                    page.insert_image(page.rect, filename=img_path)
-                finally:
-                    img.close()
-                self._status(f"{i + 1}/{count}…")
-                QApplication.processEvents()
+            try:
+                for i, img_path in enumerate(sources):
+                    if worker.is_cancelled():
+                        return None
+                    img = fitz.open(img_path)
+                    try:
+                        if img.page_count == 0:
+                            skipped += 1
+                            continue
+                        rect = img[0].rect
+                        page = doc.new_page(width=rect.width, height=rect.height)
+                        page.insert_image(page.rect, filename=img_path)
+                    finally:
+                        img.close()
+                    worker.progress.emit(i + 1, f"{i + 1}/{n}…")
+                doc.save(out_path)
+            finally:
+                doc.close()
+            return skipped
+
+        def on_done(skipped):
             if skipped:
                 self._status(f"Skipped {skipped} unreadable image(s)")
-            doc.save(out_path)
-            doc.close()
             self._done(out_path)
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+
+        self._run_background(do_work, total=max(n, 1),
+                             label=t("tool.import.converting"),
+                             on_done=on_done)
 
     def _convert_md(self, sources: list, out_path: str):
-        self._status(t("tool.import.converting"))
-        QApplication.processEvents()
-        try:
+        n = len(sources)
+
+        def do_work(worker):
             import fitz
-            # Concatenate all markdown files
             all_md = []
-            for src in sources:
+            for i, src in enumerate(sources):
+                if worker.is_cancelled():
+                    return None
                 with open(src, "r", encoding="utf-8") as f:
                     all_md.append(f.read())
+                worker.progress.emit(i + 1, f"{i + 1}/{n}…")
             md_text = "\n\n---\n\n".join(all_md)
             lines = self._md_to_lines(md_text)
             doc = fitz.open()
-            chunk = 55
-            for i in range(0, max(len(lines), 1), chunk):
-                page = doc.new_page(width=595, height=842)  # A4
-                y = 50
-                for text, size, bold in lines[i:i + chunk]:
-                    if y > 780:
-                        break
-                    font = "helv" if not bold else "hebo"
-                    try:
-                        page.insert_text(fitz.Point(50, y), text,
-                                         fontsize=size, fontname=font)
-                    except Exception:
-                        page.insert_text(fitz.Point(50, y), text,
-                                         fontsize=size, fontname="helv")
-                    y += size * 1.5
-            doc.save(out_path)
-            doc.close()
-            self._done(out_path)
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+            try:
+                chunk = 55
+                for i in range(0, max(len(lines), 1), chunk):
+                    if worker.is_cancelled():
+                        return None
+                    page = doc.new_page(width=595, height=842)  # A4
+                    y = 50
+                    for text, size, bold in lines[i:i + chunk]:
+                        if y > 780:
+                            break
+                        font = "helv" if not bold else "hebo"
+                        try:
+                            page.insert_text(fitz.Point(50, y), text,
+                                             fontsize=size, fontname=font)
+                        except Exception:
+                            page.insert_text(fitz.Point(50, y), text,
+                                             fontsize=size, fontname="helv")
+                        y += size * 1.5
+                doc.save(out_path)
+            finally:
+                doc.close()
+            return out_path
+
+        self._run_background(do_work, total=max(n, 1),
+                             label=t("tool.import.converting"),
+                             on_done=lambda _r: self._done(out_path))
 
     def _md_to_lines(self, md: str) -> list:
         """Convert markdown to list of (text, fontsize, bold) tuples."""
@@ -269,138 +290,200 @@ class TabImport(BasePage):
     # ── DOCX → PDF ──────────────────────────────────────────────────────
 
     def _convert_docx(self, sources: list, out_path: str):
-        self._status(t("tool.import.converting"))
-        QApplication.processEvents()
         try:
+            from docx import Document  # noqa: F401
+        except ImportError:
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_docx"))
+            return
+        n = len(sources)
+
+        def do_work(worker):
             from docx import Document
             import fitz
             doc = fitz.open()
-            for src in sources:
-                dx = Document(src)
-                lines = []
-                for para in dx.paragraphs:
-                    text = para.text.strip()
-                    style = (para.style.name or "").lower()
-                    if "heading 1" in style:
-                        lines.append((text, 18, True))
-                    elif "heading 2" in style:
-                        lines.append((text, 15, True))
-                    elif "heading 3" in style:
-                        lines.append((text, 13, True))
-                    elif "heading" in style:
-                        lines.append((text, 12, True))
-                    elif text:
-                        bold = any(r.bold for r in para.runs if r.bold)
-                        lines.append((text, 10, bold))
-                    else:
+            try:
+                for i, src in enumerate(sources):
+                    if worker.is_cancelled():
+                        return None
+                    dx = Document(src)
+                    lines = []
+                    for para in dx.paragraphs:
+                        text = para.text.strip()
+                        style = (para.style.name or "").lower()
+                        if "heading 1" in style:
+                            lines.append((text, 18, True))
+                        elif "heading 2" in style:
+                            lines.append((text, 15, True))
+                        elif "heading 3" in style:
+                            lines.append((text, 13, True))
+                        elif "heading" in style:
+                            lines.append((text, 12, True))
+                        elif text:
+                            bold = any(r.bold for r in para.runs if r.bold)
+                            lines.append((text, 10, bold))
+                        else:
+                            lines.append(("", 10, False))
+                    for table in dx.tables:
                         lines.append(("", 10, False))
-                # Render tables
-                for table in dx.tables:
-                    lines.append(("", 10, False))
-                    for row in table.rows:
-                        cells = [c.text.strip() for c in row.cells]
-                        lines.append(("  |  ".join(cells), 9, False))
-                    lines.append(("", 10, False))
-                self._render_lines_to_doc(doc, lines)
-            doc.save(out_path)
-            doc.close()
-            self._done(out_path)
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+                        for row in table.rows:
+                            cells = [c.text.strip() for c in row.cells]
+                            lines.append(("  |  ".join(cells), 9, False))
+                        lines.append(("", 10, False))
+                    self._render_lines_to_doc(doc, lines)
+                    worker.progress.emit(i + 1, f"{i + 1}/{n}…")
+                if worker.is_cancelled():
+                    return None
+                doc.save(out_path)
+            finally:
+                doc.close()
+            return out_path
+
+        self._run_background(do_work, total=max(n, 1),
+                             label=t("tool.import.converting"),
+                             on_done=lambda _r: self._done(out_path))
 
     # ── PPTX → PDF ──────────────────────────────────────────────────────
 
     def _convert_pptx(self, sources: list, out_path: str):
-        self._status(t("tool.import.converting"))
-        QApplication.processEvents()
         try:
+            from pptx import Presentation  # noqa: F401
+        except ImportError:
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_pptx"))
+            return
+        n = len(sources)
+
+        def do_work(worker):
             from pptx import Presentation
             import fitz
             doc = fitz.open()
-            for src in sources:
-                prs = Presentation(src)
-                slide_w = prs.slide_width.pt if prs.slide_width else 960
-                slide_h = prs.slide_height.pt if prs.slide_height else 540
-                for i, slide in enumerate(prs.slides):
-                    page = doc.new_page(width=slide_w, height=slide_h)
-                    y = 40
-                    for shape in slide.shapes:
-                        if not shape.has_text_frame:
-                            continue
-                        for para in shape.text_frame.paragraphs:
-                            text = para.text.strip()
-                            if not text:
+            try:
+                for fi, src in enumerate(sources):
+                    if worker.is_cancelled():
+                        return None
+                    prs = Presentation(src)
+                    slide_w = prs.slide_width.pt if prs.slide_width else 960
+                    slide_h = prs.slide_height.pt if prs.slide_height else 540
+                    total_slides = len(prs.slides)
+                    for i, slide in enumerate(prs.slides):
+                        if worker.is_cancelled():
+                            return None
+                        page = doc.new_page(width=slide_w, height=slide_h)
+                        y = 40
+                        for shape in slide.shapes:
+                            if not shape.has_text_frame:
                                 continue
-                            size = 10
-                            bold = False
-                            if para.runs:
-                                r = para.runs[0]
-                                if r.font.size:
-                                    size = min(36, r.font.size.pt)
-                                bold = bool(r.font.bold)
-                            font = "hebo" if bold else "helv"
-                            if y + size > slide_h - 20:
-                                break
-                            try:
-                                page.insert_text(fitz.Point(40, y), text,
-                                                 fontsize=size, fontname=font)
-                            except Exception:
-                                page.insert_text(fitz.Point(40, y), text,
-                                                 fontsize=size, fontname="helv")
-                            y += size * 1.4
-                    self._status(f"{i + 1}/{len(prs.slides)}…")
-                    QApplication.processEvents()
-            doc.save(out_path)
-            doc.close()
-            self._done(out_path)
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+                            for para in shape.text_frame.paragraphs:
+                                text = para.text.strip()
+                                if not text:
+                                    continue
+                                size = 10
+                                bold = False
+                                if para.runs:
+                                    r = para.runs[0]
+                                    if r.font.size:
+                                        size = min(36, r.font.size.pt)
+                                    bold = bool(r.font.bold)
+                                font = "hebo" if bold else "helv"
+                                if y + size > slide_h - 20:
+                                    break
+                                try:
+                                    page.insert_text(fitz.Point(40, y), text,
+                                                     fontsize=size, fontname=font)
+                                except Exception:
+                                    page.insert_text(fitz.Point(40, y), text,
+                                                     fontsize=size, fontname="helv")
+                                y += size * 1.4
+                        # Slide-granular progress within the file; advance
+                        # the dialog by (file index + slide fraction).
+                        worker.progress.emit(
+                            fi + 1,
+                            f"{fi + 1}/{n}: {i + 1}/{total_slides}…")
+                if worker.is_cancelled():
+                    return None
+                doc.save(out_path)
+            finally:
+                doc.close()
+            return out_path
+
+        self._run_background(do_work, total=max(n, 1),
+                             label=t("tool.import.converting"),
+                             on_done=lambda _r: self._done(out_path))
 
     # ── XLSX → PDF ──────────────────────────────────────────────────────
 
     def _convert_xlsx(self, sources: list, out_path: str):
-        self._status(t("tool.import.converting"))
-        QApplication.processEvents()
         try:
+            from openpyxl import load_workbook  # noqa: F401
+        except ImportError:
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_xlsx"))
+            return
+        n = len(sources)
+
+        def do_work(worker):
             from openpyxl import load_workbook
             import fitz
             doc = fitz.open()
-            for src in sources:
-                wb = load_workbook(src, data_only=True)
-                for ws in wb.worksheets:
-                    lines = []
-                    lines.append((f"— {ws.title} —", 12, True))
-                    lines.append(("", 10, False))
-                    for row in ws.iter_rows(values_only=True):
-                        cells = [str(c) if c is not None else "" for c in row]
-                        lines.append(("  |  ".join(cells), 8, False))
-                    lines.append(("", 10, False))
-                    self._render_lines_to_doc(doc, lines)
-            doc.save(out_path)
-            doc.close()
-            self._done(out_path)
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+            try:
+                for i, src in enumerate(sources):
+                    if worker.is_cancelled():
+                        return None
+                    wb = load_workbook(src, data_only=True)
+                    for ws in wb.worksheets:
+                        if worker.is_cancelled():
+                            return None
+                        lines = []
+                        lines.append((f"— {ws.title} —", 12, True))
+                        lines.append(("", 10, False))
+                        for row in ws.iter_rows(values_only=True):
+                            cells = [str(c) if c is not None else "" for c in row]
+                            lines.append(("  |  ".join(cells), 8, False))
+                        lines.append(("", 10, False))
+                        self._render_lines_to_doc(doc, lines)
+                    worker.progress.emit(i + 1, f"{i + 1}/{n}…")
+                if worker.is_cancelled():
+                    return None
+                doc.save(out_path)
+            finally:
+                doc.close()
+            return out_path
+
+        self._run_background(do_work, total=max(n, 1),
+                             label=t("tool.import.converting"),
+                             on_done=lambda _r: self._done(out_path))
 
     # ── HTML → PDF ──────────────────────────────────────────────────────
 
     def _convert_html(self, sources: list, out_path: str):
-        self._status(t("tool.import.converting"))
-        QApplication.processEvents()
         try:
+            from bs4 import BeautifulSoup  # noqa: F401
+        except ImportError:
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.import.dep_bs4"))
+            return
+        n = len(sources)
+
+        def do_work(worker):
             from bs4 import BeautifulSoup
             import fitz
             doc = fitz.open()
-            for src in sources:
-                with open(src, "r", encoding="utf-8") as f:
-                    soup = BeautifulSoup(f.read(), "html.parser")
-                lines = self._html_to_lines(soup)
-                self._render_lines_to_doc(doc, lines)
-            doc.save(out_path)
-            doc.close()
-            self._done(out_path)
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+            try:
+                for i, src in enumerate(sources):
+                    if worker.is_cancelled():
+                        return None
+                    with open(src, "r", encoding="utf-8") as f:
+                        soup = BeautifulSoup(f.read(), "html.parser")
+                    lines = self._html_to_lines(soup)
+                    self._render_lines_to_doc(doc, lines)
+                    worker.progress.emit(i + 1, f"{i + 1}/{n}…")
+                if worker.is_cancelled():
+                    return None
+                doc.save(out_path)
+            finally:
+                doc.close()
+            return out_path
+
+        self._run_background(do_work, total=max(n, 1),
+                             label=t("tool.import.converting"),
+                             on_done=lambda _r: self._done(out_path))
 
     def _html_to_lines(self, soup) -> list:
         lines = []
@@ -433,26 +516,48 @@ class TabImport(BasePage):
     # ── EPUB → PDF ──────────────────────────────────────────────────────
 
     def _convert_epub(self, sources: list, out_path: str):
-        self._status(t("tool.import.converting"))
-        QApplication.processEvents()
         try:
+            import ebooklib  # noqa: F401
+            from ebooklib import epub  # noqa: F401
+        except ImportError:
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_epub"))
+            return
+        try:
+            from bs4 import BeautifulSoup  # noqa: F401
+        except ImportError:
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.import.dep_bs4"))
+            return
+        n = len(sources)
+
+        def do_work(worker):
             import ebooklib
             from ebooklib import epub
             from bs4 import BeautifulSoup
             import fitz
             doc = fitz.open()
-            for src in sources:
-                book = epub.read_epub(src)
-                for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
-                    soup = BeautifulSoup(item.get_content(), "html.parser")
-                    lines = self._html_to_lines(soup)
-                    if lines:
-                        self._render_lines_to_doc(doc, lines)
-            doc.save(out_path)
-            doc.close()
-            self._done(out_path)
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+            try:
+                for i, src in enumerate(sources):
+                    if worker.is_cancelled():
+                        return None
+                    book = epub.read_epub(src)
+                    for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
+                        if worker.is_cancelled():
+                            return None
+                        soup = BeautifulSoup(item.get_content(), "html.parser")
+                        lines = self._html_to_lines(soup)
+                        if lines:
+                            self._render_lines_to_doc(doc, lines)
+                    worker.progress.emit(i + 1, f"{i + 1}/{n}…")
+                if worker.is_cancelled():
+                    return None
+                doc.save(out_path)
+            finally:
+                doc.close()
+            return out_path
+
+        self._run_background(do_work, total=max(n, 1),
+                             label=t("tool.import.converting"),
+                             on_done=lambda _r: self._done(out_path))
 
     # ── Shared line renderer ────────────────────────────────────────────
 
