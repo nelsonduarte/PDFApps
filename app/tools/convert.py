@@ -13,9 +13,8 @@ def _clean(text: str) -> str:
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QComboBox, QLabel, QFileDialog,
-    QMessageBox, QApplication, QProgressDialog,
+    QMessageBox, QProgressDialog,
 )
-from pypdf import PdfReader
 
 from app.base import BasePage
 from app.i18n import t
@@ -253,32 +252,44 @@ class TabConverter(BasePage):
                                              filter_key="file_filter.docx")
         if not out_path:
             return
-        self._status("→ DOCX…")
-        QApplication.processEvents()
+        # Pre-flight on main thread: dep checks + page count + capture pwd.
         try:
-            import fitz
+            import fitz  # noqa: F401
         except ImportError:
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pymupdf"))
             return
         try:
-            from docx import Document
+            from docx import Document  # noqa: F401
         except ImportError:
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_docx"))
             return
         try:
+            with self._open_fitz(pdf_path) as _probe:
+                total = _probe.page_count
+        except Exception as e:
+            QMessageBox.critical(self, t("msg.error"), str(e))
+            return
+        if total == 0:
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf"))
+            return
+        pwd = self._pdf_password
+
+        def do_work(worker):
+            import fitz
             from docx import Document
             from docx.shared import Pt, RGBColor, Inches
             import io, re as _re
-            doc = self._open_fitz(pdf_path)
+            doc = fitz.open(pdf_path)
+            if doc.needs_pass and pwd:
+                doc.authenticate(pwd)
             try:
                 docx_doc = Document()
-                total = doc.page_count
-
                 for i, page in enumerate(doc):
+                    if worker.is_cancelled():
+                        return None
                     blocks = page.get_text("dict")["blocks"]
                     for block in blocks:
                         btype = block.get("type", 0)
-
                         # Image block — extract and embed
                         if btype == 1:
                             img_data = block.get("image")
@@ -290,42 +301,30 @@ class TabConverter(BasePage):
                                 except Exception:
                                     pass
                             continue
-
                         # Text block
                         lines = block.get("lines", [])
                         if not lines:
                             continue
-
-                        # Collect all spans
                         all_spans = []
                         for line in lines:
                             all_spans.extend(line.get("spans", []))
                         if not all_spans:
                             continue
-
-                        # Build full block text
                         block_text = " ".join(
                             _clean(s.get("text", "")) for s in all_spans
                         ).strip()
                         if not block_text:
                             continue
-
-                        # Skip standalone page numbers: "42", "Page 3", "3 of 10"
+                        # Skip standalone page numbers
                         if _re.match(r"^\s*(?:page\s+)?\d{1,4}(?:\s+of\s+\d{1,4})?\s*$",
                                      block_text, _re.IGNORECASE):
                             continue
-
                         # Skip TOC dot-leader lines
                         if _re.search(r'\.[\s.]*\.[\s.]*\.[\s.]*\.', block_text):
                             continue
-
-                        # Skip running headers like "2.3. COURSE BENEFITS & ANECDOTES 9"
-                        # (short lines that are all caps + number at end, from page headers)
-
                         # Detect heading level by font size
                         max_size = max(s.get("size", 12) for s in all_spans)
                         any_bold = any(s.get("flags", 0) & 16 for s in all_spans)
-
                         if max_size >= 20:
                             para = docx_doc.add_heading(level=1)
                         elif max_size >= 16:
@@ -336,8 +335,6 @@ class TabConverter(BasePage):
                             para = docx_doc.add_heading(level=4)
                         else:
                             para = docx_doc.add_paragraph()
-
-                        # Add spans, merging lines within the block
                         for li, line in enumerate(lines):
                             spans = line.get("spans", [])
                             for span in spans:
@@ -355,44 +352,67 @@ class TabConverter(BasePage):
                                     g_val = (color >> 8) & 0xFF
                                     b_val = color & 0xFF
                                     run.font.color.rgb = RGBColor(r_val, g_val, b_val)
-                            # Space between lines within same paragraph
                             if li < len(lines) - 1:
                                 para.add_run(" ")
-
-                    self._status(f"{i + 1}/{total}…")
-                    QApplication.processEvents()
-
+                    worker.progress.emit(i, f"{i + 1}/{total}…")
+                if worker.is_cancelled():
+                    return None
                 docx_doc.save(out_path)
             finally:
                 doc.close()
+            return total
+
+        def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
             self._status(f"✔  DOCX → {out_path}")
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_docx", path=out_path))
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+
+        self._run_background(do_work, total, t("tool.convert.converting"),
+                             on_done=on_done)
 
     def _convert_txt(self, pdf_path: str):
         out_path = self._resolve_output_file(self._drop_file, pdf_path,
                                              filter_key="file_filter.txt")
         if not out_path:
             return
-        self._status("→ TXT…")
-        QApplication.processEvents()
         try:
+            with self._open_fitz(pdf_path) as _probe:
+                total = _probe.page_count
+        except Exception as e:
+            QMessageBox.critical(self, t("msg.error"), str(e))
+            return
+        if total == 0:
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf"))
+            return
+        pwd = self._pdf_password
+
+        def do_work(worker):
             import fitz
-            with self._open_fitz(pdf_path) as doc:
+            doc = fitz.open(pdf_path)
+            if doc.needs_pass and pwd:
+                doc.authenticate(pwd)
+            try:
                 with open(out_path, 'w', encoding='utf-8') as f:
                     for i, page in enumerate(doc):
+                        if worker.is_cancelled():
+                            return None
                         if i > 0:
                             f.write(f'\n\n--- Page {i + 1} ---\n\n')
                         f.write(page.get_text())
+                        worker.progress.emit(i, f"{i + 1}/{total}…")
+            finally:
+                doc.close()
+            return total
+
+        def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
             self._status(f"✔  TXT → {out_path}")
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_txt", path=out_path))
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+
+        self._run_background(do_work, total, t("tool.convert.converting"),
+                             on_done=on_done)
 
     # ── PDF → PPTX ──────────────────────────────────────────────────────
 
@@ -401,40 +421,61 @@ class TabConverter(BasePage):
                                              filter_key="file_filter.pptx")
         if not out_path:
             return
-        self._status("→ PPTX…")
-        QApplication.processEvents()
         try:
-            import fitz
+            from pptx import Presentation  # noqa: F401
+        except ImportError:
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_pptx"))
+            return
+        try:
+            with self._open_fitz(pdf_path) as _probe:
+                total = _probe.page_count
+                first = _probe[0].rect if total else None
+        except Exception as e:
+            QMessageBox.critical(self, t("msg.error"), str(e))
+            return
+        if total == 0:
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf"))
+            return
+        slide_w_pt = first.width
+        slide_h_pt = first.height
+        pwd = self._pdf_password
+
+        def do_work(worker):
+            import fitz, io
             from pptx import Presentation
-            from pptx.util import Inches, Pt, Emu
-            with self._open_fitz(pdf_path) as doc:
-                if doc.page_count == 0:
-                    QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf"))
-                    return
+            from pptx.util import Emu
+            doc = fitz.open(pdf_path)
+            if doc.needs_pass and pwd:
+                doc.authenticate(pwd)
+            try:
                 prs = Presentation()
-                # Match slide size to first page aspect ratio
-                first = doc[0].rect
-                prs.slide_width = Emu(int(first.width * 12700))
-                prs.slide_height = Emu(int(first.height * 12700))
-                total = doc.page_count
+                prs.slide_width = Emu(int(slide_w_pt * 12700))
+                prs.slide_height = Emu(int(slide_h_pt * 12700))
                 for i, page in enumerate(doc):
-                    slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank layout
-                    # Render page as image and embed in slide
+                    if worker.is_cancelled():
+                        return None
+                    slide = prs.slides.add_slide(prs.slide_layouts[6])
                     pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
                     img_bytes = pix.tobytes("png")
-                    import io
                     slide.shapes.add_picture(
                         io.BytesIO(img_bytes), Emu(0), Emu(0),
                         prs.slide_width, prs.slide_height)
-                    self._status(f"{i + 1}/{total}…")
-                    QApplication.processEvents()
+                    worker.progress.emit(i, f"{i + 1}/{total}…")
+                if worker.is_cancelled():
+                    return None
                 prs.save(out_path)
+            finally:
+                doc.close()
+            return total
+
+        def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
             self._status(f"✔  PPTX → {out_path}")
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_pptx", path=out_path))
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+
+        self._run_background(do_work, total, t("tool.convert.converting"),
+                             on_done=on_done)
 
     # ── PDF → XLSX ──────────────────────────────────────────────────────
 
@@ -443,42 +484,62 @@ class TabConverter(BasePage):
                                              filter_key="file_filter.xlsx")
         if not out_path:
             return
-        self._status("→ XLSX…")
-        QApplication.processEvents()
         try:
+            from openpyxl import Workbook  # noqa: F401
+        except ImportError:
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_xlsx"))
+            return
+        try:
+            with self._open_fitz(pdf_path) as _probe:
+                total = _probe.page_count
+        except Exception as e:
+            QMessageBox.critical(self, t("msg.error"), str(e))
+            return
+        if total == 0:
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf"))
+            return
+        pwd = self._pdf_password
+
+        def do_work(worker):
             import fitz
             from openpyxl import Workbook
-            doc = self._open_fitz(pdf_path)
+            doc = fitz.open(pdf_path)
+            if doc.needs_pass and pwd:
+                doc.authenticate(pwd)
             try:
                 wb = Workbook()
                 wb.remove(wb.active)
-                total = doc.page_count
                 for i, page in enumerate(doc):
+                    if worker.is_cancelled():
+                        return None
                     ws = wb.create_sheet(title=f"Page {i + 1}")
-                    # Extract text as table-like structure using blocks
                     blocks = page.get_text("blocks")
                     for row_idx, block in enumerate(blocks):
                         if block[6] != 0:  # skip image blocks
                             continue
                         text = _clean(block[4].strip())
                         if text:
-                            # Split by common delimiters for table-like content
                             cells = [c.strip() for c in text.replace("\t", "|").split("|") if c.strip()]
                             if not cells:
                                 cells = [text]
                             for col_idx, cell in enumerate(cells):
                                 ws.cell(row=row_idx + 1, column=col_idx + 1, value=cell)
-                    self._status(f"{i + 1}/{total}…")
-                    QApplication.processEvents()
+                    worker.progress.emit(i, f"{i + 1}/{total}…")
+                if worker.is_cancelled():
+                    return None
                 wb.save(out_path)
             finally:
                 doc.close()
+            return total
+
+        def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
             self._status(f"✔  XLSX → {out_path}")
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_xlsx", path=out_path))
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+
+        self._run_background(do_work, total, t("tool.convert.converting"),
+                             on_done=on_done)
 
     # ── PDF → HTML ──────────────────────────────────────────────────────
 
@@ -487,11 +548,22 @@ class TabConverter(BasePage):
                                              filter_key="file_filter.html")
         if not out_path:
             return
-        self._status("→ HTML…")
-        QApplication.processEvents()
         try:
+            with self._open_fitz(pdf_path) as _probe:
+                total = _probe.page_count
+        except Exception as e:
+            QMessageBox.critical(self, t("msg.error"), str(e))
+            return
+        if total == 0:
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf"))
+            return
+        pwd = self._pdf_password
+
+        def do_work(worker):
             import fitz
-            doc = self._open_fitz(pdf_path)
+            doc = fitz.open(pdf_path)
+            if doc.needs_pass and pwd:
+                doc.authenticate(pwd)
             try:
                 parts = [
                     "<!DOCTYPE html>",
@@ -502,8 +574,9 @@ class TabConverter(BasePage):
                     "</head><body>",
                 ]
                 for i, page in enumerate(doc):
-                    parts.append(f'<div class="page">')
-                    # Use get_text("html") for rich content, fall back to blocks
+                    if worker.is_cancelled():
+                        return None
+                    parts.append('<div class="page">')
                     blocks = page.get_text("dict")["blocks"]
                     for block in blocks:
                         if block.get("type") != 0:
@@ -514,7 +587,6 @@ class TabConverter(BasePage):
                                 text = span["text"]
                                 if not text.strip():
                                     continue
-                                size = span.get("size", 12)
                                 flags = span.get("flags", 0)
                                 bold = flags & 16
                                 italic = flags & 2
@@ -525,7 +597,6 @@ class TabConverter(BasePage):
                                     tag_text = f"<em>{tag_text}</em>"
                                 spans_html += tag_text
                             if spans_html:
-                                # Detect headings by font size
                                 avg_size = max(s.get("size", 12) for s in line.get("spans", [{"size": 12}]))
                                 if avg_size >= 18:
                                     parts.append(f"<h1>{spans_html}</h1>")
@@ -536,19 +607,24 @@ class TabConverter(BasePage):
                                 else:
                                     parts.append(f"<p>{spans_html}</p>")
                     parts.append("</div>")
-                    self._status(f"{i + 1}/{doc.page_count}…")
-                    QApplication.processEvents()
+                    worker.progress.emit(i, f"{i + 1}/{total}…")
                 parts.append("</body></html>")
+                if worker.is_cancelled():
+                    return None
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write("\n".join(parts))
             finally:
                 doc.close()
+            return total
+
+        def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
             self._status(f"✔  HTML → {out_path}")
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_html", path=out_path))
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+
+        self._run_background(do_work, total, t("tool.convert.converting"),
+                             on_done=on_done)
 
     # ── PDF → EPUB ──────────────────────────────────────────────────────
 
@@ -557,28 +633,46 @@ class TabConverter(BasePage):
                                              filter_key="file_filter.epub")
         if not out_path:
             return
-        self._status("→ EPUB…")
-        QApplication.processEvents()
         try:
+            from ebooklib import epub  # noqa: F401
+        except ImportError:
+            QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_epub"))
+            return
+        try:
+            with self._open_fitz(pdf_path) as _probe:
+                total = _probe.page_count
+        except Exception as e:
+            QMessageBox.critical(self, t("msg.error"), str(e))
+            return
+        if total == 0:
+            QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf"))
+            return
+        pwd = self._pdf_password
+
+        def do_work(worker):
             import fitz
             from ebooklib import epub
-            doc = self._open_fitz(pdf_path)
+            doc = fitz.open(pdf_path)
+            if doc.needs_pass and pwd:
+                doc.authenticate(pwd)
             try:
                 book = epub.EpubBook()
                 book.set_identifier(f"pdfapps-{os.path.basename(pdf_path)}")
                 book.set_title(os.path.splitext(os.path.basename(pdf_path))[0])
                 book.set_language("en")
                 chapters = []
-                total = doc.page_count
                 for i, page in enumerate(doc):
+                    if worker.is_cancelled():
+                        return None
                     ch = epub.EpubHtml(title=f"Page {i + 1}", file_name=f"page_{i+1}.xhtml")
                     text = page.get_text()
                     paragraphs = [f"<p>{_clean(p)}</p>" for p in text.split("\n") if p.strip()]
                     ch.content = f"<html><body><h2>Page {i + 1}</h2>{''.join(paragraphs)}</body></html>"
                     book.add_item(ch)
                     chapters.append(ch)
-                    self._status(f"{i + 1}/{total}…")
-                    QApplication.processEvents()
+                    worker.progress.emit(i, f"{i + 1}/{total}…")
+                if worker.is_cancelled():
+                    return None
                 book.add_item(epub.EpubNcx())
                 book.add_item(epub.EpubNav())
                 book.spine = ["nav"] + chapters
@@ -586,9 +680,13 @@ class TabConverter(BasePage):
                 epub.write_epub(out_path, book)
             finally:
                 doc.close()
+            return total
+
+        def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
             self._status(f"✔  EPUB → {out_path}")
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_epub", path=out_path))
-        except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+
+        self._run_background(do_work, total, t("tool.convert.converting"),
+                             on_done=on_done)
