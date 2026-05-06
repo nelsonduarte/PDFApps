@@ -89,30 +89,59 @@ class TabMarcaDagua(BasePage):
             QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.select_wm")); return
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
+
+        # Pre-flight on the main thread: validate inputs and resolve page
+        # targets so the worker can be a tight loop with no Qt calls.
         try:
-            reader    = self._open_reader(pdf_path)
-            wm_reader = PdfReader(wm_path)  # watermark file: not the prompted PDF
+            wm_reader = PdfReader(wm_path)
             if not wm_reader.pages:
                 QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.empty_wm"))
                 return
+            reader = self._open_reader(pdf_path)
             if not reader.pages:
                 QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.empty_source"))
                 return
-            wm_page = wm_reader.pages[0]
-            total   = len(reader.pages)
-            txt     = self.edit_pages.text().strip()
+            total = len(reader.pages)
+            txt = self.edit_pages.text().strip()
             targets = set(parse_pages(txt, total)) if txt else set(range(total))
-            over    = self.cmb_layer.currentIndex() == 1
+        except Exception as e:
+            QMessageBox.critical(self, t("msg.error"), str(e))
+            return
+
+        over = self.cmb_layer.currentIndex() == 1
+        pwd = self._pdf_password
+
+        def do_work(worker):
+            r = PdfReader(pdf_path)
+            if r.is_encrypted and pwd:
+                r.decrypt(pwd)
+            wm = PdfReader(wm_path)
+            wm_page = wm.pages[0]
             w = PdfWriter()
-            for i, page in enumerate(reader.pages):
+            n = len(r.pages)
+            for i, page in enumerate(r.pages):
+                if worker.is_cancelled():
+                    return None
                 w.add_page(page)
                 if i in targets:
                     w.pages[i].merge_page(wm_page, over=over)
-            with open(out_path, "wb") as f: w.write(f)
-            self._status(f"✔  → {os.path.basename(out_path)}")
-            msg = t("tool.watermark.done", path=out_path)
+                worker.progress.emit(int((i + 1) / n * 100),
+                                     t("progress.watermark.page",
+                                       current=i + 1, total=n))
+            if worker.is_cancelled():
+                return None
+            with open(out_path, "wb") as f:
+                w.write(f)
+            return out_path
+
+        def on_done(saved):
+            self._status(f"✔  → {os.path.basename(saved)}")
+            msg = t("tool.watermark.done", path=saved)
             if self._pipeline_active:
-                self._pipeline_success(msg, out_path)
+                self._pipeline_success(msg, saved)
             else:
                 QMessageBox.information(self, t("msg.done"), msg)
-        except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))
+
+        self._run_background(do_work, total=100,
+                             label=t("progress.watermark.applying"),
+                             on_done=on_done)

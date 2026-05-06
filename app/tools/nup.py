@@ -137,73 +137,104 @@ class TabNUp(BasePage):
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
 
+        # Pre-flight on the main thread: read page count + validate cell
+        # geometry so the worker can be a tight image loop.
         try:
-            import fitz
             src = self._open_fitz(pdf_path)
-            total = src.page_count
-            if total == 0:
-                QMessageBox.warning(self, t("msg.warning"), t("tool.nup.empty_doc")); return
-
-            cols, rows = _LAYOUTS[self.cmb_layout.currentIndex()][1]
-            n_per_sheet = cols * rows
-            sheet_w_p, sheet_h_p = _PAGE_SIZES[self.cmb_size.currentIndex()][1]
-            orient = _ORIENTATIONS[self.cmb_orient.currentIndex()][1]
-            gap = self.spin_gap.value()
-            margin = self.spin_margin.value()
-            row_first = self.cmb_order.currentIndex() == 0
-
-            # Decide orientation
-            if orient == "auto":
-                # Pick orientation that gives the largest cell area
-                def cell_area(w, h):
-                    cw = (w - 2 * margin - (cols - 1) * gap) / cols
-                    ch = (h - 2 * margin - (rows - 1) * gap) / rows
-                    return max(0, cw) * max(0, ch)
-                if cell_area(sheet_h_p, sheet_w_p) > cell_area(sheet_w_p, sheet_h_p):
-                    sheet_w, sheet_h = sheet_h_p, sheet_w_p  # landscape
-                else:
-                    sheet_w, sheet_h = sheet_w_p, sheet_h_p
-            elif orient == "landscape":
-                sheet_w, sheet_h = sheet_h_p, sheet_w_p
-            else:
-                sheet_w, sheet_h = sheet_w_p, sheet_h_p
-
-            cell_w = (sheet_w - 2 * margin - (cols - 1) * gap) / cols
-            cell_h = (sheet_h - 2 * margin - (rows - 1) * gap) / rows
-            if cell_w <= 0 or cell_h <= 0:
-                QMessageBox.warning(self, t("msg.warning"), t("tool.nup.cells_too_small")); return
-
-            out = fitz.open()
-            for sheet_idx in range((total + n_per_sheet - 1) // n_per_sheet):
-                sheet = out.new_page(width=sheet_w, height=sheet_h)
-                for slot in range(n_per_sheet):
-                    src_idx = sheet_idx * n_per_sheet + slot
-                    if src_idx >= total:
-                        break
-                    if row_first:
-                        r_, c_ = divmod(slot, cols)
-                    else:
-                        c_, r_ = divmod(slot, rows)
-                    x = margin + c_ * (cell_w + gap)
-                    y = margin + r_ * (cell_h + gap)
-
-                    # Aspect-fit the source page into the cell
-                    src_rect = src[src_idx].rect
-                    sw, sh = src_rect.width, src_rect.height
-                    scale = min(cell_w / sw, cell_h / sh)
-                    fw, fh = sw * scale, sh * scale
-                    fx = x + (cell_w - fw) / 2
-                    fy = y + (cell_h - fh) / 2
-                    target = fitz.Rect(fx, fy, fx + fw, fy + fh)
-                    sheet.show_pdf_page(target, src, src_idx)
-
-            out.save(out_path, garbage=4, deflate=True)
-            out.close(); src.close()
-            self._status(f"✔  → {os.path.basename(out_path)}")
-            msg = t("tool.nup.done", path=out_path)
-            if self._pipeline_active:
-                self._pipeline_success(msg, out_path)
-            else:
-                QMessageBox.information(self, t("msg.done"), msg)
         except Exception as e:
             QMessageBox.critical(self, t("msg.error"), str(e))
+            return
+        try:
+            total = src.page_count
+        finally:
+            src.close()
+        if total == 0:
+            QMessageBox.warning(self, t("msg.warning"), t("tool.nup.empty_doc")); return
+
+        cols, rows = _LAYOUTS[self.cmb_layout.currentIndex()][1]
+        n_per_sheet = cols * rows
+        sheet_w_p, sheet_h_p = _PAGE_SIZES[self.cmb_size.currentIndex()][1]
+        orient = _ORIENTATIONS[self.cmb_orient.currentIndex()][1]
+        gap = self.spin_gap.value()
+        margin = self.spin_margin.value()
+        row_first = self.cmb_order.currentIndex() == 0
+
+        # Decide orientation
+        if orient == "auto":
+            # Pick orientation that gives the largest cell area
+            def cell_area(w, h):
+                cw = (w - 2 * margin - (cols - 1) * gap) / cols
+                ch = (h - 2 * margin - (rows - 1) * gap) / rows
+                return max(0, cw) * max(0, ch)
+            if cell_area(sheet_h_p, sheet_w_p) > cell_area(sheet_w_p, sheet_h_p):
+                sheet_w, sheet_h = sheet_h_p, sheet_w_p  # landscape
+            else:
+                sheet_w, sheet_h = sheet_w_p, sheet_h_p
+        elif orient == "landscape":
+            sheet_w, sheet_h = sheet_h_p, sheet_w_p
+        else:
+            sheet_w, sheet_h = sheet_w_p, sheet_h_p
+
+        cell_w = (sheet_w - 2 * margin - (cols - 1) * gap) / cols
+        cell_h = (sheet_h - 2 * margin - (rows - 1) * gap) / rows
+        if cell_w <= 0 or cell_h <= 0:
+            QMessageBox.warning(self, t("msg.warning"), t("tool.nup.cells_too_small")); return
+
+        pwd = self._pdf_password
+
+        def do_work(worker):
+            import fitz
+            sd = fitz.open(pdf_path)
+            if sd.needs_pass and pwd:
+                sd.authenticate(pwd)
+            try:
+                out = fitz.open()
+                try:
+                    for sheet_idx in range((total + n_per_sheet - 1) // n_per_sheet):
+                        if worker.is_cancelled():
+                            return None
+                        sheet = out.new_page(width=sheet_w, height=sheet_h)
+                        for slot in range(n_per_sheet):
+                            src_idx = sheet_idx * n_per_sheet + slot
+                            if src_idx >= total:
+                                break
+                            if row_first:
+                                r_, c_ = divmod(slot, cols)
+                            else:
+                                c_, r_ = divmod(slot, rows)
+                            x = margin + c_ * (cell_w + gap)
+                            y = margin + r_ * (cell_h + gap)
+
+                            # Aspect-fit the source page into the cell
+                            src_rect = sd[src_idx].rect
+                            sw, sh = src_rect.width, src_rect.height
+                            scale = min(cell_w / sw, cell_h / sh)
+                            fw, fh = sw * scale, sh * scale
+                            fx = x + (cell_w - fw) / 2
+                            fy = y + (cell_h - fh) / 2
+                            target = fitz.Rect(fx, fy, fx + fw, fy + fh)
+                            sheet.show_pdf_page(target, sd, src_idx)
+                            worker.progress.emit(
+                                int((src_idx + 1) / total * 100),
+                                t("progress.nup.page",
+                                  current=src_idx + 1, total=total))
+                    if worker.is_cancelled():
+                        return None
+                    out.save(out_path, garbage=4, deflate=True)
+                finally:
+                    out.close()
+            finally:
+                sd.close()
+            return out_path
+
+        def on_done(saved):
+            self._status(f"✔  → {os.path.basename(saved)}")
+            msg = t("tool.nup.done", path=saved)
+            if self._pipeline_active:
+                self._pipeline_success(msg, saved)
+            else:
+                QMessageBox.information(self, t("msg.done"), msg)
+
+        self._run_background(do_work, total=100,
+                             label=t("progress.nup.placing"),
+                             on_done=on_done)
