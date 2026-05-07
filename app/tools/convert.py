@@ -446,6 +446,7 @@ class TabConverter(BasePage):
             from pptx.util import Emu, Pt
             from pptx.dml.color import RGBColor
             from pptx.enum.shapes import MSO_SHAPE
+            from pptx.oxml.ns import qn
             doc = fitz.open(pdf_path)
             if doc.needs_pass and pwd:
                 doc.authenticate(pwd)
@@ -534,6 +535,25 @@ class TabConverter(BasePage):
                                 # fill-only; the stroke (if any) is the
                                 # same colour or absent.
                                 shape.line.fill.background()
+                            except Exception:
+                                pass  # noqa: S110
+                            # Strip the auto-generated <p:style> block
+                            # python-pptx adds to every add_shape call.
+                            # That block carries `effectRef idx="2"` and
+                            # `fillRef idx="3"` pointing to theme presets;
+                            # PowerPoint silently applies those *on top of*
+                            # the explicit `<a:solidFill>` we just set on
+                            # some slides, leading to invisible / wrongly
+                            # tinted shapes (observed: slide 6 of the user's
+                            # UFCD deck rendered as blank white in
+                            # PowerPoint despite all 13 rects being in the
+                            # XML with valid coords and colours). Removing
+                            # the style block forces PowerPoint to use only
+                            # `<p:spPr>`, which is what we control.
+                            try:
+                                style_el = shape._element.find(qn("p:style"))
+                                if style_el is not None:
+                                    shape._element.remove(style_el)
                             except Exception:
                                 pass  # noqa: S110
                         except Exception:
