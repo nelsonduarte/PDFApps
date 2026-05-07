@@ -499,26 +499,36 @@ class TabConverter(BasePage):
                         if w * h < 0.25:
                             continue
                         kinds = {it[0] for it in items}
-                        # Pure stroked line(s) with no fill: render the
-                        # bbox as a thin filled rectangle in the stroke
-                        # colour. Approximation that handles horizontal
-                        # / vertical separators without modelling Bezier
-                        # paths.
-                        is_filled_rect = fill is not None and (
-                            kinds == {"re"} or kinds <= {"re", "l"})
-                        is_line = fill is None and stroke is not None and (
-                            "l" in kinds and w * h <= 2 * max(w, h))
-                        if not (is_filled_rect or is_line):
+                        # Render *any* drawing with a fill colour as a
+                        # rectangle at its bbox. The earlier strict
+                        # filter (only `re`+`l` paths) silently
+                        # rejected rounded-rect cards drawn with `c`
+                        # curves at the corners — common in modern
+                        # slide-builder PDFs (Genially, Canva, etc.).
+                        # Map drawings whose path contains Bezier
+                        # curves to ROUNDED_RECTANGLE for better
+                        # fidelity; sharp paths (only `re`/`l`) stay
+                        # RECTANGLE.
+                        # Stroked-only thin shapes still become a thin
+                        # filled rect in the stroke colour.
+                        is_filled = fill is not None and items
+                        is_line = (fill is None and stroke is not None
+                                   and items
+                                   and w * h <= 4 * max(w, h))
+                        if not (is_filled or is_line):
                             continue
+                        is_rounded = is_filled and bool({"c", "qu"} & kinds)
+                        shape_type = (MSO_SHAPE.ROUNDED_RECTANGLE
+                                      if is_rounded else MSO_SHAPE.RECTANGLE)
                         try:
                             shape = slide.shapes.add_shape(
-                                MSO_SHAPE.RECTANGLE,
+                                shape_type,
                                 Emu(int(x0 * 12700)),
                                 Emu(int(y0 * 12700)),
                                 Emu(int(w * 12700)),
                                 Emu(int(h * 12700)))
                             shape.fill.solid()
-                            shape.fill.fore_color.rgb = fill if is_filled_rect else stroke
+                            shape.fill.fore_color.rgb = fill if is_filled else stroke
                             try:
                                 # Border off — PDF drawings are usually
                                 # fill-only; the stroke (if any) is the
