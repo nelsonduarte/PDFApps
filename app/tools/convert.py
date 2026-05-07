@@ -443,7 +443,8 @@ class TabConverter(BasePage):
         def do_work(worker):
             import fitz, io
             from pptx import Presentation
-            from pptx.util import Emu
+            from pptx.util import Emu, Pt
+            from pptx.dml.color import RGBColor
             doc = fitz.open(pdf_path)
             if doc.needs_pass and pwd:
                 doc.authenticate(pwd)
@@ -451,15 +452,115 @@ class TabConverter(BasePage):
                 prs = Presentation()
                 prs.slide_width = Emu(int(slide_w_pt * 12700))
                 prs.slide_height = Emu(int(slide_h_pt * 12700))
+                blank = prs.slide_layouts[6]
                 for i, page in enumerate(doc):
                     if worker.is_cancelled():
                         return None
-                    slide = prs.slides.add_slide(prs.slide_layouts[6])
-                    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-                    img_bytes = pix.tobytes("png")
-                    slide.shapes.add_picture(
-                        io.BytesIO(img_bytes), Emu(0), Emu(0),
-                        prs.slide_width, prs.slide_height)
+                    slide = prs.slides.add_slide(blank)
+
+                    # Extract text blocks and image blocks separately so
+                    # the result is editable in PowerPoint instead of
+                    # one rasterised image per slide. Each text block
+                    # becomes a textbox at its bbox; each line in the
+                    # block becomes a paragraph; each span becomes a
+                    # run with its own size/bold/italic/color.
+                    blocks = page.get_text("dict").get("blocks", [])
+                    for block in blocks:
+                        bbox = block.get("bbox")
+                        if not bbox:
+                            continue
+                        x0, y0, x1, y1 = bbox
+                        # Clamp to slide bounds; fitz can emit blocks
+                        # whose bbox slightly overflows the page rect
+                        # for italic/decorated glyphs.
+                        x0 = max(0, x0); y0 = max(0, y0)
+                        x1 = min(slide_w_pt, x1); y1 = min(slide_h_pt, y1)
+                        w = x1 - x0; h = y1 - y0
+                        if w <= 0 or h <= 0:
+                            continue
+
+                        if block.get("type") == 1:  # image block
+                            img_data = block.get("image")
+                            if not img_data:
+                                continue
+                            try:
+                                slide.shapes.add_picture(
+                                    io.BytesIO(img_data),
+                                    Emu(int(x0 * 12700)),
+                                    Emu(int(y0 * 12700)),
+                                    Emu(int(w * 12700)),
+                                    Emu(int(h * 12700)))
+                            except Exception:
+                                # Image format not supported by python-pptx
+                                # (rare formats like JBIG2). Skip the
+                                # block — the rest of the slide is still
+                                # produced.
+                                pass
+                            continue
+
+                        lines = block.get("lines", [])
+                        if not lines:
+                            continue
+                        try:
+                            tb = slide.shapes.add_textbox(
+                                Emu(int(x0 * 12700)),
+                                Emu(int(y0 * 12700)),
+                                Emu(int(w * 12700)),
+                                Emu(int(h * 12700)))
+                        except Exception:
+                            continue
+                        tf = tb.text_frame
+                        tf.word_wrap = True
+                        # Zero internal padding so the textbox bbox
+                        # matches the PDF span bbox more faithfully.
+                        # Older python-pptx versions reject Emu(0) for
+                        # margins; tolerate that and leave the default.
+                        for attr in ("margin_left", "margin_right",
+                                     "margin_top", "margin_bottom"):
+                            try: setattr(tf, attr, 0)
+                            except Exception: pass  # noqa: S110
+
+                        first_line = True
+                        for line in lines:
+                            spans = line.get("spans", [])
+                            if not spans:
+                                continue
+                            para = tf.paragraphs[0] if first_line else tf.add_paragraph()
+                            first_line = False
+                            first_run = True
+                            for span in spans:
+                                text = span.get("text", "")
+                                if not text:
+                                    continue
+                                # Reuse the auto-created empty run for
+                                # the first span; add new runs after.
+                                if first_run and len(para.runs) > 0:
+                                    run = para.runs[0]
+                                else:
+                                    run = para.add_run()
+                                first_run = False
+                                run.text = text
+                                size = span.get("size", 12)
+                                # Pt() rejects negative or non-numeric
+                                # sizes; if the PDF span had a junk
+                                # value, fall back to the theme default.
+                                try: run.font.size = Pt(size)
+                                except Exception: pass  # noqa: S110
+                                flags = span.get("flags", 0)
+                                run.font.bold = bool(flags & 16)
+                                run.font.italic = bool(flags & 2)
+                                color = span.get("color", 0)
+                                if color:
+                                    try:
+                                        run.font.color.rgb = RGBColor(
+                                            (color >> 16) & 0xFF,
+                                            (color >> 8) & 0xFF,
+                                            color & 0xFF)
+                                    except Exception:
+                                        # Some run types reject explicit
+                                        # color (e.g. inside placeholder
+                                        # layouts); leave the default.
+                                        pass
                     worker.progress.emit(i, f"{i + 1}/{total}…")
                 if worker.is_cancelled():
                     return None
