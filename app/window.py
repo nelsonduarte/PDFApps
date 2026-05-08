@@ -948,14 +948,16 @@ class MainWindow(QMainWindow):
             program = sys.executable
             args = [script] + pdf_args
             cwd = os.path.dirname(script) or os.getcwd()
-        # PyInstaller --onefile sets _MEIPASS2 to its temp extraction
-        # folder. The parent deletes that folder on exit, so the child
-        # must perform its own extraction instead of reusing ours.
+        # PyInstaller --onefile points _PYI_APPLICATION_HOME_DIR (or the
+        # legacy _MEIPASS2) at our temp extraction folder. The parent
+        # deletes that folder on exit, so the child must perform its
+        # own extraction instead of reusing ours.
         proc = QProcess()
         proc.setProgram(program)
         proc.setArguments(args)
         proc.setWorkingDirectory(cwd)
         env = QProcessEnvironment.systemEnvironment()
+        env.remove("_PYI_APPLICATION_HOME_DIR")
         env.remove("_MEIPASS2")
         proc.setProcessEnvironment(env)
         proc.startDetached()
