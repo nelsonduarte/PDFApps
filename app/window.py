@@ -1269,9 +1269,15 @@ class MainWindow(QMainWindow):
     # ── Auto-update ───────────────────────────────────────────────────────
 
     def _check_for_updates_async(self):
-        # Skip auto-update inside Flatpak/Snap (package manager handles updates)
+        # Skip auto-update inside Flatpak/Snap/MSIX — the host package
+        # manager (or Microsoft Store) handles updates.
         if os.environ.get("FLATPAK_ID") or os.environ.get("SNAP"):
             return
+        import sys as _sys
+        if _sys.platform == "win32":
+            exe = os.path.realpath(_sys.executable)
+            if "\\WindowsApps\\" in exe or "/WindowsApps/" in exe:
+                return
         # Pre-import the updater module on the main thread BEFORE the
         # worker thread starts. The worker would otherwise lazy-import
         # `app.updater`, which transitively pulls in `urllib.request`

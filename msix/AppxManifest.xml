@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+PDFApps MSIX manifest (Microsoft Store / sideload).
+
+Versioned values (Identity Version, Properties DisplayName, file refs)
+are templated at build time by `build.ps1`. The `__VERSION__` and
+`__PUBLISHER__` placeholders are replaced before makeappx runs.
+
+Publisher CN must match the certificate's subject:
+- For Store submission: use the CN assigned in Microsoft Partner
+  Center (something like `CN=ABCDEF12-3456-7890-ABCD-EF1234567890`).
+- For local sideload tests: any self-signed cert's CN works.
+-->
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    IgnorableNamespaces="uap rescap">
+
+  <Identity
+      Name="nelsonduarte.PDFApps"
+      Publisher="__PUBLISHER__"
+      Version="__VERSION__"
+      ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>PDFApps</DisplayName>
+    <PublisherDisplayName>Nelson Duarte</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Fast, offline, subscription-free PDF editor with 15 built-in tools.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop"
+                        MinVersion="10.0.17763.0"
+                        MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+    <Resource Language="pt-pt" />
+    <Resource Language="es-es" />
+    <Resource Language="fr-fr" />
+    <Resource Language="de-de" />
+    <Resource Language="zh-cn" />
+    <Resource Language="it-it" />
+    <Resource Language="nl-nl" />
+  </Resources>
+
+  <Applications>
+    <Application Id="PDFApps" Executable="PDFApps.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+          DisplayName="PDFApps"
+          Description="Fast, offline, subscription-free PDF editor."
+          BackgroundColor="transparent"
+          Square150x150Logo="Assets\Square150x150Logo.png"
+          Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+            ShortName="PDFApps"
+            Square71x71Logo="Assets\Square71x71Logo.png"
+            Square310x310Logo="Assets\Square310x310Logo.png"
+            Wide310x150Logo="Assets\Wide310x150Logo.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#0F172A" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- Register PDFApps as an opener for .pdf files. Store
+             approval may require this to be unique to your app
+             — adjust if Microsoft moderation rejects it. -->
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="pdf">
+            <uap:SupportedFileTypes>
+              <uap:FileType>.pdf</uap:FileType>
+            </uap:SupportedFileTypes>
+            <uap:DisplayName>PDF Document</uap:DisplayName>
+            <uap:Logo>Assets\Square44x44Logo.png</uap:Logo>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- runFullTrust + EntryPoint=Windows.FullTrustApplication lets
+         PDFApps.exe run as a regular desktop app (no AppContainer
+         sandbox). Required because we shell out to Tesseract/Ghostscript
+         and write output PDFs to user-chosen paths. The app is not
+         eligible for Store featured placement without this, but
+         Microsoft does accept full-trust submissions. -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

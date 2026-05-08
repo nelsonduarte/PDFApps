@@ -72,8 +72,15 @@ class _Signals(QObject):
 
 
 def is_system_install() -> bool:
-    """True when running from a system package manager (AUR, Snap, Flatpak, apt, rpm)."""
+    """True when running from a system package manager (AUR, Snap, Flatpak, apt, rpm, MSIX)."""
     if sys.platform == "win32":
+        # Detect MSIX / Microsoft Store install — the package is
+        # extracted under WindowsApps and the Store is responsible
+        # for updates. Auto-update would also fail because the
+        # package directory is read-only.
+        exe = os.path.realpath(sys.executable)
+        if "\\WindowsApps\\" in exe or "/WindowsApps/" in exe:
+            return True
         return False
     # Sandboxed runtimes
     if os.environ.get("SNAP") or os.environ.get("FLATPAK_ID") or os.environ.get("APPIMAGE"):
