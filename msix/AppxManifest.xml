@@ -18,7 +18,7 @@ Publisher CN must match the certificate's subject:
     IgnorableNamespaces="uap rescap">
 
   <Identity
-      Name="nelsonduarte.PDFApps"
+      Name="NelsonDuarte.pdfapps"
       Publisher="__PUBLISHER__"
       Version="__VERSION__"
       ProcessorArchitecture="x64" />
