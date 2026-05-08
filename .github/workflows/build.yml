@@ -44,6 +44,22 @@ jobs:
           python -m PyInstaller --noconfirm uninstaller.spec
           python -m PyInstaller --noconfirm installer.spec
 
+      - name: Build MSIX (Windows)
+        if: runner.os == 'Windows'
+        env:
+          # Empty by default → build.ps1 falls back to the sideload-test
+          # CN. To produce a Store-submission MSIX, set the secret
+          # MSIX_PUBLISHER_CN to the Publisher value Microsoft assigns
+          # in Partner Center (e.g. "CN=ABCDEF12-3456-7890-ABCD-EF1234567890").
+          MSIX_PUBLISHER_CN: ${{ secrets.MSIX_PUBLISHER_CN }}
+        shell: pwsh
+        run: |
+          if ($env:MSIX_PUBLISHER_CN) {
+            pwsh msix/build.ps1 -Publisher $env:MSIX_PUBLISHER_CN
+          } else {
+            pwsh msix/build.ps1
+          }
+
       - name: Upload (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -53,6 +69,7 @@ jobs:
             dist/PDFApps.exe
             dist/PDFAppsSetup.exe
             dist/PDFAppsUninstall.exe
+            dist/PDFApps-*.msix
 
       # ── Linux ───────────────────────────────────────────────────
       - name: Install Linux system deps
@@ -264,6 +281,7 @@ jobs:
           echo "## Checksums (SHA256)" >> release_notes.md
           for f in artifacts/PDFApps-Windows/PDFAppsSetup.exe \
                    artifacts/PDFApps-Windows/PDFApps.exe \
+                   artifacts/PDFApps-Windows/PDFApps-*.msix \
                    artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz \
                    artifacts/PDFApps-macOS/PDFApps-macOS.dmg \
                    artifacts/PDFApps-AppImage/PDFApps-*.AppImage; do
@@ -286,6 +304,7 @@ jobs:
           files: |
             artifacts/PDFApps-Windows/PDFAppsSetup.exe
             artifacts/PDFApps-Windows/PDFApps.exe
+            artifacts/PDFApps-Windows/PDFApps-*.msix
             artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz
             artifacts/PDFApps-macOS/PDFApps-macOS.dmg
             artifacts/PDFApps-AppImage/PDFApps-*.AppImage
