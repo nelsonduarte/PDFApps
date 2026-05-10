@@ -56,22 +56,6 @@
             });
         }
 
-        // OS-detecting download button
-        var heroDl = document.getElementById('hero-download');
-        if (heroDl) {
-            var ua = navigator.userAgent;
-            if (/Mac/i.test(ua)) {
-                heroDl.textContent = 'Download for macOS';
-                heroDl.href = 'https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFApps-macOS.zip';
-            } else if (/Linux/i.test(ua)) {
-                heroDl.textContent = 'Download for Linux';
-                heroDl.href = 'https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFApps-Linux.tar.gz';
-            } else {
-                heroDl.textContent = 'Download for Windows';
-                heroDl.href = 'https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFAppsSetup.exe';
-            }
-        }
-
         // Scroll-reveal animations
         var reveals = document.querySelectorAll('.reveal');
         if (reveals.length && 'IntersectionObserver' in window) {
