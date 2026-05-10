@@ -73,7 +73,7 @@
             </div>
             <h3>Microsoft Store launch &amp; language-change fix</h3>
             <ul class="docs-list">
-                <li><strong>Microsoft Store availability</strong> — PDFApps is now packaged as MSIX and submitted to the Microsoft Store. Eight interface languages declared (English, Portuguese, Spanish, French, German, Italian, Dutch, Chinese).</li>
+                <li><strong>Microsoft Store launch</strong> — PDFApps is now <a href="https://apps.microsoft.com/detail/9P70QGR8BSMZ">live on the Microsoft Store</a> as a signed MSIX package, available in 8 interface languages (English, Portuguese, Spanish, French, German, Italian, Dutch, Chinese).</li>
                 <li><strong>Language-change crash fix</strong> — switching language no longer triggers an <code>Errno 2</code> crash on PyInstaller <code>--onefile</code> Windows builds. Root cause: PyInstaller 6.x uses <code>_PYI_APPLICATION_HOME_DIR</code> (not the legacy <code>_MEIPASS2</code>) for the parent→child temp-folder handoff; the relaunch was inheriting a stale value pointing at a folder the parent was about to delete. Fixed by sanitising the <code>QProcessEnvironment</code> before <code>QProcess.startDetached</code>.</li>
                 <li><strong>Privacy policy page</strong> — added <a href="privacy.html">pdf-apps.com/privacy.html</a> documenting the offline-only data posture (required for Store submissions declaring <code>runFullTrust</code>).</li>
             </ul>
