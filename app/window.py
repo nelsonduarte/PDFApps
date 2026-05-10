@@ -948,17 +948,24 @@ class MainWindow(QMainWindow):
             program = sys.executable
             args = [script] + pdf_args
             cwd = os.path.dirname(script) or os.getcwd()
-        # PyInstaller --onefile points _PYI_APPLICATION_HOME_DIR (or the
-        # legacy _MEIPASS2) at our temp extraction folder. The parent
-        # deletes that folder on exit, so the child must perform its
-        # own extraction instead of reusing ours.
+        # PyInstaller --onefile uses several env vars to coordinate the
+        # two-phase bootloader handoff: _PYI_APPLICATION_HOME_DIR (the
+        # extracted temp path), _PYI_PARENT_PROCESS_LEVEL (phase marker)
+        # and _PYI_ARCHIVE_FILE, plus the legacy _MEIPASS2. The parent
+        # deletes its temp folder on exit, so the child must perform its
+        # own extraction instead of reusing ours. We must clear ALL of
+        # these — leaving any one set makes the child's bootloader think
+        # it's a child-phase launch and either reuse the about-to-be-
+        # deleted folder or, if some vars are missing, abort with
+        # "_PYI_APPLICATION_HOME_DIR environment variable is not defined!".
         proc = QProcess()
         proc.setProgram(program)
         proc.setArguments(args)
         proc.setWorkingDirectory(cwd)
         env = QProcessEnvironment.systemEnvironment()
-        env.remove("_PYI_APPLICATION_HOME_DIR")
-        env.remove("_MEIPASS2")
+        for _k in list(env.keys()):
+            if _k.startswith("_PYI_") or _k.startswith("_MEIPASS"):
+                env.remove(_k)
         proc.setProcessEnvironment(env)
         proc.startDetached()
         QApplication.instance().exit(0)
