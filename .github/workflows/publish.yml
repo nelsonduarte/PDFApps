@@ -111,20 +111,57 @@ jobs:
           set -e
           VER="${{ needs.resolve.outputs.version }}"
 
-          # Compute sha256 of the binary tarball from the GitHub release
-          BIN_SHA=$(curl -sL "https://github.com/nelsonduarte/PDFApps/releases/download/v${VER}/PDFApps-Linux.tar.gz" | sha256sum | awk '{print $1}')
-          echo "Binary tarball sha256: $BIN_SHA"
+          # Compute sha256 for all six sources. Five are tag-pinned
+          # immutable URLs so SKIP would be technically safe, but AUR
+          # users want `updpkgsums` to be a no-op (BluePeril, 2026-05).
+          BIN_SHA=$(curl -fsL "https://github.com/nelsonduarte/PDFApps/releases/download/v${VER}/PDFApps-Linux.tar.gz" | sha256sum | awk '{print $1}')
+          LICENSE_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/LICENSE" | sha256sum | awk '{print $1}')
+          DESKTOP_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/flatpak/io.github.nelsonduarte.PDFApps.desktop" | sha256sum | awk '{print $1}')
+          METAINFO_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/flatpak/io.github.nelsonduarte.PDFApps.metainfo.xml" | sha256sum | awk '{print $1}')
+          PNG_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/icon_512.png" | sha256sum | awk '{print $1}')
+          SVG_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/pdfapps.svg" | sha256sum | awk '{print $1}')
+
+          for v in BIN_SHA LICENSE_SHA DESKTOP_SHA METAINFO_SHA PNG_SHA SVG_SHA; do
+            echo "$v=${!v}"
+          done
 
           rm -rf /tmp/aur-pdfapps-bin
           git clone ssh://aur@aur.archlinux.org/pdfapps-bin.git /tmp/aur-pdfapps-bin
           cp aur/pdfapps-bin/PKGBUILD aur/pdfapps-bin/.SRCINFO /tmp/aur-pdfapps-bin/
           cd /tmp/aur-pdfapps-bin
 
-          # Patch only the first sha256 (binary tarball) — the rest are SKIP
-          sed -i "0,/sha256sums=/{s|sha256sums=(|sha256sums=(\n    '${BIN_SHA}'|}" PKGBUILD || true
-          # Simpler: replace the old hash line
-          sed -i "s|'[a-f0-9]\{64\}'|'${BIN_SHA}'|" PKGBUILD
-          sed -i "0,/sha256sums = [a-f0-9]/{s|sha256sums = [a-f0-9].*|sha256sums = ${BIN_SHA}|}" .SRCINFO
+          # Rewrite PKGBUILD's sha256sums block (6 entries, in source order)
+          # and .SRCINFO's six sha256sums lines.
+          BIN_SHA="$BIN_SHA" LICENSE_SHA="$LICENSE_SHA" \
+          DESKTOP_SHA="$DESKTOP_SHA" METAINFO_SHA="$METAINFO_SHA" \
+          PNG_SHA="$PNG_SHA" SVG_SHA="$SVG_SHA" \
+          python3 <<'PY'
+          import os, re
+
+          hashes = [os.environ[k] for k in (
+              "BIN_SHA", "LICENSE_SHA", "DESKTOP_SHA",
+              "METAINFO_SHA", "PNG_SHA", "SVG_SHA",
+          )]
+
+          # PKGBUILD: replace the whole sha256sums=(...) array.
+          with open("PKGBUILD") as f:
+              src = f.read()
+          new_block = "sha256sums=(\n" + "\n".join(f"    '{h}'" for h in hashes) + "\n)"
+          src = re.sub(r"sha256sums=\([^)]*\)", new_block, src, count=1)
+          with open("PKGBUILD", "w") as f:
+              f.write(src)
+
+          # .SRCINFO: replace the six tab-indented sha256sums lines, in order.
+          with open(".SRCINFO") as f:
+              lines = f.readlines()
+          hi = 0
+          for i, line in enumerate(lines):
+              if line.lstrip().startswith("sha256sums = ") and hi < len(hashes):
+                  lines[i] = f"\tsha256sums = {hashes[hi]}\n"
+                  hi += 1
+          with open(".SRCINFO", "w") as f:
+              f.writelines(lines)
+          PY
 
           if git diff --quiet; then
             echo "no changes — nothing to push"
