@@ -1,5 +1,6 @@
 """PDFApps – MainWindow: application main window."""
 
+import contextlib
 import os
 
 from PySide6.QtCore import Qt, QSize, Signal
@@ -653,19 +654,15 @@ class MainWindow(QMainWindow):
         # Track tool usage for "Frequent" section
         nav_key = _NAV_KEYS[index][0]
         self._tool_usage[nav_key] = self._tool_usage.get(nav_key, 0) + 1
-        try:
+        with contextlib.suppress(Exception):
             from app.i18n import _CONFIG_PATH, _atomic_write_config
             import json
             cfg = {}
-            try:
+            with contextlib.suppress(Exception):
                 with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
-            except Exception:
-                pass
             cfg["tool_usage"] = self._tool_usage
             _atomic_write_config(cfg)
-        except Exception:
-            pass
         widget = self.stack.widget(index)
         path = self._viewer.current_path()
         if path:
@@ -1152,19 +1149,17 @@ class MainWindow(QMainWindow):
             page = self.stack.widget(i)
             wait_fn = getattr(page, "wait_for_workers", None)
             if callable(wait_fn):
-                try: wait_fn()
-                except Exception: pass
+                with contextlib.suppress(Exception):
+                    wait_fn()
         # Same for the update-check thread (usually a short HTTP
         # request, but the user can close the app immediately on
         # launch and Qt will warn if it's still running).
         upd = getattr(self, "_update_thread", None)
         if upd is not None:
-            try:
+            with contextlib.suppress(RuntimeError):
                 if upd.isRunning():
                     upd.quit()
                     upd.wait(1000)
-            except RuntimeError:
-                pass
         try:
             from app.i18n import _CONFIG_PATH, _atomic_write_config
             import json

@@ -1,5 +1,6 @@
 """PDFApps – utility functions and reusable UI factory helpers."""
 
+import contextlib
 import os
 import sys
 
@@ -490,11 +491,11 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         pass
     finally:
         if pdf is not None:
-            try: pdf.close()
-            except Exception: pass
+            with contextlib.suppress(Exception):
+                pdf.close()
         if p:
-            try: os.unlink(p)
-            except Exception: pass
+            with contextlib.suppress(Exception):
+                os.unlink(p)
 
     if not temps:
         raise RuntimeError("Install pypdf and/or PyMuPDF:\n"
@@ -510,8 +511,8 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             except Exception: pass
 
     if best_size >= before:
-        try: os.unlink(best)
-        except Exception: pass
+        with contextlib.suppress(Exception):
+            os.unlink(best)
         raise ValueError(f"No gain: {before/1024:.0f} KB → {best_size/1024:.0f} KB")
 
     # Atomic write: rename within the same volume, else copy to a temp
@@ -529,9 +530,9 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             shutil.copyfile(best, tmp)
             os.replace(tmp, dst)
         except Exception:
-            try: os.unlink(tmp)
-            except Exception: pass
+            with contextlib.suppress(Exception):
+                os.unlink(tmp)
             raise
-        try: os.unlink(best)
-        except Exception: pass
+        with contextlib.suppress(Exception):
+            os.unlink(best)
     return before, best_size

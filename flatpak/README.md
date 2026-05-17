@@ -2,6 +2,38 @@
 
 This directory contains files for submitting PDFApps to [Flathub](https://flathub.org/).
 
+## ⚠️ Status: dormant — needs regeneration before next submission
+
+The files in this directory are out of date relative to the root `requirements.txt`:
+
+- `requirements-pinned.txt` is missing **cryptography, python-pptx, openpyxl, beautifulsoup4, ebooklib**.
+- `python-modules.yml` does not contain wheel URLs / hashes for those packages.
+
+Effect: a Flatpak built today would have **PDF→PPTX, PDF→XLSX, import HTML and import EPUB broken**. Other conversions and the core viewer/editor still work.
+
+The divergence happened because new Python deps were added to `requirements.txt` (notably in v1.12.0) without regenerating the Flatpak pin file. Dependabot keeps the shared packages in sync (e.g. it bumps `pypdf` here too) but it does not add new packages.
+
+**Before submitting to Flathub**, regenerate everything from the root `requirements.txt`:
+
+```bash
+pip install req2flatpak
+# 1. Recreate the pin file from the active requirements
+pip download --no-deps -r requirements.txt -d /tmp/pdfapps-wheels
+pip freeze --path /tmp/pdfapps-wheels > flatpak/requirements-pinned.txt
+# (or run pip-compile / uv pip compile)
+
+# 2. Regenerate the wheel list with SHA256s
+req2flatpak --requirements-file flatpak/requirements-pinned.txt \
+            --target-platforms 312-x86_64 \
+            --yaml \
+            --outfile flatpak/python-modules.yml
+
+# 3. Build locally to confirm before opening the Flathub PR
+flatpak run org.flatpak.Builder --force-clean --user --install \
+  --install-deps-from=flathub --repo=repo builddir \
+  flatpak/io.github.nelsonduarte.PDFApps.yml
+```
+
 ## ⚠️ Important: Read Before Submitting
 
 Flathub has a strict policy against AI-generated submissions. **You must:**
