@@ -1,6 +1,8 @@
 """PDFApps – utility functions and reusable UI factory helpers."""
 
 import contextlib
+import logging
+import logging.handlers
 import os
 import sys
 
@@ -536,3 +538,86 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         with contextlib.suppress(Exception):
             os.unlink(best)
     return before, best_size
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Theme helpers — for places that need to pick a color without dependency
+# injection from MainWindow._dark_mode. Reads the user's `dark_mode`
+# preference from the config file (always fresh, ~1ms cost).
+# ─────────────────────────────────────────────────────────────────────────────
+
+def is_dark() -> bool:
+    """Return the user's current dark-mode preference.
+    Defaults to True (the original ship default) when config is missing
+    or corrupted."""
+    try:
+        import json
+        from app.i18n import _CONFIG_PATH
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return bool(json.load(f).get("dark_mode", True))
+    except Exception:
+        return True
+
+
+def error_color() -> str:
+    """Return the right error/red shade for the current theme. Brighter
+    on dark backgrounds, darker on light — so the text stays readable."""
+    return "#F87171" if is_dark() else "#DC2626"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Logging + user-friendly error dialogs
+# ─────────────────────────────────────────────────────────────────────────────
+
+_logging_initialised = False
+
+
+def _log_path() -> str:
+    """Return the path to the rotating log file (next to the user config)."""
+    from app.i18n import _CONFIG_PATH
+    return os.path.join(os.path.dirname(_CONFIG_PATH), "pdfapps.log")
+
+
+def setup_logging() -> None:
+    """Configure a rotating file logger at the user-config dir.
+    Idempotent — safe to call multiple times."""
+    global _logging_initialised
+    if _logging_initialised:
+        return
+    _logging_initialised = True
+    try:
+        log_path = _log_path()
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(
+            log_path, maxBytes=1_000_000, backupCount=2, encoding="utf-8",
+        )
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+        ))
+        root = logging.getLogger()
+        root.setLevel(logging.INFO)
+        root.addHandler(handler)
+    except Exception:
+        # Never let logging setup crash the app
+        pass
+
+
+def show_error(parent, exc: BaseException) -> None:
+    """Show a translated, friendly error dialog with collapsible technical
+    details. Logs the full exception (with traceback) to the log file.
+
+    Replaces the historical pattern:
+        QMessageBox.critical(self, t("msg.error"), str(e))
+    which dumped raw Python traceback / paths onto the user. The new dialog
+    shows a localized "something went wrong" message; the technical detail
+    is in the collapsed "Show Details" pane, and the full traceback is in
+    the log file at `pdfapps.log` next to the config.
+    """
+    from PySide6.QtWidgets import QMessageBox
+    logging.exception("UI error surfaced: %s: %s", type(exc).__name__, exc)
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Critical)
+    box.setWindowTitle(t("msg.error"))
+    box.setText(t("msg.unexpected"))
+    box.setDetailedText(f"{type(exc).__name__}: {exc}")
+    box.exec()

@@ -23,7 +23,7 @@ except ImportError:
 
 from app.window import MainWindow
 from app.styles import STYLE, STYLE_LIGHT
-from app.utils import _make_palette
+from app.utils import _make_palette, setup_logging
 
 
 def _load_dark_pref() -> bool:
@@ -37,6 +37,7 @@ def _load_dark_pref() -> bool:
 
 
 def main():
+    setup_logging()
     app = QApplication(sys.argv)
     app.setApplicationName(" ")
     app.setApplicationDisplayName(" ")

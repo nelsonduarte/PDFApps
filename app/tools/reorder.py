@@ -10,7 +10,7 @@ from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl, danger_btn
+from app.utils import section, info_lbl, danger_btn, show_error
 from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
@@ -131,4 +131,4 @@ class TabReordenar(BasePage):
                 self._pipeline_success(msg, out)
             else:
                 QMessageBox.information(self, t("msg.done"), msg)
-        except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))
+        except Exception as e: show_error(self, e)

@@ -31,6 +31,14 @@ TARGETS = [
     ("SplashScreen.png",      620, 300, False),
 ]
 
+# Target-size variants of Square44x44Logo. Windows shell picks the best
+# match for each rendering context: small (16) for tooltip/treeview,
+# 24-40 for list view, 48 for medium desktop icons, 96 for large desktop
+# icons, 256 for extra-large/jumbo desktop icons. Without these, Windows
+# stretches the 44×44 base PNG, which looks pixelated at 256×256 — the
+# default desktop "Large icons" size for PDF file association icons.
+TARGETSIZE_VARIANTS = [16, 24, 32, 48, 96, 256]
+
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
@@ -62,7 +70,18 @@ def main():
         img.save(out, "PNG", optimize=True)
         print(f"wrote {os.path.relpath(out, project_root)} ({w}x{h})")
 
-    print(f"\n[OK] {len(TARGETS)} MSIX assets generated in {assets_dir}")
+    # Generate Square44x44Logo.targetsize-N.png variants so Windows can
+    # render the PDF file association icon at the right resolution on
+    # desktop and in Explorer instead of stretching the 44×44 base.
+    for size in TARGETSIZE_VARIANTS:
+        name = f"Square44x44Logo.targetsize-{size}.png"
+        out = os.path.join(assets_dir, name)
+        img = master.resize((size, size), Image.LANCZOS)
+        img.save(out, "PNG", optimize=True)
+        print(f"wrote {os.path.relpath(out, project_root)} ({size}x{size})")
+
+    total = len(TARGETS) + len(TARGETSIZE_VARIANTS)
+    print(f"\n[OK] {total} MSIX assets generated in {assets_dir}")
 
 
 if __name__ == "__main__":

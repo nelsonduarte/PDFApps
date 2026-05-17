@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, DESKTOP, _LQ, _LP
-from app.utils import ToolHeader, ActionBar, info_lbl, _paint_bg
+from app.utils import ToolHeader, ActionBar, info_lbl, _paint_bg, show_error
 from app.i18n import t
 from app.widgets import DropFileEdit, ColorPickerButton
 from app.editor.canvas import PdfEditCanvas, _get_icon_cursor
@@ -915,7 +915,7 @@ class TabEditar(QWidget):
             # Reload the saved file
             self._load_pdf(out)
         except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+            show_error(self, e)
 
     def _apply_forms(self, out):
         try:
@@ -942,4 +942,4 @@ class TabEditar(QWidget):
             self._status(f"✔  Form saved → {out}")
             QMessageBox.information(self, t("msg.done"), t("msg.form_saved", path=out))
         except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e))
+            show_error(self, e)

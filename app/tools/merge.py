@@ -10,7 +10,7 @@ from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, danger_btn, pick_pdfs
+from app.utils import section, danger_btn, pick_pdfs, show_error
 from app.widgets import DropFileEdit, MultiDropWidget
 
 
@@ -126,4 +126,4 @@ class TabJuntar(BasePage):
             with open(out, "wb") as f: w.write(f)
             self._status(f"✔  PDF → {os.path.basename(out)}")
             QMessageBox.information(self, t("msg.done"), t("tool.merge.done", path=out))
-        except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))
+        except Exception as e: show_error(self, e)

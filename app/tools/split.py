@@ -11,7 +11,7 @@ from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl, danger_btn, pick_folder
+from app.utils import section, info_lbl, danger_btn, pick_folder, show_error
 from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
@@ -113,7 +113,7 @@ class TabDividir(BasePage):
         try:
             reader = self._open_reader(pdf_path); total = len(reader.pages)
         except Exception as e:
-            QMessageBox.critical(self, t("msg.error"), str(e)); return
+            show_error(self, e); return
         os.makedirs(out_dir, exist_ok=True)
         errors, generated = [], []
         for r in range(self.table.rowCount()):

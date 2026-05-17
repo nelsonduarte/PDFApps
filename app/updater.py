@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_H, TEXT_SEC, _LQ
+from app.utils import error_color
 
 
 _API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
@@ -406,6 +407,14 @@ class UpdateDialog(QDialog):
                 _apply_update_unix(path)
         except Exception as exc:
             self._on_error(str(exc))
+        else:
+            # Symmetric with _on_error: re-enable controls on success so
+            # the user can dismiss the dialog cleanly. Harmless on Windows
+            # (app is quitting in the success branch); meaningful on
+            # macOS/Linux where _apply_update_unix returns to a still-open
+            # dialog and the Cancel button must remain interactive.
+            self._cancel_btn.setEnabled(True)
+            self._update_btn.setEnabled(True)
 
     def _on_error(self, msg: str):
         self._stop_dots_animation()
@@ -413,7 +422,7 @@ class UpdateDialog(QDialog):
         self._update_btn.setEnabled(True)
         from app.i18n import t
         self._status.setText(t("update.error") + f" {msg}")
-        self._status.setStyleSheet("color: #DC2626; font-size: 12px;")
+        self._status.setStyleSheet(f"color: {error_color()}; font-size: 12px;")
 
     def closeEvent(self, event):
         """Clean up download thread if dialog is closed mid-download."""

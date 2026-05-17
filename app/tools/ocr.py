@@ -11,7 +11,7 @@ from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl
+from app.utils import section, info_lbl, show_error
 from app.worker import TaskRunner, run_task
 from app.constants import TEXT_SEC, DESKTOP
 from app.widgets import DropFileEdit
@@ -254,7 +254,7 @@ class TabOCR(BasePage):
             with self._open_fitz(pdf_path) as _doc:
                 n_pages = _doc.page_count
         except Exception as e:
-            QMessageBox.critical(self, t("tool.ocr.error"), str(e)); return
+            show_error(self, e); return
 
         progress = QProgressDialog(t("progress.ocr.page", current=1, total=n_pages),
                                    t("progress.cancel"), 0, n_pages, self)

@@ -17,6 +17,7 @@ from app.constants import (
     _LO, _LP, _LQ, _LN,
 )
 from app.i18n import t
+from app.utils import error_color
 
 
 def _theme_colors(parent):
@@ -69,7 +70,7 @@ class _PdfPasswordDialog(QDialog):
         v.addWidget(self._edit)
 
         self._warn = QLabel(t("dialog.password_wrong"))
-        self._warn.setStyleSheet("color:#F87171; font-size:9pt;")
+        self._warn.setStyleSheet(f"color:{error_color()}; font-size:9pt;")
         self._warn.setVisible(wrong)
         v.addWidget(self._warn)
 

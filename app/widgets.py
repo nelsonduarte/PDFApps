@@ -11,6 +11,7 @@ import qtawesome as qta
 
 from app.constants import ACCENT, DESKTOP
 from app.i18n import t
+from app.utils import error_color
 
 
 def _drop_icon(icon_name: str, color: str) -> QPushButton:
@@ -83,7 +84,7 @@ class DropFileEdit(QWidget):
         self._lbl.setProperty("has_file", "true")
         self._ico.setIcon(qta.icon('fa5s.file-pdf', color=ACCENT))
         self._ico.setProperty("has_file", "true")
-        self._clr.setIcon(qta.icon('fa5s.times', color='#F87171'))
+        self._clr.setIcon(qta.icon('fa5s.times', color=error_color()))
         self._clr.setVisible(True)
         for w in (self._lbl, self._ico):
             w.style().unpolish(w); w.style().polish(w)

@@ -10,7 +10,7 @@ from pypdf import PdfReader, PdfWriter
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl, parse_pages
+from app.utils import section, info_lbl, parse_pages, show_error
 from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
@@ -93,4 +93,4 @@ class TabRotar(BasePage):
                 self._pipeline_success(t("tool.rotate.done", path=out_path), out_path)
             else:
                 QMessageBox.information(self, t("msg.done"), t("tool.rotate.done", path=out_path))
-        except Exception as e: QMessageBox.critical(self, t("msg.error"), str(e))
+        except Exception as e: show_error(self, e)
