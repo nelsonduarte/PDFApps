@@ -1,5 +1,6 @@
 """PDFApps – TabConverter: convert PDF to images, DOCX, TXT, PPTX, XLSX, HTML, EPUB."""
 
+import contextlib
 import os
 import re
 
@@ -294,12 +295,10 @@ class TabConverter(BasePage):
                         if btype == 1:
                             img_data = block.get("image")
                             if img_data:
-                                try:
+                                with contextlib.suppress(Exception):
                                     para = docx_doc.add_paragraph()
                                     run = para.add_run()
                                     run.add_picture(io.BytesIO(img_data), width=Inches(5.0))
-                                except Exception:
-                                    pass
                             continue
                         # Text block
                         lines = block.get("lines", [])

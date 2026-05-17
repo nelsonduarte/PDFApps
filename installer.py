@@ -1,4 +1,5 @@
 """PDFApps — Cross-platform Installer (Windows / macOS / Linux)"""
+import contextlib
 import os, sys, shutil, subprocess, threading, urllib.request, time, locale, hashlib, hmac
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -837,10 +838,8 @@ class InstallerApp(tk.Tk):
         self.after(1000, self._close_splash)
 
     def _close_splash(self):
-        try:
+        with contextlib.suppress(Exception):
             self._splash.destroy()
-        except Exception:
-            pass
         self.deiconify()
 
     def _build(self):
