@@ -1,6 +1,6 @@
 # PDFApps
 
-> PDF editor and manager for Windows, macOS and Linux — fast, offline and subscription-free.
+> PDF editor and manager for Windows, macOS and Linux, fast, offline and subscription-free.
 
 <p align="center">
   <img src="icon_512.png" alt="PDFApps Icon" width="128">
@@ -43,23 +43,23 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ## Features
 
-| Tool | Description |
-|---|---|
-| **Split** | Split the PDF into multiple files by user-defined page ranges |
-| **Merge** | Combine multiple PDFs (drag and drop) into a single output, with free ordering |
-| **Rotate** | Rotate individual pages or the entire document at any angle |
-| **Extract pages** | Export a subset of pages to a new PDF |
-| **Reorder** | Drag-and-drop interface to reorder or remove pages with preview |
-| **Compress** | Reduce file size with three compression levels (extreme / recommended / low) |
-| **Encrypt** | Protect the PDF with a password or remove existing protection |
-| **Watermark** | Overlay a watermark/stamp PDF on pages with opacity and position control |
-| **OCR** | Recognise text in scanned PDFs — 5 language packs bundled (PT, EN, ES, FR, DE), works with any of Tesseract's 100+ languages if installed separately |
-| **Convert** | Export PDF to DOCX, PPTX, XLSX, HTML, EPUB, TXT, PNG or JPG (with DPI control) |
-| **Page numbers** | Add page numbering (header/footer) with format, position and font control |
-| **N-Up** | Arrange multiple pages per sheet (2, 4, 6, 9, 16-up) with custom layout |
-| **Edit** | Inline visual editor: redact, insert text, image, signature, highlight, notes, forms and edit existing text |
-| **Import** | Convert DOCX, PPTX, XLSX, HTML, EPUB, TXT, Markdown or images (PNG/JPG/BMP) to PDF — batch support |
-| **Info** | Show metadata, page count, size and document properties |
+| Tool              | Description                                                                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Split**         | Split the PDF into multiple files by user-defined page ranges                                                                                        |
+| **Merge**         | Combine multiple PDFs (drag and drop) into a single output, with free ordering                                                                       |
+| **Rotate**        | Rotate individual pages or the entire document at any angle                                                                                          |
+| **Extract pages** | Export a subset of pages to a new PDF                                                                                                                |
+| **Reorder**       | Drag-and-drop interface to reorder or remove pages with preview                                                                                      |
+| **Compress**      | Reduce file size with three compression levels (extreme / recommended / low)                                                                         |
+| **Encrypt**       | Protect the PDF with a password or remove existing protection                                                                                        |
+| **Watermark**     | Overlay a watermark/stamp PDF on pages with opacity and position control                                                                             |
+| **OCR**           | Recognise text in scanned PDFs — 5 language packs bundled (PT, EN, ES, FR, DE), works with any of Tesseract's 100+ languages if installed separately |
+| **Convert**       | Export PDF to DOCX, PPTX, XLSX, HTML, EPUB, TXT, PNG or JPG (with DPI control)                                                                       |
+| **Page numbers**  | Add page numbering (header/footer) with format, position and font control                                                                            |
+| **N-Up**          | Arrange multiple pages per sheet (2, 4, 6, 9, 16-up) with custom layout                                                                              |
+| **Edit**          | Inline visual editor: redact, insert text, image, signature, highlight, notes, forms and edit existing text                                          |
+| **Import**        | Convert DOCX, PPTX, XLSX, HTML, EPUB, TXT, Markdown or images (PNG/JPG/BMP) to PDF — batch support                                                   |
+| **Info**          | Show metadata, page count, size and document properties                                                                                              |
 
 ### Integrated viewer
 
@@ -107,15 +107,15 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 
 ### Download
 
-| Platform | How to get it |
-|---|---|
-| **Windows** 10/11 (Store) | [Get it on the Microsoft Store](https://apps.microsoft.com/detail/9P70QGR8BSMZ) — auto-updates handled by Windows |
-| **Windows** 10/11 (direct) | `winget install nelsonduarte.PDFApps`, or download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest) |
-| **macOS** 10.14+ | Download `PDFApps-macOS.dmg` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), mount, and drag PDFApps.app to Applications — Tesseract via `brew install tesseract tesseract-lang` |
-| **Ubuntu / Debian / Snap** | `sudo snap install pdfapps` |
-| **Fedora** | `sudo dnf copr enable nelsonduarte2809/pdfapps && sudo dnf install pdfapps` |
-| **Arch / Manjaro** | `yay -S pdfapps` (source) or `yay -S pdfapps-bin` (binary) |
-| **Any Linux** | Download the latest `PDFApps-*-x86_64.AppImage` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), `chmod +x` and run |
+| Platform                   | How to get it                                                                                                                                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Windows** 10/11 (Store)  | [Get it on the Microsoft Store](https://apps.microsoft.com/detail/9P70QGR8BSMZ) — auto-updates handled by Windows                                                                                          |
+| **Windows** 10/11 (direct) | `winget install nelsonduarte.PDFApps`, or download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest)                                                             |
+| **macOS** 10.14+           | Download `PDFApps-macOS.dmg` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), mount, and drag PDFApps.app to Applications — Tesseract via `brew install tesseract tesseract-lang` |
+| **Ubuntu / Debian / Snap** | `sudo snap install pdfapps`                                                                                                                                                                                |
+| **Fedora**                 | `sudo dnf copr enable nelsonduarte2809/pdfapps && sudo dnf install pdfapps`                                                                                                                                |
+| **Arch / Manjaro**         | `yay -S pdfapps` (source) or `yay -S pdfapps-bin` (binary)                                                                                                                                                 |
+| **Any Linux**              | Download the latest `PDFApps-*-x86_64.AppImage` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), `chmod +x` and run                                                               |
 
 ### Run from source
 
@@ -140,6 +140,7 @@ python pdfapps.py
 ```
 
 > **Tesseract OCR** is required for text recognition:
+>
 > - **Windows**: the installer handles this automatically
 > - **macOS**: `brew install tesseract tesseract-lang`
 > - **Linux**: `sudo apt install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng`
@@ -161,11 +162,11 @@ python -m PyInstaller --clean uninstaller.spec
 python -m PyInstaller --clean installer.spec
 ```
 
-| File | Description |
-|---|---|
-| `dist/PDFApps.exe` | Main application (~93 MB) |
-| `dist/PDFAppsUninstall.exe` | Standalone uninstaller (~13 MB) |
-| `dist/PDFAppsSetup.exe` | **Installer for distribution** (~113 MB) |
+| File                        | Description                              |
+| --------------------------- | ---------------------------------------- |
+| `dist/PDFApps.exe`          | Main application (~93 MB)                |
+| `dist/PDFAppsUninstall.exe` | Standalone uninstaller (~13 MB)          |
+| `dist/PDFAppsSetup.exe`     | **Installer for distribution** (~113 MB) |
 
 > PyInstaller does not cross-compile — the binary must be built on the target platform.
 
@@ -173,16 +174,16 @@ python -m PyInstaller --clean installer.spec
 
 ## Tech stack
 
-| Component | Technology | Version |
-|---|---|---|
-| GUI | [PySide6](https://doc.qt.io/qtforpython/) (Qt 6) | 6.10.2 |
-| PDF rendering | [PyMuPDF](https://pymupdf.readthedocs.io/) (fitz) | 1.27.2 |
-| PDF manipulation | [pypdf](https://pypdf.readthedocs.io/) | 6.8.0 |
-| OCR | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13 |
-| DOCX export | [python-docx](https://python-docx.readthedocs.io/) | 1.2.0 |
-| Image processing | [Pillow](https://python-pillow.org/) | 12.1.1 |
-| Icons | [QtAwesome](https://github.com/spyder-ide/qtawesome) | 1.4.1 |
-| Packaging | [PyInstaller](https://pyinstaller.org/) | 6.19.0 |
+| Component        | Technology                                                                                                      | Version |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- | ------- |
+| GUI              | [PySide6](https://doc.qt.io/qtforpython/) (Qt 6)                                                                | 6.10.2  |
+| PDF rendering    | [PyMuPDF](https://pymupdf.readthedocs.io/) (fitz)                                                               | 1.27.2  |
+| PDF manipulation | [pypdf](https://pypdf.readthedocs.io/)                                                                          | 6.8.0   |
+| OCR              | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13  |
+| DOCX export      | [python-docx](https://python-docx.readthedocs.io/)                                                              | 1.2.0   |
+| Image processing | [Pillow](https://python-pillow.org/)                                                                            | 12.1.1  |
+| Icons            | [QtAwesome](https://github.com/spyder-ide/qtawesome)                                                            | 1.4.1   |
+| Packaging        | [PyInstaller](https://pyinstaller.org/)                                                                         | 6.19.0  |
 
 ---
 
@@ -254,22 +255,22 @@ PDFApps/
 
 ## Keyboard shortcuts
 
-| Shortcut | Action |
-|---|---|
-| **Ctrl+O** | Open PDF (multi-select) |
-| **Ctrl+S** | Save / apply active tool |
-| **Ctrl+P** | Print current PDF |
-| **Ctrl+W** | Close current tab |
-| **Ctrl+F** | Search text in PDF |
-| **Ctrl+Z** | Undo (editor) |
-| **Ctrl+Y** | Redo (editor) |
-| **Ctrl+Scroll** | Zoom in/out |
-| **Ctrl+1–9** | Open tool 1–9 |
-| **Ctrl+Shift+1–6** | Open tool 10–15 |
-| **PgUp / PgDn** | Previous / next page |
-| **F5** | Start presentation mode |
-| **F11** | Toggle fullscreen |
-| **Escape** | Exit presentation / close search |
+| Shortcut           | Action                           |
+| ------------------ | -------------------------------- |
+| **Ctrl+O**         | Open PDF (multi-select)          |
+| **Ctrl+S**         | Save / apply active tool         |
+| **Ctrl+P**         | Print current PDF                |
+| **Ctrl+W**         | Close current tab                |
+| **Ctrl+F**         | Search text in PDF               |
+| **Ctrl+Z**         | Undo (editor)                    |
+| **Ctrl+Y**         | Redo (editor)                    |
+| **Ctrl+Scroll**    | Zoom in/out                      |
+| **Ctrl+1–9**       | Open tool 1–9                    |
+| **Ctrl+Shift+1–6** | Open tool 10–15                  |
+| **PgUp / PgDn**    | Previous / next page             |
+| **F5**             | Start presentation mode          |
+| **F11**            | Toggle fullscreen                |
+| **Escape**         | Exit presentation / close search |
 
 ---
 
