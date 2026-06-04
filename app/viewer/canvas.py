@@ -40,6 +40,7 @@ class _PageJob(QRunnable):
         self.setAutoDelete(True)
 
     def run(self):
+        doc = None
         try:
             import fitz
             from PySide6.QtGui import QPixmap as QP, QImage
@@ -53,18 +54,27 @@ class _PageJob(QRunnable):
                 pix.invert_irect()
             words = page.get_text("words")
             img   = pix.tobytes("png")
-            doc.close()
             qp = QP()
             if not qp.loadFromData(img):
-                from PySide6.QtGui import QImage
+                # samples_mv is a memoryview backed by the fitz Pixmap,
+                # which in turn is backed by the open Document. Closing
+                # the doc before QImage finishes copying the buffer
+                # frees the underlying allocation under PySide's feet
+                # (rare, but observed on Windows under tight memory).
+                # QImage.copy() forces an eager copy, after which the
+                # pixmap/document can be safely released.
                 qi = QImage(pix.samples_mv, pix.width, pix.height,
                             pix.stride, QImage.Format.Format_RGB888)
-                qp = QP.fromImage(qi)
+                qp = QP.fromImage(qi.copy())
             qp.setDevicePixelRatio(self._dpr)
             self.signals.page_ready.emit(self._gen, self._idx, qp, words)
         except Exception:
             import traceback, logging
             logging.error("Page render failed:\n%s", traceback.format_exc())
+        finally:
+            if doc is not None:
+                try: doc.close()
+                except Exception: pass
 
 
 # ── Page entry ─────────────────────────────────────────────────────────

@@ -1272,6 +1272,21 @@ class MainWindow(QMainWindow):
             w = self.stack.widget(i)
             if hasattr(w, 'update_theme'):
                 w.update_theme(self._dark_mode)
+        # Drop-file widgets and other leaf components carry hardcoded
+        # icon colours that don't track palette changes. Walk every
+        # tool page once and call update_theme on any descendant that
+        # implements it — tools that don't override update_theme
+        # themselves still get their DropFileEdit / MultiDropWidget
+        # children refreshed.
+        from app.widgets import DropFileEdit, MultiDropWidget
+        for i in range(self.stack.count()):
+            w = self.stack.widget(i)
+            for cls in (DropFileEdit, MultiDropWidget):
+                for child in w.findChildren(cls):
+                    fn = getattr(child, "update_theme", None)
+                    if callable(fn):
+                        try: fn(self._dark_mode)
+                        except RuntimeError: pass  # widget destroyed
 
     # ── Auto-update ───────────────────────────────────────────────────────
 

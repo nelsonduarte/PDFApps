@@ -9,9 +9,22 @@ from PySide6.QtWidgets import (
 )
 import qtawesome as qta
 
-from app.constants import ACCENT, DESKTOP
+from app.constants import ACCENT, DESKTOP, TEXT_SEC, _LQ
 from app.i18n import t
-from app.utils import error_color
+from app.utils import error_color, is_dark
+
+
+def _muted_icon_color(dark: bool | None = None) -> str:
+    """Theme-aware muted grey for drop-zone icons.
+
+    Dark theme: TEXT_SEC (#B0C4BE) — light enough to read on the dark
+    inner background. Light theme: _LQ (#3D5450) — dark enough to read
+    on the near-white card. Reads the saved preference when called
+    without `dark`, so factory helpers don't need a parent reference.
+    """
+    if dark is None:
+        dark = is_dark()
+    return TEXT_SEC if dark else _LQ
 
 
 def _drop_icon(icon_name: str, color: str) -> QPushButton:
@@ -48,7 +61,8 @@ class DropFileEdit(QWidget):
         h.setContentsMargins(14, 10, 10, 10)
         h.setSpacing(10)
 
-        self._ico = _drop_icon('fa5s.cloud-upload-alt', '#4A5568')
+        muted = _muted_icon_color()
+        self._ico = _drop_icon('fa5s.cloud-upload-alt', muted)
         h.addWidget(self._ico)
 
         self._lbl = QLabel(placeholder)
@@ -59,7 +73,7 @@ class DropFileEdit(QWidget):
         self.setMinimumWidth(0)
 
         self._clr = QPushButton()
-        self._clr.setIcon(qta.icon('fa5s.times', color='#4A5568'))
+        self._clr.setIcon(qta.icon('fa5s.times', color=muted))
         self._clr.setObjectName("drop_clear")
         self._clr.setFixedSize(24, 24)
         self._clr.setVisible(False)
@@ -91,15 +105,33 @@ class DropFileEdit(QWidget):
 
     def clear(self):
         self._path_value = ""
+        muted = _muted_icon_color()
         self._lbl.setText(self._placeholder)
         self._lbl.setToolTip("")
         self._lbl.setProperty("has_file", "false")
-        self._ico.setIcon(qta.icon('fa5s.cloud-upload-alt', color='#4A5568'))
+        self._ico.setIcon(qta.icon('fa5s.cloud-upload-alt', color=muted))
         self._ico.setProperty("has_file", "false")
-        self._clr.setIcon(qta.icon('fa5s.times', color='#4A5568'))
+        self._clr.setIcon(qta.icon('fa5s.times', color=muted))
         self._clr.setVisible(False)
         for w in (self._lbl, self._ico):
             w.style().unpolish(w); w.style().polish(w)
+
+    def update_theme(self, dark: bool) -> None:
+        """Re-emit the muted icons with theme-appropriate colour.
+
+        Only the empty-state icons need refresh — when a file is loaded
+        the upload icon is replaced by the teal ACCENT pdf icon (still
+        readable in both themes) and the clear icon uses ``error_color()``
+        which is already theme-aware.
+        """
+        if self._path_value:
+            # Loaded state: clear button keeps error_color, which already
+            # tracks the theme; nothing to update.
+            self._clr.setIcon(qta.icon('fa5s.times', color=error_color()))
+            return
+        muted = _muted_icon_color(dark)
+        self._ico.setIcon(qta.icon('fa5s.cloud-upload-alt', color=muted))
+        self._clr.setIcon(qta.icon('fa5s.times', color=muted))
 
     # ── drag & drop ──────────────────────────────────────────────────────────
     @staticmethod
@@ -159,8 +191,8 @@ class MultiDropWidget(QWidget):
         h = QHBoxLayout(self)
         h.setContentsMargins(14, 10, 10, 10)
         h.setSpacing(10)
-        ico = _drop_icon('fa5s.folder-open', '#4A5568')
-        h.addWidget(ico)
+        self._ico = _drop_icon('fa5s.folder-open', _muted_icon_color())
+        h.addWidget(self._ico)
         self._lbl = QLabel(t("widget.drop_multi"))
         self._lbl.setObjectName("drop_zone_lbl")
         self._lbl.setWordWrap(True)
@@ -188,6 +220,10 @@ class MultiDropWidget(QWidget):
                  if u.toLocalFile().lower().endswith(".pdf")]
         if paths:
             self._cb(paths)
+
+    def update_theme(self, dark: bool) -> None:
+        self._ico.setIcon(qta.icon('fa5s.folder-open',
+                                   color=_muted_icon_color(dark)))
 
 
 class ColorPickerButton(QPushButton):

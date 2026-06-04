@@ -55,6 +55,7 @@ class TabInfo(BasePage):
                 "border:none; border-radius:8px; padding:14px; }")
 
     def update_theme(self, dark: bool):
+        super().update_theme(dark)
         self._dark_mode = dark
         self._apply_txt_theme()
 

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl, pick_folder, show_error
+from app.utils import section, info_lbl, pick_folder, show_error, result_label_style
 from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
@@ -90,15 +90,18 @@ class TabConverter(BasePage):
         f.addWidget(self._drop_file)
 
         self.lbl_result = QLabel("")
-        self.lbl_result.setStyleSheet(
-            "font-weight:600; font-size:11pt; color:#059669; "
-            "background:transparent; padding:10px 4px;")
+        self.lbl_result.setStyleSheet(result_label_style())
         f.addWidget(self.lbl_result)
         f.addStretch()
         self._compact_hidden = [sec_src, self.drop_in, self.lbl_info]
         # Hide all output sections — save dialog prompts automatically
         for w in (sec_out_folder, self._drop_folder, self._section_file, self._drop_file):
             w.setVisible(False)
+
+    def update_theme(self, dark: bool) -> None:
+        super().update_theme(dark)
+        try: self.lbl_result.setStyleSheet(result_label_style(dark))
+        except RuntimeError: pass  # widget destroyed
 
     # ── UI callbacks ──────────────────────────────────────────────────────
 

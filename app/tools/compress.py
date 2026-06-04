@@ -11,7 +11,8 @@ from pypdf import PdfReader
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl, _compress_pdf, _find_gs, show_error
+from app.utils import (section, info_lbl, _compress_pdf, _find_gs,
+                        show_error, is_dark, result_label_style)
 from app.worker import TaskRunner, run_task
 from app.constants import DESKTOP, TEXT_SEC
 from app.widgets import DropFileEdit
@@ -73,14 +74,21 @@ class TabComprimir(BasePage):
         f.addWidget(self.drop_out)
 
         self.lbl_result = QLabel("")
-        self.lbl_result.setStyleSheet(
-            "font-weight:600; font-size:11pt; color:#059669; "
-            "background:transparent; padding:10px 4px;")
+        self.lbl_result.setStyleSheet(result_label_style())
         f.addWidget(self.lbl_result)
         f.addStretch()
         self._compact_hidden = [sec_src, self.drop_in, self.lbl_info]
         sec_out.setVisible(False)
         self.drop_out.setVisible(False)
+
+    def update_theme(self, dark: bool) -> None:
+        super().update_theme(dark)
+        from app.constants import _LQ
+        sec = TEXT_SEC if dark else _LQ
+        try: self.lbl_result.setStyleSheet(result_label_style(dark))
+        except RuntimeError: pass  # widget destroyed
+        try: self._lbl_level_hint.setStyleSheet(f"color:{sec}; font-size:10pt;")
+        except RuntimeError: pass  # widget destroyed
 
     def _pick_input(self):
         p, _ = QFileDialog.getOpenFileName(self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))

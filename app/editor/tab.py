@@ -168,12 +168,19 @@ class TabEditar(QWidget):
         go = QVBoxLayout(grp_opts); go.setContentsMargins(6, 6, 6, 6)
         self._opt_stack = QStackedWidget()
 
+        # Hint labels are collected here so update_theme() can recolour
+        # them when the user toggles dark/light — capturing TEXT_SEC at
+        # construction would otherwise leave them with the dark-theme
+        # grey on a light background (or vice-versa).
+        self._hint_labels: list = []
+
         # 0 - Redact
         w0 = QWidget(); v0 = QVBoxLayout(w0); v0.setContentsMargins(0,4,0,0); v0.setSpacing(4)
         v0.addWidget(QLabel(t("edit.color")))
         self._red_color = ColorPickerButton((0, 0, 0))
         v0.addWidget(self._red_color)
         hint0 = QLabel(t("edit.hint.redact")); hint0.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        self._hint_labels.append(hint0)
         v0.addWidget(hint0); v0.addStretch()
         self._opt_stack.addWidget(w0)
 
@@ -191,6 +198,7 @@ class TabEditar(QWidget):
         v1.addLayout(row1)
         hint1 = QLabel(t("edit.hint.text"))
         hint1.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        self._hint_labels.append(hint1)
         v1.addWidget(hint1); v1.addStretch()
         self._opt_stack.addWidget(w1)
 
@@ -204,6 +212,7 @@ class TabEditar(QWidget):
         self._img_drop.btn.clicked.connect(self._pick_image)
         v2.addWidget(self._img_drop)
         hint2 = QLabel(t("edit.hint.image")); hint2.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        self._hint_labels.append(hint2)
         v2.addWidget(hint2); v2.addStretch()
         self._opt_stack.addWidget(w2)
 
@@ -213,6 +222,7 @@ class TabEditar(QWidget):
         self._hi_color = ColorPickerButton((1, 1, 0))
         v3.addWidget(self._hi_color)
         hint3 = QLabel(t("edit.hint.highlight")); hint3.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        self._hint_labels.append(hint3)
         v3.addWidget(hint3); v3.addStretch()
         self._opt_stack.addWidget(w3)
 
@@ -222,6 +232,7 @@ class TabEditar(QWidget):
         self._note_txt = QTextEdit(); self._note_txt.setMaximumHeight(80)
         v4.addWidget(self._note_txt)
         hint4 = QLabel(t("edit.hint.note")); hint4.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        self._hint_labels.append(hint4)
         v4.addWidget(hint4); v4.addStretch()
         self._opt_stack.addWidget(w4)
 
@@ -241,6 +252,11 @@ class TabEditar(QWidget):
         self._sig_preview = QLabel(t("edit.signature.none"))
         self._sig_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._sig_preview.setMinimumHeight(50)
+        # theme-locked: signature canvas must stay white to match the PDF
+        # background the signature is drawn over. Light/dark mode does
+        # not apply here — flipping it would create a colour mismatch
+        # between the on-screen preview and what actually gets stamped
+        # into the PDF.
         self._sig_preview.setStyleSheet("background: white; border: 1px solid #ccc; border-radius: 4px;")
         v7s.addWidget(self._sig_preview)
         self._sig_choose = QPushButton(t("edit.signature.choose"))
@@ -253,6 +269,7 @@ class TabEditar(QWidget):
         hint7s = QLabel(t("edit.hint.signature"))
         hint7s.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         hint7s.setWordWrap(True)
+        self._hint_labels.append(hint7s)
         v7s.addWidget(hint7s); v7s.addStretch()
         self._opt_stack.addWidget(w7)
         self._signature_path = None
@@ -284,6 +301,7 @@ class TabEditar(QWidget):
         v_d.addLayout(wrow)
         hint_d = QLabel(t("edit.hint.draw"))
         hint_d.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;"); hint_d.setWordWrap(True)
+        self._hint_labels.append(hint_d)
         v_d.addWidget(hint_d); v_d.addStretch()
         self._opt_stack.addWidget(w_draw)
 
@@ -292,6 +310,7 @@ class TabEditar(QWidget):
         hint7 = QLabel(t("edit.hint.select"))
         hint7.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
         hint7.setWordWrap(True)
+        self._hint_labels.append(hint7)
         self._sel_result = QTextEdit()
         self._sel_result.setReadOnly(True)
         self._sel_result.setMaximumHeight(80)
@@ -345,8 +364,8 @@ class TabEditar(QWidget):
         body_h.addWidget(ctrl_scroll)
         root.addWidget(body, 1)
 
-        action_bar, _ = ActionBar(t("btn.apply_save"), self._run)
-        root.addWidget(action_bar)
+        self._action_bar, _ = ActionBar(t("btn.apply_save"), self._run)
+        root.addWidget(self._action_bar)
 
         # Keyboard shortcuts
         from PySide6.QtGui import QShortcut, QKeySequence
@@ -389,6 +408,24 @@ class TabEditar(QWidget):
         self._btn_redo.setIcon(qta.icon("fa5s.redo", color=pri))
         self._btn_copy.setIcon(qta.icon("fa5s.copy", color=pri))
         self._sig_choose.setIcon(qta.icon("fa5s.signature", color=pri))
+        # Re-colour hint labels — the f-string captured TEXT_SEC at
+        # construction time, so without this they keep the dark-theme
+        # grey on light backgrounds (or vice-versa).
+        for lbl in self._hint_labels:
+            try:
+                lbl.setStyleSheet(f"color:{sec}; font-size:11px;")
+            except RuntimeError:
+                pass  # widget destroyed
+        # Drop-file widgets carry their own hardcoded icon colours; let
+        # them re-emit with the current theme.
+        for dfe in (self._drop_in, self._img_drop, self._drop_out):
+            fn = getattr(dfe, "update_theme", None)
+            if callable(fn):
+                fn(dark)
+        # Action bar's progress strip — same factory tooling as BasePage.
+        fn = getattr(self._action_bar, "update_theme", None)
+        if callable(fn):
+            fn(dark)
         # Update mode buttons (inactive ones)
         for i, b in enumerate(self._mode_btns):
             if not b.isChecked():

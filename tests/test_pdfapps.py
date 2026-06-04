@@ -97,6 +97,22 @@ class TestParsePages:
         with pytest.raises(ValueError, match=r"valid: 1-5"):
             parse_pages("99", 5)
 
+    def test_dedup_and_sort(self):
+        # Regression: tools that trust parse_pages (extract, rotate,
+        # page_numbers) would emit/rotate the same page twice when the
+        # user typed duplicates or unsorted input. rotate especially
+        # compounded the angle: "3,3" rotated page 3 by 2*angle.
+        assert parse_pages("3,1,2,3", 5) == [0, 1, 2]
+
+    def test_overlapping_ranges_dedup(self):
+        # "1-3,2-4" used to expand to [0,1,2,1,2,3]; now collapses
+        # to the unique sorted union [0,1,2,3].
+        assert parse_pages("1-3,2-4", 5) == [0, 1, 2, 3]
+
+    def test_unsorted_input_sorted(self):
+        # Even without duplicates the output is now stable / sorted.
+        assert parse_pages("5,2,4", 5) == [1, 3, 4]
+
 
 # ── Split ───────────────────────────────────────────────────────────────
 

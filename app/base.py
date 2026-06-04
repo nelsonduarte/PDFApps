@@ -94,6 +94,16 @@ class BasePage(QWidget):
     def paintEvent(self, event):
         _paint_bg(self)
 
+    def update_theme(self, dark: bool) -> None:
+        """Default theme refresh: re-skins the action bar's progress
+        strip. Subclasses overriding this should call ``super().update_theme(dark)``
+        so the progress strip keeps tracking the theme.
+        """
+        fn = getattr(self._action_bar, "update_theme", None)
+        if callable(fn):
+            try: fn(dark)
+            except RuntimeError: pass  # widget destroyed
+
     def _build(self):
         """Subclasses add widgets to self._form here."""
 

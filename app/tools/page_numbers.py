@@ -241,8 +241,16 @@ class TabPageNumbers(BasePage):
                         return None
                     counter += 1
                     n_display = start_num + counter - 1
+                    # {total} represents the count of numbered pages
+                    # (not the last displayed number). With start_num=5
+                    # and 10 target pages, "Page 5 of 10" reads as "5th
+                    # display number, out of 10 numbered pages". The
+                    # legacy `numbered_total + start_num - 1` produced
+                    # "Page 14 of 14" on the last page, which conflates
+                    # the display index with the total count and looks
+                    # like an off-by-one bug to the reader.
                     label = fmt_template.format(
-                        n=n_display, total=numbered_total + start_num - 1)
+                        n=n_display, total=numbered_total)
 
                     page = doc[i]
                     rect = page.rect

@@ -19,7 +19,8 @@ from app.constants import (
     ACCENT, DESKTOP,
     BG_BASE, BG_CARD, BG_INPUT,
     BORDER, TEXT_PRI, TEXT_SEC,
-    _LA, _LB, _LC, _LI, _LN, _LP,
+    SUCCESS_DARK, SUCCESS_LIGHT,
+    _LA, _LB, _LC, _LI, _LN, _LO, _LP,
 )
 
 
@@ -89,7 +90,12 @@ def parse_pages(text: str, total: int) -> list:
         bad = sorted({(p + 1) if p >= 0 else 0 for p in invalid})
         raise ValueError(
             f"Pages out of range: {bad}  (valid: 1-{total})")
-    return pages
+    # Dedupe + sort: callers like rotate.py would otherwise rotate the
+    # same page twice (compounding angles), extract.py would emit
+    # duplicate pages, and watermark.py / page_numbers.py would do
+    # double work. Input like "3,1,2,3" now returns [0, 1, 2] instead
+    # of [2, 0, 1, 2].
+    return sorted(set(pages))
 
 
 def pick_pdfs(parent: QWidget) -> list:
@@ -165,17 +171,37 @@ def ToolHeader(icon_name: str, title: str, desc: str) -> QWidget:
     return w
 
 
+def _action_progress_stylesheet(dark: bool) -> str:
+    """Theme-aware stylesheet for the ActionBar's thin progress strip."""
+    if dark:
+        # Track = BG_INPUT (matches surrounding cards); chunk = accent teal.
+        return (
+            f"QProgressBar {{ background: {BG_INPUT}; border-radius: 3px; }}"
+            f"QProgressBar::chunk {{ background: {ACCENT}; border-radius: 3px; }}"
+        )
+    # Light theme: track = subtle off-white card, chunk = light-mode accent.
+    return (
+        f"QProgressBar {{ background: {_LO}; border-radius: 3px; }}"
+        f"QProgressBar::chunk {{ background: {_LA}; border-radius: 3px; }}"
+    )
+
+
 def ActionBar(btn_text: str, slot) -> tuple:
-    """Bottom bar with primary action button and optional progress bar."""
+    """Bottom bar with primary action button and optional progress bar.
+
+    Returns ``(bar_widget, button)`` for backwards compatibility. The
+    returned ``bar_widget`` carries an ``update_theme(dark)`` method so
+    MainWindow's theme-walker can re-skin the progress strip on dark /
+    light toggle (the old version hardcoded slate + emerald, which made
+    the strip look out of place in light mode).
+    """
     from PySide6.QtWidgets import QProgressBar
     bar = QWidget(); bar.setObjectName("action_bar")
     v = QVBoxLayout(bar); v.setContentsMargins(20, 8, 20, 8); v.setSpacing(6)
     progress = QProgressBar(); progress.setVisible(False)
     progress.setFixedHeight(6); progress.setTextVisible(False)
     progress.setObjectName("action_progress")
-    progress.setStyleSheet(
-        "QProgressBar { background: #1E293B; border-radius: 3px; }"
-        "QProgressBar::chunk { background: #10B981; border-radius: 3px; }")
+    progress.setStyleSheet(_action_progress_stylesheet(is_dark()))
     v.addWidget(progress)
     h = QHBoxLayout(); h.setContentsMargins(0, 0, 0, 0)
     h.addStretch()
@@ -185,6 +211,16 @@ def ActionBar(btn_text: str, slot) -> tuple:
     h.addWidget(btn)
     v.addLayout(h)
     bar.progress = progress  # accessible by tools
+
+    def _update_theme(dark: bool) -> None:
+        try:
+            progress.setStyleSheet(_action_progress_stylesheet(dark))
+        except RuntimeError:
+            pass  # widget destroyed
+    # Attach as a bound attribute so MainWindow.findChildren-style theme
+    # walking (or BasePage subclasses that explicitly forward) can call
+    # it without a class change.
+    bar.update_theme = _update_theme  # type: ignore[attr-defined]
     return bar, btn
 
 
@@ -563,6 +599,24 @@ def error_color() -> str:
     """Return the right error/red shade for the current theme. Brighter
     on dark backgrounds, darker on light — so the text stays readable."""
     return "#F87171" if is_dark() else "#DC2626"
+
+
+def success_color(dark: bool | None = None) -> str:
+    """Return the right emerald shade for the current theme: brighter on
+    dark backgrounds, deeper on light."""
+    if dark is None:
+        dark = is_dark()
+    return SUCCESS_DARK if dark else SUCCESS_LIGHT
+
+
+def result_label_style(dark: bool | None = None) -> str:
+    """Stylesheet for the green 'result' summary label that compress /
+    convert / import tools display after a successful run. Theme-aware
+    so the label stays legible after a runtime theme toggle (the old
+    hardcoded ``#059669`` was emerald-600, fine on light backgrounds
+    but visually loud and slightly off on the dark teal theme)."""
+    return (f"font-weight:600; font-size:11pt; color:{success_color(dark)}; "
+            "background:transparent; padding:10px 4px;")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
