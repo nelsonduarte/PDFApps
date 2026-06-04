@@ -135,7 +135,12 @@ class CardRegion:
     bbox: tuple[float, float, float, float]
     text_block_indices: list[int]
     drawing_indices: list[int]
+    # ``fill_color`` is captured at detection time and kept for Phase E3
+    # fallback rendering (native Word shading when we move away from
+    # rasterization). It is not consumed by the current E2 emit path.
     fill_color: tuple[float, float, float] | None
+    widget_indices: list[int] = field(default_factory=list)
+    annotation_indices: list[int] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -712,18 +717,45 @@ def detect_card_regions(
             continue  # deferred to Phase E3
         final_groups.append(g)
 
-    # Step 6: sort top-to-bottom and emit CardRegion instances.
+    # Step 7: sort top-to-bottom and emit CardRegion instances. Widgets
+    # and annotations whose bbox is contained in the final card bbox are
+    # tracked so callers can suppress them when the card is rasterized
+    # (otherwise a form/sticky-note inside a card would render twice).
     final_groups.sort(key=lambda g: g["bbox"][1])
+    widgets = page_assets.widgets
+    annotations = page_assets.annotations
     out: list[CardRegion] = []
     for g in final_groups:
+        gbb = tuple(g["bbox"])  # type: ignore[assignment]
+        w_idx: list[int] = []
+        for wi, w in enumerate(widgets):
+            if _bbox_area(w.bbox) <= 0:
+                continue
+            if _bbox_contains(gbb, w.bbox):
+                w_idx.append(wi)
+        a_idx: list[int] = []
+        for ai, a in enumerate(annotations):
+            if _bbox_area(a.bbox) <= 0:
+                continue
+            if _bbox_contains(gbb, a.bbox):
+                a_idx.append(ai)
         out.append(
             CardRegion(
-                bbox=tuple(g["bbox"]),  # type: ignore[arg-type]
+                bbox=gbb,  # type: ignore[arg-type]
                 text_block_indices=sorted(g["text_block_indices"]),
                 drawing_indices=sorted(g["drawing_indices"]),
                 fill_color=g["fill_color"],
+                widget_indices=sorted(w_idx),
+                annotation_indices=sorted(a_idx),
             )
         )
+    _log.debug(
+        "cards page %d: candidates=%d kept=%d final=%d",
+        page_assets.page_index,
+        len(candidates),
+        len(kept),
+        len(out),
+    )
     return out
 
 

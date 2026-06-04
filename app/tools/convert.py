@@ -1,8 +1,11 @@
 """PDFApps – TabConverter: convert PDF to images, DOCX, TXT, PPTX, XLSX, HTML, EPUB."""
 
 import contextlib
+import logging
 import os
 import re
+
+_log = logging.getLogger(__name__)
 
 _CTRL_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
 
@@ -330,39 +333,72 @@ class TabConverter(BasePage):
                     # and deferred to Phase E3.
                     try:
                         card_regions = detect_card_regions(pa)
-                    except Exception:
+                    except Exception as exc:
+                        _log.warning(
+                            "detect_card_regions failed on page %d: %s",
+                            pa.page_index, exc,
+                        )
                         card_regions = []
                     consumed_text_indices: set[int] = set()
+                    consumed_widget_indices: set[int] = set()
+                    consumed_annotation_indices: set[int] = set()
                     for cr in card_regions:
                         for ti in cr.text_block_indices:
                             consumed_text_indices.add(ti)
+                        for wi in cr.widget_indices:
+                            consumed_widget_indices.add(wi)
+                        for ai in cr.annotation_indices:
+                            consumed_annotation_indices.add(ai)
                     card_emit_idx = 0  # next card region to emit
                     cards_to_emit = list(card_regions)
 
                     def _emit_card(cr) -> None:
                         try:
                             page = doc[pa.page_index]
+                            # Defensive: page.get_drawings() returns coords in
+                            # the post-rotation space and get_pixmap(clip=...)
+                            # expects the same, so the existing flow already
+                            # works for rotated pages. If a regression ever
+                            # surfaces we may need to apply
+                            # ``page.derotation_matrix`` to the clip rect.
+                            # TODO(E3): explicit derotation if a real-world
+                            # rotated PDF reproduces a misalignment.
+                            if getattr(page, "rotation", 0):
+                                _log.debug(
+                                    "page %d rotated %d°, card clip may "
+                                    "need derotation",
+                                    pa.page_index, page.rotation,
+                                )
                             clip = fitz.Rect(*cr.bbox)
                             pix = page.get_pixmap(
                                 clip=clip,
                                 dpi=200,
                                 colorspace=fitz.csRGB,
                             )
-                            png_bytes = pix.tobytes("png")
-                            if not png_bytes:
+                            data = pix.tobytes("png")
+                            pix = None  # release native buffer
+                            if not data:
                                 return
                             page_w = pa.width or 1.0
                             card_w = max(0.0, cr.bbox[2] - cr.bbox[0])
                             # Word usable width ~ 6 inches (Letter, 1" margins).
                             width_in = (card_w / page_w) * 6.0
-                            if width_in < 2.0:
-                                width_in = 2.0
+                            # Floor very low so narrow sidebar callouts are
+                            # not blown up 2x; cap below the Letter usable
+                            # width so a near-full-page card doesn't push
+                            # past the right margin.
+                            width_in = max(width_in, 1.0)
+                            width_in = min(width_in, 6.5)
                             para = docx_doc.add_paragraph()
                             run = para.add_run()
                             run.add_picture(
-                                io.BytesIO(png_bytes), width=Inches(width_in)
+                                io.BytesIO(data), width=Inches(width_in)
                             )
-                        except Exception:
+                        except Exception as exc:
+                            _log.warning(
+                                "card emit failed on page %d: %s",
+                                pa.page_index, exc,
+                            )
                             return
 
                     # 3b. Text blocks (skip repeated header/footer).
@@ -437,7 +473,10 @@ class TabConverter(BasePage):
                         card_emit_idx += 1
 
                     # 3c. Form widgets — emit captured values so they are not lost.
-                    for w in pa.widgets:
+                    for wi, w in enumerate(pa.widgets):
+                        if wi in consumed_widget_indices:
+                            # Already visible inside a rasterized card.
+                            continue
                         value = _clean(w.field_value).strip()
                         if not value:
                             continue
@@ -445,7 +484,10 @@ class TabConverter(BasePage):
                         docx_doc.add_paragraph(f"[Form: {name}] {value}")
 
                     # 3d. Annotations — sticky notes, FreeText, etc.
-                    for a in pa.annotations:
+                    for ai, a in enumerate(pa.annotations):
+                        if ai in consumed_annotation_indices:
+                            # Already visible inside a rasterized card.
+                            continue
                         content = _clean(a.content).strip()
                         if not content:
                             continue

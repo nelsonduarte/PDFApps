@@ -274,3 +274,77 @@ def test_detect_card_regions_empty_box():
         drawings=[_drawing((50.0, 100.0, 545.0, 300.0), fill=(0.3, 0.5, 0.7))],
     )
     assert detect_card_regions(pa) == []
+
+
+def test_detect_card_regions_frame_body_corners():
+    """Frame + body + 2 corner patches → single region (not a fake grid).
+
+    Real callouts are often drawn as multiple overlapping filled
+    rectangles (outer frame, inner body, rounded-corner stitch fills).
+    Each individual rect has ~the same area as its neighbours so they
+    would naively cluster into rows/columns, but pairwise overlap is
+    well above the dedup threshold. The detector should collapse them
+    and emit a single CardRegion containing the inner text.
+    """
+    card_bbox = (50.0, 100.0, 545.0, 300.0)
+    # Frame, inner body, top-left corner, bottom-right corner — all
+    # heavily overlapping in the same area.
+    frame = (50.0, 100.0, 545.0, 300.0)
+    body = (52.0, 102.0, 543.0, 298.0)
+    corner_tl = (50.0, 100.0, 200.0, 200.0)
+    corner_br = (400.0, 220.0, 545.0, 300.0)
+    rects = [frame, body, corner_tl, corner_br]
+    fill = (0.2, 0.4, 0.8)
+    drawings = [_drawing(r, fill=fill) for r in rects]
+    text_bbox = (60.0, 120.0, 535.0, 200.0)
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=[_make_block("Callout body", text_bbox)],
+        drawings=drawings,
+    )
+    regions = detect_card_regions(pa)
+    assert len(regions) == 1
+    cr = regions[0]
+    assert cr.text_block_indices == [0]
+    # Union covers the original card bbox.
+    assert cr.bbox[0] <= card_bbox[0] + 0.01
+    assert cr.bbox[2] >= card_bbox[2] - 0.01
+
+
+def test_detect_card_regions_vertical_list():
+    """3 stacked cards with same left/width but distinct tops → 3 regions.
+
+    A vertical list of callouts shares the same left edge AND the same
+    width, but the tops are distinct (no row clustering). The detector
+    must NOT suppress them as a 1-D "grid" — they are independent cards
+    and each should map to its own CardRegion.
+    """
+    left, right = 50.0, 545.0
+    fill = (0.2, 0.5, 0.7)
+    card_bboxes = [
+        (left, 100.0, right, 200.0),
+        (left, 220.0, right, 320.0),
+        (left, 340.0, right, 440.0),
+    ]
+    text_bboxes = [
+        (left + 10, b[1] + 10, right - 10, b[3] - 10) for b in card_bboxes
+    ]
+    drawings = [_drawing(b, fill=fill) for b in card_bboxes]
+    text_blocks = [
+        _make_block(f"Card body {i}", tb) for i, tb in enumerate(text_bboxes)
+    ]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+    )
+    regions = detect_card_regions(pa)
+    assert len(regions) == 3
+    # Top-to-bottom order preserved.
+    ys = [cr.bbox[1] for cr in regions]
+    assert ys == sorted(ys)
+    # Each region captures its own text block (1:1).
+    text_index_sets = [set(cr.text_block_indices) for cr in regions]
+    assert text_index_sets == [{0}, {1}, {2}]
