@@ -11,7 +11,7 @@ from pypdf import PdfReader
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl, _compress_pdf, _find_gs
+from app.utils import section, info_lbl, _compress_pdf, _find_gs, show_error
 from app.worker import TaskRunner, run_task
 from app.constants import DESKTOP, TEXT_SEC
 from app.widgets import DropFileEdit
@@ -186,9 +186,14 @@ class TabComprimir(BasePage):
                 QMessageBox.information(self, t("msg.done"),
                     t("msg.pdf_saved", path=out_path) + gs_hint)
 
-        def _on_err(msg):
+        def _on_err(exc):
             self.action_btn.setEnabled(True)
-            QMessageBox.critical(self, t("msg.error"), msg)
+            # Accept either Exception (new TaskRunner contract) or str
+            # (legacy callers); route through show_error so users see
+            # a friendly translated dialog instead of a raw traceback.
+            if not isinstance(exc, BaseException):
+                exc = RuntimeError(str(exc))
+            show_error(self, exc)
 
         self._runner = _CompressRunner()
         self._runner_thread = run_task(self, self._runner, progress, _on_done, _on_err)
