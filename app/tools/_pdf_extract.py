@@ -122,6 +122,22 @@ class PageAssets:
         return float(self.rect[3] - self.rect[1])
 
 
+@dataclass
+class CardRegion:
+    """A rasterizable callout / card region detected on a page.
+
+    Union of one or more filled drawings that contain text blocks. Phase
+    E2 of the convert refactor renders these as inline PNG images so the
+    DOCX preserves the visual look of colored callouts that are awkward
+    to recreate via Word styling.
+    """
+
+    bbox: tuple[float, float, float, float]
+    text_block_indices: list[int]
+    drawing_indices: list[int]
+    fill_color: tuple[float, float, float] | None
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -427,8 +443,293 @@ def detect_repeated_regions(
     return suppressed
 
 
+def _bbox_area(bbox: tuple[float, float, float, float]) -> float:
+    x0, y0, x1, y1 = bbox
+    w = max(0.0, x1 - x0)
+    h = max(0.0, y1 - y0)
+    return w * h
+
+
+def _bbox_contains(
+    outer: tuple[float, float, float, float],
+    inner: tuple[float, float, float, float],
+    tol: float = 2.0,
+) -> bool:
+    """Return True when ``inner`` fits inside ``outer`` (with ``tol`` slack)."""
+    ox0, oy0, ox1, oy1 = outer
+    ix0, iy0, ix1, iy1 = inner
+    return (
+        ix0 >= ox0 - tol
+        and iy0 >= oy0 - tol
+        and ix1 <= ox1 + tol
+        and iy1 <= oy1 + tol
+    )
+
+
+def _bbox_overlap_ratio(
+    a: tuple[float, float, float, float],
+    b: tuple[float, float, float, float],
+) -> float:
+    """Overlap area as a fraction of the smaller of the two bboxes."""
+    ax0, ay0, ax1, ay1 = a
+    bx0, by0, bx1, by1 = b
+    ix0, iy0 = max(ax0, bx0), max(ay0, by0)
+    ix1, iy1 = min(ax1, bx1), min(ay1, by1)
+    if ix1 <= ix0 or iy1 <= iy0:
+        return 0.0
+    inter = (ix1 - ix0) * (iy1 - iy0)
+    smaller = min(_bbox_area(a), _bbox_area(b))
+    if smaller <= 0.0:
+        return 0.0
+    return inter / smaller
+
+
+def _bbox_union(
+    a: tuple[float, float, float, float],
+    b: tuple[float, float, float, float],
+) -> tuple[float, float, float, float]:
+    return (
+        min(a[0], b[0]),
+        min(a[1], b[1]),
+        max(a[2], b[2]),
+        max(a[3], b[3]),
+    )
+
+
+def _looks_like_grid(
+    bboxes: list[tuple[float, float, float, float]],
+    *,
+    align_tol: float = 2.0,
+    overlap_dedup_ratio: float = 0.6,
+) -> bool:
+    """Cheap "is this a grid of cells?" heuristic.
+
+    A grid has at least 3 *distinct* rectangles whose left edges line up
+    in >=2 columns AND whose top edges line up in >=2 rows.
+
+    Real-world callout cards are often rendered as many *overlapping*
+    fill rectangles with the same colour (frame + body + rounded-corner
+    stitches) which would otherwise spuriously match the grid pattern.
+    We therefore deduplicate overlapping rectangles before counting
+    columns/rows — the surviving set approximates the true cell layout.
+    """
+    if len(bboxes) < 3:
+        return False
+
+    # Deduplicate: collapse heavily overlapping rectangles. We iterate
+    # in ascending-area order so smaller rects survive — that way a true
+    # grid of cells beats an outer wrapper frame, and a card's frame +
+    # inner body + corner patches collapse onto a single canonical rect.
+    distinct: list[tuple[float, float, float, float]] = []
+    for b in sorted(bboxes, key=_bbox_area):
+        ovl = any(
+            _bbox_overlap_ratio(b, d) >= overlap_dedup_ratio for d in distinct
+        )
+        if not ovl:
+            distinct.append(b)
+
+    if len(distinct) < 3:
+        return False
+
+    def _cluster(values: list[float]) -> int:
+        if not values:
+            return 0
+        s = sorted(values)
+        clusters = 1
+        ref = s[0]
+        for v in s[1:]:
+            if abs(v - ref) > align_tol:
+                clusters += 1
+                ref = v
+        return clusters
+
+    lefts = [b[0] for b in distinct]
+    tops = [b[1] for b in distinct]
+    col_clusters = _cluster(lefts)
+    row_clusters = _cluster(tops)
+    # Multi-column AND multi-row pattern → grid/table.
+    return col_clusters >= 2 and row_clusters >= 2
+
+
+def detect_card_regions(
+    page_assets: PageAssets,
+    *,
+    min_drawing_area: float = 800.0,
+    white_threshold: float = 0.97,
+    merge_overlap_ratio: float = 0.6,
+) -> list["CardRegion"]:
+    """Detect colored callout / card regions on a page.
+
+    A "card" is a filled vector drawing whose fill is non-white and whose
+    bbox encloses at least one text block. Overlapping or adjacent cards
+    (e.g. a colored frame + an inner body rectangle) are merged into a
+    single region.
+
+    Regions that look like tabular grids (>=3 filled rectangles aligned
+    in columns AND rows) are intentionally excluded — those are
+    deferred to Phase E3.
+
+    Args:
+        page_assets: assets for a single page.
+        min_drawing_area: ignore filled drawings whose bbox is smaller
+            than this many square points (filters icons / glyph fills).
+        white_threshold: a drawing whose RGB components are all >= this
+            value is treated as page background and ignored.
+        merge_overlap_ratio: two card candidates are merged when their
+            overlap (as a fraction of the smaller bbox) reaches this
+            ratio.
+
+    Returns:
+        Ordered (top-to-bottom) list of :class:`CardRegion`. Empty when
+        the page has no qualifying cards.
+    """
+    drawings = page_assets.drawings
+    if not drawings:
+        return []
+
+    # Step 1: candidate filled drawings (significant area, non-white).
+    candidates: list[tuple[int, Drawing]] = []
+    for di, d in enumerate(drawings):
+        if d.fill is None:
+            continue
+        if _bbox_area(d.bbox) < min_drawing_area:
+            continue
+        try:
+            r, g, b = d.fill[0], d.fill[1], d.fill[2]
+        except (TypeError, IndexError):
+            continue
+        if min(r, g, b) >= white_threshold:
+            continue  # essentially white / transparent
+        candidates.append((di, d))
+
+    if not candidates:
+        return []
+
+    # Step 2: for each candidate, collect contained text-block indices.
+    text_blocks = page_assets.text_blocks
+    per_candidate_text: list[list[int]] = []
+    for _, d in candidates:
+        contained: list[int] = []
+        for ti, tb in enumerate(text_blocks):
+            if _bbox_area(tb.bbox) <= 0:
+                continue
+            if _bbox_contains(d.bbox, tb.bbox):
+                contained.append(ti)
+        per_candidate_text.append(contained)
+
+    # Step 3: keep only candidates with >=1 text block inside (drop
+    # decorative dividers).
+    kept: list[tuple[int, Drawing, list[int]]] = []
+    for (di, d), texts in zip(candidates, per_candidate_text):
+        if texts:
+            kept.append((di, d, texts))
+    if not kept:
+        return []
+
+    # Step 4: drop candidates that participate in a tabular grid. A
+    # candidate is "in a grid" when there are at least 2 other kept
+    # candidates whose left-edge AND top-edge cluster with it (i.e. the
+    # candidate has at least one sibling in the same column AND at
+    # least one sibling in the same row). This catches per-cell card
+    # detections on tables (each cell is its own candidate but together
+    # they form a grid) without needing a single outer frame.
+    if len(kept) >= 3:
+        align_tol = 2.0
+        lefts = [d.bbox[0] for _, d, _ in kept]
+        tops = [d.bbox[1] for _, d, _ in kept]
+
+        def _same(a: float, b: float) -> bool:
+            return abs(a - b) <= align_tol
+
+        in_grid_idx: set[int] = set()
+        for i, (_, d, _) in enumerate(kept):
+            li, ti = lefts[i], tops[i]
+            has_row_sibling = any(
+                j != i and _same(tops[j], ti) and not _same(lefts[j], li)
+                for j in range(len(kept))
+            )
+            has_col_sibling = any(
+                j != i and _same(lefts[j], li) and not _same(tops[j], ti)
+                for j in range(len(kept))
+            )
+            if has_row_sibling and has_col_sibling:
+                in_grid_idx.add(i)
+        if in_grid_idx:
+            kept = [k for i, k in enumerate(kept) if i not in in_grid_idx]
+            if not kept:
+                return []
+
+    # Step 5: merge overlapping / contiguous cards into one region.
+    # Each group: dict with bbox, drawing_indices, text_block_indices,
+    # fill_color (taken from the first/largest drawing).
+    groups: list[dict] = []
+    for di, d, texts in kept:
+        merged = False
+        for g in groups:
+            if _bbox_overlap_ratio(g["bbox"], d.bbox) >= merge_overlap_ratio:
+                g["bbox"] = _bbox_union(g["bbox"], d.bbox)
+                g["drawing_indices"].append(di)
+                for ti in texts:
+                    if ti not in g["text_block_indices"]:
+                        g["text_block_indices"].append(ti)
+                merged = True
+                break
+        if not merged:
+            groups.append(
+                {
+                    "bbox": d.bbox,
+                    "drawing_indices": [di],
+                    "text_block_indices": list(texts),
+                    "fill_color": (
+                        float(d.fill[0]),
+                        float(d.fill[1]),
+                        float(d.fill[2]),
+                    )
+                    if d.fill
+                    else None,
+                }
+            )
+
+    # Step 6: discard groups that themselves look like tabular grids of
+    # cells (e.g. a card-builder rendered a table as a single composite
+    # group of sub-rects). We probe by counting filled-drawing children
+    # whose bbox is contained inside the union bbox of the group — if
+    # those children form a 2+ row x 2+ column matrix the region is
+    # almost certainly a table.
+    final_groups: list[dict] = []
+    for g in groups:
+        children: list[tuple[float, float, float, float]] = []
+        gbb = g["bbox"]
+        for di, d in enumerate(drawings):
+            if d.fill is None:
+                continue
+            if _bbox_area(d.bbox) < min_drawing_area:
+                continue
+            if not _bbox_contains(gbb, d.bbox, tol=2.0):
+                continue
+            children.append(d.bbox)
+        if len(children) >= 3 and _looks_like_grid(children):
+            continue  # deferred to Phase E3
+        final_groups.append(g)
+
+    # Step 6: sort top-to-bottom and emit CardRegion instances.
+    final_groups.sort(key=lambda g: g["bbox"][1])
+    out: list[CardRegion] = []
+    for g in final_groups:
+        out.append(
+            CardRegion(
+                bbox=tuple(g["bbox"]),  # type: ignore[arg-type]
+                text_block_indices=sorted(g["text_block_indices"]),
+                drawing_indices=sorted(g["drawing_indices"]),
+                fill_color=g["fill_color"],
+            )
+        )
+    return out
+
+
 __all__ = [
     "Annotation",
+    "CardRegion",
     "Drawing",
     "ImageAsset",
     "PageAssets",
@@ -436,6 +737,7 @@ __all__ = [
     "TextLine",
     "TextSpan",
     "Widget",
+    "detect_card_regions",
     "detect_repeated_regions",
     "extract_page_assets",
 ]

@@ -19,11 +19,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.tools._pdf_extract import (  # noqa: E402
+    CardRegion,
+    Drawing,
     PageAssets,
     TextBlock,
     TextLine,
     TextSpan,
     _normalize_text,
+    detect_card_regions,
     detect_repeated_regions,
 )
 
@@ -182,3 +185,92 @@ def test_detect_repeated_regions_doc_height_fallback():
     skip = detect_repeated_regions([p0, p1], doc_height=842.0)
     assert (0, 0) in skip
     assert (1, 0) in skip
+
+
+# ---------------------------------------------------------------------------
+# detect_card_regions
+# ---------------------------------------------------------------------------
+
+
+def _drawing(
+    bbox: tuple[float, float, float, float],
+    fill: tuple[float, float, float] | None = (0.2, 0.4, 0.8),
+    stroke: tuple[float, float, float] | None = None,
+    kind: str = "f",
+) -> Drawing:
+    return Drawing(bbox=bbox, fill=fill, stroke=stroke, kind=kind)
+
+
+def test_detect_card_regions_basic():
+    """1 colored filled rectangle + 1 contained text block → 1 region."""
+    card_bbox = (50.0, 100.0, 545.0, 300.0)
+    text_bbox = (60.0, 120.0, 535.0, 200.0)
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=[_make_block("Analogy callout", text_bbox)],
+        drawings=[_drawing(card_bbox, fill=(0.2, 0.4, 0.8))],
+    )
+    regions = detect_card_regions(pa)
+    assert len(regions) == 1
+    cr = regions[0]
+    assert isinstance(cr, CardRegion)
+    assert cr.text_block_indices == [0]
+    assert cr.drawing_indices == [0]
+    assert cr.fill_color == (0.2, 0.4, 0.8)
+    # Union bbox should at least cover the card rectangle.
+    assert cr.bbox[0] <= card_bbox[0] + 0.01
+    assert cr.bbox[2] >= card_bbox[2] - 0.01
+
+
+def test_detect_card_regions_white_ignored():
+    """Filled-white rectangles are page background → no region."""
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=[_make_block("Body", (60.0, 120.0, 535.0, 200.0))],
+        drawings=[_drawing((50.0, 100.0, 545.0, 300.0), fill=(1.0, 1.0, 1.0))],
+    )
+    assert detect_card_regions(pa) == []
+
+
+def test_detect_card_regions_excludes_grid():
+    """A 2x2 grid of filled cells with text → deferred to E3 (no region)."""
+    # 2 columns x 2 rows of colored cells (think table cells).
+    cells = [
+        (50.0, 100.0, 250.0, 200.0),
+        (260.0, 100.0, 460.0, 200.0),
+        (50.0, 210.0, 250.0, 310.0),
+        (260.0, 210.0, 460.0, 310.0),
+    ]
+    # An optional outer frame that contains every cell — exercises the
+    # "merge then probe children" path.
+    outer = (48.0, 98.0, 462.0, 312.0)
+    text_blocks = [
+        _make_block(f"Cell {i}", (c[0] + 5, c[1] + 5, c[2] - 5, c[3] - 5))
+        for i, c in enumerate(cells)
+    ]
+    drawings = [_drawing(outer, fill=(0.9, 0.9, 0.9))] + [
+        _drawing(c, fill=(0.6, 0.7, 0.85)) for c in cells
+    ]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+    )
+    assert detect_card_regions(pa) == []
+
+
+def test_detect_card_regions_empty_box():
+    """A filled rectangle with no text inside → not a card (decoration)."""
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=[
+            # Text that lives OUTSIDE the rectangle.
+            _make_block("Far text", (50.0, 400.0, 200.0, 420.0)),
+        ],
+        drawings=[_drawing((50.0, 100.0, 545.0, 300.0), fill=(0.3, 0.5, 0.7))],
+    )
+    assert detect_card_regions(pa) == []

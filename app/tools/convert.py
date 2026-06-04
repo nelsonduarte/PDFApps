@@ -287,6 +287,7 @@ class TabConverter(BasePage):
             from app.tools._pdf_extract import (
                 extract_page_assets,
                 detect_repeated_regions,
+                detect_card_regions,
             )
             doc = fitz.open(pdf_path)
             if doc.needs_pass and pwd:
@@ -321,9 +322,63 @@ class TabConverter(BasePage):
                             run = para.add_run()
                             run.add_picture(io.BytesIO(img.bytes), width=Inches(5.0))
 
+                    # 3a-bis. Detect colored callout / card regions and
+                    # rasterize them as inline PNG images at 200 DPI. Text
+                    # blocks contained within a card are consumed (suppressed
+                    # from the flow below) to avoid duplication. Tables —
+                    # grids of filled cells — are excluded by the detector
+                    # and deferred to Phase E3.
+                    try:
+                        card_regions = detect_card_regions(pa)
+                    except Exception:
+                        card_regions = []
+                    consumed_text_indices: set[int] = set()
+                    for cr in card_regions:
+                        for ti in cr.text_block_indices:
+                            consumed_text_indices.add(ti)
+                    card_emit_idx = 0  # next card region to emit
+                    cards_to_emit = list(card_regions)
+
+                    def _emit_card(cr) -> None:
+                        try:
+                            page = doc[pa.page_index]
+                            clip = fitz.Rect(*cr.bbox)
+                            pix = page.get_pixmap(
+                                clip=clip,
+                                dpi=200,
+                                colorspace=fitz.csRGB,
+                            )
+                            png_bytes = pix.tobytes("png")
+                            if not png_bytes:
+                                return
+                            page_w = pa.width or 1.0
+                            card_w = max(0.0, cr.bbox[2] - cr.bbox[0])
+                            # Word usable width ~ 6 inches (Letter, 1" margins).
+                            width_in = (card_w / page_w) * 6.0
+                            if width_in < 2.0:
+                                width_in = 2.0
+                            para = docx_doc.add_paragraph()
+                            run = para.add_run()
+                            run.add_picture(
+                                io.BytesIO(png_bytes), width=Inches(width_in)
+                            )
+                        except Exception:
+                            return
+
                     # 3b. Text blocks (skip repeated header/footer).
                     for bi, block in enumerate(pa.text_blocks):
                         if (pa.page_index, bi) in skip:
+                            continue
+                        # Emit any pending cards whose top edge is above the
+                        # current block — keeps visual order.
+                        while card_emit_idx < len(cards_to_emit):
+                            nxt = cards_to_emit[card_emit_idx]
+                            if nxt.bbox[1] <= block.bbox[1]:
+                                _emit_card(nxt)
+                                card_emit_idx += 1
+                            else:
+                                break
+                        if bi in consumed_text_indices:
                             continue
                         lines = block.lines
                         if not lines:
@@ -374,6 +429,12 @@ class TabConverter(BasePage):
                                     run.font.color.rgb = RGBColor(r_val, g_val, b_val)
                             if li < len(lines) - 1:
                                 para.add_run(" ")
+
+                    # Flush any remaining cards that sat below the last
+                    # text block (or pages whose only content is a card).
+                    while card_emit_idx < len(cards_to_emit):
+                        _emit_card(cards_to_emit[card_emit_idx])
+                        card_emit_idx += 1
 
                     # 3c. Form widgets — emit captured values so they are not lost.
                     for w in pa.widgets:
