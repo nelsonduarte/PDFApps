@@ -12,6 +12,7 @@ backends. Phase E1 of the convert refactor.
 from __future__ import annotations
 
 import logging
+import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -141,6 +142,43 @@ class CardRegion:
     fill_color: tuple[float, float, float] | None
     widget_indices: list[int] = field(default_factory=list)
     annotation_indices: list[int] = field(default_factory=list)
+
+
+@dataclass
+class TableCell:
+    """A single cell of a detected :class:`TableRegion`.
+
+    ``text_block_indices`` references the parent page's ``text_blocks``
+    list — same indexing convention used by :class:`CardRegion`.
+    """
+
+    bbox: tuple[float, float, float, float]
+    row: int
+    col: int
+    text_block_indices: list[int] = field(default_factory=list)
+
+
+@dataclass
+class TableRegion:
+    """A rectangular grid of cells reconstructed as a real Word table.
+
+    Phase E3 of the convert refactor: instead of letting tabular text
+    collapse into a paragraph soup, the DOCX writer emits ``<w:tbl>``
+    via ``docx.Document.add_table(rows, cols)`` so the original
+    structure (rows, columns, borders) survives the conversion.
+
+    Cells are stored row-major (``cells[row * cols + col]``) but each
+    cell also carries explicit ``row`` / ``col`` indices for callers
+    that need random access.
+    """
+
+    bbox: tuple[float, float, float, float]
+    rows: int
+    cols: int
+    cells: list[TableCell]
+    text_block_indices: list[int]
+    drawing_indices: list[int] = field(default_factory=list)
+    has_borders: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -759,17 +797,416 @@ def detect_card_regions(
     return out
 
 
+def detect_table_regions(
+    page_assets: PageAssets,
+    *,
+    min_cells: int = 4,
+    min_rows: int = 2,
+    min_cols: int = 2,
+    align_tol: float = 3.0,
+    min_cell_area: float = 100.0,
+    presence_ratio: float = 0.8,
+    page_coverage_threshold: float = 0.9,
+    cluster_min_population: int | None = None,
+) -> list["TableRegion"]:
+    """Detect rectangular grids of cells and return them as TableRegion.
+
+    A "table" is a grid of axis-aligned filled or stroked rectangles
+    (each rectangle = one cell) such that:
+
+    * left edges cluster into ``>= min_cols`` columns (``align_tol`` px),
+    * top edges cluster into ``>= min_rows`` rows,
+    * at least ``presence_ratio`` of the ``rows * cols`` cells are
+      actually present in the drawings list (missing cells are tolerated
+      as empty cells in the result),
+    * the region overall encloses at least one text block (purely
+      decorative grids are dropped).
+
+    Cells that span the entire page (a page-fill background mistaken for
+    a single-row "table") are filtered via ``page_coverage_threshold``.
+
+    The result is a list of :class:`TableRegion`, sorted top-to-bottom,
+    each carrying its full grid (with empty cells materialised so
+    callers don't need to test for ``None``) and the indices of the
+    text blocks consumed by every cell.
+
+    Args:
+        page_assets: assets for a single page.
+        min_cells: minimum total cell count (rows * cols) — rejects
+            tiny accidental matches.
+        min_rows: minimum number of distinct top-edge clusters.
+        min_cols: minimum number of distinct left-edge clusters.
+        align_tol: px tolerance for grouping equal X / Y coordinates.
+        min_cell_area: minimum bbox area for a drawing to count as a
+            cell candidate (filters strokes-as-glyphs / hairline noise).
+        presence_ratio: fraction of (rows * cols) cells that must be
+            backed by an actual drawing (rest become empty cells).
+        page_coverage_threshold: candidate sets whose union bbox covers
+            more than this fraction of the page area are discarded
+            (page background / full-page frame).
+    """
+    drawings = page_assets.drawings
+    if not drawings:
+        return []
+
+    page_area = max(1.0, page_assets.width * page_assets.height)
+
+    # Step 1: gather cell candidates — filled OR stroked rectangles
+    # with non-trivial area. Stroked-only candidates matter because a
+    # lot of tables are drawn as line art (no fill).
+    # Minimum side length for a real cell — separator strokes / banner
+    # underlines are rendered as very thin filled rects (height < 4 px,
+    # full row width) and would otherwise win the smallest-first dedup
+    # below and crowd out the actual visible cells.
+    min_cell_side = 8.0
+    raw_cands: list[tuple[int, tuple[float, float, float, float]]] = []
+    for di, d in enumerate(drawings):
+        if d.fill is None and d.stroke is None:
+            continue
+        bbox = d.bbox
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+        if w < min_cell_side or h < min_cell_side:
+            continue
+        if _bbox_area(bbox) < min_cell_area:
+            continue
+        raw_cands.append((di, bbox))
+
+    # Slide-builder PDFs render each "visible" cell as a stack of
+    # overlapping fill rectangles (background body + top stripe +
+    # rounded-corner stitches). Each rect has a slightly different
+    # (x0, y0), which explodes the column/row clusters and breaks the
+    # grid detection. Deduplicate first: pick a single canonical
+    # rectangle per visually overlapping group. We iterate
+    # *largest-first within each cluster* but only after dropping
+    # outliers that are much larger than the typical candidate (page
+    # backgrounds, banner frames). The size-band filter uses the
+    # median candidate area as the typical size and keeps candidates
+    # within [0.2, 3.0] * median area, which empirically isolates
+    # real cells from both noise dots and frame backgrounds.
+    cell_dedup_ratio = 0.6
+    areas = sorted(_bbox_area(b) for _, b in raw_cands)
+    median_area = areas[len(areas) // 2] if areas else 0.0
+    if median_area > 0:
+        band_lo = 0.2 * median_area
+        band_hi = 3.0 * median_area
+        band = [
+            (di, bb)
+            for di, bb in raw_cands
+            if band_lo <= _bbox_area(bb) <= band_hi
+        ]
+    else:
+        band = list(raw_cands)
+    cands: list[tuple[int, tuple[float, float, float, float]]] = []
+    for di, bbox in sorted(band, key=lambda x: -_bbox_area(x[1])):
+        if any(
+            _bbox_overlap_ratio(bbox, kept_bb) >= cell_dedup_ratio
+            for _, kept_bb in cands
+        ):
+            continue
+        cands.append((di, bbox))
+
+    # Need at least ``ceil(min_cells * presence_ratio)`` candidates to
+    # have a chance of meeting the grid criterion. The logical grid
+    # size check (rows * cols >= min_cells) is enforced later, after
+    # we know the row / column count.
+    floor = max(2, math.ceil(min_cells * presence_ratio))
+    if len(cands) < floor:
+        return []
+
+    # Step 2: cluster by left edge (columns) and top edge (rows).
+    # ``_cluster_axis`` keeps only clusters whose population is at
+    # least ``min_population`` — real grid columns/rows have multiple
+    # cells sharing the same edge; one-off values are decorations or
+    # text bbox starts that should not seed a row/column.
+    def _cluster_axis(
+        values: list[float], *, min_population: int = 2
+    ) -> list[float]:
+        if not values:
+            return []
+        s = sorted(values)
+        clusters: list[list[float]] = [[s[0]]]
+        for v in s[1:]:
+            if abs(v - clusters[-1][-1]) <= align_tol:
+                clusters[-1].append(v)
+            else:
+                clusters.append([v])
+        return [
+            sum(c) / len(c) for c in clusters if len(c) >= min_population
+        ]
+
+    lefts = [b[0] for _, b in cands]
+    tops = [b[1] for _, b in cands]
+    # Default cluster-population threshold: scale with candidate count.
+    # Small synthetic test grids (≤ ~6 candidates) keep population=1 so
+    # missing-cell layouts still detect; real-world busy slide decks
+    # bump to population=2 so spurious singleton rows/columns from
+    # decorations don't survive.
+    if cluster_min_population is None:
+        cluster_min_population = 2 if len(cands) > 8 else 1
+    col_x = _cluster_axis(lefts, min_population=cluster_min_population)
+    row_y = _cluster_axis(tops, min_population=cluster_min_population)
+
+    if len(col_x) < min_cols or len(row_y) < min_rows:
+        return []
+
+    def _bucket(v: float, anchors: list[float]) -> int:
+        best, best_dist = -1, float("inf")
+        for i, a in enumerate(anchors):
+            d = abs(v - a)
+            if d < best_dist:
+                best, best_dist = i, d
+        return best if best_dist <= align_tol else -1
+
+    # Step 3: build a (row, col) -> drawing-index map. Connected
+    # cells that share a row/col but live in different connected
+    # components are grouped together later, so we keep one map per
+    # full grid candidate and refine after.
+    grid: dict[tuple[int, int], tuple[int, tuple[float, float, float, float]]] = {}
+    for di, bbox in cands:
+        col = _bucket(bbox[0], col_x)
+        row = _bucket(bbox[1], row_y)
+        if col < 0 or row < 0:
+            continue
+        # Multiple drawings stack on the same cell (fill + stroke). Keep
+        # the largest bbox so cell extents match the visible cell.
+        key = (row, col)
+        prev = grid.get(key)
+        if prev is None or _bbox_area(bbox) > _bbox_area(prev[1]):
+            grid[key] = (di, bbox)
+
+    if not grid:
+        return []
+
+    # Step 4: split into connected components on the (row, col)
+    # lattice so two unrelated tables on the same page (one above the
+    # other) are reported separately. Connectivity is "share a row OR
+    # share a column" rather than strict 4-neighbour — this matters
+    # when a table skips one of the page-wide column clusters (e.g.
+    # the table sits in cols 0/2/3/4 because column 1 is occupied by
+    # a header banner with a different alignment that does not appear
+    # in the data table rows). With pure 4-connectivity the table's
+    # column 0 would split from columns 2/3/4 even though they
+    # clearly belong together.
+    occupied = set(grid.keys())
+    by_row: dict[int, list[tuple[int, int]]] = {}
+    by_col: dict[int, list[tuple[int, int]]] = {}
+    for key in occupied:
+        by_row.setdefault(key[0], []).append(key)
+        by_col.setdefault(key[1], []).append(key)
+    visited: set[tuple[int, int]] = set()
+    components: list[set[tuple[int, int]]] = []
+    for key in occupied:
+        if key in visited:
+            continue
+        comp: set[tuple[int, int]] = set()
+        stack = [key]
+        while stack:
+            cur = stack.pop()
+            if cur in visited:
+                continue
+            visited.add(cur)
+            comp.add(cur)
+            # Connect to every cell in the same row and every cell in
+            # the same column. This makes the component definition
+            # closure-of-row-or-column-sharing — a clean way to express
+            # "this is one table".
+            for nb in by_row.get(cur[0], ()):
+                if nb not in visited:
+                    stack.append(nb)
+            for nb in by_col.get(cur[1], ()):
+                if nb not in visited:
+                    stack.append(nb)
+        components.append(comp)
+
+    regions: list[TableRegion] = []
+    for comp in components:
+        rows_in = sorted({r for r, _ in comp})
+        cols_in = sorted({c for _, c in comp})
+        n_rows = len(rows_in)
+        n_cols = len(cols_in)
+        if n_rows < min_rows or n_cols < min_cols:
+            continue
+        if n_rows * n_cols < min_cells:
+            continue
+        present = len(comp)
+        if present < presence_ratio * (n_rows * n_cols):
+            continue
+
+        # Local row/col indices for this component (0..n-1).
+        row_local = {r: i for i, r in enumerate(rows_in)}
+        col_local = {c: i for i, c in enumerate(cols_in)}
+
+        # Per-row / per-column anchor coordinates for extrapolating
+        # missing cells.
+        row_top = {r: row_y[r] for r in rows_in}
+        col_left = {c: col_x[c] for c in cols_in}
+
+        # Compute right/bottom anchors from the present cells.
+        col_right: dict[int, float] = {}
+        row_bottom: dict[int, float] = {}
+        for (r, c) in comp:
+            _, bb = grid[(r, c)]
+            col_right[c] = max(col_right.get(c, bb[2]), bb[2])
+            row_bottom[r] = max(row_bottom.get(r, bb[3]), bb[3])
+        # Fallback: any column/row lacking an explicit right/bottom
+        # gets a width/height equal to the cluster's neighbour gap.
+        sorted_cols = sorted(cols_in)
+        for i, c in enumerate(sorted_cols):
+            if c in col_right:
+                continue
+            if i + 1 < len(sorted_cols):
+                col_right[c] = col_x[sorted_cols[i + 1]] - 1.0
+            else:
+                col_right[c] = col_x[c] + 50.0
+        sorted_rows = sorted(rows_in)
+        for i, r in enumerate(sorted_rows):
+            if r in row_bottom:
+                continue
+            if i + 1 < len(sorted_rows):
+                row_bottom[r] = row_y[sorted_rows[i + 1]] - 1.0
+            else:
+                row_bottom[r] = row_y[r] + 20.0
+
+        # Union bbox across all cells (present + extrapolated).
+        x0 = min(col_left[c] for c in cols_in)
+        y0 = min(row_top[r] for r in rows_in)
+        x1 = max(col_right[c] for c in cols_in)
+        y1 = max(row_bottom[r] for r in rows_in)
+        union_bbox = (x0, y0, x1, y1)
+
+        # Discard if the region covers (almost) the whole page — that's
+        # a page-background drawing, not a table.
+        if _bbox_area(union_bbox) >= page_coverage_threshold * page_area:
+            continue
+
+        # Build cells row-major, materialising empty ones.
+        cells: list[TableCell] = []
+        drawing_idx_list: list[int] = []
+        any_text = False
+        consumed_text: list[int] = []
+        seen_text: set[int] = set()
+        # Precompute cell bboxes so we can pre-assign each text block
+        # to whichever cell contains its centroid (handles the common
+        # PyMuPDF case where adjacent columns of one table row land in
+        # a single text block — strict containment then fails).
+        cell_bboxes: dict[tuple[int, int], tuple[float, float, float, float]] = {}
+        for r in sorted_rows:
+            for c in sorted_cols:
+                cbb_present = grid.get((r, c))
+                if cbb_present is not None:
+                    cell_bboxes[(r, c)] = cbb_present[1]
+                else:
+                    cell_bboxes[(r, c)] = (
+                        col_left[c], row_top[r],
+                        col_right[c], row_bottom[r],
+                    )
+        # Region bbox (already computed as union_bbox) — only text
+        # blocks whose centroid sits inside the region are candidates.
+        rx0, ry0, rx1, ry1 = union_bbox
+        text_assignment: dict[int, tuple[int, int]] = {}
+        for ti, tb in enumerate(page_assets.text_blocks):
+            if _bbox_area(tb.bbox) <= 0:
+                continue
+            tx = (tb.bbox[0] + tb.bbox[2]) / 2.0
+            ty = (tb.bbox[1] + tb.bbox[3]) / 2.0
+            if not (rx0 - 2.0 <= tx <= rx1 + 2.0 and ry0 - 2.0 <= ty <= ry1 + 2.0):
+                continue
+            # Find the cell whose bbox contains the centroid; fall
+            # back to the closest cell (centroid distance) for blocks
+            # straddling boundaries.
+            best_key = None
+            best_dist = float("inf")
+            for key, cbb in cell_bboxes.items():
+                cx = (cbb[0] + cbb[2]) / 2.0
+                cy = (cbb[1] + cbb[3]) / 2.0
+                if (cbb[0] - 2.0 <= tx <= cbb[2] + 2.0
+                        and cbb[1] - 2.0 <= ty <= cbb[3] + 2.0):
+                    best_key = key
+                    best_dist = 0.0
+                    break
+                dist = (cx - tx) ** 2 + (cy - ty) ** 2
+                if dist < best_dist:
+                    best_dist = dist
+                    best_key = key
+            if best_key is not None:
+                text_assignment[ti] = best_key
+        for r in sorted_rows:
+            for c in sorted_cols:
+                bb = cell_bboxes[(r, c)]
+                cbb_present = grid.get((r, c))
+                if cbb_present is not None:
+                    drawing_idx_list.append(cbb_present[0])
+                t_in_cell = sorted(
+                    ti for ti, key in text_assignment.items() if key == (r, c)
+                )
+                if t_in_cell:
+                    any_text = True
+                    consumed_text.extend(t_in_cell)
+                cells.append(
+                    TableCell(
+                        bbox=bb,
+                        row=row_local[r],
+                        col=col_local[c],
+                        text_block_indices=t_in_cell,
+                    )
+                )
+
+        if not any_text:
+            # Decorative grid (no text content) — skip.
+            continue
+
+        # Borders: heuristic — if a majority of present cells have a
+        # stroke, render as "Table Grid". Otherwise default to True so
+        # the table is still visually delimited (safe default).
+        stroked = 0
+        present_count = 0
+        for (r, c) in comp:
+            di, _ = grid[(r, c)]
+            d = drawings[di]
+            present_count += 1
+            if d.stroke is not None:
+                stroked += 1
+        has_borders = present_count == 0 or stroked >= present_count // 2
+
+        regions.append(
+            TableRegion(
+                bbox=union_bbox,
+                rows=n_rows,
+                cols=n_cols,
+                cells=cells,
+                text_block_indices=sorted(set(consumed_text)),
+                drawing_indices=sorted(set(drawing_idx_list)),
+                has_borders=has_borders,
+            )
+        )
+
+    regions.sort(key=lambda tr: tr.bbox[1])
+    _log.debug(
+        "tables page %d: candidates=%d cols=%d rows=%d → regions=%d",
+        page_assets.page_index,
+        len(cands),
+        len(col_x),
+        len(row_y),
+        len(regions),
+    )
+    return regions
+
+
 __all__ = [
     "Annotation",
     "CardRegion",
     "Drawing",
     "ImageAsset",
     "PageAssets",
+    "TableCell",
+    "TableRegion",
     "TextBlock",
     "TextLine",
     "TextSpan",
     "Widget",
     "detect_card_regions",
     "detect_repeated_regions",
+    "detect_table_regions",
     "extract_page_assets",
 ]

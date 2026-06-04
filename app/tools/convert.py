@@ -291,6 +291,7 @@ class TabConverter(BasePage):
                 extract_page_assets,
                 detect_repeated_regions,
                 detect_card_regions,
+                detect_table_regions,
             )
             doc = fitz.open(pdf_path)
             if doc.needs_pass and pwd:
@@ -329,8 +330,9 @@ class TabConverter(BasePage):
                     # rasterize them as inline PNG images at 200 DPI. Text
                     # blocks contained within a card are consumed (suppressed
                     # from the flow below) to avoid duplication. Tables —
-                    # grids of filled cells — are excluded by the detector
-                    # and deferred to Phase E3.
+                    # grids of filled cells — are excluded by the card
+                    # detector and handled by ``detect_table_regions`` below
+                    # so they survive as real ``<w:tbl>`` elements.
                     try:
                         card_regions = detect_card_regions(pa)
                     except Exception as exc:
@@ -339,6 +341,51 @@ class TabConverter(BasePage):
                             pa.page_index, exc,
                         )
                         card_regions = []
+                    # 3a-ter. Detect tabular grids — Phase E3. Cards and
+                    # tables should be mutually exclusive (the card
+                    # detector already drops grid-like regions) but a
+                    # standalone "callout" can occasionally bbox-overlap
+                    # a multi-cell layout that the table detector also
+                    # picks up. We give tables priority and drop any
+                    # card whose bbox is largely covered by a detected
+                    # table region — that prevents the same text from
+                    # appearing both inside a rasterized card image and
+                    # again inside the table cell.
+                    try:
+                        table_regions = detect_table_regions(pa)
+                    except Exception as exc:
+                        _log.warning(
+                            "detect_table_regions failed on page %d: %s",
+                            pa.page_index, exc,
+                        )
+                        table_regions = []
+
+                    def _bbox_overlap_ratio_local(
+                        a: tuple[float, float, float, float],
+                        b: tuple[float, float, float, float],
+                    ) -> float:
+                        ax0, ay0, ax1, ay1 = a
+                        bx0, by0, bx1, by1 = b
+                        ix0 = max(ax0, bx0); iy0 = max(ay0, by0)
+                        ix1 = min(ax1, bx1); iy1 = min(ay1, by1)
+                        if ix1 <= ix0 or iy1 <= iy0:
+                            return 0.0
+                        inter = (ix1 - ix0) * (iy1 - iy0)
+                        a_area = max(1e-6, (ax1 - ax0) * (ay1 - ay0))
+                        return inter / a_area
+
+                    if table_regions:
+                        # Drop cards whose bbox is mostly inside a table
+                        # (>= 50 % of the card's own area). Mutual
+                        # exclusion: text shows up only as table cells.
+                        card_regions = [
+                            cr for cr in card_regions
+                            if not any(
+                                _bbox_overlap_ratio_local(cr.bbox, tr.bbox) >= 0.5
+                                for tr in table_regions
+                            )
+                        ]
+
                     consumed_text_indices: set[int] = set()
                     consumed_widget_indices: set[int] = set()
                     consumed_annotation_indices: set[int] = set()
@@ -349,8 +396,9 @@ class TabConverter(BasePage):
                             consumed_widget_indices.add(wi)
                         for ai in cr.annotation_indices:
                             consumed_annotation_indices.add(ai)
-                    card_emit_idx = 0  # next card region to emit
-                    cards_to_emit = list(card_regions)
+                    for tr in table_regions:
+                        for ti in tr.text_block_indices:
+                            consumed_text_indices.add(ti)
 
                     def _emit_card(cr) -> None:
                         try:
@@ -401,19 +449,73 @@ class TabConverter(BasePage):
                             )
                             return
 
+                    def _emit_table(tr) -> None:
+                        try:
+                            docx_table = docx_doc.add_table(
+                                rows=tr.rows, cols=tr.cols
+                            )
+                            # Default Word style — produces visible borders.
+                            # Borderless detection is recorded in
+                            # ``tr.has_borders`` for future styling work.
+                            with contextlib.suppress(Exception):
+                                docx_table.style = "Table Grid"
+                            for cell in tr.cells:
+                                if cell.row >= tr.rows or cell.col >= tr.cols:
+                                    continue
+                                texts: list[str] = []
+                                for ti in cell.text_block_indices:
+                                    if ti < 0 or ti >= len(pa.text_blocks):
+                                        continue
+                                    block = pa.text_blocks[ti]
+                                    for line in block.lines:
+                                        line_txt = "".join(
+                                            _clean(s.text) for s in line.spans
+                                        ).strip()
+                                        if line_txt:
+                                            texts.append(line_txt)
+                                try:
+                                    docx_cell = docx_table.rows[cell.row].cells[
+                                        cell.col
+                                    ]
+                                    docx_cell.text = "\n".join(texts)
+                                except Exception:
+                                    continue
+                        except Exception as exc:
+                            _log.warning(
+                                "table emit failed on page %d: %s",
+                                pa.page_index, exc,
+                            )
+
+                    # Merge cards + tables into a single Y-ordered queue so
+                    # the flush logic below preserves visual order when
+                    # both kinds appear on the same page.
+                    pending: list[tuple[float, str, object]] = []
+                    for cr in card_regions:
+                        pending.append((cr.bbox[1], "card", cr))
+                    for tr in table_regions:
+                        pending.append((tr.bbox[1], "table", tr))
+                    pending.sort(key=lambda x: x[0])
+                    pending_idx = 0
+
+                    def _flush_until(y_limit: float) -> None:
+                        nonlocal pending_idx
+                        while pending_idx < len(pending):
+                            top, kind, obj = pending[pending_idx]
+                            if top > y_limit:
+                                return
+                            if kind == "card":
+                                _emit_card(obj)
+                            else:
+                                _emit_table(obj)
+                            pending_idx += 1
+
                     # 3b. Text blocks (skip repeated header/footer).
                     for bi, block in enumerate(pa.text_blocks):
                         if (pa.page_index, bi) in skip:
                             continue
-                        # Emit any pending cards whose top edge is above the
-                        # current block — keeps visual order.
-                        while card_emit_idx < len(cards_to_emit):
-                            nxt = cards_to_emit[card_emit_idx]
-                            if nxt.bbox[1] <= block.bbox[1]:
-                                _emit_card(nxt)
-                                card_emit_idx += 1
-                            else:
-                                break
+                        # Emit any pending cards / tables whose top edge is
+                        # above the current block — keeps visual order.
+                        _flush_until(block.bbox[1])
                         if bi in consumed_text_indices:
                             continue
                         lines = block.lines
@@ -466,11 +568,10 @@ class TabConverter(BasePage):
                             if li < len(lines) - 1:
                                 para.add_run(" ")
 
-                    # Flush any remaining cards that sat below the last
-                    # text block (or pages whose only content is a card).
-                    while card_emit_idx < len(cards_to_emit):
-                        _emit_card(cards_to_emit[card_emit_idx])
-                        card_emit_idx += 1
+                    # Flush any remaining cards / tables that sat below the
+                    # last text block (or pages whose only content is a
+                    # card / table).
+                    _flush_until(float("inf"))
 
                     # 3c. Form widgets — emit captured values so they are not lost.
                     for wi, w in enumerate(pa.widgets):

@@ -22,12 +22,15 @@ from app.tools._pdf_extract import (  # noqa: E402
     CardRegion,
     Drawing,
     PageAssets,
+    TableCell,
+    TableRegion,
     TextBlock,
     TextLine,
     TextSpan,
     _normalize_text,
     detect_card_regions,
     detect_repeated_regions,
+    detect_table_regions,
 )
 
 
@@ -348,3 +351,154 @@ def test_detect_card_regions_vertical_list():
     # Each region captures its own text block (1:1).
     text_index_sets = [set(cr.text_block_indices) for cr in regions]
     assert text_index_sets == [{0}, {1}, {2}]
+
+
+# ---------------------------------------------------------------------------
+# detect_table_regions
+# ---------------------------------------------------------------------------
+
+
+def _grid_cells(
+    rows: int,
+    cols: int,
+    *,
+    x0: float = 50.0,
+    y0: float = 100.0,
+    cell_w: float = 100.0,
+    cell_h: float = 40.0,
+) -> list[tuple[float, float, float, float]]:
+    """Return ``rows * cols`` axis-aligned cell bboxes laid out in a grid."""
+    out: list[tuple[float, float, float, float]] = []
+    for r in range(rows):
+        for c in range(cols):
+            cx0 = x0 + c * cell_w
+            cy0 = y0 + r * cell_h
+            out.append((cx0, cy0, cx0 + cell_w, cy0 + cell_h))
+    return out
+
+
+def test_detect_table_regions_basic():
+    """2x3 grid of filled cells + 1 text block per cell → 1 TableRegion."""
+    cells = _grid_cells(rows=2, cols=3)
+    drawings = [
+        _drawing(c, fill=(0.9, 0.9, 0.9), stroke=(0.0, 0.0, 0.0)) for c in cells
+    ]
+    # One text block centred inside each cell.
+    text_blocks = [
+        _make_block(
+            f"R{i // 3}C{i % 3}",
+            (c[0] + 5, c[1] + 5, c[2] - 5, c[3] - 5),
+        )
+        for i, c in enumerate(cells)
+    ]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+    )
+    regions = detect_table_regions(pa)
+    assert len(regions) == 1
+    tr = regions[0]
+    assert isinstance(tr, TableRegion)
+    assert tr.rows == 2
+    assert tr.cols == 3
+    assert len(tr.cells) == 6
+    # Each cell must be a TableCell with one consumed text block.
+    for cell in tr.cells:
+        assert isinstance(cell, TableCell)
+        assert len(cell.text_block_indices) == 1
+    # Total text blocks consumed = 6 (one per cell).
+    assert len(tr.text_block_indices) == 6
+    # Row/col assignment is row-major.
+    coords = [(cell.row, cell.col) for cell in tr.cells]
+    assert coords == [
+        (0, 0), (0, 1), (0, 2),
+        (1, 0), (1, 1), (1, 2),
+    ]
+
+
+def test_detect_table_regions_min_size():
+    """1x3 grid (single row) is rejected by ``min_rows``."""
+    cells = _grid_cells(rows=1, cols=3)
+    drawings = [_drawing(c, fill=(0.9, 0.9, 0.9)) for c in cells]
+    text_blocks = [
+        _make_block(f"C{i}", (c[0] + 5, c[1] + 5, c[2] - 5, c[3] - 5))
+        for i, c in enumerate(cells)
+    ]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+    )
+    assert detect_table_regions(pa) == []
+
+
+def test_detect_table_regions_missing_cell():
+    """2x2 grid missing 1 of 4 cells (75 %) → rejected by 80 % threshold.
+
+    With the default ``presence_ratio=0.8`` the 3-of-4 layout falls just
+    short. Lowering the threshold via the kwarg lets the region through
+    with 4 cells materialised (the missing one is empty).
+    """
+    cells = _grid_cells(rows=2, cols=2)
+    # Drop the bottom-right cell to simulate a real-world "missing" cell.
+    cells_present = cells[:3]
+    drawings = [_drawing(c, fill=(0.9, 0.9, 0.9)) for c in cells_present]
+    text_blocks = [
+        _make_block(f"T{i}", (c[0] + 5, c[1] + 5, c[2] - 5, c[3] - 5))
+        for i, c in enumerate(cells_present)
+    ]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+    )
+    # Default threshold rejects it (3 / 4 = 0.75 < 0.8).
+    assert detect_table_regions(pa) == []
+
+    # Relaxed threshold (0.7) accepts it and materialises the empty cell.
+    regions = detect_table_regions(pa, presence_ratio=0.7)
+    assert len(regions) == 1
+    tr = regions[0]
+    assert tr.rows == 2
+    assert tr.cols == 2
+    assert len(tr.cells) == 4  # missing cell exists as an empty TableCell
+    empty_cells = [c for c in tr.cells if not c.text_block_indices]
+    assert len(empty_cells) == 1
+    assert (empty_cells[0].row, empty_cells[0].col) == (1, 1)
+
+
+def test_detect_table_regions_lone_row_ignored():
+    """A 5-column single-row "grid" is a list — not a table."""
+    cells = _grid_cells(rows=1, cols=5)
+    drawings = [_drawing(c, fill=(0.9, 0.9, 0.9)) for c in cells]
+    text_blocks = [
+        _make_block(f"C{i}", (c[0] + 5, c[1] + 5, c[2] - 5, c[3] - 5))
+        for i, c in enumerate(cells)
+    ]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+    )
+    assert detect_table_regions(pa) == []
+
+
+def test_detect_table_regions_no_text_ignored():
+    """A 2x2 grid with zero text blocks inside is decorative → skipped."""
+    cells = _grid_cells(rows=2, cols=2)
+    drawings = [_drawing(c, fill=(0.9, 0.9, 0.9)) for c in cells]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=[
+            # Text floating far below the grid, not inside any cell.
+            _make_block("Caption", (50.0, 600.0, 400.0, 620.0)),
+        ],
+        drawings=drawings,
+    )
+    assert detect_table_regions(pa) == []
