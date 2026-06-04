@@ -70,6 +70,7 @@ class _Signals(QObject):
     progress = Signal(int)       # 0-100
     finished = Signal(str)       # path to downloaded file
     error = Signal(str)
+    cancelled = Signal()         # user closed dialog mid-download
 
 
 def is_system_install() -> bool:
@@ -147,12 +148,24 @@ def _get_expected_hash(release: dict, asset_name: str) -> str | None:
     return None
 
 
-def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None = None):
+class _DownloadCancelled(Exception):
+    """Raised inside _download when the user closes the dialog mid-stream."""
+
+
+def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None = None,
+              cancel_holder: dict | None = None):
     """Download file and verify its SHA256 against expected_hash.
 
     Refuses to proceed if expected_hash is missing — a release without a
     published hash could otherwise be executed unverified if the upstream
     release body is ever stripped or the parse fails.
+
+    If `cancel_holder` is provided, the worker writes the open
+    `urlopen` response into `cancel_holder["resp"]`. The UI thread can
+    then call `.close()` on that response to abort a blocked `read()`
+    immediately (urlopen.read() otherwise blocks until the next chunk
+    arrives, which on slow networks could be several seconds and
+    freeze the GUI on closeEvent/quit).
     """
     import hashlib
     import hmac
@@ -162,12 +175,24 @@ def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None 
             raise ValueError(t("update.error.missing_hash"))
         req = urllib.request.Request(url, headers={"User-Agent": "PDFApps"})
         with urllib.request.urlopen(req, timeout=60) as resp:
+            if cancel_holder is not None:
+                cancel_holder["resp"] = resp
             total = int(resp.headers.get("Content-Length", 0))
             downloaded = 0
             sha = hashlib.sha256()
             with open(dest, "wb") as f:
                 while True:
-                    chunk = resp.read(65536)
+                    if cancel_holder is not None and cancel_holder.get("cancelled"):
+                        raise _DownloadCancelled()
+                    try:
+                        chunk = resp.read(65536)
+                    except (ValueError, OSError):
+                        # urlopen.read() raises ValueError("read of closed
+                        # file") or OSError when cancel_holder["resp"]
+                        # was closed from the UI thread. Treat as cancel.
+                        if cancel_holder is not None and cancel_holder.get("cancelled"):
+                            raise _DownloadCancelled()
+                        raise
                     if not chunk:
                         break
                     f.write(chunk)
@@ -180,6 +205,16 @@ def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None 
             raise ValueError(t("update.error.hash_mismatch",
                                 expected=expected_hash, got=got))
         signals.finished.emit(dest)
+    except _DownloadCancelled:
+        # Silent cancel: clean up the partial file and just quit the
+        # thread without surfacing an "error" toast — the user is the
+        # one who closed the dialog.
+        try:
+            if os.path.isfile(dest):
+                os.remove(dest)
+        except OSError:
+            pass
+        signals.cancelled.emit()
     except Exception as exc:
         try:
             if os.path.isfile(dest):
@@ -187,6 +222,9 @@ def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None 
         except OSError:
             pass
         signals.error.emit(str(exc))
+    finally:
+        if cancel_holder is not None:
+            cancel_holder["resp"] = None
 
 
 def _apply_update_windows(downloaded_installer: str):
@@ -332,7 +370,14 @@ class UpdateDialog(QDialog):
         self._signals.progress.connect(self._on_progress)
         self._signals.finished.connect(self._on_finished)
         self._signals.error.connect(self._on_error)
+        self._signals.cancelled.connect(self._on_cancelled)
         self._dest = ""
+        # Holder for the in-flight urlopen response so closeEvent/reject
+        # can abort a blocked read() immediately (urlopen.read() blocks
+        # until the next chunk arrives; closing the response from the
+        # UI thread breaks the call with ValueError/OSError, which the
+        # worker translates into a silent _DownloadCancelled).
+        self._cancel_holder: dict = {"resp": None, "cancelled": False}
 
     def _start_download(self):
         from app.i18n import t
@@ -351,21 +396,29 @@ class UpdateDialog(QDialog):
         expected_hash = _get_expected_hash(self._release, self._asset["name"])
 
         class _Worker(QObject):
-            def __init__(self, url, dest, signals, expected_hash):
+            def __init__(self, url, dest, signals, expected_hash, cancel_holder):
                 super().__init__()
                 self._url = url
                 self._dest = dest
                 self._signals = signals
                 self._expected_hash = expected_hash
+                self._cancel_holder = cancel_holder
             def run(self):
-                _download(self._url, self._dest, self._signals, self._expected_hash)
+                _download(self._url, self._dest, self._signals,
+                          self._expected_hash, self._cancel_holder)
+
+        # Reset cancel state in case the user retries within the same dialog.
+        self._cancel_holder["resp"] = None
+        self._cancel_holder["cancelled"] = False
 
         self._dl_thread = QThread()
-        self._dl_worker = _Worker(url, self._dest, self._signals, expected_hash)
+        self._dl_worker = _Worker(url, self._dest, self._signals,
+                                  expected_hash, self._cancel_holder)
         self._dl_worker.moveToThread(self._dl_thread)
         self._dl_thread.started.connect(self._dl_worker.run)
         self._signals.finished.connect(self._dl_thread.quit)
         self._signals.error.connect(self._dl_thread.quit)
+        self._signals.cancelled.connect(self._dl_thread.quit)
         self._dl_thread.start()
 
     def _on_progress(self, pct: int):
@@ -424,18 +477,49 @@ class UpdateDialog(QDialog):
         self._status.setText(t("update.error") + f" {msg}")
         self._status.setStyleSheet(f"color: {error_color()}; font-size: 12px;")
 
+    def _on_cancelled(self):
+        """User aborted the download from closeEvent/reject — silent."""
+        self._stop_dots_animation()
+
+    def _abort_download(self) -> None:
+        """Best-effort: ask the worker to stop and rip the socket open
+        so urlopen.read() returns immediately. Without this, .quit() just
+        asks the worker's event loop to stop, but the worker is parked
+        inside a blocking read() and never checks the queue — closeEvent
+        would then sit on wait(3000) and freeze the GUI."""
+        try:
+            self._cancel_holder["cancelled"] = True
+        except Exception:
+            pass
+        resp = self._cancel_holder.get("resp") if hasattr(self, "_cancel_holder") else None
+        if resp is not None:
+            try:
+                resp.close()  # breaks any in-flight read() with ValueError
+            except Exception:
+                pass
+
     def closeEvent(self, event):
         """Clean up download thread if dialog is closed mid-download."""
         self._stop_dots_animation()
         if hasattr(self, "_dl_thread") and self._dl_thread.isRunning():
+            self._abort_download()
             self._dl_thread.quit()
-            self._dl_thread.wait(3000)
+            # Short wait — read() is already unblocked by _abort_download
+            # so 500 ms is plenty for the worker to drop out and emit
+            # cancelled. If something pathological keeps it running,
+            # terminate() rather than hang the GUI for 3 s.
+            if not self._dl_thread.wait(500):
+                self._dl_thread.terminate()
+                self._dl_thread.wait(500)
         super().closeEvent(event)
 
     def reject(self):
         """Handle Cancel button — also cleans up thread."""
         self._stop_dots_animation()
         if hasattr(self, "_dl_thread") and self._dl_thread.isRunning():
+            self._abort_download()
             self._dl_thread.quit()
-            self._dl_thread.wait(3000)
+            if not self._dl_thread.wait(500):
+                self._dl_thread.terminate()
+                self._dl_thread.wait(500)
         super().reject()
