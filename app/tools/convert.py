@@ -399,6 +399,14 @@ class TabConverter(BasePage):
                     for tr in table_regions:
                         for ti in tr.text_block_indices:
                             consumed_text_indices.add(ti)
+                        # Phase E3 fix: widgets / annotations whose bbox
+                        # is inside the table region are already rendered
+                        # by the cell text, so suppress them from the
+                        # trailing widget / annotation passes.
+                        for wi in tr.widget_indices:
+                            consumed_widget_indices.add(wi)
+                        for ai in tr.annotation_indices:
+                            consumed_annotation_indices.add(ai)
 
                     def _emit_card(cr) -> None:
                         try:
@@ -477,7 +485,16 @@ class TabConverter(BasePage):
                                     docx_cell = docx_table.rows[cell.row].cells[
                                         cell.col
                                     ]
-                                    docx_cell.text = "\n".join(texts)
+                                    # ``cell.text = "\n".join(...)`` injects a
+                                    # literal '\n' character into a single
+                                    # paragraph — Word does not interpret it
+                                    # as a line break. Instead, seed the cell
+                                    # with the first line and append the rest
+                                    # as additional paragraphs so the visual
+                                    # multi-line layout survives.
+                                    docx_cell.text = texts[0] if texts else ""
+                                    for extra in texts[1:]:
+                                        docx_cell.add_paragraph(extra)
                                 except Exception:
                                     continue
                         except Exception as exc:

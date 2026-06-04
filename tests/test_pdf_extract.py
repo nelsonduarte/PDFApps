@@ -502,3 +502,209 @@ def test_detect_table_regions_no_text_ignored():
         drawings=drawings,
     )
     assert detect_table_regions(pa) == []
+
+
+def test_detect_table_regions_two_stacked_split():
+    """Two 2x2 tables sharing column X but separated by a ~3x row-height
+    gap must be split into two TableRegions, not merged via "share col"
+    connectivity.
+
+    Before the gap-split post-process the BFS step would merge these
+    into a single 4-row x 2-col component because every row in table A
+    shares its column index with every row in table B.
+    """
+    cell_w = 100.0
+    cell_h = 30.0
+    x0 = 50.0
+    # Table A: rows at y = 100 and y = 130.
+    rows_a = [100.0, 100.0 + cell_h]
+    # Table B: rows at y = 130 + 3 * cell_h (gap of 3x row_height) and one below.
+    gap = 3.0 * cell_h
+    rows_b = [rows_a[-1] + cell_h + gap, rows_a[-1] + cell_h + gap + cell_h]
+    all_top_ys = rows_a + rows_b
+    cells: list[tuple[float, float, float, float]] = []
+    for y in all_top_ys:
+        for c in range(2):
+            cx0 = x0 + c * cell_w
+            cells.append((cx0, y, cx0 + cell_w, y + cell_h))
+    drawings = [_drawing(c, fill=(0.9, 0.9, 0.9), stroke=(0, 0, 0)) for c in cells]
+    text_blocks = [
+        _make_block(f"T{i}", (c[0] + 5, c[1] + 5, c[2] - 5, c[3] - 5))
+        for i, c in enumerate(cells)
+    ]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+    )
+    regions = detect_table_regions(pa)
+    assert len(regions) == 2, (
+        f"expected 2 stacked tables, got {len(regions)} — "
+        "gap-split post-process should fire"
+    )
+    # Top-to-bottom order, each should be a clean 2x2.
+    regions_sorted = sorted(regions, key=lambda r: r.bbox[1])
+    for tr in regions_sorted:
+        assert tr.rows == 2
+        assert tr.cols == 2
+        assert len(tr.cells) == 4
+    # First table sits above the second one.
+    assert regions_sorted[0].bbox[3] < regions_sorted[1].bbox[1]
+
+
+def test_detect_table_regions_cell_linebreaks():
+    """A 2x2 grid where each cell carries a TextBlock with 2 text lines.
+
+    The detector must keep all lines assigned to the same cell so the
+    emit path can preserve them as separate paragraphs (real line
+    breaks instead of a literal '\\n' character).
+    """
+    cells = _grid_cells(rows=2, cols=2)
+
+    def _multi_line_block(text_top: str, text_bot: str,
+                           bbox: tuple[float, float, float, float]) -> TextBlock:
+        x0, y0, x1, y1 = bbox
+        h = y1 - y0
+        line1_bbox = (x0, y0, x1, y0 + h / 2)
+        line2_bbox = (x0, y0 + h / 2, x1, y1)
+        span1 = TextSpan(
+            text=text_top, bbox=line1_bbox, font="Helv", size=10.0,
+            flags=0, color=0,
+        )
+        span2 = TextSpan(
+            text=text_bot, bbox=line2_bbox, font="Helv", size=10.0,
+            flags=0, color=0,
+        )
+        return TextBlock(
+            bbox=bbox,
+            lines=[
+                TextLine(bbox=line1_bbox, spans=[span1], dir=(1.0, 0.0)),
+                TextLine(bbox=line2_bbox, spans=[span2], dir=(1.0, 0.0)),
+            ],
+        )
+
+    drawings = [
+        _drawing(c, fill=(0.95, 0.95, 0.95), stroke=(0, 0, 0)) for c in cells
+    ]
+    text_blocks = [
+        _multi_line_block(
+            f"line1-{i}", f"line2-{i}",
+            (c[0] + 4, c[1] + 4, c[2] - 4, c[3] - 4),
+        )
+        for i, c in enumerate(cells)
+    ]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+    )
+    regions = detect_table_regions(pa)
+    assert len(regions) == 1
+    tr = regions[0]
+    assert tr.rows == 2 and tr.cols == 2
+    # Every cell points to exactly one text block, and that text block
+    # has two lines — the emit path will turn line[0] into the cell's
+    # first paragraph and line[1] into an added paragraph.
+    for cell in tr.cells:
+        assert len(cell.text_block_indices) == 1
+        ti = cell.text_block_indices[0]
+        block = pa.text_blocks[ti]
+        assert len(block.lines) == 2, (
+            "multi-line cell must keep both TextLines so the DOCX emit "
+            "can render real paragraph breaks"
+        )
+
+
+def test_detect_table_regions_widgets_annotations_captured():
+    """A widget/annotation inside a table region is tracked so the
+    convert pipeline can suppress it (otherwise its value/content shows
+    up both inside the cell and in the trailing widget/annotation pass).
+    """
+    from app.tools._pdf_extract import Annotation, Widget
+
+    cells = _grid_cells(rows=2, cols=2)
+    drawings = [
+        _drawing(c, fill=(0.9, 0.9, 0.9), stroke=(0, 0, 0)) for c in cells
+    ]
+    text_blocks = [
+        _make_block(f"T{i}", (c[0] + 5, c[1] + 5, c[2] - 5, c[3] - 5))
+        for i, c in enumerate(cells)
+    ]
+    # Widget centred inside the top-left cell.
+    w_bbox = (cells[0][0] + 10, cells[0][1] + 10, cells[0][2] - 10, cells[0][3] - 10)
+    widget = Widget(
+        bbox=w_bbox, field_name="amount", field_value="42", field_type="Tx",
+    )
+    # Annotation centred inside the bottom-right cell.
+    a_bbox = (cells[3][0] + 10, cells[3][1] + 10, cells[3][2] - 10, cells[3][3] - 10)
+    annotation = Annotation(bbox=a_bbox, type="Text", content="hello")
+    # An additional annotation sitting OUTSIDE the table — must NOT
+    # appear in annotation_indices.
+    far_a = Annotation(bbox=(50.0, 700.0, 200.0, 720.0), type="Text", content="far")
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+        widgets=[widget],
+        annotations=[annotation, far_a],
+    )
+    regions = detect_table_regions(pa)
+    assert len(regions) == 1
+    tr = regions[0]
+    assert tr.widget_indices == [0]
+    assert tr.annotation_indices == [0]
+
+
+def test_mutual_exclusion_card_vs_table():
+    """If a region qualifies both as a card (filled frame + text) AND
+    matches the table grid criteria, the table detector must surface it
+    as a TableRegion and the card detector must NOT also emit it as a
+    card — otherwise the same content renders twice (rasterized card
+    plus real <w:tbl>).
+    """
+    # 2x2 grid of cells; pass them as filled drawings so the card
+    # detector might be tempted to merge them.
+    cells = _grid_cells(rows=2, cols=2)
+    drawings = [
+        _drawing(c, fill=(0.7, 0.8, 0.95), stroke=(0, 0, 0)) for c in cells
+    ]
+    text_blocks = [
+        _make_block(
+            f"R{i // 2}C{i % 2}",
+            (c[0] + 4, c[1] + 4, c[2] - 4, c[3] - 4),
+        )
+        for i, c in enumerate(cells)
+    ]
+    pa = PageAssets(
+        page_index=0,
+        rect=(0.0, 0.0, 595.0, 842.0),
+        text_blocks=text_blocks,
+        drawings=drawings,
+    )
+    tables = detect_table_regions(pa)
+    cards = detect_card_regions(pa)
+    assert len(tables) == 1, "grid of cells should be detected as a table"
+    # Card detector's "_looks_like_grid" guard should already suppress
+    # this, but verify the contract end-to-end: NO card overlaps the
+    # table bbox at >= 50% of the card's own area (that's the threshold
+    # used by the convert pipeline to drop overlapping cards).
+    tbox = tables[0].bbox
+
+    def _overlap_ratio_a(a, b):
+        ax0, ay0, ax1, ay1 = a
+        bx0, by0, bx1, by1 = b
+        ix0, iy0 = max(ax0, bx0), max(ay0, by0)
+        ix1, iy1 = min(ax1, bx1), min(ay1, by1)
+        if ix1 <= ix0 or iy1 <= iy0:
+            return 0.0
+        inter = (ix1 - ix0) * (iy1 - iy0)
+        a_area = max(1e-6, (ax1 - ax0) * (ay1 - ay0))
+        return inter / a_area
+
+    assert all(_overlap_ratio_a(cr.bbox, tbox) < 0.5 for cr in cards), (
+        "card detector emitted a region that overlaps the table — "
+        "mutual exclusion is broken"
+    )

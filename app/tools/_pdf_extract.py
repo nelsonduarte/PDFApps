@@ -28,6 +28,30 @@ _DIGITS_RE = re.compile(r"\d+")
 
 
 # ---------------------------------------------------------------------------
+# Table-detection tunables
+# ---------------------------------------------------------------------------
+#
+# Cluster-population threshold for ``detect_table_regions``: when the
+# number of cell candidates on a page is at or below this value, the
+# row / column axis clusterer only requires 1 sibling per axis (so
+# small synthetic grids of 3x3 or fewer cells are still detected). Once
+# the candidate count exceeds the threshold we raise the bar to 2, which
+# filters out spurious singleton rows / columns left behind by residual
+# strokes and decorations on busy real-world pages.
+_TABLE_CLUSTER_THRESHOLD = 8
+
+# Vertical gap multiplier used to split a single BFS-connected component
+# into two stacked tables. After the connectivity pass builds a "share
+# row OR share col" component, we measure the median row height inside
+# that component; any consecutive pair of rows whose Y-gap exceeds
+# ``_TABLE_STACK_SPLIT_K`` times that median is treated as a hard
+# boundary between two independent tables. k = 2.0 is conservative:
+# regular table line-spacing is ~1x row_height and white space between
+# unrelated tables is typically 2-3x row_height.
+_TABLE_STACK_SPLIT_K = 2.0
+
+
+# ---------------------------------------------------------------------------
 # Data containers
 # ---------------------------------------------------------------------------
 
@@ -179,6 +203,13 @@ class TableRegion:
     text_block_indices: list[int]
     drawing_indices: list[int] = field(default_factory=list)
     has_borders: bool = True
+    # Widgets / annotations whose bbox falls inside the table's union
+    # bbox. The convert pipeline uses these to avoid emitting a form
+    # field's value or a sticky-note's content a second time after the
+    # table cell already rendered it — same suppression contract used by
+    # :class:`CardRegion`.
+    widget_indices: list[int] = field(default_factory=list)
+    annotation_indices: list[int] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -943,7 +974,9 @@ def detect_table_regions(
     # bump to population=2 so spurious singleton rows/columns from
     # decorations don't survive.
     if cluster_min_population is None:
-        cluster_min_population = 2 if len(cands) > 8 else 1
+        cluster_min_population = (
+            2 if len(cands) > _TABLE_CLUSTER_THRESHOLD else 1
+        )
     col_x = _cluster_axis(lefts, min_population=cluster_min_population)
     row_y = _cluster_axis(tops, min_population=cluster_min_population)
 
@@ -1018,6 +1051,68 @@ def detect_table_regions(
                 if nb not in visited:
                     stack.append(nb)
         components.append(comp)
+
+    # Step 4b: gap-split post-process. Two visually distinct tables can
+    # share column alignment (e.g. two stacked summaries with the same
+    # column headers) and therefore land in the same connected component
+    # via the "share a col" edge. Split them by looking at the vertical
+    # Y-gap between consecutive rows inside each component: any gap that
+    # exceeds ``_TABLE_STACK_SPLIT_K`` * median_row_height is treated as
+    # a hard boundary between two separate tables.
+    def _split_component_on_y_gaps(
+        comp: set[tuple[int, int]],
+    ) -> list[set[tuple[int, int]]]:
+        comp_rows = sorted({r for r, _ in comp})
+        if len(comp_rows) < 2:
+            return [comp]
+        # Use the present-cell bboxes (grid[(r, c)]) to compute each
+        # row's actual Y extent. Falling back to the row_y cluster
+        # anchor would lose the row's height, which is what we measure
+        # against.
+        row_extents: dict[int, tuple[float, float]] = {}
+        for (r, c) in comp:
+            _, bb = grid[(r, c)]
+            top, bottom = bb[1], bb[3]
+            cur_ext = row_extents.get(r)
+            if cur_ext is None:
+                row_extents[r] = (top, bottom)
+            else:
+                row_extents[r] = (min(cur_ext[0], top), max(cur_ext[1], bottom))
+        # Median row height inside this component.
+        heights = sorted(
+            max(0.0, bot - top) for top, bot in row_extents.values()
+        )
+        median_h = heights[len(heights) // 2] if heights else 0.0
+        if median_h <= 0.0:
+            return [comp]
+        # Walk rows top-to-bottom and split where the gap (top of next
+        # row - bottom of current row) exceeds the threshold.
+        threshold = _TABLE_STACK_SPLIT_K * median_h
+        groups: list[list[int]] = [[comp_rows[0]]]
+        for i in range(1, len(comp_rows)):
+            prev_r = comp_rows[i - 1]
+            cur_r = comp_rows[i]
+            gap = row_extents[cur_r][0] - row_extents[prev_r][1]
+            if gap > threshold:
+                groups.append([cur_r])
+            else:
+                groups[-1].append(cur_r)
+        if len(groups) <= 1:
+            return [comp]
+        # Re-partition the component's cells according to the row groups.
+        row_to_group: dict[int, int] = {}
+        for gi, rows in enumerate(groups):
+            for r in rows:
+                row_to_group[r] = gi
+        parts: list[set[tuple[int, int]]] = [set() for _ in groups]
+        for (r, c) in comp:
+            parts[row_to_group[r]].add((r, c))
+        return parts
+
+    split_components: list[set[tuple[int, int]]] = []
+    for comp in components:
+        split_components.extend(_split_component_on_y_gaps(comp))
+    components = split_components
 
     regions: list[TableRegion] = []
     for comp in components:
@@ -1169,6 +1264,25 @@ def detect_table_regions(
                 stroked += 1
         has_borders = present_count == 0 or stroked >= present_count // 2
 
+        # Capture widgets / annotations whose bbox is contained inside
+        # the table's union bbox so the convert pipeline can suppress
+        # them after the cell text already rendered the same content.
+        # Same geometric-containment contract used by ``detect_card_regions``.
+        widgets = page_assets.widgets
+        annotations = page_assets.annotations
+        w_idx: list[int] = []
+        for wi, w in enumerate(widgets):
+            if _bbox_area(w.bbox) <= 0:
+                continue
+            if _bbox_contains(union_bbox, w.bbox):
+                w_idx.append(wi)
+        a_idx: list[int] = []
+        for ai, a in enumerate(annotations):
+            if _bbox_area(a.bbox) <= 0:
+                continue
+            if _bbox_contains(union_bbox, a.bbox):
+                a_idx.append(ai)
+
         regions.append(
             TableRegion(
                 bbox=union_bbox,
@@ -1178,6 +1292,8 @@ def detect_table_regions(
                 text_block_indices=sorted(set(consumed_text)),
                 drawing_indices=sorted(set(drawing_idx_list)),
                 has_borders=has_borders,
+                widget_indices=sorted(w_idx),
+                annotation_indices=sorted(a_idx),
             )
         )
 
