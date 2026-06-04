@@ -1104,12 +1104,17 @@ class MainWindow(QMainWindow):
         sb = viewer._canvas_scroll.verticalScrollBar()
         start_page = canvas.page_at_y(sb.value()) if canvas.page_count() > 0 else 0
         from app.viewer.presentation import PresentationWidget
-        self._presentation = PresentationWidget(
-            viewer._current_path,
-            getattr(viewer, "_pdf_password", ""),
-            start_page,
-            canvas.page_count(),
-        )
+        try:
+            self._presentation = PresentationWidget(
+                viewer._current_path,
+                getattr(viewer, "_pdf_password", ""),
+                start_page,
+                canvas.page_count(),
+            )
+        except Exception as e:
+            from app.utils import show_error
+            show_error(self, e)
+            return
         self._presentation.show()
 
     def closeEvent(self, event):
