@@ -562,12 +562,14 @@ class TabEditar(QWidget):
                                 "text": txt,
                                 "_existing": True,
                             })
-                            self._pending_list.addItem(f"Note — p. {page_idx+1}")
+                            self._pending_list.addItem(
+                                t("edit.status.note_label", n=page_idx + 1))
                             count += 1
-            self._status(f"ℹ  {count} note(s) loaded ({total_annots} total annots)")
+            self._status(t("edit.status.note_loaded",
+                           count=count, total=total_annots))
             self._canvas.set_overlays(self._pending)
         except Exception as ex:
-            self._status(f"⚠  Annotation load error: {ex}")
+            self._status(t("edit.status.annot_error", ex=ex))
 
     def auto_load(self, path: str):
         if path and not self._drop_in.path(): self._load_pdf(path)
@@ -583,7 +585,7 @@ class TabEditar(QWidget):
 
     def _pick_image(self):
         p, _ = QFileDialog.getOpenFileName(self, t("edit.image"), DESKTOP,
-                                           "Images (*.png *.jpg *.jpeg *.bmp *.tiff *.webp)")
+                                           t("file_filter.images"))
         if p:
             self._img_drop.blockSignals(True)
             self._img_drop.set_path(p)
@@ -679,9 +681,9 @@ class TabEditar(QWidget):
             self._sel_result.setPlainText(text)
             if text:
                 QApplication.clipboard().setText(text)
-                self._status(f"✔  {len(text)} characters copied to clipboard")
+                self._status(t("edit.status.copied_clipboard", n=len(text)))
             else:
-                self._status("ℹ  No text found in selection")
+                self._status(t("edit.status.no_text_in_selection"))
             return
         if mode in (1, 4):
             import fitz
@@ -770,19 +772,27 @@ class TabEditar(QWidget):
     def _add(self, edit: dict):
         self._redo_stack.clear()
         self._pending.append(edit)
+        # Each entry's base label is fully translated via edit.label.*;
+        # the page suffix (" — p. N") comes from a shared key so all
+        # locales decide their own dash/spacing/abbreviation.
+        suffix = t("edit.label.page_suffix", n=edit["page"] + 1)
         labels = {
-            "redact":    lambda e: f"Redact — p. {e['page']+1}",
-            "text":      lambda e: f"Text '{e['text'][:18]}' — p. {e['page']+1}",
-            "image":     lambda e: f"Image '{os.path.basename(e['path'])}' — p. {e['page']+1}",
-            "highlight": lambda e: f"Highlight — p. {e['page']+1}",
-            "note":      lambda e: f"Note — p. {e['page']+1}",
-            "text_edit": lambda e: f"Edit '{e['old_text'][:15]}' → '{e['new_text'][:15]}' — p. {e['page']+1}",
-            "signature": lambda e: f"Signature — p. {e['page']+1}",
-            "draw":      lambda e: f"Drawing — p. {e['page']+1}",
+            "redact":    lambda e: t("edit.label.redact") + suffix,
+            "text":      lambda e: t("edit.label.text", txt=e["text"][:18]) + suffix,
+            "image":     lambda e: t("edit.label.image",
+                                     name=os.path.basename(e["path"])) + suffix,
+            "highlight": lambda e: t("edit.label.highlight") + suffix,
+            "note":      lambda e: t("edit.label.note") + suffix,
+            "text_edit": lambda e: t("edit.label.edit",
+                                     old=e["old_text"][:15],
+                                     new=e["new_text"][:15]) + suffix,
+            "signature": lambda e: t("edit.mode.signature") + suffix,
+            "draw":      lambda e: t("edit.mode.draw") + suffix,
         }
         lbl = labels[edit["type"]](edit)
         self._pending_list.addItem(lbl)
-        self._status(f"✏  {lbl} added — {len(self._pending)} pending edit(s)")
+        self._status(t("edit.status.added",
+                       label=lbl, count=len(self._pending)))
         self._canvas.set_overlays(self._pending)
 
     def _undo(self):
@@ -794,7 +804,7 @@ class TabEditar(QWidget):
             self._redo_stack.pop(0)
         self._pending_list.takeItem(self._pending_list.count() - 1)
         self._canvas.set_overlays(self._pending)
-        self._status(f"↩  Undo — {len(self._pending)} pending edit(s)")
+        self._status(t("edit.status.undo", n=len(self._pending)))
 
     def _redo(self):
         if not self._redo_stack:
@@ -910,7 +920,7 @@ class TabEditar(QWidget):
                 except OSError: pass
                 raise
             self._pending.clear(); self._pending_list.clear()
-            self._status(f"✔  Saved → {out}")
+            self._status(t("edit.status.saved", path=out))
             QMessageBox.information(self, t("msg.done"), t("msg.pdf_saved", path=out))
             # Reload the saved file
             self._load_pdf(out)
@@ -939,7 +949,7 @@ class TabEditar(QWidget):
                 try: os.unlink(tmp)
                 except OSError: pass
                 raise
-            self._status(f"✔  Form saved → {out}")
+            self._status(t("edit.status.form_saved", path=out))
             QMessageBox.information(self, t("msg.done"), t("msg.form_saved", path=out))
         except Exception as e:
             show_error(self, e)

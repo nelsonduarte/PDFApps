@@ -197,7 +197,8 @@ class TabConverter(BasePage):
         os.makedirs(out_dir, exist_ok=True)
         ext = "png" if fmt == 0 else "jpg"
         dpi = self._DPI_VALUES[self.cmb_dpi.currentIndex()]
-        self._status(f"→ {ext.upper()} @ {dpi} DPI…")
+        self._status(t("tool.convert.status.starting",
+                       format=ext.upper(), dpi=dpi))
 
         try:
             with self._open_fitz(pdf_path) as _probe:
@@ -240,7 +241,7 @@ class TabConverter(BasePage):
 
         def on_done(result):
             self.lbl_result.setText(f"  {result} → {out_dir}")
-            self._status(f"✔  {result} images")
+            self._status(t("tool.convert.status.images_done", n=result))
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_images",
                                       n=result, folder=out_dir))
@@ -363,7 +364,7 @@ class TabConverter(BasePage):
 
         def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
-            self._status(f"✔  DOCX → {out_path}")
+            self._status(t("tool.convert.status.docx_done", path=out_path))
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_docx", path=out_path))
 
@@ -397,7 +398,8 @@ class TabConverter(BasePage):
                         if worker.is_cancelled():
                             return None
                         if i > 0:
-                            f.write(f'\n\n--- Page {i + 1} ---\n\n')
+                            f.write(t("tool.convert.txt.page_separator",
+                                      n=i + 1))
                         f.write(page.get_text())
                         worker.progress.emit(i, f"{i + 1}/{total}…")
             finally:
@@ -406,7 +408,7 @@ class TabConverter(BasePage):
 
         def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
-            self._status(f"✔  TXT → {out_path}")
+            self._status(t("tool.convert.status.txt_done", path=out_path))
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_txt", path=out_path))
 
@@ -692,7 +694,7 @@ class TabConverter(BasePage):
 
         def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
-            self._status(f"✔  PPTX → {out_path}")
+            self._status(t("tool.convert.status.pptx_done", path=out_path))
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_pptx", path=out_path))
 
@@ -734,7 +736,8 @@ class TabConverter(BasePage):
                 for i, page in enumerate(doc):
                     if worker.is_cancelled():
                         return None
-                    ws = wb.create_sheet(title=f"Page {i + 1}")
+                    ws = wb.create_sheet(
+                        title=t("tool.convert.xlsx.sheet_name", n=i + 1))
                     blocks = page.get_text("blocks")
                     for row_idx, block in enumerate(blocks):
                         if block[6] != 0:  # skip image blocks
@@ -756,7 +759,7 @@ class TabConverter(BasePage):
 
         def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
-            self._status(f"✔  XLSX → {out_path}")
+            self._status(t("tool.convert.status.xlsx_done", path=out_path))
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_xlsx", path=out_path))
 
@@ -841,7 +844,7 @@ class TabConverter(BasePage):
 
         def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
-            self._status(f"✔  HTML → {out_path}")
+            self._status(t("tool.convert.status.html_done", path=out_path))
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_html", path=out_path))
 
@@ -886,10 +889,12 @@ class TabConverter(BasePage):
                 for i, page in enumerate(doc):
                     if worker.is_cancelled():
                         return None
-                    ch = epub.EpubHtml(title=f"Page {i + 1}", file_name=f"page_{i+1}.xhtml")
+                    page_title = t("tool.convert.epub.page_title", n=i + 1)
+                    ch = epub.EpubHtml(title=page_title,
+                                       file_name=f"page_{i+1}.xhtml")
                     text = page.get_text()
                     paragraphs = [f"<p>{_clean(p)}</p>" for p in text.split("\n") if p.strip()]
-                    ch.content = f"<html><body><h2>Page {i + 1}</h2>{''.join(paragraphs)}</body></html>"
+                    ch.content = f"<html><body><h2>{page_title}</h2>{''.join(paragraphs)}</body></html>"
                     book.add_item(ch)
                     chapters.append(ch)
                     worker.progress.emit(i, f"{i + 1}/{total}…")
@@ -906,7 +911,7 @@ class TabConverter(BasePage):
 
         def on_done(result):
             self.lbl_result.setText(f"  → {os.path.basename(out_path)}")
-            self._status(f"✔  EPUB → {out_path}")
+            self._status(t("tool.convert.status.epub_done", path=out_path))
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.convert.done_epub", path=out_path))
 

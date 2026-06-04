@@ -582,6 +582,6 @@ class _SelectCanvas(QWidget):
         menu = QMenu(self)
         act  = menu.addAction(
             qta.icon("fa5s.copy", color=TEXT_SEC),
-            f"  Copy  ({len(self._sel_text)} chars)")
+            t("viewer.copy_chars", n=len(self._sel_text)))
         act.triggered.connect(lambda: QApplication.clipboard().setText(self._sel_text))
         menu.exec(e.globalPos())

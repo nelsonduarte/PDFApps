@@ -209,7 +209,7 @@ class TabImport(BasePage):
 
         def on_done(skipped):
             if skipped:
-                self._status(f"Skipped {skipped} unreadable image(s)")
+                self._status(t("tool.import.skipped_images", n=skipped))
             self._done(out_path)
 
         self._run_background(do_work, total=max(n, 1),
@@ -584,6 +584,6 @@ class TabImport(BasePage):
 
     def _done(self, out_path: str):
         self.lbl_result.setText(f"  \u2192 {os.path.basename(out_path)}")
-        self._status(f"\u2714  PDF \u2192 {out_path}")
+        self._status(t("tool.import.status.done", path=out_path))
         QMessageBox.information(self, t("msg.done"),
                                 t("tool.import.done", path=out_path))

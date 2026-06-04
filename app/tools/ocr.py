@@ -203,7 +203,7 @@ class TabOCR(BasePage):
         """Show only installed languages + possible combinations."""
         entries = []
         label_map = {"por": t("tool.ocr.lang.pt"), "eng": t("tool.ocr.lang.en"), "spa": t("tool.ocr.lang.es"),
-                     "fra": t("tool.ocr.lang.fr"),     "deu": t("tool.ocr.lang.de"),  "ita": "Italian"}
+                     "fra": t("tool.ocr.lang.fr"),     "deu": t("tool.ocr.lang.de"),  "ita": t("tool.ocr.lang.it")}
         for code, label in [(c, label_map.get(c, c)) for c in installed if c != "osd"]:
             entries.append((label, code))
         if "por" in installed and "eng" in installed:
@@ -340,7 +340,7 @@ class TabOCR(BasePage):
             if result is None:
                 self._status(t("progress.cancelled"))
                 return
-            self._status(f"✔  OCR → {result}")
+            self._status(t("tool.ocr.status.done", path=result))
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.ocr.done", path=result))
 

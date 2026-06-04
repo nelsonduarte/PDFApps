@@ -25,10 +25,17 @@ _POSITIONS = [
 ]
 
 _FORMATS = [
-    ("tool.page_numbers.fmt.simple",     "{n}"),
-    ("tool.page_numbers.fmt.slash",      "{n} / {total}"),
-    ("tool.page_numbers.fmt.page",       "Page {n}"),
-    ("tool.page_numbers.fmt.page_of",    "Page {n} of {total}"),
+    # (combo_label_key, template_key).
+    # combo_label_key  → the UI string shown in the dropdown,
+    # template_key     → the translated template applied to the output
+    #                    PDF (e.g. "Page {n}" → "Seite {n}" in German).
+    # Keeping these as separate keys lets the UI keep its existing
+    # fully-rendered example ("Page 1") while the actual output uses
+    # a `.format(n=…, total=…)`-safe template.
+    ("tool.page_numbers.fmt.simple",     "tool.page_numbers.template.simple"),
+    ("tool.page_numbers.fmt.slash",      "tool.page_numbers.template.slash"),
+    ("tool.page_numbers.fmt.page",       "tool.page_numbers.template.page"),
+    ("tool.page_numbers.fmt.page_of",    "tool.page_numbers.template.page_of"),
 ]
 
 
@@ -122,7 +129,11 @@ class TabPageNumbers(BasePage):
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
 
-        fmt_template = _FORMATS[self.cmb_format.currentIndex()][1]
+        # _FORMATS stores translation keys (e.g. "tool.page_numbers.
+        # template.page") so each locale gets its own template
+        # ("Page {n}" → "Seite {n}"). Resolve via t() to a concrete
+        # string before .format().
+        fmt_template = t(_FORMATS[self.cmb_format.currentIndex()][1])
         pos_code = _POSITIONS[self.cmb_position.currentIndex()][1]
         font_size = self.spin_size.value()
         start_page = self.spin_start_page.value() - 1  # 0-indexed
@@ -258,7 +269,8 @@ class TabPageNumbers(BasePage):
             return out_path
 
         def on_done(saved):
-            self._status(f"✔  → {os.path.basename(saved)}")
+            self._status(t("tool.page_numbers.status.done",
+                           name=os.path.basename(saved)))
             msg = t("tool.page_numbers.done", path=saved)
             if self._pipeline_active:
                 self._pipeline_success(msg, saved)

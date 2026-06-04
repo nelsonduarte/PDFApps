@@ -125,7 +125,7 @@ class TabReordenar(BasePage):
             w = PdfWriter()
             for idx in indices: w.add_page(reader.pages[idx])
             with open(out, "wb") as f: w.write(f)
-            self._status(f"✔  → {os.path.basename(out)}")
+            self._status(t("tool.reorder.status.done", name=os.path.basename(out)))
             msg = t("tool.reorder.done", path=out)
             if self._pipeline_active:
                 self._pipeline_success(msg, out)
