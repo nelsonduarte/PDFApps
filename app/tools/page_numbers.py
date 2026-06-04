@@ -26,12 +26,18 @@ _POSITIONS = [
 
 _FORMATS = [
     # (combo_label_key, template_key).
-    # combo_label_key  → the UI string shown in the dropdown,
-    # template_key     → the translated template applied to the output
-    #                    PDF (e.g. "Page {n}" → "Seite {n}" in German).
-    # Keeping these as separate keys lets the UI keep its existing
-    # fully-rendered example ("Page 1") while the actual output uses
-    # a `.format(n=…, total=…)`-safe template.
+    # combo_label_key  → the UI string shown in the dropdown (localised
+    #                    per locale, so a ZH user sees ZH labels).
+    # template_key     → the format string written into the output PDF
+    #                    via `.format(n=…, total=…)`.
+    #
+    # NOTE: templates are kept ASCII-only (English) in every locale
+    # because `page.insert_text` below uses the PDF built-in Helvetica,
+    # whose encoding is Latin-1 only. Localising the templates would
+    # render CJK locales (e.g. "第{n}页") and any non-Latin-1 glyphs as
+    # garbled bytes / "?" in the produced PDF. Properly localising the
+    # output requires embedding a CJK-capable font — out of scope for
+    # v1; tracked separately.
     ("tool.page_numbers.fmt.simple",     "tool.page_numbers.template.simple"),
     ("tool.page_numbers.fmt.slash",      "tool.page_numbers.template.slash"),
     ("tool.page_numbers.fmt.page",       "tool.page_numbers.template.page"),
