@@ -290,6 +290,12 @@ class TabOCR(BasePage):
                             # produce gibberish text.
                             if pix.alpha:
                                 pix = fitz.Pixmap(pix, 0)
+                            # Convert non-RGB colourspaces (CMYK n=4 without
+                            # alpha from press-ready scans, greyscale n=1)
+                            # to RGB so PIL.frombytes("RGB", ...) gets the
+                            # 3-bytes-per-pixel layout it expects.
+                            if pix.n != 3:
+                                pix = fitz.Pixmap(fitz.csRGB, pix)
                             img = Image.frombytes(
                                 "RGB", (pix.width, pix.height), pix.samples)
                             texts.append(
@@ -305,11 +311,14 @@ class TabOCR(BasePage):
                                 i, t("progress.ocr.page",
                                      current=i + 1, total=n_pages))
                             pix = page.get_pixmap(dpi=300)
-                            # Strip alpha so the byte layout matches the
-                            # "RGB" mode passed to PIL (see comment above
-                            # in the .txt branch).
+                            # Strip alpha + convert non-RGB colourspaces to
+                            # RGB so PIL.frombytes("RGB", ...) gets the
+                            # expected 3-bytes-per-pixel layout (see comment
+                            # in the .txt branch above).
                             if pix.alpha:
                                 pix = fitz.Pixmap(pix, 0)
+                            if pix.n != 3:
+                                pix = fitz.Pixmap(fitz.csRGB, pix)
                             img = Image.frombytes(
                                 "RGB", (pix.width, pix.height), pix.samples)
                             pdf_pages.append(

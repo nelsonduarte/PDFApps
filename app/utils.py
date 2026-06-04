@@ -614,7 +614,15 @@ def show_error(parent, exc: BaseException) -> None:
     the log file at `pdfapps.log` next to the config.
     """
     from PySide6.QtWidgets import QMessageBox
-    logging.exception("UI error surfaced: %s: %s", type(exc).__name__, exc)
+    # logging.exception() relies on sys.exc_info() being active, but this
+    # helper is typically called from a queued slot on the main thread —
+    # by then the originating `except` block has already exited and
+    # sys.exc_info() is (None, None, None). Pass the exception instance
+    # explicitly via exc_info= so the traceback still lands in the log.
+    logging.error(
+        "UI error surfaced: %s: %s",
+        type(exc).__name__, exc, exc_info=exc,
+    )
     box = QMessageBox(parent)
     box.setIcon(QMessageBox.Icon.Critical)
     box.setWindowTitle(t("msg.error"))

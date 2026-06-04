@@ -26,7 +26,11 @@ _LANG: str = "en"
 # bounded (we lose one recent-file entry or one tool_usage tick), not
 # corruption (_atomic_write_config still guarantees the file on disk
 # is always a valid JSON object).
-_CONFIG_LOCK = threading.Lock()
+# RLock (not Lock) because future mutators might reasonably call other
+# config helpers (e.g. a "save and reopen recent" flow that bumps
+# tool_usage and add_recent_file in the same callback) — re-entrancy
+# from the same thread must not deadlock. Cost is negligible.
+_CONFIG_LOCK = threading.RLock()
 
 _LEGACY_CONFIG = os.path.join(os.path.expanduser("~"), ".pdfapps_config.json")
 _LEGACY_SIGNATURE = os.path.join(os.path.expanduser("~"), ".pdfapps_signature.png")

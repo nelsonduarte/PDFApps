@@ -478,7 +478,18 @@ class UpdateDialog(QDialog):
         self._status.setStyleSheet(f"color: {error_color()}; font-size: 12px;")
 
     def _on_cancelled(self):
-        """User aborted the download from closeEvent/reject — silent."""
+        """User aborted the download from closeEvent/reject — silent.
+
+        Guarded with shiboken6.isValid because this slot is queued onto
+        the main thread from the worker; by the time it actually runs,
+        the user may have already closed the dialog (closeEvent returns
+        before the queued slot fires). Touching `self` after the C++
+        widget is destroyed raises RuntimeError. Per feedback_pyside6_apis,
+        shiboken6.isValid is the idiomatic liveness check in this repo.
+        """
+        from shiboken6 import isValid
+        if not isValid(self):
+            return
         self._stop_dots_animation()
 
     def _abort_download(self) -> None:
@@ -491,7 +502,9 @@ class UpdateDialog(QDialog):
             self._cancel_holder["cancelled"] = True
         except Exception:
             pass
-        resp = self._cancel_holder.get("resp") if hasattr(self, "_cancel_holder") else None
+        # _cancel_holder is always initialised in __init__, so a hasattr
+        # guard here would be dead code.
+        resp = self._cancel_holder.get("resp")
         if resp is not None:
             try:
                 resp.close()  # breaks any in-flight read() with ValueError
