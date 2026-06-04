@@ -25,10 +25,23 @@ _POSITIONS = [
 ]
 
 _FORMATS = [
-    ("tool.page_numbers.fmt.simple",     "{n}"),
-    ("tool.page_numbers.fmt.slash",      "{n} / {total}"),
-    ("tool.page_numbers.fmt.page",       "Page {n}"),
-    ("tool.page_numbers.fmt.page_of",    "Page {n} of {total}"),
+    # (combo_label_key, template_key).
+    # combo_label_key  → the UI string shown in the dropdown (localised
+    #                    per locale, so a ZH user sees ZH labels).
+    # template_key     → the format string written into the output PDF
+    #                    via `.format(n=…, total=…)`.
+    #
+    # NOTE: templates are kept ASCII-only (English) in every locale
+    # because `page.insert_text` below uses the PDF built-in Helvetica,
+    # whose encoding is Latin-1 only. Localising the templates would
+    # render CJK locales (e.g. "第{n}页") and any non-Latin-1 glyphs as
+    # garbled bytes / "?" in the produced PDF. Properly localising the
+    # output requires embedding a CJK-capable font — out of scope for
+    # v1; tracked separately.
+    ("tool.page_numbers.fmt.simple",     "tool.page_numbers.template.simple"),
+    ("tool.page_numbers.fmt.slash",      "tool.page_numbers.template.slash"),
+    ("tool.page_numbers.fmt.page",       "tool.page_numbers.template.page"),
+    ("tool.page_numbers.fmt.page_of",    "tool.page_numbers.template.page_of"),
 ]
 
 
@@ -122,7 +135,11 @@ class TabPageNumbers(BasePage):
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
 
-        fmt_template = _FORMATS[self.cmb_format.currentIndex()][1]
+        # _FORMATS stores translation keys (e.g. "tool.page_numbers.
+        # template.page") so each locale gets its own template
+        # ("Page {n}" → "Seite {n}"). Resolve via t() to a concrete
+        # string before .format().
+        fmt_template = t(_FORMATS[self.cmb_format.currentIndex()][1])
         pos_code = _POSITIONS[self.cmb_position.currentIndex()][1]
         font_size = self.spin_size.value()
         start_page = self.spin_start_page.value() - 1  # 0-indexed
@@ -224,8 +241,16 @@ class TabPageNumbers(BasePage):
                         return None
                     counter += 1
                     n_display = start_num + counter - 1
+                    # {total} represents the count of numbered pages
+                    # (not the last displayed number). With start_num=5
+                    # and 10 target pages, "Page 5 of 10" reads as "5th
+                    # display number, out of 10 numbered pages". The
+                    # legacy `numbered_total + start_num - 1` produced
+                    # "Page 14 of 14" on the last page, which conflates
+                    # the display index with the total count and looks
+                    # like an off-by-one bug to the reader.
                     label = fmt_template.format(
-                        n=n_display, total=numbered_total + start_num - 1)
+                        n=n_display, total=numbered_total)
 
                     page = doc[i]
                     rect = page.rect
@@ -258,7 +283,8 @@ class TabPageNumbers(BasePage):
             return out_path
 
         def on_done(saved):
-            self._status(f"✔  → {os.path.basename(saved)}")
+            self._status(t("tool.page_numbers.status.done",
+                           name=os.path.basename(saved)))
             msg = t("tool.page_numbers.done", path=saved)
             if self._pipeline_active:
                 self._pipeline_success(msg, saved)

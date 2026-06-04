@@ -135,7 +135,7 @@ class TabMarcaDagua(BasePage):
             return out_path
 
         def on_done(saved):
-            self._status(f"✔  → {os.path.basename(saved)}")
+            self._status(t("tool.watermark.status.done", name=os.path.basename(saved)))
             msg = t("tool.watermark.done", path=saved)
             if self._pipeline_active:
                 self._pipeline_success(msg, saved)

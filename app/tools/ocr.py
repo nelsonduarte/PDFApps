@@ -203,7 +203,7 @@ class TabOCR(BasePage):
         """Show only installed languages + possible combinations."""
         entries = []
         label_map = {"por": t("tool.ocr.lang.pt"), "eng": t("tool.ocr.lang.en"), "spa": t("tool.ocr.lang.es"),
-                     "fra": t("tool.ocr.lang.fr"),     "deu": t("tool.ocr.lang.de"),  "ita": "Italian"}
+                     "fra": t("tool.ocr.lang.fr"),     "deu": t("tool.ocr.lang.de"),  "ita": t("tool.ocr.lang.it")}
         for code, label in [(c, label_map.get(c, c)) for c in installed if c != "osd"]:
             entries.append((label, code))
         if "por" in installed and "eng" in installed:
@@ -282,6 +282,20 @@ class TabOCR(BasePage):
                                 i, t("progress.ocr.page",
                                      current=i + 1, total=n_pages))
                             pix = page.get_pixmap(dpi=300)
+                            # Strip alpha so the byte layout matches the
+                            # "RGB" mode passed to PIL — frombytes assumes
+                            # 3 bytes/pixel; with alpha present we'd be
+                            # reading RGBA as RGB and Tesseract would get
+                            # an image with shifted colour channels and
+                            # produce gibberish text.
+                            if pix.alpha:
+                                pix = fitz.Pixmap(pix, 0)
+                            # Convert non-RGB colourspaces (CMYK n=4 without
+                            # alpha from press-ready scans, greyscale n=1)
+                            # to RGB so PIL.frombytes("RGB", ...) gets the
+                            # 3-bytes-per-pixel layout it expects.
+                            if pix.n != 3:
+                                pix = fitz.Pixmap(fitz.csRGB, pix)
                             img = Image.frombytes(
                                 "RGB", (pix.width, pix.height), pix.samples)
                             texts.append(
@@ -297,6 +311,14 @@ class TabOCR(BasePage):
                                 i, t("progress.ocr.page",
                                      current=i + 1, total=n_pages))
                             pix = page.get_pixmap(dpi=300)
+                            # Strip alpha + convert non-RGB colourspaces to
+                            # RGB so PIL.frombytes("RGB", ...) gets the
+                            # expected 3-bytes-per-pixel layout (see comment
+                            # in the .txt branch above).
+                            if pix.alpha:
+                                pix = fitz.Pixmap(pix, 0)
+                            if pix.n != 3:
+                                pix = fitz.Pixmap(fitz.csRGB, pix)
                             img = Image.frombytes(
                                 "RGB", (pix.width, pix.height), pix.samples)
                             pdf_pages.append(
@@ -318,13 +340,18 @@ class TabOCR(BasePage):
             if result is None:
                 self._status(t("progress.cancelled"))
                 return
-            self._status(f"✔  OCR → {result}")
+            self._status(t("tool.ocr.status.done", path=result))
             QMessageBox.information(self, t("msg.done"),
                                     t("tool.ocr.done", path=result))
 
-        def _on_err(msg):
+        def _on_err(exc):
             self.action_btn.setEnabled(True)
-            QMessageBox.critical(self, t("tool.ocr.error"), msg)
+            # Accept either Exception (new TaskRunner contract) or str
+            # (legacy callers); route through show_error so users see
+            # a friendly translated dialog instead of a raw traceback.
+            if not isinstance(exc, BaseException):
+                exc = RuntimeError(str(exc))
+            show_error(self, exc)
 
         self._runner = _OcrRunner()
         self._runner_thread = run_task(self, self._runner, progress, _on_done, _on_err)

@@ -18,6 +18,11 @@ BORDER   = "#2A3944"   # borders
 TEXT_PRI = "#E6F4F1"   # primary text
 TEXT_SEC = "#B0C4BE"   # secondary text
 
+# Theme-aware success green for "result" labels. Brighter shade on dark
+# backgrounds, deeper shade on light — keeps contrast comfortable in both.
+SUCCESS_DARK  = "#34D399"   # emerald-400 on dark bg
+SUCCESS_LIGHT = "#059669"   # emerald-600 on light bg
+
 # ── Light theme ────────────────────────────────────────────────────────────────
 _LA = "#0F766E"; _LAH = "#0D9488"; _LAP = "#0F5F58"
 _LB = "#F4F7F6"; _LS = "#E9EFEC"; _LC = "#FFFFFF"

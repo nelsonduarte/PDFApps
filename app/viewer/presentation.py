@@ -1,5 +1,7 @@
 """PDFApps – Presentation mode: fullscreen single-page viewer."""
 
+import contextlib
+
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QWidget, QLabel, QApplication
@@ -16,6 +18,16 @@ class PresentationWidget(QWidget):
         self._total = total_pages
         self._pixmap = None
         self._ready = False
+        # Hold the document open for the lifetime of the widget — the
+        # previous version reopened (+ optionally authenticated) the
+        # PDF on every Escape/arrow key, which stalled navigation for
+        # 100–500 ms on multi-MB or encrypted files. Failures here
+        # propagate to the caller (`_start_presentation`) so the user
+        # still sees a friendly error dialog.
+        import fitz
+        self._doc = fitz.open(self._path)
+        if self._password:
+            self._doc.authenticate(self._password)
 
         # All child widgets and timers must exist before setWindowState
         # because it triggers resizeEvent immediately
@@ -42,10 +54,10 @@ class PresentationWidget(QWidget):
     def _render(self):
         import fitz
         try:
-            doc = fitz.open(self._path)
-            if self._password:
-                doc.authenticate(self._password)
-            page = doc[self._current]
+            if self._doc is None:
+                self._pixmap = None
+                return
+            page = self._doc[self._current]
             screen = self.screen() or QApplication.primaryScreen()
             geom = screen.geometry()
             dpr = screen.devicePixelRatio() or 1.0
@@ -57,12 +69,21 @@ class PresentationWidget(QWidget):
             qp.loadFromData(pix.tobytes("png"))
             qp.setDevicePixelRatio(dpr)
             self._pixmap = qp
-            doc.close()
         except Exception:
             self._pixmap = None
 
         self._update_counter()
         self.update()
+
+    def closeEvent(self, event):
+        # Release the fitz document handle. Swallowing exceptions here
+        # because the alternative is a Qt-level crash during teardown
+        # if fitz is mid-finalize on the worker thread.
+        if self._doc is not None:
+            with contextlib.suppress(Exception):
+                self._doc.close()
+            self._doc = None
+        super().closeEvent(event)
 
     def _update_counter(self):
         self._counter.setText(f"{self._current + 1} / {self._total}")

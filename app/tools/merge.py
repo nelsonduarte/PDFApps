@@ -124,6 +124,6 @@ class TabJuntar(BasePage):
                 for page in reader.pages:
                     w.add_page(page)
             with open(out, "wb") as f: w.write(f)
-            self._status(f"✔  PDF → {os.path.basename(out)}")
+            self._status(t("tool.merge.status.done", name=os.path.basename(out)))
             QMessageBox.information(self, t("msg.done"), t("tool.merge.done", path=out))
         except Exception as e: show_error(self, e)

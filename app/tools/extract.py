@@ -87,7 +87,8 @@ class TabExtrair(BasePage):
             w = PdfWriter()
             for p in pages: w.add_page(reader.pages[p])
             with open(out_path, "wb") as f: w.write(f)
-            self._status(f"✔  {len(pages)} → {os.path.basename(out_path)}")
+            self._status(t("tool.extract.status.done",
+                           n=len(pages), name=os.path.basename(out_path)))
             msg = t("tool.extract.done", n=len(pages), path=out_path)
             if self._pipeline_active:
                 self._pipeline_success(msg, out_path)

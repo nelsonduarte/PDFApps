@@ -94,6 +94,16 @@ class BasePage(QWidget):
     def paintEvent(self, event):
         _paint_bg(self)
 
+    def update_theme(self, dark: bool) -> None:
+        """Default theme refresh: re-skins the action bar's progress
+        strip. Subclasses overriding this should call ``super().update_theme(dark)``
+        so the progress strip keeps tracking the theme.
+        """
+        fn = getattr(self._action_bar, "update_theme", None)
+        if callable(fn):
+            try: fn(dark)
+            except RuntimeError: pass  # widget destroyed
+
     def _build(self):
         """Subclasses add widgets to self._form here."""
 
@@ -336,12 +346,13 @@ class BasePage(QWidget):
 
         Connections are routed back to the main thread:
             - on_done(result)  → success path
-            - on_err(message)  → exception path (default: QMessageBox.critical)
+            - on_err(exc)      → exception path (default: show_error friendly dialog)
         Disables the action button while the task is running.
         """
         from PySide6.QtCore import Qt as _Qt
-        from PySide6.QtWidgets import QProgressDialog, QMessageBox
+        from PySide6.QtWidgets import QProgressDialog
         from app.worker import TaskRunner, run_task
+        from app.utils import show_error
 
         progress = QProgressDialog(label, t("progress.cancel"), 0, total, self)
         progress.setWindowModality(_Qt.WindowModality.WindowModal)
@@ -362,12 +373,22 @@ class BasePage(QWidget):
             if on_done:
                 on_done(r)
 
-        def _wrap_err(m):
+        def _wrap_err(exc):
+            # `exc` is the Exception instance emitted by TaskRunner.run()
+            # via Signal(object). Legacy callers may still emit a plain
+            # str; wrap that in a RuntimeError so show_error() always
+            # receives a BaseException.
+            if not isinstance(exc, BaseException):
+                exc = RuntimeError(str(exc))
             self.action_btn.setEnabled(True)
             if on_err:
-                on_err(m)
+                on_err(exc)
             else:
-                QMessageBox.critical(self, t("msg.error"), m)
+                # Route the default error path through show_error so
+                # users get a friendly translated dialog with collapsible
+                # technical details + a file log entry, instead of the
+                # raw str(exception) traceback dumped in a QMessageBox.
+                show_error(self, exc)
 
         # Keep the runner + thread alive until they finish — Qt owns them
         # but Python may garbage-collect the wrapping objects otherwise.

@@ -60,6 +60,7 @@ class _EditPageJob(QRunnable):
         self.setAutoDelete(True)
 
     def run(self):
+        doc = None
         try:
             import fitz
             from PySide6.QtGui import QPixmap as QP, QImage
@@ -70,18 +71,26 @@ class _EditPageJob(QRunnable):
             rz = self._zoom * self._dpr
             pix = page.get_pixmap(matrix=fitz.Matrix(rz, rz), annots=False)
             img = pix.tobytes("png")
-            doc.close()
             qp = QP()
             if not qp.loadFromData(img):
+                # samples_mv is a memoryview backed by the fitz Pixmap,
+                # which is backed by the open Document. Force an eager
+                # copy via QImage.copy() before letting the doc fall
+                # out of scope in the finally clause — otherwise the
+                # underlying buffer can be freed mid-QImage-blit.
                 qi = QImage(pix.samples_mv, pix.width, pix.height,
                             pix.stride, QImage.Format.Format_RGB888)
-                qp = QP.fromImage(qi)
+                qp = QP.fromImage(qi.copy())
             qp.setDevicePixelRatio(self._dpr)
             self.signals.page_ready.emit(self._gen, self._idx, qp)
         except Exception:
             import traceback, logging
             logging.error("Edit page render failed (idx=%d):\n%s",
                           self._idx, traceback.format_exc())
+        finally:
+            if doc is not None:
+                try: doc.close()
+                except Exception: pass
 
 
 class PdfEditCanvas(QWidget):

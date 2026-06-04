@@ -32,13 +32,18 @@ class TaskRunner(QObject):
         finished(object result)
             Emitted on successful completion, OR with `None` when the
             user cancelled. The handler must distinguish.
-        error(str message)
-            Emitted on any uncaught exception inside `do_work()`.
+        error(object exc)
+            Emitted on any uncaught exception inside `do_work()`. The
+            payload is the Exception instance itself so handlers can
+            route it through `show_error` (friendly dialog + log) rather
+            than dumping the raw string traceback on the user. Legacy
+            callers that emit a plain str are still accepted by the
+            handler for backward compat.
     """
 
     progress = Signal(int, str)
     finished = Signal(object)
-    error = Signal(str)
+    error = Signal(object)
 
     def __init__(self):
         super().__init__()
@@ -65,7 +70,13 @@ class TaskRunner(QObject):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            self.error.emit(str(e))
+            # Emit the exception instance itself (not str(e)) so handlers
+            # can route it through show_error() — which prints a friendly
+            # translated dialog with a collapsible "Show Details" pane
+            # and logs the full traceback. The error signal is typed
+            # Signal(object) for this purpose; legacy receivers that
+            # expect a string get a runtime adapter in _wrap_err.
+            self.error.emit(e)
             return
         self.finished.emit(result)
 
@@ -177,7 +188,7 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
         def relay_finished(self, r):
             _final(on_finished, r)
 
-        @Slot(str)
+        @Slot(object)
         def relay_error(self, e):
             _final(on_error, e)
 

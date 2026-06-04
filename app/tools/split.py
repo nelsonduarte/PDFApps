@@ -127,13 +127,15 @@ class TabDividir(BasePage):
                 name = f"part_{r+1}.pdf"
             if not name.lower().endswith(".pdf"): name += ".pdf"
             if start < 1 or end < start or end > total:
-                errors.append(f"Row {r+1}: {start}–{end} invalid"); continue
+                errors.append(t("tool.split.row_invalid",
+                                r=r + 1, start=start, end=end)); continue
             w = PdfWriter()
             for p in range(start - 1, end): w.add_page(reader.pages[p])
             with open(os.path.join(out_dir, name), "wb") as f: w.write(f)
             generated.append(name)
         if errors: QMessageBox.warning(self, t("msg.warning"), t("tool.split.skipped", errors="\n".join(errors)))
         if generated:
-            self._status(f"✔  {len(generated)} file(s) → {out_dir}")
+            self._status(t("tool.split.files_done",
+                           n=len(generated), folder=out_dir))
             QMessageBox.information(self, t("msg.done"),
                 t("tool.split.done", n=len(generated), folder=out_dir, files="\n".join(generated)))

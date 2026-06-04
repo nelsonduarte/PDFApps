@@ -228,7 +228,7 @@ class TabNUp(BasePage):
             return out_path
 
         def on_done(saved):
-            self._status(f"✔  → {os.path.basename(saved)}")
+            self._status(t("tool.nup.status.done", name=os.path.basename(saved)))
             msg = t("tool.nup.done", path=saved)
             if self._pipeline_active:
                 self._pipeline_success(msg, saved)

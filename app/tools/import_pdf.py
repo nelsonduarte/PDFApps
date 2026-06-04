@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, danger_btn
+from app.utils import section, danger_btn, result_label_style
 from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
@@ -70,11 +70,14 @@ class TabImport(BasePage):
         f.addWidget(self.drop_out)
 
         self.lbl_result = QLabel("")
-        self.lbl_result.setStyleSheet(
-            "font-weight:600; font-size:11pt; color:#059669; "
-            "background:transparent; padding:10px 4px;")
+        self.lbl_result.setStyleSheet(result_label_style())
         f.addWidget(self.lbl_result)
         f.addStretch()
+
+    def update_theme(self, dark: bool) -> None:
+        super().update_theme(dark)
+        try: self.lbl_result.setStyleSheet(result_label_style(dark))
+        except RuntimeError: pass  # widget destroyed
 
     def _on_type_changed(self, index: int):
         self._file_list.clear()
@@ -209,7 +212,7 @@ class TabImport(BasePage):
 
         def on_done(skipped):
             if skipped:
-                self._status(f"Skipped {skipped} unreadable image(s)")
+                self._status(t("tool.import.skipped_images", n=skipped))
             self._done(out_path)
 
         self._run_background(do_work, total=max(n, 1),
@@ -584,6 +587,6 @@ class TabImport(BasePage):
 
     def _done(self, out_path: str):
         self.lbl_result.setText(f"  \u2192 {os.path.basename(out_path)}")
-        self._status(f"\u2714  PDF \u2192 {out_path}")
+        self._status(t("tool.import.status.done", path=out_path))
         QMessageBox.information(self, t("msg.done"),
                                 t("tool.import.done", path=out_path))
