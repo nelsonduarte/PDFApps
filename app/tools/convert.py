@@ -284,37 +284,54 @@ class TabConverter(BasePage):
             from docx import Document
             from docx.shared import Pt, RGBColor, Inches
             import io, re as _re
+            from app.tools._pdf_extract import (
+                extract_page_assets,
+                detect_repeated_regions,
+            )
             doc = fitz.open(pdf_path)
             if doc.needs_pass and pwd:
                 doc.authenticate(pwd)
             try:
-                docx_doc = Document()
-                for i, page in enumerate(doc):
+                # Pass 1: extract assets for every page (text blocks, images,
+                # widgets, annotations) using the shared helper.
+                pages_assets = []
+                for i in range(doc.page_count):
                     if worker.is_cancelled():
                         return None
-                    blocks = page.get_text("dict")["blocks"]
-                    for block in blocks:
-                        btype = block.get("type", 0)
-                        # Image block — extract and embed
-                        if btype == 1:
-                            img_data = block.get("image")
-                            if img_data:
-                                with contextlib.suppress(Exception):
-                                    para = docx_doc.add_paragraph()
-                                    run = para.add_run()
-                                    run.add_picture(io.BytesIO(img_data), width=Inches(5.0))
+                    pages_assets.append(extract_page_assets(doc, i))
+                    worker.progress.emit(i, f"{i + 1}/{total}…")
+
+                # Pass 2: detect headers/footers that repeat across pages so
+                # they are not duplicated in the body flow.
+                doc_h = pages_assets[0].height if pages_assets else 0.0
+                skip = detect_repeated_regions(pages_assets, doc_h)
+
+                # Pass 3: write the DOCX out of the cached assets.
+                docx_doc = Document()
+                for pa in pages_assets:
+                    if worker.is_cancelled():
+                        return None
+                    # 3a. Inline images (best-effort).
+                    for img in pa.images:
+                        if not img.bytes:
                             continue
-                        # Text block
-                        lines = block.get("lines", [])
+                        with contextlib.suppress(Exception):
+                            para = docx_doc.add_paragraph()
+                            run = para.add_run()
+                            run.add_picture(io.BytesIO(img.bytes), width=Inches(5.0))
+
+                    # 3b. Text blocks (skip repeated header/footer).
+                    for bi, block in enumerate(pa.text_blocks):
+                        if (pa.page_index, bi) in skip:
+                            continue
+                        lines = block.lines
                         if not lines:
                             continue
-                        all_spans = []
-                        for line in lines:
-                            all_spans.extend(line.get("spans", []))
+                        all_spans = [s for line in lines for s in line.spans]
                         if not all_spans:
                             continue
                         block_text = " ".join(
-                            _clean(s.get("text", "")) for s in all_spans
+                            _clean(s.text) for s in all_spans
                         ).strip()
                         if not block_text:
                             continue
@@ -326,8 +343,8 @@ class TabConverter(BasePage):
                         if _re.search(r'\.[\s.]*\.[\s.]*\.[\s.]*\.', block_text):
                             continue
                         # Detect heading level by font size
-                        max_size = max(s.get("size", 12) for s in all_spans)
-                        any_bold = any(s.get("flags", 0) & 16 for s in all_spans)
+                        max_size = max((s.size or 12) for s in all_spans)
+                        any_bold = any((s.flags & 16) for s in all_spans)
                         if max_size >= 20:
                             para = docx_doc.add_heading(level=1)
                         elif max_size >= 16:
@@ -339,17 +356,16 @@ class TabConverter(BasePage):
                         else:
                             para = docx_doc.add_paragraph()
                         for li, line in enumerate(lines):
-                            spans = line.get("spans", [])
-                            for span in spans:
-                                text = _clean(span.get("text", ""))
+                            for span in line.spans:
+                                text = _clean(span.text)
                                 if not text:
                                     continue
                                 run = para.add_run(text)
-                                run.font.size = Pt(span.get("size", 12))
-                                sf = span.get("flags", 0)
+                                run.font.size = Pt(span.size or 12)
+                                sf = span.flags
                                 run.font.bold = bool(sf & 16)
                                 run.font.italic = bool(sf & 2)
-                                color = span.get("color", 0)
+                                color = span.color
                                 if color and color != 0:
                                     r_val = (color >> 16) & 0xFF
                                     g_val = (color >> 8) & 0xFF
@@ -357,7 +373,21 @@ class TabConverter(BasePage):
                                     run.font.color.rgb = RGBColor(r_val, g_val, b_val)
                             if li < len(lines) - 1:
                                 para.add_run(" ")
-                    worker.progress.emit(i, f"{i + 1}/{total}…")
+
+                    # 3c. Form widgets — emit captured values so they are not lost.
+                    for w in pa.widgets:
+                        value = _clean(w.field_value).strip()
+                        if not value:
+                            continue
+                        name = _clean(w.field_name).strip() or w.field_type or "field"
+                        docx_doc.add_paragraph(f"[Form: {name}] {value}")
+
+                    # 3d. Annotations — sticky notes, FreeText, etc.
+                    for a in pa.annotations:
+                        content = _clean(a.content).strip()
+                        if not content:
+                            continue
+                        docx_doc.add_paragraph(f"[Note: {a.type}] {content}")
                 if worker.is_cancelled():
                     return None
                 docx_doc.save(out_path)
