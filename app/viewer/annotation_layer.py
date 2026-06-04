@@ -79,10 +79,14 @@ class AnnotationOverlay(QWidget):
         return int(self._tool)
 
     def set_pen_color(self, color: QColor) -> None:
-        if isinstance(color, QColor):
-            self._pen_color = QColor(color)
+        c = color if isinstance(color, QColor) else QColor(color)
+        # When the highlighter is active, route the chosen hue to the
+        # highlighter colour (preserving its translucent alpha) so swatch
+        # clicks / hotkeys 1-6 don't silently no-op.
+        if self._tool == ToolMode.HIGHLIGHTER:
+            self._highlighter_color = QColor(c.red(), c.green(), c.blue(), 90)
         else:
-            self._pen_color = QColor(color)
+            self._pen_color = QColor(c)
 
     def pen_color(self) -> QColor:
         return QColor(self._pen_color)
@@ -192,6 +196,13 @@ class AnnotationOverlay(QWidget):
         super().mousePressEvent(e)
 
     def mouseMoveEvent(self, e):
+        # Drawing tools mark the overlay opaque-to-mouse, so the parent's
+        # mouseMoveEvent never fires. Notify the parent so its HUD auto-hide
+        # timer keeps resetting. The parent's _show_hud() owns a 100 ms
+        # debounce; this call is cheap at ~125 Hz.
+        parent = self.parentWidget()
+        if parent is not None and hasattr(parent, "_show_hud"):
+            parent._show_hud()
         pos = e.position().toPoint()
         if self._tool == ToolMode.LASER:
             self._laser_pos = pos

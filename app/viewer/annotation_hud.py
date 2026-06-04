@@ -5,9 +5,18 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFrame
 import qtawesome as qta
 
-from app.constants import ACCENT, BG_CARD, BORDER, TEXT_PRI, TEXT_SEC, _LC, _LO, _LP, _LQ
+from app.constants import (
+    ACCENT, BG_CARD, BORDER, TEXT_PRI, TEXT_SEC,
+    _LC, _LO, _LP, _LQ,
+)
 from app.i18n import t
 from app.viewer.annotation_layer import ToolMode
+
+
+def _rgba(hex_color: str, alpha: int) -> str:
+    """Compose an rgba(...) QSS literal from a theme hex constant."""
+    c = QColor(hex_color)
+    return f"rgba({c.red()},{c.green()},{c.blue()},{alpha})"
 
 
 _HUD_HEIGHT = 64
@@ -71,7 +80,6 @@ class AnnotationHUD(QFrame):
             lay.addWidget(b)
 
         sep = QFrame(self)
-        sep.setFrameShape(QFrame.Shape.VLine)
         sep.setObjectName("present_hud_sep")
         sep.setFixedWidth(1)
         lay.addWidget(sep)
@@ -88,7 +96,6 @@ class AnnotationHUD(QFrame):
         lay.addWidget(self._clear_btn)
 
         sep2 = QFrame(self)
-        sep2.setFrameShape(QFrame.Shape.VLine)
         sep2.setObjectName("present_hud_sep")
         sep2.setFixedWidth(1)
         lay.addWidget(sep2)
@@ -159,19 +166,17 @@ class AnnotationHUD(QFrame):
 
     def _apply_styles(self) -> None:
         bg, border, fg, sec = self._theme_colors()
+        band_bg = _rgba(BG_CARD, 225) if self._dark_mode else _rgba(_LC, 235)
         self.setStyleSheet(
             f"#present_hud {{"
-            f"  background: rgba(24,33,39,225);"
-            f"  border: 1px solid {border};"
-            f"  border-radius: {_BAND_RADIUS}px;"
-            f"}}" if self._dark_mode else
-            f"#present_hud {{"
-            f"  background: rgba(255,255,255,235);"
+            f"  background: {band_bg};"
             f"  border: 1px solid {border};"
             f"  border-radius: {_BAND_RADIUS}px;"
             f"}}"
         )
-        # Per-button base styles (active styling applied in _refresh_active)
+        # Per-button base styles (active styling applied in _refresh_active).
+        # Hover tint derived from secondary text colour so it adapts to theme.
+        hover_bg = _rgba(sec, 40)
         btn_qss = (
             f"QPushButton {{"
             f"  background: transparent;"
@@ -180,16 +185,24 @@ class AnnotationHUD(QFrame):
             f"  color: {fg};"
             f"}}"
             f"QPushButton:hover {{"
-            f"  background: rgba(127,127,127,40);"
+            f"  background: {hover_bg};"
             f"}}"
         )
         for b in list(self._tool_btns.values()) + [self._clear_btn]:
             b.setStyleSheet(btn_qss)
 
+        # VLine separators paint a frame line, not a background — using
+        # border-left + min-width on a plain frame paints reliably.
         sep_color = border
         for s in (self._sep, self._sep2):
-            s.setStyleSheet(f"#present_hud_sep {{ background: {sep_color}; "
-                            f"border: none; }}")
+            s.setStyleSheet(
+                f"#present_hud_sep {{"
+                f"  border: none;"
+                f"  border-left: 1px solid {sep_color};"
+                f"  min-width: 1px;"
+                f"  max-width: 1px;"
+                f"  background: transparent;"
+                f"}}")
 
     def _refresh_icons(self) -> None:
         _bg, _border, fg, _sec = self._theme_colors()
@@ -225,16 +238,19 @@ class AnnotationHUD(QFrame):
         )
 
     def _refresh_active(self) -> None:
-        _bg, border, fg, _sec = self._theme_colors()
+        _bg, border, fg, sec = self._theme_colors()
+        active_fill = _rgba(ACCENT, 40)
+        active_hover = _rgba(ACCENT, 70)
+        inactive_hover = _rgba(sec, 40)
         active_qss = (
             f"QPushButton {{"
-            f"  background: rgba(20,184,166,40);"
+            f"  background: {active_fill};"
             f"  border: 2px solid {ACCENT};"
             f"  border-radius: 8px;"
             f"  color: {ACCENT};"
             f"}}"
             f"QPushButton:hover {{"
-            f"  background: rgba(20,184,166,70);"
+            f"  background: {active_hover};"
             f"}}"
         )
         inactive_qss = (
@@ -245,7 +261,7 @@ class AnnotationHUD(QFrame):
             f"  color: {fg};"
             f"}}"
             f"QPushButton:hover {{"
-            f"  background: rgba(127,127,127,40);"
+            f"  background: {inactive_hover};"
             f"}}"
         )
         for mode, b in self._tool_btns.items():

@@ -193,6 +193,15 @@ class PresentationWidget(QWidget):
     def keyPressEvent(self, e):
         key = e.key()
 
+        # Skip annotation hotkeys when any modifier is held so Ctrl+C /
+        # Ctrl+P / Ctrl+1 etc. don't accidentally trigger tool / colour
+        # changes during a presentation.
+        if e.modifiers() & (Qt.KeyboardModifier.ControlModifier
+                            | Qt.KeyboardModifier.AltModifier
+                            | Qt.KeyboardModifier.MetaModifier):
+            super().keyPressEvent(e)
+            return
+
         if key == Qt.Key.Key_P:
             self._on_tool_selected(int(ToolMode.PEN))
             return
@@ -206,8 +215,7 @@ class PresentationWidget(QWidget):
             self._on_tool_selected(int(ToolMode.LASER))
             return
         if key == Qt.Key.Key_C:
-            self._overlay.clear_current_page()
-            self.update()
+            self._on_clear_requested()
             return
         if key in _PALETTE_HOTKEYS:
             current = self._overlay.tool()
