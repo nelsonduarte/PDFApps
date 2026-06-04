@@ -109,7 +109,13 @@ def check_for_update() -> dict | None:
         if remote > local:
             return data
     except Exception:
-        pass
+        # Don't surface to UI (silent background check), but log to
+        # pdfapps.log so we can diagnose "user X never sees updates"
+        # reports (rate-limit 403, DNS failures, malformed JSON, etc.).
+        import logging
+        logging.getLogger("updater").debug(
+            "check_for_update failed", exc_info=True
+        )
     return None
 
 
@@ -174,7 +180,12 @@ def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None 
         if not expected_hash:
             raise ValueError(t("update.error.missing_hash"))
         req = urllib.request.Request(url, headers={"User-Agent": "PDFApps"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        # Connect-phase timeout intentionally kept short so cancel during
+        # TLS handshake (where cancel_holder["resp"] is still None) doesn't
+        # leave the worker blocked for the full 60s default. Once urlopen
+        # returns, the chunked read() loop checks cancel_holder["cancelled"]
+        # at each iteration.
+        with urllib.request.urlopen(req, timeout=15) as resp:
             if cancel_holder is not None:
                 cancel_holder["resp"] = resp
             total = int(resp.headers.get("Content-Length", 0))
@@ -419,9 +430,23 @@ class UpdateDialog(QDialog):
         self._signals.finished.connect(self._dl_thread.quit)
         self._signals.error.connect(self._dl_thread.quit)
         self._signals.cancelled.connect(self._dl_thread.quit)
+        # Explicit cleanup so retries within the same dialog (e.g. after
+        # an error toast) don't leak QThread and _Worker objects. Mirrors
+        # the pattern in window.py:_update_thread.finished -> deleteLater.
+        self._dl_thread.finished.connect(self._dl_thread.deleteLater)
+        self._signals.finished.connect(self._dl_worker.deleteLater)
+        self._signals.error.connect(self._dl_worker.deleteLater)
+        self._signals.cancelled.connect(self._dl_worker.deleteLater)
         self._dl_thread.start()
 
     def _on_progress(self, pct: int):
+        # Queued from the worker thread — by the time we run, the user
+        # may have closed the dialog (closeEvent returns before queued
+        # slots fire). shiboken6.isValid is the idiomatic liveness
+        # check in this repo (see feedback_pyside6_apis).
+        from shiboken6 import isValid
+        if not isValid(self):
+            return
         self._progress.setValue(pct)
 
     def _start_dots_animation(self, base_text: str):
@@ -442,6 +467,11 @@ class UpdateDialog(QDialog):
             self._dots_timer.stop()
 
     def _on_finished(self, path: str):
+        # Queued from the worker thread — guard against widget destruction
+        # if the user closed the dialog before this slot fired.
+        from shiboken6 import isValid
+        if not isValid(self):
+            return
         from app.i18n import t
         self._stop_dots_animation()
         self._progress.setValue(100)
@@ -470,6 +500,11 @@ class UpdateDialog(QDialog):
             self._update_btn.setEnabled(True)
 
     def _on_error(self, msg: str):
+        # Queued from the worker thread — guard against widget destruction
+        # if the user closed the dialog before this slot fired.
+        from shiboken6 import isValid
+        if not isValid(self):
+            return
         self._stop_dots_animation()
         self._cancel_btn.setEnabled(True)
         self._update_btn.setEnabled(True)
