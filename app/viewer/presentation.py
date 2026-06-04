@@ -1,6 +1,7 @@
 """PDFApps – Presentation mode: fullscreen single-page viewer."""
 
 import contextlib
+import logging
 import time
 
 from PySide6.QtCore import Qt, QTimer
@@ -11,6 +12,8 @@ from shiboken6 import isValid
 from app.viewer.annotation_layer import AnnotationOverlay, ToolMode
 from app.viewer.annotation_hud import AnnotationHUD
 
+
+_log = logging.getLogger(__name__)
 
 _HUD_AUTO_HIDE_MS = 3000
 _HUD_RESTART_DEBOUNCE_MS = 100
@@ -122,6 +125,7 @@ class PresentationWidget(QWidget):
             qp.setDevicePixelRatio(dpr)
             self._pixmap = qp
         except Exception:
+            _log.exception("presentation _render failed")
             self._pixmap = None
 
         self._overlay.set_current_page(self._current)

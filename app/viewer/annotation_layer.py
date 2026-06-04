@@ -57,6 +57,14 @@ class AnnotationOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # Without mouse tracking, mouseMoveEvent only fires while a button is
+        # held. In LASER mode the overlay is opaque-to-mouse (passthrough is
+        # False), so the parent's mouseMoveEvent never sees the motion either
+        # — the laser dot stays frozen until the user clicks. Enabling
+        # tracking on the overlay AND on the parent (see PresentationWidget)
+        # makes the laser follow the cursor and keeps the HUD auto-hide timer
+        # alive across every tool mode.
+        self.setMouseTracking(True)
         self._apply_cursor()
 
     # ── public API ────────────────────────────────────────────────────────
@@ -98,8 +106,8 @@ class AnnotationOverlay(QWidget):
         self._current_stroke = None
         self._laser_pos = None
         # Drop any phantom mouse grab so a press during page change can't
-        # leak across pages.
-        if self.mouseGrabber() is self:
+        # leak across pages. mouseGrabber() is a static method on QWidget.
+        if QWidget.mouseGrabber() is self:
             self.releaseMouse()
         self.update()
 
@@ -113,7 +121,7 @@ class AnnotationOverlay(QWidget):
         self._strokes.clear()
         self._current_stroke = None
         self._laser_pos = None
-        if self.mouseGrabber() is self:
+        if QWidget.mouseGrabber() is self:
             self.releaseMouse()
         self.update()
 
