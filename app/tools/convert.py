@@ -302,9 +302,10 @@ class TabConverter(BasePage):
                     worker.progress.emit(i, f"{i + 1}/{total}…")
 
                 # Pass 2: detect headers/footers that repeat across pages so
-                # they are not duplicated in the body flow.
-                doc_h = pages_assets[0].height if pages_assets else 0.0
-                skip = detect_repeated_regions(pages_assets, doc_h)
+                # they are not duplicated in the body flow. The helper uses
+                # each page's own height, so mixed portrait/landscape PDFs
+                # are handled correctly; the second arg is just a fallback.
+                skip = detect_repeated_regions(pages_assets)
 
                 # Pass 3: write the DOCX out of the cached assets.
                 docx_doc = Document()
