@@ -4,9 +4,29 @@ import json
 import locale
 import os
 import sys
+import threading
+from typing import Callable
 
 _TRANSLATIONS: dict = {}
 _LANG: str = "en"
+
+# Module-level lock serializing the read-modify-write cycle on
+# _CONFIG_PATH. _atomic_write_config makes the *rename* atomic, but the
+# enclosing "load cfg → mutate → write back" sequence is racey — two
+# threads (theme toggle + add_recent_file + tool_usage tracking on tab
+# switch) can interleave and one overwrite wipes the other. See
+# `_update_config` for the wrapper that callers should use.
+#
+# Cross-process safety (two PDFApps instances closing at the same time)
+# is NOT covered: portalocker is not a current dependency, and Windows
+# msvcrt.locking() has a different semantic from POSIX fcntl.flock so
+# layering it portably would require non-trivial scaffolding. The
+# remaining window is tiny — two cycles racing each other ms-apart can
+# still drop one mutation. Tracked as a follow-up; the failure mode is
+# bounded (we lose one recent-file entry or one tool_usage tick), not
+# corruption (_atomic_write_config still guarantees the file on disk
+# is always a valid JSON object).
+_CONFIG_LOCK = threading.Lock()
 
 _LEGACY_CONFIG = os.path.join(os.path.expanduser("~"), ".pdfapps_config.json")
 _LEGACY_SIGNATURE = os.path.join(os.path.expanduser("~"), ".pdfapps_signature.png")
@@ -106,15 +126,35 @@ def _atomic_write_config(cfg: dict):
         raise
 
 
+def _update_config(mutator: Callable[[dict], None]) -> None:
+    """Read-modify-write the config under a module-level lock.
+
+    `mutator(cfg)` is called with the current config dict (empty when
+    the file is missing or corrupt) and should mutate it in place.
+    The lock guarantees that concurrent calls from the same process
+    do not lose each other's mutations — without it, two threads can
+    each load the same baseline, apply their respective change, and
+    the slower writer overwrites the faster one.
+
+    Cross-process races (two PDFApps instances mutating the file
+    simultaneously) are NOT covered here — see the comment on
+    `_CONFIG_LOCK` at module top.
+    """
+    with _CONFIG_LOCK:
+        cfg: dict = {}
+        try:
+            with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception:
+            cfg = {}
+        if not isinstance(cfg, dict):
+            cfg = {}
+        mutator(cfg)
+        _atomic_write_config(cfg)
+
+
 def _save_config_language(lang: str):
-    cfg = {}
-    try:
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-    except Exception:
-        pass
-    cfg["language"] = lang
-    _atomic_write_config(cfg)
+    _update_config(lambda cfg: cfg.__setitem__("language", lang))
 
 
 def init():
@@ -171,20 +211,22 @@ def get_recent_files() -> list[str]:
 
 
 def add_recent_file(path: str):
-    recents = get_recent_files()
     path = os.path.normpath(path)
-    if path in recents:
-        recents.remove(path)
-    recents.insert(0, path)
-    recents = recents[:_MAX_RECENT]
-    cfg = {}
-    try:
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-    except Exception:
-        pass
-    cfg["recent_files"] = recents
-    _atomic_write_config(cfg)
+
+    def _mutate(cfg: dict) -> None:
+        recents = cfg.get("recent_files", [])
+        if not isinstance(recents, list):
+            recents = []
+        # Re-validate against disk inside the lock so a concurrent
+        # writer's additions are merged with ours (instead of being
+        # overwritten by a stale snapshot).
+        recents = [p for p in recents if isinstance(p, str)]
+        if path in recents:
+            recents.remove(path)
+        recents.insert(0, path)
+        cfg["recent_files"] = recents[:_MAX_RECENT]
+
+    _update_config(_mutate)
 
 
 def get_saved_signature() -> str | None:

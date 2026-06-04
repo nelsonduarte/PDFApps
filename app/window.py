@@ -655,14 +655,11 @@ class MainWindow(QMainWindow):
         nav_key = _NAV_KEYS[index][0]
         self._tool_usage[nav_key] = self._tool_usage.get(nav_key, 0) + 1
         with contextlib.suppress(Exception):
-            from app.i18n import _CONFIG_PATH, _atomic_write_config
-            import json
-            cfg = {}
-            with contextlib.suppress(Exception):
-                with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)
-            cfg["tool_usage"] = self._tool_usage
-            _atomic_write_config(cfg)
+            # Serialized via _update_config — tab switches happen often
+            # enough to collide with theme/recent writes mid-session.
+            from app.i18n import _update_config
+            usage = dict(self._tool_usage)
+            _update_config(lambda cfg: cfg.__setitem__("tool_usage", usage))
         widget = self.stack.widget(index)
         path = self._viewer.current_path()
         if path:
@@ -840,13 +837,13 @@ class MainWindow(QMainWindow):
         menu.exec(self._recent_btn.mapToGlobal(self._recent_btn.rect().bottomLeft()))
 
     def _clear_recent(self):
-        import json
-        from app.i18n import _CONFIG_PATH, _atomic_write_config
+        # Route through _update_config so the read-modify-write cycle is
+        # serialized with other config writes (theme toggle, recent
+        # files, tool_usage) — otherwise a concurrent writer can race
+        # and resurrect the cleared list.
+        from app.i18n import _update_config
         try:
-            with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            cfg["recent_files"] = []
-            _atomic_write_config(cfg)
+            _update_config(lambda cfg: cfg.__setitem__("recent_files", []))
         except Exception:
             pass
 
@@ -1161,22 +1158,20 @@ class MainWindow(QMainWindow):
                     upd.quit()
                     upd.wait(1000)
         try:
-            from app.i18n import _CONFIG_PATH, _atomic_write_config
-            import json
-            cfg = {}
-            try:
-                with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)
-            except Exception:
-                pass
-            cfg["splitter_sizes"] = self._splitter.sizes()
+            from app.i18n import _update_config
+            sizes = self._splitter.sizes()
             if self._sidebar_collapsed:
-                cfg["sidebar_mode"] = "hidden"
+                mode = "hidden"
             elif self._sidebar.width() <= 60:
-                cfg["sidebar_mode"] = "icons"
+                mode = "icons"
             else:
-                cfg["sidebar_mode"] = "full"
-            _atomic_write_config(cfg)
+                mode = "full"
+
+            def _mutate(cfg: dict) -> None:
+                cfg["splitter_sizes"] = sizes
+                cfg["sidebar_mode"] = mode
+
+            _update_config(_mutate)
         except Exception:
             pass
         super().closeEvent(event)
@@ -1226,17 +1221,15 @@ class MainWindow(QMainWindow):
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
         self._apply_theme()
-        # Save preference
-        from app.i18n import _CONFIG_PATH, _atomic_write_config
-        import json
-        cfg = {}
+        # Save preference — routed through _update_config so a theme
+        # toggle racing a recent-file write or tab-switch tool_usage
+        # update can't lose either mutation.
+        from app.i18n import _update_config
+        dark = self._dark_mode
         try:
-            with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
+            _update_config(lambda cfg: cfg.__setitem__("dark_mode", dark))
         except Exception:
             pass
-        cfg["dark_mode"] = self._dark_mode
-        _atomic_write_config(cfg)
 
     def _apply_theme(self):
         style = STYLE if self._dark_mode else STYLE_LIGHT
