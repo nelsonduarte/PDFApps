@@ -1105,16 +1105,24 @@ class MainWindow(QMainWindow):
         start_page = canvas.page_at_y(sb.value()) if canvas.page_count() > 0 else 0
         from app.viewer.presentation import PresentationWidget
         try:
-            self._presentation = PresentationWidget(
+            pres = PresentationWidget(
                 viewer._current_path,
                 getattr(viewer, "_pdf_password", ""),
                 start_page,
                 canvas.page_count(),
+                dark_mode=self._dark_mode,
             )
         except Exception as e:
             from app.utils import show_error
             show_error(self, e)
             return
+        # Capture identity at connect time so the destroyed signal of an
+        # earlier instance (queued after F5 → Esc → F5) does NOT clobber a
+        # freshly-assigned new instance.
+        pres.destroyed.connect(
+            lambda _=None, w=pres: setattr(self, "_presentation", None)
+            if getattr(self, "_presentation", None) is w else None)
+        self._presentation = pres
         self._presentation.show()
 
     def closeEvent(self, event):
@@ -1292,6 +1300,12 @@ class MainWindow(QMainWindow):
                     if callable(fn):
                         try: fn(self._dark_mode)
                         except RuntimeError: pass  # widget destroyed
+        # Propagate theme change to the live presentation window (if any).
+        pres = getattr(self, "_presentation", None)
+        if pres is not None:
+            from shiboken6 import isValid as _is_valid
+            if _is_valid(pres):
+                pres.update_theme(self._dark_mode)
 
     # ── Auto-update ───────────────────────────────────────────────────────
 
