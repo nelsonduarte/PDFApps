@@ -79,8 +79,6 @@ NAV_ITEMS = _build_nav_items()
 
 
 class MainWindow(QMainWindow):
-    _update_ready = Signal()
-
     def __init__(self):
         super().__init__()
         self.setWindowTitle(t("app.name"))
@@ -268,7 +266,8 @@ class MainWindow(QMainWindow):
         self._update_btn.clicked.connect(self._show_update_dialog)
         wb_h.addWidget(self._update_btn)
         self._update_release = None
-        self._update_ready.connect(self._notify_update)
+        self._update_thread = None
+        self._update_worker = None
         self._check_for_updates_async()
 
         root_v.addWidget(self._workspace_bar)
@@ -1163,13 +1162,11 @@ class MainWindow(QMainWindow):
                     wait_fn()
         # Same for the update-check thread (usually a short HTTP
         # request, but the user can close the app immediately on
-        # launch and Qt will warn if it's still running).
-        upd = getattr(self, "_update_thread", None)
-        if upd is not None:
-            with contextlib.suppress(RuntimeError):
-                if upd.isRunning():
-                    upd.quit()
-                    upd.wait(1000)
+        # launch and Qt will warn if it's still running). Also drops
+        # the QObject worker to release its closure / release dict
+        # if the user closes the window before the check completes
+        # (R8-H2 defensive path).
+        self._release_update_worker()
         try:
             from app.i18n import _update_config
             sizes = self._splitter.sizes()
@@ -1353,8 +1350,32 @@ class MainWindow(QMainWindow):
         self._update_thread.start()
 
     def _on_update_found(self):
-        self._update_release = self._update_worker.release
+        if self._update_worker is not None:
+            self._update_release = self._update_worker.release
         self._notify_update()
+        # R8-H2: the worker QObject lived for the lifetime of the
+        # application before this — only the QThread was scheduled for
+        # deleteLater. Drop the worker after the check completes so the
+        # closure (and its captured release dict) is freed.
+        self._release_update_worker()
+
+    def _release_update_worker(self):
+        """Tear down the update worker/thread defensively.
+
+        Safe to call from both ``_on_update_found`` (the happy path) and
+        ``closeEvent`` (in case the worker never emitted ``done`` — e.g.
+        no update available, network failure)."""
+        worker = getattr(self, "_update_worker", None)
+        if worker is not None:
+            with contextlib.suppress(RuntimeError):
+                worker.deleteLater()
+            self._update_worker = None
+        thread = getattr(self, "_update_thread", None)
+        if thread is not None:
+            with contextlib.suppress(RuntimeError):
+                if thread.isRunning():
+                    thread.quit()
+                    thread.wait(1000)
 
     def _notify_update(self):
         """Show update notification dialog automatically."""
