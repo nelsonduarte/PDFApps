@@ -1,5 +1,6 @@
 """PDFApps – TabEditar: visual PDF editor tool tab."""
 
+import contextlib
 import os
 import tempfile
 
@@ -25,6 +26,10 @@ class TabEditar(QWidget):
     """Visual editor: click/drag directly on the rendered PDF."""
 
     _MAX_REDO = 100   # cap redo history to avoid unbounded memory growth
+    # Cap pending-edit history to keep memory bounded in long sessions and to
+    # release temp signature/image files (which edits hold paths to) once
+    # they fall out of the rolling window. Trimmed FIFO — oldest first.
+    _MAX_PENDING = 500
 
     _HI_COLORS_KEYS  = ["color.yellow", "color.green", "color.pink", "color.light_blue"]
     _HI_COLORS_VALS  = [(1,1,0), (0,1,0), (1,0.4,0.7), (0.5,0.8,1)]
@@ -619,6 +624,28 @@ class TabEditar(QWidget):
         self._lbl_info.setText("")
         self._page_idx = 0
         self._update_nav()
+        # Drop the cached password so a memory dump after the user
+        # closes the file no longer surfaces it (R5/D2).
+        self._clear_pdf_password()
+
+    def _clear_pdf_password(self) -> None:
+        """Mirror of ``BasePage._clear_pdf_password`` — EditorTab does not
+        inherit from BasePage so we provide the same helper locally so
+        every doc-close path can call it uniformly.
+        """
+        try:
+            pwd = getattr(self, "_pdf_password", "")
+        except Exception:
+            pwd = ""
+        if pwd:
+            try:
+                import ctypes
+                buf = ctypes.create_string_buffer(len(pwd.encode("utf-8")))
+                ctypes.memset(ctypes.addressof(buf), 0, len(buf))
+                del buf
+            except Exception:
+                pass
+        self._pdf_password = ""
 
     def _pick_image(self):
         p, _ = QFileDialog.getOpenFileName(self, t("edit.image"), DESKTOP,
@@ -814,6 +841,28 @@ class TabEditar(QWidget):
         if not _from_redo:
             self._redo_stack.clear()
         self._pending.append(edit)
+        # Trim oldest edits once we cross the cap. Without this the list
+        # grew unbounded across long sessions and retained references to
+        # temp signature/image files until the tab closed.
+        if len(self._pending) > self._MAX_PENDING:
+            to_drop = self._pending[:-self._MAX_PENDING]
+            self._pending = self._pending[-self._MAX_PENDING:]
+            # Best-effort cleanup of temp paths owned by the dropped
+            # entries. Only files inside the system tempdir are touched —
+            # the user's source image/signature picks must never be
+            # deleted from disk.
+            tmp_root = os.path.normcase(tempfile.gettempdir())
+            for old in to_drop:
+                with contextlib.suppress(Exception):
+                    p = old.get("path")
+                    if (p and os.path.isfile(p)
+                            and os.path.normcase(p).startswith(tmp_root)):
+                        os.unlink(p)
+            # Mirror the trim in the visible list widget so the labels
+            # stay in sync with self._pending indices.
+            extra = self._pending_list.count() - len(self._pending)
+            for _ in range(max(0, extra)):
+                self._pending_list.takeItem(0)
         # Each entry's base label is fully translated via edit.label.*;
         # the page suffix (" — p. N") comes from a shared key so all
         # locales decide their own dash/spacing/abbreviation.
