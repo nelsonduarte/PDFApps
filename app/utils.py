@@ -108,6 +108,38 @@ def pick_folder(parent: QWidget) -> str:
     return QFileDialog.getExistingDirectory(parent, t("btn.select_folder"))
 
 
+def wipe_pdf_password(obj) -> None:
+    """Best-effort wipe of the cached PDF password attribute on ``obj``.
+
+    Python ``str`` is immutable, so we cannot scrub the original bytes —
+    the interpreter may keep the original buffer alive via interning or
+    constant tables. What we *can* do is drop the only reachable
+    reference so the password no longer surfaces in the live object
+    graph. The ctypes block allocates a zeroed buffer of the same length
+    as a defensive hint to memory scanners; it does not touch the
+    original PyUnicode storage.
+
+    Centralised here so BasePage, EditorTab and PdfViewerPanel share a
+    single implementation (used to be three near-identical copies — the
+    review for PR-B flagged the duplication as DRY rot).
+
+    Always assigns ``obj._pdf_password = ""`` afterwards, so callers can
+    rely on the attribute being defined for the rest of the object's
+    lifecycle.
+    """
+    try:
+        pwd = getattr(obj, "_pdf_password", "")
+    except Exception:
+        pwd = ""
+    if pwd:
+        with contextlib.suppress(Exception):
+            import ctypes
+            buf = ctypes.create_string_buffer(len(pwd.encode("utf-8")))
+            ctypes.memset(ctypes.addressof(buf), 0, len(buf))
+            del buf
+    obj._pdf_password = ""
+
+
 def prompt_pdf_password(path: str, parent=None) -> tuple[bool, str]:
     """Open the PDF and, if encrypted, prompt the user for a password.
 
