@@ -18,6 +18,9 @@ dist/
 # Logs de build
 build_*.txt
 
+# Local release artifacts (downloaded for Microsoft Store submission)
+artifacts-*/
+
 # Testes / temporários
 test_ctrl_scroll.py
 *.tmp
