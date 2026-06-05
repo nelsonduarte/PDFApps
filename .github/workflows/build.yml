@@ -60,6 +60,24 @@ jobs:
             pwsh msix/build.ps1
           }
 
+      - name: Verify MSIX contains resources.pri
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $msix = Get-ChildItem dist/*.msix | Select-Object -First 1
+          if (-not $msix) { throw "No MSIX found in dist/" }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($msix.FullName)
+          try {
+            $hasResourcesPri = $zip.Entries.FullName -contains 'resources.pri'
+            if (-not $hasResourcesPri) {
+              throw "resources.pri missing from $($msix.Name) — file association icons will be broken on Microsoft Store install"
+            }
+            Write-Host "OK: resources.pri present in $($msix.Name)"
+          } finally {
+            $zip.Dispose()
+          }
+
       - name: Upload (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
