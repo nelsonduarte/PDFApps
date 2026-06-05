@@ -555,7 +555,7 @@ class _SelectCanvas(QWidget):
     # ── Context menu ───────────────────────────────────────────────────────
 
     def contextMenuEvent(self, e):
-        from PySide6.QtWidgets import QMenu
+        from PySide6.QtWidgets import QMenu, QMessageBox
         pos = e.pos()
         # Check if right-click is on a note icon
         hit = self._note_icon_at(pos)
@@ -568,23 +568,52 @@ class _SelectCanvas(QWidget):
                 entry = self._entries[page_idx]
                 if entry.annots and annot_idx < len(entry.annots):
                     rect, txt = entry.annots[annot_idx]
+                    # saveIncr() writes directly to the user's file with no
+                    # undo. Confirm first (default=No) so a stray right-click
+                    # can't silently destroy a comment.
+                    reply = QMessageBox.question(
+                        self, t("msg.confirm"),
+                        t("viewer.confirm_delete_comment"),
+                        QMessageBox.StandardButton.Yes
+                        | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    )
+                    if reply != QMessageBox.StandardButton.Yes:
+                        return
                     # Remove annotation from fitz doc
                     if self._doc:
                         import fitz
-                        page = self._doc[page_idx]
-                        for annot in page.annots() or []:
-                            if annot.type[0] == fitz.PDF_ANNOT_TEXT:
-                                content = annot.info.get("content", "") or ""
-                                if content.strip() == txt.strip():
-                                    page.delete_annot(annot)
-                                    break
-                        # Save the doc
-                        if self._path:
-                            self._doc.saveIncr()
+                        try:
+                            page = self._doc[page_idx]
+                            for annot in page.annots() or []:
+                                if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                                    content = annot.info.get("content", "") or ""
+                                    if content.strip() == txt.strip():
+                                        page.delete_annot(annot)
+                                        break
+                            # Save the doc. saveIncr() raises on read-only
+                            # files / permission errors; surface a friendly
+                            # dialog instead of crashing the Qt event loop.
+                            if self._path:
+                                self._doc.saveIncr()
+                        except Exception as exc:
+                            from app.utils import show_error
+                            show_error(self, exc)
+                            return
                     # Remove from entry annots list
                     entry.annots.pop(annot_idx)
-                    if self._open_note == hit:
-                        self._open_note = None
+                    # The _open_note tuple stores (page_idx, annot_idx).
+                    # After the pop, indices on the same page that were
+                    # greater than annot_idx shift down by one — fix the
+                    # stored reference so reopening the popup doesn't
+                    # show the wrong note (B-extra).
+                    if self._open_note is not None:
+                        open_page, open_idx = self._open_note
+                        if open_page == page_idx:
+                            if open_idx == annot_idx:
+                                self._open_note = None
+                            elif open_idx > annot_idx:
+                                self._open_note = (open_page, open_idx - 1)
                     self.update()
             return
         if not self._sel_text:
