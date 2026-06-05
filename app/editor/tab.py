@@ -518,6 +518,20 @@ class TabEditar(QWidget):
                         "background:#FFFFFF; border:1px solid #C7D8D3; "
                         "color:#5D7470; border-radius:6px; border-radius:6px;")
         self._opt_stack.setCurrentIndex(idx)
+        # Forms mode doesn't push edits to ``_pending`` — surface that
+        # in the undo/redo button tooltips so the user understands why
+        # Ctrl+Z is a no-op there.
+        if idx == _MODE_FORMS:
+            tip = t("editor.forms.undo_unavailable")
+            self._btn_undo.setToolTip(tip)
+            self._btn_redo.setToolTip(tip)
+        else:
+            self._btn_undo.setToolTip(t("edit.undo_tip"))
+            self._btn_redo.setToolTip(t("edit.redo_tip"))
+        # Commit/cancel any inline-edit-in-progress before changing
+        # modes — otherwise the text the user typed lands in limbo.
+        if hasattr(self, "_canvas") and self._canvas._inline_edit.isVisible():
+            self._canvas._cancel_inline()
         self._canvas.set_select_mode(idx == 8)
         is_draw = (idx == 7)
         self._canvas.set_draw_mode(
@@ -542,9 +556,15 @@ class TabEditar(QWidget):
             self._canvas.setCursor(_get_icon_cursor("fa5s.signature", 14, 14))
         elif idx == 8:   # select
             self._canvas.setCursor(Qt.CursorShape.ArrowCursor)
-        if idx == 2:
-            self._pick_image()
-        elif idx == 6:
+        if idx == _MODE_IMAGE:
+            # Mirror the signature flow: only re-open the picker if no
+            # image has been chosen yet (or the previously-chosen file
+            # has since vanished). Previously this fired the dialog
+            # every single time the user clicked the Image mode button.
+            cur = self._img_drop.path()
+            if not cur or not os.path.isfile(cur):
+                self._pick_image()
+        elif idx == _MODE_SIGNATURE:
             if not self._signature_path or not os.path.isfile(self._signature_path):
                 self._pick_signature()
 
@@ -912,6 +932,15 @@ class TabEditar(QWidget):
         self._canvas.set_overlays(self._pending)
 
     def _undo(self):
+        # Forms mode edits live in the QTableWidget itself (pypdf-driven
+        # save path) and are intentionally not tracked in ``_pending``.
+        # Surface a status hint instead of doing nothing so the user
+        # understands why Ctrl+Z is a no-op here. ``getattr`` keeps the
+        # source-level stub tests in tests/test_editor_undo.py working —
+        # they bind this method onto a minimal _Stub without a mode idx.
+        if getattr(self, "_mode_idx", -1) == _MODE_FORMS:
+            self._status(t("editor.forms.undo_unavailable"))
+            return
         if not self._pending:
             return
         edit = self._pending.pop()
