@@ -630,22 +630,12 @@ class TabEditar(QWidget):
 
     def _clear_pdf_password(self) -> None:
         """Mirror of ``BasePage._clear_pdf_password`` — EditorTab does not
-        inherit from BasePage so we provide the same helper locally so
-        every doc-close path can call it uniformly.
+        inherit from BasePage so we provide the same hook locally and
+        delegate to the shared :func:`app.utils.wipe_pdf_password`
+        helper, keeping a single implementation across the codebase.
         """
-        try:
-            pwd = getattr(self, "_pdf_password", "")
-        except Exception:
-            pwd = ""
-        if pwd:
-            try:
-                import ctypes
-                buf = ctypes.create_string_buffer(len(pwd.encode("utf-8")))
-                ctypes.memset(ctypes.addressof(buf), 0, len(buf))
-                del buf
-            except Exception:
-                pass
-        self._pdf_password = ""
+        from app.utils import wipe_pdf_password
+        wipe_pdf_password(self)
 
     def _pick_image(self):
         p, _ = QFileDialog.getOpenFileName(self, t("edit.image"), DESKTOP,
@@ -859,9 +849,14 @@ class TabEditar(QWidget):
                             and os.path.normcase(p).startswith(tmp_root)):
                         os.unlink(p)
             # Mirror the trim in the visible list widget so the labels
-            # stay in sync with self._pending indices.
-            extra = self._pending_list.count() - len(self._pending)
-            for _ in range(max(0, extra)):
+            # stay in sync with self._pending indices. We use
+            # ``len(to_drop)`` rather than ``count() - len(_pending)``
+            # because the addItem for the *new* edit happens below: at
+            # this point _pending already has the trimmed length but
+            # _pending_list still holds the pre-trim row count, so the
+            # diff would be off by one and the next _undo would remove
+            # the wrong label (PR-B revisor finding #1).
+            for _ in range(len(to_drop)):
                 self._pending_list.takeItem(0)
         # Each entry's base label is fully translated via edit.label.*;
         # the page suffix (" — p. N") comes from a shared key so all

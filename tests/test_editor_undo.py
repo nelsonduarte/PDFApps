@@ -244,3 +244,65 @@ def test_pending_max_constants_in_source():
     assert "_MAX_PENDING" in src, "production constant missing"
     assert "tempfile.gettempdir" in src, \
         "trim must restrict unlink to the system tempdir"
+
+
+# ── PR-B revisor finding #1 — QListWidget vs _pending drift ─────────────
+
+
+def test_pending_list_widget_count_matches_pending_after_trim():
+    """The real QListWidget must stay in sync with ``_pending`` after
+    the cap-trim. Regression for PR-B revisor finding #1.
+
+    Pre-fix the trim computed ``extra = list.count() - len(_pending)``
+    *before* the new edit's ``addItem`` ran. In steady state at the
+    cap, that diff was 0 so no ``takeItem`` ever fired, and the
+    subsequent ``addItem`` left the QListWidget with +1 row vs the
+    underlying ``_pending`` list. The next ``_undo`` then removed the
+    wrong label (the visible most-recent row, not the row matching the
+    popped edit).
+    """
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication, QListWidget
+    _app = QApplication.instance() or QApplication([])  # noqa: F841
+
+    from app.editor.tab import TabEditar
+
+    class _Canvas:
+        def set_overlays(self, *a, **kw): pass
+
+    class _Stub:
+        _MAX_PENDING = TabEditar._MAX_PENDING
+        _MAX_REDO = TabEditar._MAX_REDO
+
+        def __init__(self):
+            self._pending: list = []
+            self._redo_stack: list = []
+            self._pending_list = QListWidget()
+            self._canvas = _Canvas()
+
+        def _status(self, *a, **kw): pass
+
+        # Bind the real production method so we test the real code path.
+        _add = TabEditar._add
+        _undo = TabEditar._undo
+
+    s = _Stub()
+
+    # Push past the cap by 50 edits.
+    for i in range(TabEditar._MAX_PENDING + 50):
+        s._add({"type": "redact", "page": 0, "id": i})
+
+    assert len(s._pending) == TabEditar._MAX_PENDING, \
+        "production trim should bound _pending to _MAX_PENDING"
+    assert s._pending_list.count() == len(s._pending), (
+        f"QListWidget rows ({s._pending_list.count()}) drifted from "
+        f"_pending size ({len(s._pending)}) — PR-B finding #1 regressed"
+    )
+
+    # _undo must remove the row matching the popped edit, leaving the
+    # widget and the list in lock-step. Pre-fix the widget would be 1
+    # row ahead so an undo would take the wrong label.
+    before_count = s._pending_list.count()
+    s._undo()
+    assert s._pending_list.count() == len(s._pending)
+    assert s._pending_list.count() == before_count - 1
