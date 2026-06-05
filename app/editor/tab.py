@@ -806,8 +806,13 @@ class TabEditar(QWidget):
     def _on_text_edit_committed(self, page_idx, edit):
         self._add(edit)
 
-    def _add(self, edit: dict):
-        self._redo_stack.clear()
+    def _add(self, edit: dict, *, _from_redo: bool = False):
+        # _from_redo=True is set by _redo() so consecutive redos don't
+        # wipe the redo stack. Previously _redo() called _add(), and the
+        # first line below cleared the remaining redo entries — meaning
+        # after a single redo all the others were silently discarded.
+        if not _from_redo:
+            self._redo_stack.clear()
         self._pending.append(edit)
         # Each entry's base label is fully translated via edit.label.*;
         # the page suffix (" — p. N") comes from a shared key so all
@@ -847,7 +852,7 @@ class TabEditar(QWidget):
         if not self._redo_stack:
             return
         edit = self._redo_stack.pop()
-        self._add(edit)
+        self._add(edit, _from_redo=True)
 
     def _on_note_deleted(self, overlay: dict):
         """Remove a deleted note from the pending edits list."""
