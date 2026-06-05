@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+
 from PySide6.QtCore import Qt, Signal, QRect, QObject, QRunnable, QThreadPool
 from PySide6.QtWidgets import QWidget, QApplication
 from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QFont
@@ -201,6 +203,36 @@ class _SelectCanvas(QWidget):
         self._entries = []
         self._clear_selection()
         self.setFixedSize(300, 400)
+        self.update()
+
+    # ── DPR change handling (D1) ─────────────────────────────────────────
+    def showEvent(self, event):
+        """Hook into the top-level QWindow.screenChanged signal so a
+        screen migration (drag to another monitor) or DPR mutation
+        (Windows Display Settings change) invalidates the cached
+        pixmaps and re-renders at the new device pixel ratio.
+
+        Without this handler ``_schedule_visible`` only sampled the DPR
+        on zoom changes, leaving pages blurry until the user interacted
+        (R8/D1)."""
+        super().showEvent(event)
+        win = self.window().windowHandle() if self.window() else None
+        if win:
+            # Re-show events may fire after a tab switch — disconnect
+            # first to avoid stacking duplicate handlers.
+            with contextlib.suppress(TypeError, RuntimeError):
+                win.screenChanged.disconnect(self._on_screen_changed)
+            win.screenChanged.connect(self._on_screen_changed)
+
+    def _on_screen_changed(self, _screen):
+        """Invalidate cached pixmaps and re-render at the new DPR."""
+        # Bump generation so any in-flight render jobs are discarded
+        # by _on_page_ready when they finally land on the main thread.
+        self._gen += 1
+        self._pending.clear()
+        for entry in self._entries:
+            entry.pixmap = None
+        self._schedule_visible()
         self.update()
 
     # ── Layout ───────────────────────────────────────────────────────────────
