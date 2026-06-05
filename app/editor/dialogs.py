@@ -425,6 +425,15 @@ class _SignatureDialog(QDialog):
             from app.i18n import save_signature
             save_signature(tmp)
 
+        # Restrict the in-flight tmp signature to user-only on POSIX so
+        # other users on the host cannot read it before the editor
+        # stamps it into the PDF. NTFS ACLs already cover the Windows
+        # case via the profile owner; chmod there is a no-op.
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
+
         self._result_path = tmp
         self.accept()
 

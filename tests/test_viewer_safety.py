@@ -103,3 +103,53 @@ def test_canvas_close_doc_clears_doc_and_bumps_gen():
     body = CANVAS[cd_idx: cd_idx + 800]
     assert "self._doc = None" in body
     assert "self._gen" in body
+
+
+# ── R7/N7-H1: print honours range, copies, and reverse order ────────────
+
+
+def test_print_respects_from_page_to_page():
+    """The print loop must read printer.fromPage()/toPage() and
+    iterate only that range — pre-fix it always printed every page."""
+    print_idx = PANEL.index("def _print_pdf")
+    body = PANEL[print_idx: print_idx + 3500]
+    assert "printer.fromPage()" in body, \
+        "print path must honour QPrintDialog fromPage()"
+    assert "printer.toPage()" in body, \
+        "print path must honour QPrintDialog toPage()"
+
+
+def test_print_respects_copy_count():
+    """copyCount() must drive an outer copy loop so the user gets the
+    requested number of copies."""
+    print_idx = PANEL.index("def _print_pdf")
+    body = PANEL[print_idx: print_idx + 3500]
+    assert "copyCount()" in body, \
+        "print path must honour QPrintDialog copyCount()"
+    # The copies loop must wrap the page iteration; cheapest check is
+    # that "for copy in range" appears inside the print function.
+    assert "for copy in range" in body, \
+        "print path must repeat the page loop copyCount() times"
+
+
+def test_print_respects_reverse_order():
+    """LastPageFirst page order must reverse the iteration list."""
+    print_idx = PANEL.index("def _print_pdf")
+    body = PANEL[print_idx: print_idx + 3500]
+    assert "pageOrder()" in body, \
+        "print path must read pageOrder() from the printer"
+    assert "LastPageFirst" in body, \
+        "print path must branch on the reverse-order enum"
+    assert "reversed" in body, \
+        "print path must actually reverse the page list"
+
+
+def test_print_loop_preserves_pixmap_safety_fix():
+    """The R7-H1 patch must NOT regress CRIT-3 (alpha=False, csRGB
+    fallback, .copy()) which lives in the same loop body."""
+    print_idx = PANEL.index("def _print_pdf")
+    body = PANEL[print_idx: print_idx + 3500]
+    assert "alpha=False" in body
+    assert "fitz.csRGB" in body
+    assert "pix.n != 3" in body
+    assert ").copy()" in body

@@ -341,6 +341,17 @@ class BasePage(QWidget):
             doc.authenticate(self._pdf_password)
         return doc
 
+    def _clear_pdf_password(self) -> None:
+        """Best-effort wipe of the cached PDF password from memory.
+
+        Thin wrapper around :func:`app.utils.wipe_pdf_password` so every
+        close / reload path (closeEvent, ``_close_pdf``, loading a
+        different file) can drop the cached password uniformly. See the
+        helper docstring for the immutability caveat.
+        """
+        from app.utils import wipe_pdf_password
+        wipe_pdf_password(self)
+
     # ── safe PDF writer ────────────────────────────────────────────────────
 
     @staticmethod

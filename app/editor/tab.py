@@ -1,5 +1,6 @@
 """PDFApps – TabEditar: visual PDF editor tool tab."""
 
+import contextlib
 import os
 import tempfile
 
@@ -25,6 +26,10 @@ class TabEditar(QWidget):
     """Visual editor: click/drag directly on the rendered PDF."""
 
     _MAX_REDO = 100   # cap redo history to avoid unbounded memory growth
+    # Cap pending-edit history to keep memory bounded in long sessions and to
+    # release temp signature/image files (which edits hold paths to) once
+    # they fall out of the rolling window. Trimmed FIFO — oldest first.
+    _MAX_PENDING = 500
 
     _HI_COLORS_KEYS  = ["color.yellow", "color.green", "color.pink", "color.light_blue"]
     _HI_COLORS_VALS  = [(1,1,0), (0,1,0), (1,0.4,0.7), (0.5,0.8,1)]
@@ -619,6 +624,18 @@ class TabEditar(QWidget):
         self._lbl_info.setText("")
         self._page_idx = 0
         self._update_nav()
+        # Drop the cached password so a memory dump after the user
+        # closes the file no longer surfaces it (R5/D2).
+        self._clear_pdf_password()
+
+    def _clear_pdf_password(self) -> None:
+        """Mirror of ``BasePage._clear_pdf_password`` — EditorTab does not
+        inherit from BasePage so we provide the same hook locally and
+        delegate to the shared :func:`app.utils.wipe_pdf_password`
+        helper, keeping a single implementation across the codebase.
+        """
+        from app.utils import wipe_pdf_password
+        wipe_pdf_password(self)
 
     def _pick_image(self):
         p, _ = QFileDialog.getOpenFileName(self, t("edit.image"), DESKTOP,
@@ -814,6 +831,33 @@ class TabEditar(QWidget):
         if not _from_redo:
             self._redo_stack.clear()
         self._pending.append(edit)
+        # Trim oldest edits once we cross the cap. Without this the list
+        # grew unbounded across long sessions and retained references to
+        # temp signature/image files until the tab closed.
+        if len(self._pending) > self._MAX_PENDING:
+            to_drop = self._pending[:-self._MAX_PENDING]
+            self._pending = self._pending[-self._MAX_PENDING:]
+            # Best-effort cleanup of temp paths owned by the dropped
+            # entries. Only files inside the system tempdir are touched —
+            # the user's source image/signature picks must never be
+            # deleted from disk.
+            tmp_root = os.path.normcase(tempfile.gettempdir())
+            for old in to_drop:
+                with contextlib.suppress(Exception):
+                    p = old.get("path")
+                    if (p and os.path.isfile(p)
+                            and os.path.normcase(p).startswith(tmp_root)):
+                        os.unlink(p)
+            # Mirror the trim in the visible list widget so the labels
+            # stay in sync with self._pending indices. We use
+            # ``len(to_drop)`` rather than ``count() - len(_pending)``
+            # because the addItem for the *new* edit happens below: at
+            # this point _pending already has the trimmed length but
+            # _pending_list still holds the pre-trim row count, so the
+            # diff would be off by one and the next _undo would remove
+            # the wrong label (PR-B revisor finding #1).
+            for _ in range(len(to_drop)):
+                self._pending_list.takeItem(0)
         # Each entry's base label is fully translated via edit.label.*;
         # the page suffix (" — p. N") comes from a shared key so all
         # locales decide their own dash/spacing/abbreviation.
