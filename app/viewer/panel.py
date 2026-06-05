@@ -369,30 +369,52 @@ class PdfViewerPanel(QWidget):
 
     # ── TOC / Bookmarks ─────────────────────────────────────────────────
     def _populate_toc(self, doc):
-        """Read the PDF outline and build the tree. Hides the panel if empty."""
+        """Read the PDF outline and build the tree. Hides the panel if empty.
+
+        Wrapped in try/except: a malformed outline (cyclic refs, bad
+        page indexes, unexpected entry shape) used to leave the TOC
+        panel half-populated and could raise mid-build, surfacing as a
+        cryptic stack trace. Now the failure is logged and the panel
+        hides gracefully so the rest of the viewer stays usable
+        (R8 bonus #7).
+        """
         self._toc_tree.clear()
         try:
             toc = doc.get_toc()
-        except Exception:
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Failed to read TOC for %s: %s", self._current_path, exc)
             toc = []
         if not toc:
             self._toc_tree.setVisible(False)
             self._toc_btn.setVisible(False)
             return
-        # toc is a list of [level, title, page] (page is 1-indexed)
-        stack = [(0, self._toc_tree.invisibleRootItem())]
-        for level, title, page in toc:
-            while stack and stack[-1][0] >= level:
-                stack.pop()
-            parent = stack[-1][1] if stack else self._toc_tree.invisibleRootItem()
-            item = QTreeWidgetItem(parent, [title])
-            item.setData(0, Qt.ItemDataRole.UserRole, max(0, page - 1))
-            item.setToolTip(0, title)
-            stack.append((level, item))
-        self._toc_tree.expandToDepth(1)
-        self._toc_tree.setVisible(True)
-        self._toc_btn.setVisible(True)
-        self._toc_btn.setEnabled(True)
+        try:
+            # toc is a list of [level, title, page] (page is 1-indexed)
+            stack = [(0, self._toc_tree.invisibleRootItem())]
+            for level, title, page in toc:
+                while stack and stack[-1][0] >= level:
+                    stack.pop()
+                parent = stack[-1][1] if stack else self._toc_tree.invisibleRootItem()
+                item = QTreeWidgetItem(parent, [title])
+                item.setData(0, Qt.ItemDataRole.UserRole, max(0, page - 1))
+                item.setToolTip(0, title)
+                stack.append((level, item))
+            self._toc_tree.expandToDepth(1)
+            self._toc_tree.setVisible(True)
+            self._toc_btn.setVisible(True)
+            self._toc_btn.setEnabled(True)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Failed to build TOC tree for %s: %s",
+                self._current_path, exc)
+            # Reset to a known-empty state so a partial build does not
+            # leave dangling QTreeWidgetItems pointing at invalid pages.
+            self._toc_tree.clear()
+            self._toc_tree.setVisible(False)
+            self._toc_btn.setVisible(False)
 
     def _on_toc_clicked(self, item, column):
         page_idx = item.data(0, Qt.ItemDataRole.UserRole)
