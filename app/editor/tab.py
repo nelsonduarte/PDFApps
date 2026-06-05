@@ -976,8 +976,21 @@ class TabEditar(QWidget):
                 self, t("btn.choose"), suggested, t("file_filter.pdf"))
             if not out: return
             self._drop_out.set_path(out)
-        if self._mode_idx == 5:
-            self._apply_forms(out); return
+        if self._mode_idx == _MODE_FORMS:
+            # If there are also pending edits, warn — Forms apply uses
+            # pypdf and would silently drop the in-memory edits otherwise.
+            if self._pending:
+                reply = QMessageBox.question(
+                    self, t("msg.warning"),
+                    t("editor.forms.has_pending"),
+                    QMessageBox.StandardButton.Yes
+                    | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+            self._apply_forms(out)
+            return
         if not self._pending:
             QMessageBox.warning(self, t("msg.warning"), t("msg.no_pending")); return
         try:
