@@ -8,7 +8,7 @@ from PySide6.QtGui import QImage, QPainter, QPen, QColor, QFont, QPainterPath, Q
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QFrame, QTextEdit, QSpinBox, QComboBox,
-    QTabWidget, QWidget, QCheckBox, QFileDialog,
+    QTabWidget, QWidget, QCheckBox, QFileDialog, QMessageBox,
 )
 import qtawesome as qta
 
@@ -223,12 +223,23 @@ class _SignatureCanvas(QWidget):
         self.update()
 
     def is_empty(self):
-        return len(self._strokes) == 0
+        # Include any in-progress stroke so clicking OK with the mouse
+        # button still held doesn't lose the final stroke.
+        return not self._strokes and len(self._current) < 2
+
+    def _all_strokes(self):
+        """Return strokes + any in-progress stroke worth painting."""
+        if self._current and len(self._current) >= 2:
+            return self._strokes + [self._current]
+        return list(self._strokes)
 
     def to_image(self) -> QImage | None:
         if self.is_empty():
             return None
-        all_pts = [pt for s in self._strokes for pt in s]
+        strokes = self._all_strokes()
+        all_pts = [pt for s in strokes for pt in s]
+        if not all_pts:
+            return None
         xs = [p.x() for p in all_pts]
         ys = [p.y() for p in all_pts]
         pad = 6
@@ -244,7 +255,7 @@ class _SignatureCanvas(QWidget):
         pen = QPen(QColor("black"), 2, Qt.PenStyle.SolidLine,
                    Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         p.setPen(pen)
-        for stroke in self._strokes:
+        for stroke in strokes:
             if len(stroke) < 2:
                 continue
             path = QPainterPath(stroke[0].toPointF())
@@ -374,7 +385,7 @@ class _SignatureDialog(QDialog):
     def _pick_image(self):
         p, _ = QFileDialog.getOpenFileName(
             self, t("edit.signature.import"), "",
-            "Images (*.png *.jpg *.jpeg *.bmp *.webp)")
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)")
         if p and os.path.isfile(p):
             self._imp_path = p
             pix = QPixmap(p)
@@ -383,8 +394,30 @@ class _SignatureDialog(QDialog):
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation))
 
+    def _validate_tab(self, tab: int) -> bool:
+        """Show a warning + return False when the active tab is empty.
+
+        Previously the dialog returned silently when the user clicked OK
+        with nothing drawn / typed / imported, which felt broken.
+        """
+        if tab == 0 and self._draw_canvas.is_empty():
+            QMessageBox.warning(self, t("msg.warning"),
+                                t("editor.signature.empty_draw"))
+            return False
+        if tab == 1 and not self._type_input.text().strip():
+            QMessageBox.warning(self, t("msg.warning"),
+                                t("editor.signature.empty_type"))
+            return False
+        if tab == 2 and (not self._imp_path or not os.path.isfile(self._imp_path)):
+            QMessageBox.warning(self, t("msg.warning"),
+                                t("editor.signature.empty_import"))
+            return False
+        return True
+
     def _on_accept(self):
         tab = self._tabs.currentIndex()
+        if not self._validate_tab(tab):
+            return
         fd, tmp = tempfile.mkstemp(suffix=".png")
         os.close(fd)
 
