@@ -55,71 +55,81 @@ jobs:
           NEW: ${{ inputs.version }}
         run: |
           python - <<'PY'
-          import os, re
+          import os, re, sys
           from pathlib import Path
 
           old = os.environ["OLD"]
           new = os.environ["NEW"]
           old_re = re.escape(old)
+          # Generic semver pattern. Used for packaging files where the
+          # version string may have drifted out of sync with app/constants.py
+          # (root cause of the v1.13.9 Snap Store freeze: snapcraft.yaml stayed
+          # at 1.13.9 from v1.13.10 onward because OLD no longer matched).
+          ANY = r"\d+\.\d+\.\d+"
 
-          # (path, list of (regex, replacement)) pairs.
-          # Each replacement uses {new} as the new version.
+          # (path, list of (regex, replacement), bool: required) tuples.
+          # required=True targets fail the job if no substitution happens.
           targets = [
               ("app/constants.py", [
                   (rf'APP_VERSION\s*=\s*"{old_re}"', f'APP_VERSION = "{new}"'),
-              ]),
+              ], True),
               ("installer.py", [
-                  (rf'APP_VERSION\s*=\s*"{old_re}"', f'APP_VERSION = "{new}"'),
-              ]),
+                  (rf'APP_VERSION\s*=\s*"{ANY}"', f'APP_VERSION = "{new}"'),
+              ], True),
               ("docs/index.html", [
-                  (rf'"softwareVersion":\s*"{old_re}"', f'"softwareVersion": "{new}"'),
+                  (rf'"softwareVersion":\s*"{ANY}"', f'"softwareVersion": "{new}"'),
                   (rf'v{old_re}', f'v{new}'),
-              ]),
+              ], True),
               ("docs/changelog.html", [
                   (rf'v{old_re}', f'v{new}'),
-              ]),
+              ], False),
               ("snap/snapcraft.yaml", [
-                  (rf"version:\s*'{old_re}'", f"version: '{new}'"),
-              ]),
+                  (rf"version:\s*'{ANY}'", f"version: '{new}'"),
+              ], True),
               ("rpm/pdfapps.spec", [
-                  (rf'^Version:\s+{old_re}', f'Version:        {new}'),
-              ]),
+                  (rf'^Version:\s+{ANY}', f'Version:        {new}'),
+              ], True),
               ("aur/pdfapps/PKGBUILD", [
-                  (rf'pkgver={old_re}', f'pkgver={new}'),
-              ]),
+                  (rf'pkgver={ANY}', f'pkgver={new}'),
+              ], True),
               ("aur/pdfapps/.SRCINFO", [
-                  (rf'pkgver = {old_re}', f'pkgver = {new}'),
-                  (rf'{old_re}', new),
-              ]),
+                  (rf'pkgver = {ANY}', f'pkgver = {new}'),
+                  (rf'pdfapps-{ANY}', f'pdfapps-{new}'),
+                  (rf'v{ANY}', f'v{new}'),
+              ], True),
               ("aur/pdfapps-bin/PKGBUILD", [
-                  (rf'pkgver={old_re}', f'pkgver={new}'),
-              ]),
+                  (rf'pkgver={ANY}', f'pkgver={new}'),
+              ], True),
               ("aur/pdfapps-bin/.SRCINFO", [
-                  (rf'pkgver = {old_re}', f'pkgver = {new}'),
-                  (rf'provides = pdfapps={old_re}', f'provides = pdfapps={new}'),
-                  (rf'v{old_re}', f'v{new}'),
-                  (rf'pdfapps-{old_re}', f'pdfapps-{new}'),
-              ]),
+                  (rf'pkgver = {ANY}', f'pkgver = {new}'),
+                  (rf'provides = pdfapps={ANY}', f'provides = pdfapps={new}'),
+                  (rf'v{ANY}', f'v{new}'),
+                  (rf'pdfapps-{ANY}', f'pdfapps-{new}'),
+              ], True),
               ("winget/nelsonduarte.PDFApps.installer.yaml", [
-                  (rf'PackageVersion:\s*{old_re}', f'PackageVersion: {new}'),
-                  (rf'v{old_re}', f'v{new}'),
-              ]),
+                  (rf'PackageVersion:\s*{ANY}', f'PackageVersion: {new}'),
+                  (rf'v{ANY}', f'v{new}'),
+              ], True),
               ("winget/nelsonduarte.PDFApps.locale.en-US.yaml", [
-                  (rf'PackageVersion:\s*{old_re}', f'PackageVersion: {new}'),
-                  (rf'v{old_re}', f'v{new}'),
-              ]),
+                  (rf'PackageVersion:\s*{ANY}', f'PackageVersion: {new}'),
+                  (rf'v{ANY}', f'v{new}'),
+              ], True),
               ("winget/nelsonduarte.PDFApps.yaml", [
-                  (rf'PackageVersion:\s*{old_re}', f'PackageVersion: {new}'),
-              ]),
+                  (rf'PackageVersion:\s*{ANY}', f'PackageVersion: {new}'),
+              ], True),
               ("flatpak/io.github.nelsonduarte.PDFApps.yml", [
-                  (rf'tag:\s*v{old_re}', f'tag: v{new}'),
-              ]),
+                  (rf'tag:\s*v{ANY}', f'tag: v{new}'),
+              ], True),
           ]
 
-          for path_str, subs in targets:
+          missing_required = []
+          stale_required = []
+          for path_str, subs, required in targets:
               p = Path(path_str)
               if not p.exists():
                   print(f"skip (missing): {path_str}")
+                  if required:
+                      missing_required.append(path_str)
                   continue
               text = p.read_text(encoding="utf-8")
               original = text
@@ -129,7 +139,20 @@ jobs:
                   p.write_text(text, encoding="utf-8")
                   print(f"updated: {path_str}")
               else:
-                  print(f"unchanged: {path_str}")
+                  # Already at the new version? Then unchanged is fine.
+                  if new in original:
+                      print(f"already at {new}: {path_str}")
+                  else:
+                      print(f"unchanged (no match!): {path_str}")
+                      if required:
+                          stale_required.append(path_str)
+
+          if missing_required or stale_required:
+              if missing_required:
+                  print(f"::error::Required packaging files missing: {missing_required}")
+              if stale_required:
+                  print(f"::error::Required packaging files did not match any version pattern and are not at {new}: {stale_required}")
+              sys.exit(1)
           PY
 
       - name: Show diff
