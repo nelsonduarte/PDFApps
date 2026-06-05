@@ -277,7 +277,11 @@ class TabPageNumbers(BasePage):
 
                 if worker.is_cancelled():
                     return None
-                doc.save(out_path, garbage=4, deflate=True)
+                self._atomic_pdf_write(
+                    doc, out_path,
+                    sources=[pdf_path],
+                    save_opts={"garbage": 4, "deflate": True},
+                )
             finally:
                 doc.close()
             return out_path

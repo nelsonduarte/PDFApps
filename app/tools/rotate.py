@@ -87,7 +87,7 @@ class TabRotar(BasePage):
             for i, page in enumerate(reader.pages):
                 if i in pages: page.rotate(angle)
                 w.add_page(page)
-            with open(out_path, "wb") as f: w.write(f)
+            self._atomic_pdf_write(w, out_path, sources=[pdf_path])
             self._status(t("tool.rotate.status.done", name=os.path.basename(out_path)))
             if self._pipeline_active:
                 self._pipeline_success(t("tool.rotate.done", path=out_path), out_path)

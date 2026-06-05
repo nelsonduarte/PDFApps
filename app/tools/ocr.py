@@ -1,6 +1,7 @@
 """PDFApps – TabOCR: OCR text recognition tool."""
 
 import os
+import tempfile
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -300,8 +301,20 @@ class TabOCR(BasePage):
                                 "RGB", (pix.width, pix.height), pix.samples)
                             texts.append(
                                 pytesseract.image_to_string(img, lang=lang))
-                        with open(out_path, "w", encoding="utf-8") as fh:
-                            fh.write("\f".join(texts))
+                        # Reject same input==output and write atomically
+                        # so a mistaken overlap doesn't truncate the PDF.
+                        self._check_not_same_path(out_path, [pdf_path])
+                        out_dir = os.path.dirname(out_path) or os.getcwd()
+                        _fd, _tmp = tempfile.mkstemp(suffix=".txt", dir=out_dir)
+                        try:
+                            with os.fdopen(_fd, "w", encoding="utf-8") as fh:
+                                fh.write("\f".join(texts))
+                            os.replace(_tmp, out_path)
+                        except Exception:
+                            if os.path.exists(_tmp):
+                                try: os.unlink(_tmp)
+                                except OSError: pass
+                            raise
                     else:
                         pdf_pages = []
                         for i, page in enumerate(doc):
@@ -327,8 +340,8 @@ class TabOCR(BasePage):
                         writer = PdfWriter()
                         for page_bytes in pdf_pages:
                             writer.append(PdfReader(_io.BytesIO(page_bytes)))
-                        with open(out_path, "wb") as fh:
-                            writer.write(fh)
+                        self._atomic_pdf_write(
+                            writer, out_path, sources=[pdf_path])
                 finally:
                     doc.close()
                 return out_path

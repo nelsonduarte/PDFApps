@@ -86,7 +86,7 @@ class TabExtrair(BasePage):
             pages  = parse_pages(txt, len(reader.pages))
             w = PdfWriter()
             for p in pages: w.add_page(reader.pages[p])
-            with open(out_path, "wb") as f: w.write(f)
+            self._atomic_pdf_write(w, out_path, sources=[pdf_path])
             self._status(t("tool.extract.status.done",
                            n=len(pages), name=os.path.basename(out_path)))
             msg = t("tool.extract.done", n=len(pages), path=out_path)

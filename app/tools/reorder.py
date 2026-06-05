@@ -124,7 +124,7 @@ class TabReordenar(BasePage):
             reader = self._open_reader(self.drop_in.path())
             w = PdfWriter()
             for idx in indices: w.add_page(reader.pages[idx])
-            with open(out, "wb") as f: w.write(f)
+            self._atomic_pdf_write(w, out, sources=[self.drop_in.path()])
             self._status(t("tool.reorder.status.done", name=os.path.basename(out)))
             msg = t("tool.reorder.done", path=out)
             if self._pipeline_active:
