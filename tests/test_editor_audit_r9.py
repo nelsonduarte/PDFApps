@@ -22,7 +22,6 @@ Bug map (matches PR-D worklist):
 """
 
 import json
-import re
 from pathlib import Path
 
 import pytest
@@ -360,7 +359,7 @@ def test_note_deleted_keeps_undo_redo_in_sync():
     tests/test_editor_undo.py."""
     pytest.importorskip("PySide6.QtWidgets")
     from PySide6.QtWidgets import QApplication, QListWidget
-    app = QApplication.instance() or QApplication([])
+    _app = QApplication.instance() or QApplication([])
     from app.editor.tab import TabEditar
 
     class _Stub:
@@ -411,7 +410,7 @@ def test_note_deleted_existing_enqueues_delete_annot():
     after it was never reached for the common case."""
     pytest.importorskip("PySide6.QtWidgets")
     from PySide6.QtWidgets import QApplication, QListWidget
-    app = QApplication.instance() or QApplication([])
+    _app = QApplication.instance() or QApplication([])
     from app.editor.tab import TabEditar
 
     class _Stub:
@@ -480,7 +479,7 @@ def test_overlay_pixmap_cache_returns_same_instance(tmp_path):
     instance — proves the LRU is actually wired."""
     pytest.importorskip("PySide6.QtWidgets")
     from PySide6.QtWidgets import QApplication
-    app = QApplication.instance() or QApplication([])
+    _app = QApplication.instance() or QApplication([])
 
     from app.editor.canvas import _load_overlay_pixmap
 

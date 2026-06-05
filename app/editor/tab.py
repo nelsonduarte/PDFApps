@@ -29,15 +29,9 @@ _log = logging.getLogger(__name__)
 # Mode indices in `_mode_btns` — kept as constants for readability so
 # call-sites like `if self._mode_idx == _MODE_FORMS:` document intent
 # without forcing a refactor of the existing numeric layout.
-_MODE_REDACT = 0
-_MODE_TEXT = 1
 _MODE_IMAGE = 2
-_MODE_HIGHLIGHT = 3
-_MODE_NOTE = 4
 _MODE_FORMS = 5
 _MODE_SIGNATURE = 6
-_MODE_DRAW = 7
-_MODE_SELECT = 8
 
 
 class TabEditar(QWidget):
