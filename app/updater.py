@@ -1,5 +1,6 @@
 """PDFApps – Auto-updater module."""
 
+import contextlib
 import json
 import os
 import re
@@ -264,49 +265,58 @@ def _apply_update_unix(downloaded: str):
     if downloaded.endswith(".dmg"):
         _apply_update_macos_dmg(downloaded)
         return
+    import contextlib
     import shutil
     import stat
     current = sys.executable
     backup = current + ".bak"
     try:
-        shutil.move(current, backup)
-        dest_dir = os.path.dirname(current)
-        abs_dest = os.path.abspath(dest_dir)
-        if downloaded.endswith(".tar.gz"):
-            import tarfile
-            with tarfile.open(downloaded, "r:gz") as tar:
-                # Validate ALL members before extracting any
-                for m in tar.getmembers():
-                    if m.issym() or m.islnk():
-                        raise ValueError(f"Symlink/hardlink rejected: {m.name}")
-                    extracted = os.path.abspath(os.path.join(dest_dir, m.name))
-                    if not extracted.startswith(abs_dest + os.sep) and extracted != abs_dest:
-                        raise ValueError(f"Path traversal detected: {m.name}")
-                    if m.name != "PDFApps":
-                        raise ValueError(f"Unexpected member: {m.name}")
-                # Safe to extract after full validation
-                for m in tar.getmembers():
-                    tar.extract(m, dest_dir)
-        elif downloaded.endswith(".zip"):
-            import zipfile
-            with zipfile.ZipFile(downloaded, "r") as zf:
-                # Validate ALL members before extracting any
-                for info in zf.infolist():
-                    extracted = os.path.abspath(os.path.join(dest_dir, info.filename))
-                    if not extracted.startswith(abs_dest + os.sep) and extracted != abs_dest:
-                        raise ValueError(f"Path traversal detected: {info.filename}")
-                    if info.filename != "PDFApps":
-                        raise ValueError(f"Unexpected member: {info.filename}")
-                zf.extract("PDFApps", dest_dir)
-        else:
-            shutil.copy2(downloaded, current)
-        os.chmod(current, os.stat(current).st_mode | stat.S_IEXEC)
-        os.remove(downloaded)
-        os.remove(backup)
-    except Exception:
-        if os.path.isfile(backup):
-            shutil.move(backup, current)
-        raise
+        try:
+            shutil.move(current, backup)
+            dest_dir = os.path.dirname(current)
+            abs_dest = os.path.abspath(dest_dir)
+            if downloaded.endswith(".tar.gz"):
+                import tarfile
+                with tarfile.open(downloaded, "r:gz") as tar:
+                    # Validate ALL members before extracting any
+                    for m in tar.getmembers():
+                        if m.issym() or m.islnk():
+                            raise ValueError(f"Symlink/hardlink rejected: {m.name}")
+                        extracted = os.path.abspath(os.path.join(dest_dir, m.name))
+                        if not extracted.startswith(abs_dest + os.sep) and extracted != abs_dest:
+                            raise ValueError(f"Path traversal detected: {m.name}")
+                        if m.name != "PDFApps":
+                            raise ValueError(f"Unexpected member: {m.name}")
+                    # Safe to extract after full validation
+                    for m in tar.getmembers():
+                        tar.extract(m, dest_dir)
+            elif downloaded.endswith(".zip"):
+                import zipfile
+                with zipfile.ZipFile(downloaded, "r") as zf:
+                    # Validate ALL members before extracting any
+                    for info in zf.infolist():
+                        extracted = os.path.abspath(os.path.join(dest_dir, info.filename))
+                        if not extracted.startswith(abs_dest + os.sep) and extracted != abs_dest:
+                            raise ValueError(f"Path traversal detected: {info.filename}")
+                        if info.filename != "PDFApps":
+                            raise ValueError(f"Unexpected member: {info.filename}")
+                    zf.extract("PDFApps", dest_dir)
+            else:
+                shutil.copy2(downloaded, current)
+            os.chmod(current, os.stat(current).st_mode | stat.S_IEXEC)
+            os.remove(backup)
+        except Exception:
+            if os.path.isfile(backup):
+                shutil.move(backup, current)
+            raise
+    finally:
+        # Drop the ~100 MB installer tempfile on every exit — success
+        # AND failure (R5/F3). Previously os.remove(downloaded) only ran
+        # on the success path, so a failed apply left the artefact in
+        # /tmp until the OS reboot cleaned it up.
+        with contextlib.suppress(Exception):
+            if os.path.isfile(downloaded):
+                os.unlink(downloaded)
     os.execv(current, sys.argv)
 
 
@@ -377,11 +387,12 @@ class UpdateDialog(QDialog):
             self._update_btn.setEnabled(False)
             self._status.setText(t("update.no_asset"))
 
-        self._signals = _Signals()
-        self._signals.progress.connect(self._on_progress)
-        self._signals.finished.connect(self._on_finished)
-        self._signals.error.connect(self._on_error)
-        self._signals.cancelled.connect(self._on_cancelled)
+        # Signals are created per-download in _start_download so a retry
+        # within the same dialog doesn't cross-pollinate the
+        # finished/error/cancelled handlers with stale _dl_thread
+        # objects (R6/B6-B7). Until the first download starts no signals
+        # exist yet — that's fine; nothing connects to them.
+        self._signals: _Signals | None = None
         self._dest = ""
         # Holder for the in-flight urlopen response so closeEvent/reject
         # can abort a blocked read() immediately (urlopen.read() blocks
@@ -421,6 +432,23 @@ class UpdateDialog(QDialog):
         # Reset cancel state in case the user retries within the same dialog.
         self._cancel_holder["resp"] = None
         self._cancel_holder["cancelled"] = False
+
+        # Fresh _Signals instance per download. Previously the dialog
+        # reused a single _Signals from __init__ — on retry the new
+        # thread reconnected finished/error/cancelled WITHOUT disconnecting
+        # the previous thread's slots, so when this download finished Qt
+        # delivered the signal to both the live and the already-quit
+        # historical threads (R6/B6-B7). Disposing the old object frees
+        # those connections atomically and lets Qt GC the underlying
+        # QObject without risk of stale references.
+        if self._signals is not None:
+            with contextlib.suppress(RuntimeError):
+                self._signals.deleteLater()
+        self._signals = _Signals()
+        self._signals.progress.connect(self._on_progress)
+        self._signals.finished.connect(self._on_finished)
+        self._signals.error.connect(self._on_error)
+        self._signals.cancelled.connect(self._on_cancelled)
 
         self._dl_thread = QThread()
         self._dl_worker = _Worker(url, self._dest, self._signals,

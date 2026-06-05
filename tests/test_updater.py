@@ -330,3 +330,173 @@ class TestDownload:
                       cancel_holder=cancel_holder)
         assert cancel_holder["resp"] is None
         assert len(signals.finished.emissions) == 1
+
+
+# ── R5/F3: _apply_update_unix tempfile cleanup ─────────────────────────
+
+
+class TestApplyUpdateUnixCleanup:
+    """Verifies that _apply_update_unix wraps its body in try/finally
+    so the ~100 MB downloaded installer tempfile is removed even on
+    failed applies (R5/F3). Pre-fix os.remove(downloaded) only ran
+    on the success path, leaking the artefact in /tmp on every retry.
+    """
+
+    def test_apply_update_unix_uses_try_finally(self):
+        """Source guard: the function body must contain a finally
+        block that unlinks ``downloaded``."""
+        src = (Path(__file__).resolve().parent.parent
+               / "app" / "updater.py").read_text(encoding="utf-8")
+        i = src.find("def _apply_update_unix(")
+        assert i > 0
+        body = src[i: i + 4000]
+        assert "finally:" in body, \
+            "_apply_update_unix must wrap cleanup in try/finally"
+        # The cleanup must reference downloaded (or alias) inside the
+        # finally — verify by checking the unlink/remove call appears
+        # AFTER a finally: keyword.
+        finally_idx = body.index("finally:")
+        post = body[finally_idx:]
+        assert "downloaded" in post, \
+            "finally block must reference the downloaded tempfile"
+        assert ("os.unlink(downloaded)" in post
+                or "os.remove(downloaded)" in post), \
+            "finally block must unlink the downloaded tempfile"
+
+
+# ── R6/B6-B7: UpdateDialog signal duplication on retry ──────────────────
+
+
+class TestUpdateDialogSignalLifecycle:
+    """Pre-fix the dialog reused a single ``_Signals`` instance across
+    retries; the second download reconnected finished/error/cancelled
+    on top of the prior thread's connections. When the second download
+    completed, Qt delivered the signal to BOTH the live and the
+    historical (already deleted) threads — warnings or crash.
+
+    The fix creates a fresh _Signals instance per ``_start_download``
+    call. These tests guard that behaviour at the source level.
+    """
+
+    def test_signals_created_per_download(self):
+        src = (Path(__file__).resolve().parent.parent
+               / "app" / "updater.py").read_text(encoding="utf-8")
+        # __init__ no longer pre-creates the _Signals object — it sets
+        # the attribute to None and waits for _start_download.
+        init_idx = src.find("def __init__(self, release: dict, parent=None):")
+        assert init_idx > 0
+        init_body = src[init_idx: src.find("def _start_download", init_idx)]
+        # Either the attribute is initialised to None or no _Signals()
+        # call appears in __init__ at all — both prove signals are no
+        # longer reused.
+        assert (": _Signals | None = None" in init_body
+                or "self._signals = None" in init_body), \
+            "__init__ must defer _Signals creation to _start_download"
+
+    def test_start_download_creates_new_signals(self):
+        src = (Path(__file__).resolve().parent.parent
+               / "app" / "updater.py").read_text(encoding="utf-8")
+        sd_idx = src.find("def _start_download")
+        assert sd_idx > 0
+        body = src[sd_idx: sd_idx + 3000]
+        assert "self._signals = _Signals()" in body, \
+            "_start_download must instantiate a fresh _Signals per run"
+        # And the previous one must be deleted/dropped — confirm a
+        # deleteLater call (or explicit disconnect) appears before
+        # reassignment.
+        assert "deleteLater" in body, \
+            "previous _signals must be released (deleteLater)"
+
+    def test_no_signals_construction_outside_start_download(self):
+        """Belt-and-suspenders: only _start_download may instantiate
+        _Signals on the dialog. Other call sites would re-introduce
+        the cross-pollination bug."""
+        src = (Path(__file__).resolve().parent.parent
+               / "app" / "updater.py").read_text(encoding="utf-8")
+        # The class body itself may still expose the type, but
+        # "self._signals = _Signals()" should appear exactly once
+        # (inside _start_download).
+        assert src.count("self._signals = _Signals()") == 1, \
+            "self._signals = _Signals() must appear exactly once"
+
+
+# ── Live behaviour: signal de-pollution across simulated retries ────────
+
+
+class _LegacyDialog:
+    """Toy reproduction of the pre-fix bug to confirm the post-fix
+    behaviour: holds a single _Signals object across "retries" and
+    reconnects on top. After two starts the finished signal is delivered
+    twice — that's exactly the breakage."""
+
+    def __init__(self):
+        self.received = []
+        self._signals = _Signals()
+        self._signals.finished.connect(self._on_finished)
+
+    def _on_finished(self, path):
+        self.received.append(path)
+
+    def start(self):
+        # Same pattern as the pre-fix code path: reconnects on every
+        # retry without disconnecting prior connections.
+        self._signals.finished.connect(self._on_finished)
+
+
+class _FixedDialog:
+    """Same shape as the production fix — fresh _Signals per start."""
+
+    def __init__(self):
+        self.received = []
+        self._signals = None
+
+    def _on_finished(self, path):
+        self.received.append(path)
+
+    def start(self):
+        if self._signals is not None:
+            try:
+                self._signals.deleteLater()
+            except RuntimeError:
+                pass
+        self._signals = _Signals()
+        self._signals.finished.connect(self._on_finished)
+
+
+@pytest.fixture(scope="module")
+def qt_app():
+    """Live Qt tests need a QApplication. Module-scope so we don't
+    pay the construction cost per test."""
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError:
+        pytest.skip("PySide6 unavailable")
+    app = QApplication.instance() or QApplication([])
+    yield app
+
+
+class TestSignalsLifecycleLive:
+    def test_legacy_pattern_double_fires(self, qt_app):
+        """Sanity: the pre-fix pattern really did double-fire after a
+        retry. Documents the bug we are fixing."""
+        d = _LegacyDialog()
+        d.start()  # mimics _start_download
+        d._signals.finished.emit("a.bin")
+        # The fixed dialog must NOT have this behaviour.
+        assert len(d.received) >= 2, \
+            "legacy pattern is expected to double-fire (confirms the bug)"
+
+    def test_fixed_pattern_fires_once_per_emit(self, qt_app):
+        """The production fix isolates each download's signals so a
+        single emit triggers a single handler call no matter how many
+        retries preceded it."""
+        d = _FixedDialog()
+        d.start()
+        d._signals.finished.emit("a.bin")
+        first = list(d.received)
+        d.start()  # simulate retry
+        d._signals.finished.emit("b.bin")
+        # First emit produced exactly one record; second emit added
+        # exactly one more. No cross-pollination.
+        assert first == ["a.bin"]
+        assert d.received == ["a.bin", "b.bin"]
