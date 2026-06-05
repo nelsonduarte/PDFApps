@@ -1,11 +1,14 @@
 """PDFApps – PdfEditCanvas: continuous-scroll visual PDF edit canvas."""
 
 import contextlib
+import os
+from functools import lru_cache
 
 from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QRunnable, QThreadPool, QEvent
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QSizePolicy, QLineEdit
 
-from app.constants import ACCENT, BG_INNER, TEXT_SEC, _LN
+from app.constants import ACCENT, BG_INNER, TEXT_SEC, _LN, _LI
 from app.i18n import t
 
 _NOTE_ICON_SIZE = 22
@@ -14,6 +17,20 @@ _BUFFER_PGS = 2
 _MAX_THREADS = 2
 
 _ICON_CURSORS: dict = {}
+
+
+@lru_cache(maxsize=64)
+def _load_overlay_pixmap(path: str, _mtime: float) -> QPixmap:
+    """LRU-cached QPixmap loader for overlay image/signature stamps.
+
+    The previous implementation built a fresh ``QPixmap(path)`` on every
+    ``paintEvent`` — once per overlay — which became the dominant cost
+    of scrolling a document containing dozens of inserted images. The
+    ``_mtime`` parameter (which the caller passes verbatim) participates
+    in the cache key so the cache auto-invalidates when the underlying
+    file is rewritten (e.g. signature regenerated on disk).
+    """
+    return QPixmap(path)
 
 
 def _get_icon_cursor(icon_name: str, hx: int, hy: int,
@@ -347,8 +364,12 @@ class PdfEditCanvas(QWidget):
         else:
             r, g, b = 0, 0, 0
         hex_color = f"#{r:02x}{g:02x}{b:02x}"
+        # Background uses a theme-aware near-page colour with high alpha
+        # so the edit doesn't visually clash with the rendered page
+        # (was hardcoded #FFFFFFE6 — fine on light pages, poor on dark).
+        bg_hex = _LI if self._bg_color == _LN else "#FFFFFF"
         self._inline_edit.setStyleSheet(
-            f"QLineEdit {{ background: #FFFFFFE6; color: {hex_color};"
+            f"QLineEdit {{ background: {bg_hex}; color: {hex_color};"
             f" border: none; border-bottom: 1px dashed {ACCENT}; padding: 0; }}")
 
     def _reposition_inline(self):
@@ -395,7 +416,14 @@ class PdfEditCanvas(QWidget):
         self._inline_span = None
         self._inline_page_idx = -1
         self._inline_insert_point = None
+        # LOW: reset insert-mode style state on commit so the next
+        # insert (which begins fresh) doesn't inherit the previous
+        # font/size/colour if begin_inline_text_insert is somehow
+        # called without re-setting them.
         self._inline_insert_font = ""
+        self._inline_insert_size = 12
+        self._inline_insert_color = (0, 0, 0)
+        self._inline_original = ""
         if mode == "edit" and span is not None:
             if new_text == original:
                 return
@@ -428,6 +456,10 @@ class PdfEditCanvas(QWidget):
         self._inline_span = None
         self._inline_page_idx = -1
         self._inline_insert_point = None
+        self._inline_insert_font = ""
+        self._inline_insert_size = 12
+        self._inline_insert_color = (0, 0, 0)
+        self._inline_original = ""
 
     def eventFilter(self, obj, event):
         if obj is self._inline_edit:
@@ -586,8 +618,18 @@ class PdfEditCanvas(QWidget):
     def _rect_to_pdf(self, page_idx, local_rect):
         import fitz
         z = self._zoom
-        return fitz.Rect(local_rect.left()/z, local_rect.top()/z,
-                         local_rect.right()/z, local_rect.bottom()/z)
+        r = fitz.Rect(local_rect.left()/z, local_rect.top()/z,
+                      local_rect.right()/z, local_rect.bottom()/z)
+        # Clamp to the page bbox: cross-page drags previously mapped the
+        # rect to the start page only and PyMuPDF then silently truncated
+        # the off-page portion. Returning ``None`` for a degenerate
+        # (zero-area / fully off-page) rect lets the caller skip it.
+        if self._doc and 0 <= page_idx < self._doc.page_count:
+            page_rect = self._doc[page_idx].rect
+            r = r & page_rect  # intersection
+            if r.is_empty or r.width < 1 or r.height < 1:
+                return None
+        return r
 
     def paintEvent(self, _):
         from PySide6.QtGui import QPainter, QColor, QPen, QFont
@@ -616,7 +658,7 @@ class PdfEditCanvas(QWidget):
 
         # Draw overlays
         z = self._zoom
-        for e in self._overlays:
+        for ov_idx, e in enumerate(self._overlays):
             pg = e.get("page", 0)
             if pg >= len(self._page_offsets):
                 continue
@@ -641,8 +683,12 @@ class PdfEditCanvas(QWidget):
             elif etype in ("image", "signature"):
                 r = e["rect"]
                 qr = QRect(int(r.x0*z), yo+int(r.y0*z), max(1,int(r.width*z)), max(1,int(r.height*z)))
-                from PySide6.QtGui import QPixmap as _QPixmap
-                img_px = _QPixmap(e["path"])
+                path = e["path"]
+                try:
+                    mtime = os.path.getmtime(path)
+                except OSError:
+                    mtime = 0.0
+                img_px = _load_overlay_pixmap(path, mtime)
                 if not img_px.isNull():
                     p.drawPixmap(qr, img_px)
                 border = "#22C55E" if etype == "signature" else ACCENT
@@ -651,7 +697,10 @@ class PdfEditCanvas(QWidget):
             elif etype == "note":
                 pt = e["point"]
                 px, py = int(pt.x*z), yo+int(pt.y*z)
-                note_idx = self._overlays.index(e) if e in self._overlays else -1
+                # LOW polish: prefer the enumerate index over an O(n)
+                # list.index lookup (which scaled as O(n²) when there
+                # are many overlays).
+                note_idx = ov_idx
                 icon_r = QRect(px, py - _NOTE_ICON_SIZE, _NOTE_ICON_SIZE, _NOTE_ICON_SIZE)
                 p.setBrush(QColor("#FBBF24")); p.setPen(QPen(QColor("#D97706"), 1))
                 p.drawRoundedRect(icon_r, 4, 4)
@@ -798,6 +847,9 @@ class PdfEditCanvas(QWidget):
                             "type": "note", "page": page_idx,
                             "point": pt, "text": txt.strip(),
                             "_existing": True,
+                            "_annot_type": annot.type[0],
+                            "_annot_bbox": [annot.rect.x0, annot.rect.y0,
+                                            annot.rect.x1, annot.rect.y1],
                         })
                         return len(self._overlays) - 1, txt.strip()
         return -1, None
@@ -857,7 +909,9 @@ class PdfEditCanvas(QWidget):
             local_rect = QRect(self._drag_rect.left(), self._drag_rect.top() - yo,
                                self._drag_rect.width(), self._drag_rect.height())
             self._page_idx = page_idx
-            self.rect_selected.emit(page_idx, self._rect_to_pdf(page_idx, local_rect))
+            pdf_rect = self._rect_to_pdf(page_idx, local_rect)
+            if pdf_rect is not None:
+                self.rect_selected.emit(page_idx, pdf_rect)
         else:
             hit = self._note_icon_at(pos)
             if hit < 0:

@@ -1,6 +1,7 @@
 """PDFApps – TabEditar: visual PDF editor tool tab."""
 
 import contextlib
+import logging
 import os
 import tempfile
 
@@ -20,6 +21,17 @@ from app.i18n import t
 from app.widgets import DropFileEdit, ColorPickerButton
 from app.editor.canvas import PdfEditCanvas, _get_icon_cursor
 from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
+
+
+_log = logging.getLogger(__name__)
+
+
+# Mode indices in `_mode_btns` — kept as constants for readability so
+# call-sites like `if self._mode_idx == _MODE_FORMS:` document intent
+# without forcing a refactor of the existing numeric layout.
+_MODE_IMAGE = 2
+_MODE_FORMS = 5
+_MODE_SIGNATURE = 6
 
 
 class TabEditar(QWidget):
@@ -250,6 +262,14 @@ class TabEditar(QWidget):
         self._form_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self._form_table.setObjectName("pdf_table"); self._form_table.setMinimumHeight(130)
         v5.addWidget(self._form_table)
+        # Visible status row so a malformed-PDF read failure (or "no
+        # form fields detected") doesn't look like a successful-but-empty
+        # parse to the user.
+        self._form_status = QLabel("")
+        self._form_status.setWordWrap(True)
+        self._form_status.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        self._hint_labels.append(self._form_status)
+        v5.addWidget(self._form_status)
         self._opt_stack.addWidget(w5)
 
         # 6 - Signature
@@ -500,6 +520,20 @@ class TabEditar(QWidget):
                         "background:#FFFFFF; border:1px solid #C7D8D3; "
                         "color:#5D7470; border-radius:6px; border-radius:6px;")
         self._opt_stack.setCurrentIndex(idx)
+        # Forms mode doesn't push edits to ``_pending`` — surface that
+        # in the undo/redo button tooltips so the user understands why
+        # Ctrl+Z is a no-op there.
+        if idx == _MODE_FORMS:
+            tip = t("editor.forms.undo_unavailable")
+            self._btn_undo.setToolTip(tip)
+            self._btn_redo.setToolTip(tip)
+        else:
+            self._btn_undo.setToolTip(t("edit.undo_tip"))
+            self._btn_redo.setToolTip(t("edit.redo_tip"))
+        # Commit/cancel any inline-edit-in-progress before changing
+        # modes — otherwise the text the user typed lands in limbo.
+        if hasattr(self, "_canvas") and self._canvas._inline_edit.isVisible():
+            self._canvas._cancel_inline()
         self._canvas.set_select_mode(idx == 8)
         is_draw = (idx == 7)
         self._canvas.set_draw_mode(
@@ -524,9 +558,15 @@ class TabEditar(QWidget):
             self._canvas.setCursor(_get_icon_cursor("fa5s.signature", 14, 14))
         elif idx == 8:   # select
             self._canvas.setCursor(Qt.CursorShape.ArrowCursor)
-        if idx == 2:
-            self._pick_image()
-        elif idx == 6:
+        if idx == _MODE_IMAGE:
+            # Mirror the signature flow: only re-open the picker if no
+            # image has been chosen yet (or the previously-chosen file
+            # has since vanished). Previously this fired the dialog
+            # every single time the user clicked the Image mode button.
+            cur = self._img_drop.path()
+            if not cur or not os.path.isfile(cur):
+                self._pick_image()
+        elif idx == _MODE_SIGNATURE:
             if not self._signature_path or not os.path.isfile(self._signature_path):
                 self._pick_signature()
 
@@ -603,6 +643,13 @@ class TabEditar(QWidget):
                                 "point": fitz.Point(r.x0, r.y0 + r.height),
                                 "text": txt,
                                 "_existing": True,
+                                # Carried so a later delete from the canvas
+                                # context menu can register a stable
+                                # `delete_annot` pending edit (matched by
+                                # annot type + bbox, since xref is not
+                                # preserved across release_doc/fitz.open).
+                                "_annot_type": annot.type[0],
+                                "_annot_bbox": [r.x0, r.y0, r.x1, r.y1],
                             })
                             self._pending_list.addItem(
                                 t("edit.status.note_label", n=page_idx + 1))
@@ -686,19 +733,26 @@ class TabEditar(QWidget):
 
     def _load_form_fields(self, path):
         self._form_table.setRowCount(0)
+        self._form_status.setText("")
         try:
             from pypdf import PdfReader
             self._form_table.setUpdatesEnabled(False)
             _r = PdfReader(path)
             if _r.is_encrypted and self._pdf_password:
                 _r.decrypt(self._pdf_password)
-            for name, field in (_r.get_fields() or {}).items():
+            fields = _r.get_fields() or {}
+            for name, field in fields.items():
                 r = self._form_table.rowCount(); self._form_table.insertRow(r)
                 self._form_table.setItem(r, 0, QTableWidgetItem(name))
                 self._form_table.setItem(r, 1, QTableWidgetItem(str(field.get("/V", "") or "")))
             self._form_table.setUpdatesEnabled(True)
-        except Exception:
+            if not fields:
+                # Distinguish "no fields" from "load failed" for the user.
+                self._form_status.setText(t("editor.forms.no_fields"))
+        except Exception as exc:
             self._form_table.setUpdatesEnabled(True)
+            _log.warning("Failed to load form fields from %s: %s", path, exc)
+            self._form_status.setText(t("editor.forms.load_failed"))
 
     # ── canvas callbacks ─────────────────────────────────────────────────────
 
@@ -874,14 +928,28 @@ class TabEditar(QWidget):
                                      new=e["new_text"][:15]) + suffix,
             "signature": lambda e: t("edit.mode.signature") + suffix,
             "draw":      lambda e: t("edit.mode.draw") + suffix,
+            "delete_annot": lambda e: t("edit.label.note_delete") + suffix,
         }
-        lbl = labels[edit["type"]](edit)
+        # ``.get`` with the raw type as fallback so a future unknown edit
+        # type still produces a (rough but readable) label instead of
+        # raising KeyError and crashing the editor.
+        builder = labels.get(edit["type"], lambda e: e["type"] + suffix)
+        lbl = builder(edit)
         self._pending_list.addItem(lbl)
         self._status(t("edit.status.added",
                        label=lbl, count=len(self._pending)))
         self._canvas.set_overlays(self._pending)
 
     def _undo(self):
+        # Forms mode edits live in the QTableWidget itself (pypdf-driven
+        # save path) and are intentionally not tracked in ``_pending``.
+        # Surface a status hint instead of doing nothing so the user
+        # understands why Ctrl+Z is a no-op here. ``getattr`` keeps the
+        # source-level stub tests in tests/test_editor_undo.py working —
+        # they bind this method onto a minimal _Stub without a mode idx.
+        if getattr(self, "_mode_idx", -1) == _MODE_FORMS:
+            self._status(t("editor.forms.undo_unavailable"))
+            return
         if not self._pending:
             return
         edit = self._pending.pop()
@@ -889,6 +957,19 @@ class TabEditar(QWidget):
         if len(self._redo_stack) > self._MAX_REDO:
             self._redo_stack.pop(0)
         self._pending_list.takeItem(self._pending_list.count() - 1)
+        # Reversing a delete_annot edit must also bring the original note
+        # overlay back onto the canvas, otherwise the user sees the
+        # ``delete_annot`` removed from the side-list but no visible
+        # reappearance — overlay state stays out of sync with _pending
+        # until the next save/load. The original note dict is stashed on
+        # the edit at delete time (see ``_on_note_deleted``).
+        if edit.get("type") == "delete_annot":
+            original = edit.get("_original_note")
+            if isinstance(original, dict):
+                self._pending.append(original)
+                page = original.get("page", 0)
+                self._pending_list.addItem(
+                    t("edit.status.note_label", n=(page or 0) + 1))
         self._canvas.set_overlays(self._pending)
         self._status(t("edit.status.undo", n=len(self._pending)))
 
@@ -898,15 +979,111 @@ class TabEditar(QWidget):
         edit = self._redo_stack.pop()
         self._add(edit, _from_redo=True)
 
+    def _prompt_encryption_choice(self) -> str | None:
+        """Ask the user how to handle an encrypted-input save.
+
+        Returns ``"protect"`` (re-encrypt with the cached user password),
+        ``"plaintext"`` (current behaviour, save unprotected) or ``None``
+        if the user cancelled.
+
+        Caller must only invoke this when the input PDF is actually
+        encrypted *and* a usable password was captured at load time —
+        otherwise re-encryption is impossible.
+        """
+        box = QMessageBox(self)
+        box.setWindowTitle(t("editor.encrypt.warning_title"))
+        box.setText(t("editor.encrypt.warning_text"))
+        box.setIcon(QMessageBox.Icon.Warning)
+        keep_btn = box.addButton(t("editor.encrypt.save_protected"),
+                                 QMessageBox.ButtonRole.AcceptRole)
+        plain_btn = box.addButton(t("editor.encrypt.save_unprotected"),
+                                  QMessageBox.ButtonRole.DestructiveRole)
+        cancel_btn = box.addButton(t("btn.cancel"),
+                                   QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(keep_btn)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is keep_btn:
+            return "protect"
+        if clicked is plain_btn:
+            return "plaintext"
+        if clicked is cancel_btn:
+            return None
+        return None
+
     def _on_note_deleted(self, overlay: dict):
-        """Remove a deleted note from the pending edits list."""
+        """Handle a note deletion triggered from the canvas.
+
+        Two scenarios:
+
+        * the overlay was a *pending* note (not yet saved) — just drop it
+          from the pending list. We still push to ``_redo_stack`` so
+          Ctrl+Z (which actually pops the *last* pending edit) doesn't
+          silently lose the deletion. We do NOT clear ``_redo_stack``
+          here because the user is removing an edit, not adding one.
+        * the overlay was an *existing* annotation already present in the
+          source PDF — register a ``delete_annot`` pending edit so the
+          deletion survives the ``release_doc()/fitz.open`` round-trip
+          performed inside ``_run``. Existing notes loaded by
+          ``_load_existing_annotations`` already live in ``_pending`` with
+          ``_existing=True``, so we both drop the note entry AND append a
+          ``delete_annot`` edit to enforce the deletion at save time. The
+          original note dict is stashed on the edit so ``_undo`` can
+          restore the overlay if the user reverses the action.
+        """
         text = overlay.get("text", "").strip()
         page = overlay.get("page")
         for i, p in enumerate(self._pending):
             if p.get("type") == "note" and p.get("text", "").strip() == text and p.get("page") == page:
-                self._pending.pop(i)
+                removed = self._pending.pop(i)
                 self._pending_list.takeItem(i)
-                break
+                # Allow Ctrl+Y to bring the note back. We don't clear
+                # the existing redo stack: the user is undoing a placed
+                # note, not adding a fresh edit.
+                self._redo_stack.append(removed)
+                if len(self._redo_stack) > self._MAX_REDO:
+                    self._redo_stack.pop(0)
+                # CRIT: existing notes (loaded from the source PDF in
+                # ``_load_existing_annotations``) live in ``_pending`` with
+                # ``_existing=True``. Dropping them from ``_pending`` alone
+                # does NOT persist the deletion — ``_run`` reopens the file
+                # from disk and the original annotation survives. Enqueue a
+                # ``delete_annot`` edit so the save loop removes it.
+                if removed.get("_existing"):
+                    edit = {
+                        "type": "delete_annot",
+                        "page": removed.get("page"),
+                        "annot_type": removed.get("_annot_type"),
+                        "bbox": removed.get("_annot_bbox"),
+                        "_existing": True,
+                        # Stash the original note so ``_undo`` can put it
+                        # back on the canvas if the user reverses the
+                        # deletion before saving.
+                        "_original_note": removed,
+                    }
+                    self._pending.append(edit)
+                    suffix = t("edit.label.page_suffix",
+                               n=((removed.get("page") or 0) + 1))
+                    self._pending_list.addItem(
+                        t("edit.label.note_delete") + suffix)
+                self._canvas.set_overlays(self._pending)
+                return
+        if overlay.get("_existing"):
+            # Fallback path: the overlay was discovered late (via
+            # ``_annot_note_at`` in the canvas) and is NOT in
+            # ``_pending``. Register a pending deletion so ``_run``
+            # actually drops it from the output file.
+            edit = {
+                "type": "delete_annot",
+                "page": page,
+                "annot_type": overlay.get("_annot_type"),
+                "bbox": overlay.get("_annot_bbox"),
+                "_existing": True,
+            }
+            self._pending.append(edit)
+            suffix = t("edit.label.page_suffix", n=(page or 0) + 1)
+            self._pending_list.addItem(t("edit.label.note_delete") + suffix)
+            self._canvas.set_overlays(self._pending)
 
     def _clear_pending(self):
         self._pending.clear(); self._pending_list.clear()
@@ -926,8 +1103,21 @@ class TabEditar(QWidget):
                 self, t("btn.choose"), suggested, t("file_filter.pdf"))
             if not out: return
             self._drop_out.set_path(out)
-        if self._mode_idx == 5:
-            self._apply_forms(out); return
+        if self._mode_idx == _MODE_FORMS:
+            # If there are also pending edits, warn — Forms apply uses
+            # pypdf and would silently drop the in-memory edits otherwise.
+            if self._pending:
+                reply = QMessageBox.question(
+                    self, t("msg.warning"),
+                    t("editor.forms.has_pending"),
+                    QMessageBox.StandardButton.Yes
+                    | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+            self._apply_forms(out)
+            return
         if not self._pending:
             QMessageBox.warning(self, t("msg.warning"), t("msg.no_pending")); return
         try:
@@ -935,10 +1125,21 @@ class TabEditar(QWidget):
             # Release the file lock without resetting the canvas
             self._canvas.release_doc()
             doc = fitz.open(self._doc_path)
+            was_encrypted = bool(doc.needs_pass)
             if doc.needs_pass and self._pdf_password:
                 doc.authenticate(self._pdf_password)
+            # If the input was encrypted, ask the user whether to preserve
+            # protection on the output. Defaults to "Keep protection" so
+            # silent down-grading never happens. We can only re-encrypt if
+            # we still hold the password from the load prompt.
+            encrypt_choice = "plaintext"
+            if was_encrypted and self._pdf_password:
+                encrypt_choice = self._prompt_encryption_choice()
+                if encrypt_choice is None:
+                    doc.close()
+                    return
             for e in self._pending:
-                if e.get("_existing"):
+                if e.get("_existing") and e.get("type") != "delete_annot":
                     continue  # already saved in the PDF
                 pg = doc[e["page"]]
                 if e["type"] == "redact":
@@ -971,6 +1172,19 @@ class TabEditar(QWidget):
                         annot.set_colors(stroke=e.get("color", (1, 0, 0)))
                         annot.set_border(width=max(1, int(e.get("width", 2))))
                         annot.update()
+                elif e["type"] == "delete_annot":
+                    # Match by annot type + bbox (xref isn't stable across
+                    # the canvas-release / fitz.open round-trip used here).
+                    target_type = e.get("annot_type")
+                    target_bbox = e.get("bbox")
+                    if target_bbox is not None:
+                        target_rect = fitz.Rect(target_bbox)
+                        for annot in list(pg.annots() or []):
+                            if (annot.type[0] == target_type
+                                    and abs(annot.rect.x0 - target_rect.x0) < 1
+                                    and abs(annot.rect.y0 - target_rect.y0) < 1):
+                                pg.delete_annot(annot)
+                                break
                 elif e["type"] == "text_edit":
                     bbox = fitz.Rect(e["bbox"])
                     pg.add_redact_annot(bbox, fill=(1, 1, 1))
@@ -999,7 +1213,28 @@ class TabEditar(QWidget):
                                        dir=os.path.dirname(out) or ".")
             os.close(fd)
             try:
-                doc.save(tmp, garbage=4, deflate=True); doc.close()
+                if encrypt_choice == "protect" and self._pdf_password:
+                    # Documented limitation: owner_pw == user_pw because we
+                    # only captured a single password from the load prompt
+                    # — the original owner password is not recoverable from
+                    # the input file. Future enhancement: ask the user for
+                    # a separate owner password.
+                    # ``_fitz_permissions_of`` already returns -1 on any
+                    # internal failure (PyMuPDF sentinel for "all perms"),
+                    # so a wrapping try/except here would be dead code.
+                    perms = self._fitz_permissions_of(doc)
+                    doc.save(
+                        tmp, garbage=4, deflate=True,
+                        encryption=fitz.PDF_ENCRYPT_AES_256,
+                        user_pw=self._pdf_password,
+                        owner_pw=self._pdf_password,
+                        permissions=perms,
+                    )
+                    _log.info(
+                        "Re-encrypted output with user password as owner")
+                else:
+                    doc.save(tmp, garbage=4, deflate=True)
+                doc.close()
                 os.replace(tmp, out)
             except Exception:
                 try: os.unlink(tmp)
@@ -1013,18 +1248,49 @@ class TabEditar(QWidget):
         except Exception as e:
             show_error(self, e)
 
+    @staticmethod
+    def _fitz_permissions_of(doc) -> int:
+        """Best-effort read of the input PDF's permissions flag. Returns
+        ``-1`` (PyMuPDF sentinel for "all permissions") when the
+        attribute is unavailable or unreadable."""
+        try:
+            perms = getattr(doc, "permissions", -1)
+            return int(perms) if perms is not None else -1
+        except Exception:
+            return -1
+
     def _apply_forms(self, out):
         try:
             from pypdf import PdfWriter, PdfReader
             _r = PdfReader(self._doc_path)
-            if _r.is_encrypted and self._pdf_password:
+            was_encrypted = bool(_r.is_encrypted)
+            if was_encrypted and self._pdf_password:
                 _r.decrypt(self._pdf_password)
+            # If input was encrypted, ask the user how to save the output.
+            encrypt_choice = "plaintext"
+            if was_encrypted and self._pdf_password:
+                encrypt_choice = self._prompt_encryption_choice()
+                if encrypt_choice is None:
+                    return
             writer = PdfWriter(); writer.append(_r)
             fields = {self._form_table.item(r, 0).text():
                       (self._form_table.item(r, 1).text() if self._form_table.item(r, 1) else "")
                       for r in range(self._form_table.rowCount())}
             for page in writer.pages:
-                writer.update_page_form_field_values(page, fields, auto_regenerate=False)
+                # auto_regenerate=True so the rendered widget appearance
+                # actually picks up the new value when viewed in a third-
+                # party viewer (Adobe etc.) that doesn't render NeedAppearances.
+                writer.update_page_form_field_values(page, fields, auto_regenerate=True)
+            if encrypt_choice == "protect" and self._pdf_password:
+                # Documented limitation: owner == user; original owner
+                # password is not recoverable from the input file.
+                writer.encrypt(
+                    user_password=self._pdf_password,
+                    owner_password=self._pdf_password,
+                    algorithm="AES-256",
+                )
+                _log.info(
+                    "Re-encrypted forms output with user password as owner")
             fd, tmp = tempfile.mkstemp(prefix=".pdfapps_save_", suffix=".pdf",
                                        dir=os.path.dirname(out) or ".")
             os.close(fd)

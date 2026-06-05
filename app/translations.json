@@ -582,7 +582,19 @@
                                 "tool.reorder.status.done": "✔  → {name}",
                                 "tool.rotate.status.done": "✔  PDF → {name}",
                                 "tool.watermark.status.done": "✔  → {name}",
-                                "tool.encrypt.status.done": "✔  {name}"
+                                "tool.encrypt.status.done": "✔  {name}",
+                                "editor.encrypt.warning_title": "Encrypted PDF",
+                                "editor.encrypt.warning_text": "This PDF is password-protected. Choose how to save:",
+                                "editor.encrypt.save_protected": "Keep protection",
+                                "editor.encrypt.save_unprotected": "Save without password",
+                                "editor.forms.has_pending": "You have pending edits that will be discarded if you save form data now. Continue anyway?",
+                                "editor.forms.undo_unavailable": "Undo is not available in Forms mode.",
+                                "editor.forms.load_failed": "Failed to load form fields (PDF may be malformed).",
+                                "editor.forms.no_fields": "No form fields detected in this PDF.",
+                                "editor.signature.empty_draw": "Please draw your signature before clicking OK.",
+                                "editor.signature.empty_type": "Please type your name before clicking OK.",
+                                "editor.signature.empty_import": "Please pick an image before clicking OK.",
+                                "edit.label.note_delete": "Delete note"
                 },
                 "pt": {
                                 "app.name": "PDFApps",
@@ -1167,7 +1179,19 @@
                                 "tool.reorder.status.done": "✔  → {name}",
                                 "tool.rotate.status.done": "✔  PDF → {name}",
                                 "tool.watermark.status.done": "✔  → {name}",
-                                "tool.encrypt.status.done": "✔  {name}"
+                                "tool.encrypt.status.done": "✔  {name}",
+                                "editor.encrypt.warning_title": "PDF encriptado",
+                                "editor.encrypt.warning_text": "Este PDF está protegido por palavra-passe. Escolha como guardar:",
+                                "editor.encrypt.save_protected": "Manter proteção",
+                                "editor.encrypt.save_unprotected": "Guardar sem palavra-passe",
+                                "editor.forms.has_pending": "Tem edições pendentes que serão descartadas se guardar os dados do formulário agora. Continuar mesmo assim?",
+                                "editor.forms.undo_unavailable": "Desfazer não está disponível no modo Formulários.",
+                                "editor.forms.load_failed": "Falha ao carregar campos do formulário (PDF pode estar corrompido).",
+                                "editor.forms.no_fields": "Não foram detetados campos de formulário neste PDF.",
+                                "editor.signature.empty_draw": "Desenhe a sua assinatura antes de clicar em OK.",
+                                "editor.signature.empty_type": "Escreva o seu nome antes de clicar em OK.",
+                                "editor.signature.empty_import": "Selecione uma imagem antes de clicar em OK.",
+                                "edit.label.note_delete": "Eliminar nota"
                 },
                 "es": {
                                 "app.name": "PDFApps",
@@ -1752,7 +1776,19 @@
                                 "tool.reorder.status.done": "✔  → {name}",
                                 "tool.rotate.status.done": "✔  PDF → {name}",
                                 "tool.watermark.status.done": "✔  → {name}",
-                                "tool.encrypt.status.done": "✔  {name}"
+                                "tool.encrypt.status.done": "✔  {name}",
+                                "editor.encrypt.warning_title": "PDF cifrado",
+                                "editor.encrypt.warning_text": "Este PDF está protegido por contraseña. Elige cómo guardar:",
+                                "editor.encrypt.save_protected": "Mantener protección",
+                                "editor.encrypt.save_unprotected": "Guardar sin contraseña",
+                                "editor.forms.has_pending": "Tienes ediciones pendientes que se descartarán si guardas los datos del formulario ahora. ¿Continuar de todos modos?",
+                                "editor.forms.undo_unavailable": "Deshacer no está disponible en el modo Formularios.",
+                                "editor.forms.load_failed": "Error al cargar campos de formulario (PDF puede estar dañado).",
+                                "editor.forms.no_fields": "No se detectaron campos de formulario en este PDF.",
+                                "editor.signature.empty_draw": "Dibuja tu firma antes de hacer clic en Aceptar.",
+                                "editor.signature.empty_type": "Escribe tu nombre antes de hacer clic en Aceptar.",
+                                "editor.signature.empty_import": "Selecciona una imagen antes de hacer clic en Aceptar.",
+                                "edit.label.note_delete": "Eliminar nota"
                 },
                 "fr": {
                                 "app.name": "PDFApps",
@@ -2337,7 +2373,19 @@
                                 "tool.reorder.status.done": "✔  → {name}",
                                 "tool.rotate.status.done": "✔  PDF → {name}",
                                 "tool.watermark.status.done": "✔  → {name}",
-                                "tool.encrypt.status.done": "✔  {name}"
+                                "tool.encrypt.status.done": "✔  {name}",
+                                "editor.encrypt.warning_title": "PDF chiffré",
+                                "editor.encrypt.warning_text": "Ce PDF est protégé par mot de passe. Choisissez la méthode d'enregistrement:",
+                                "editor.encrypt.save_protected": "Conserver la protection",
+                                "editor.encrypt.save_unprotected": "Enregistrer sans mot de passe",
+                                "editor.forms.has_pending": "Vous avez des modifications en attente qui seront perdues si vous enregistrez les données de formulaire maintenant. Continuer quand même?",
+                                "editor.forms.undo_unavailable": "Annuler n'est pas disponible en mode Formulaires.",
+                                "editor.forms.load_failed": "Échec du chargement des champs de formulaire (PDF peut-être corrompu).",
+                                "editor.forms.no_fields": "Aucun champ de formulaire détecté dans ce PDF.",
+                                "editor.signature.empty_draw": "Veuillez dessiner votre signature avant de cliquer sur OK.",
+                                "editor.signature.empty_type": "Veuillez saisir votre nom avant de cliquer sur OK.",
+                                "editor.signature.empty_import": "Veuillez sélectionner une image avant de cliquer sur OK.",
+                                "edit.label.note_delete": "Supprimer la note"
                 },
                 "de": {
                                 "app.name": "PDFApps",
@@ -2922,7 +2970,19 @@
                                 "tool.reorder.status.done": "✔  → {name}",
                                 "tool.rotate.status.done": "✔  PDF → {name}",
                                 "tool.watermark.status.done": "✔  → {name}",
-                                "tool.encrypt.status.done": "✔  {name}"
+                                "tool.encrypt.status.done": "✔  {name}",
+                                "editor.encrypt.warning_title": "Verschlüsseltes PDF",
+                                "editor.encrypt.warning_text": "Dieses PDF ist passwortgeschützt. Wählen Sie die Speicherart:",
+                                "editor.encrypt.save_protected": "Schutz beibehalten",
+                                "editor.encrypt.save_unprotected": "Ohne Passwort speichern",
+                                "editor.forms.has_pending": "Sie haben ausstehende Bearbeitungen, die verworfen werden, wenn Sie jetzt Formulardaten speichern. Trotzdem fortfahren?",
+                                "editor.forms.undo_unavailable": "Rückgängig ist im Formularmodus nicht verfügbar.",
+                                "editor.forms.load_failed": "Formularfelder konnten nicht geladen werden (PDF möglicherweise beschädigt).",
+                                "editor.forms.no_fields": "In diesem PDF wurden keine Formularfelder erkannt.",
+                                "editor.signature.empty_draw": "Bitte zeichnen Sie Ihre Unterschrift, bevor Sie auf OK klicken.",
+                                "editor.signature.empty_type": "Bitte geben Sie Ihren Namen ein, bevor Sie auf OK klicken.",
+                                "editor.signature.empty_import": "Bitte wählen Sie ein Bild, bevor Sie auf OK klicken.",
+                                "edit.label.note_delete": "Notiz löschen"
                 },
                 "zh": {
                                 "app.name": "PDFApps",
@@ -3507,7 +3567,19 @@
                                 "tool.reorder.status.done": "✔  → {name}",
                                 "tool.rotate.status.done": "✔  PDF → {name}",
                                 "tool.watermark.status.done": "✔  → {name}",
-                                "tool.encrypt.status.done": "✔  {name}"
+                                "tool.encrypt.status.done": "✔  {name}",
+                                "editor.encrypt.warning_title": "加密 PDF",
+                                "editor.encrypt.warning_text": "此 PDF 受密码保护。请选择保存方式：",
+                                "editor.encrypt.save_protected": "保留保护",
+                                "editor.encrypt.save_unprotected": "不使用密码保存",
+                                "editor.forms.has_pending": "您有待处理的编辑，如果现在保存表单数据将被丢弃。是否继续？",
+                                "editor.forms.undo_unavailable": "在表单模式下无法撤消。",
+                                "editor.forms.load_failed": "加载表单字段失败（PDF 可能已损坏）。",
+                                "editor.forms.no_fields": "在此 PDF 中未检测到表单字段。",
+                                "editor.signature.empty_draw": "请在点击确定前绘制您的签名。",
+                                "editor.signature.empty_type": "请在点击确定前输入您的姓名。",
+                                "editor.signature.empty_import": "请在点击确定前选择一张图像。",
+                                "edit.label.note_delete": "删除便笺"
                 },
                 "it": {
                                 "app.name": "PDFApps",
@@ -4092,7 +4164,19 @@
                                 "tool.reorder.status.done": "✔  → {name}",
                                 "tool.rotate.status.done": "✔  PDF → {name}",
                                 "tool.watermark.status.done": "✔  → {name}",
-                                "tool.encrypt.status.done": "✔  {name}"
+                                "tool.encrypt.status.done": "✔  {name}",
+                                "editor.encrypt.warning_title": "PDF crittografato",
+                                "editor.encrypt.warning_text": "Questo PDF è protetto da password. Scegli come salvare:",
+                                "editor.encrypt.save_protected": "Mantieni protezione",
+                                "editor.encrypt.save_unprotected": "Salva senza password",
+                                "editor.forms.has_pending": "Hai modifiche in sospeso che andranno perse se salvi i dati del modulo ora. Continuare comunque?",
+                                "editor.forms.undo_unavailable": "Annulla non è disponibile in modalità Moduli.",
+                                "editor.forms.load_failed": "Impossibile caricare i campi del modulo (PDF potrebbe essere danneggiato).",
+                                "editor.forms.no_fields": "Nessun campo modulo rilevato in questo PDF.",
+                                "editor.signature.empty_draw": "Disegna la tua firma prima di fare clic su OK.",
+                                "editor.signature.empty_type": "Digita il tuo nome prima di fare clic su OK.",
+                                "editor.signature.empty_import": "Seleziona un'immagine prima di fare clic su OK.",
+                                "edit.label.note_delete": "Elimina nota"
                 },
                 "nl": {
                                 "app.name": "PDFApps",
@@ -4677,6 +4761,18 @@
                                 "tool.reorder.status.done": "✔  → {name}",
                                 "tool.rotate.status.done": "✔  PDF → {name}",
                                 "tool.watermark.status.done": "✔  → {name}",
-                                "tool.encrypt.status.done": "✔  {name}"
+                                "tool.encrypt.status.done": "✔  {name}",
+                                "editor.encrypt.warning_title": "Versleuteld PDF",
+                                "editor.encrypt.warning_text": "Dit PDF is met een wachtwoord beveiligd. Kies hoe op te slaan:",
+                                "editor.encrypt.save_protected": "Beveiliging behouden",
+                                "editor.encrypt.save_unprotected": "Opslaan zonder wachtwoord",
+                                "editor.forms.has_pending": "Je hebt openstaande bewerkingen die verloren gaan als je nu de formuliergegevens opslaat. Toch doorgaan?",
+                                "editor.forms.undo_unavailable": "Ongedaan maken is niet beschikbaar in formuliermodus.",
+                                "editor.forms.load_failed": "Kan formuliervelden niet laden (PDF mogelijk beschadigd).",
+                                "editor.forms.no_fields": "Geen formuliervelden gevonden in deze PDF.",
+                                "editor.signature.empty_draw": "Teken je handtekening voordat je op OK klikt.",
+                                "editor.signature.empty_type": "Typ je naam voordat je op OK klikt.",
+                                "editor.signature.empty_import": "Kies een afbeelding voordat je op OK klikt.",
+                                "edit.label.note_delete": "Notitie verwijderen"
                 }
 }
