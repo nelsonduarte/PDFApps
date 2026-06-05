@@ -622,37 +622,70 @@ class PdfViewerPanel(QWidget):
 
         import fitz
         page_count = len(self._fitz_doc)
-        for i in range(page_count):
-            if i > 0:
-                printer.newPage()
-            page = self._fitz_doc[i]
-            # Render at high DPI for print quality
-            dpi = printer.resolution()
-            zoom = dpi / 72.0
-            mat = fitz.Matrix(zoom, zoom)
-            # alpha=False avoids RGBA pixmaps (n=4) being misread as
-            # Format_RGB888 (3 bytes/pixel); n != 3 catches the residual
-            # cases (CMYK n=4, greyscale n=1) — convert them to RGB.
-            pix = page.get_pixmap(matrix=mat, alpha=False)
-            if pix.n != 3:
-                pix = fitz.Pixmap(fitz.csRGB, pix)
-            # QImage(pix.samples, ...) views the native pixmap buffer;
-            # on the next loop iteration the old pix is freed and the
-            # painter would be drawing from freed memory. .copy() forces
-            # an eager copy so the QImage no longer depends on pix
-            # lifetime (same fix that landed in OCR Round 3).
-            img = QImage(pix.samples, pix.width, pix.height,
-                         pix.stride, QImage.Format.Format_RGB888).copy()
-            target = QRectF(painter.viewport())
-            source = QRectF(0, 0, img.width(), img.height())
-            # Scale to fit page while maintaining aspect ratio
-            scale = min(target.width() / source.width(),
-                        target.height() / source.height())
-            w = source.width() * scale
-            h = source.height() * scale
-            x = (target.width() - w) / 2
-            y = (target.height() - h) / 2
-            painter.drawImage(QRectF(x, y, w, h), img, source)
+        # Honour QPrintDialog settings — pre-fix the loop always printed
+        # every page once in forward order, ignoring the user's choice
+        # of range / copies / reverse (R7/N7-H1).
+        #   - fromPage()/toPage() return 0 when "all pages" is selected
+        #   - copyCount() reports how many copies the user asked for
+        #   - pageOrder() == LastPageFirst means print in reverse
+        from_page = printer.fromPage()
+        to_page = printer.toPage()
+        if from_page == 0 and to_page == 0:
+            pages = list(range(page_count))
+        else:
+            # Qt's fromPage/toPage are 1-based and inclusive. Clamp to
+            # [0, page_count) before iterating so an out-of-range value
+            # (PDFs with fewer pages than the dialog suggested) cannot
+            # crash the render loop.
+            start = max(0, from_page - 1)
+            end = min(page_count, to_page)
+            pages = list(range(start, end))
+        try:
+            reverse = (printer.pageOrder()
+                       == QPrinter.PageOrder.LastPageFirst)
+        except AttributeError:
+            # PySide6 < 6.4 exposed the enum at module scope; the guard
+            # keeps the loop running on legacy bindings (worst case:
+            # forward order, same as before this fix).
+            reverse = False
+        if reverse:
+            pages = list(reversed(pages))
+        copies = max(1, printer.copyCount())
+
+        first_page_printed = True  # avoids a leading newPage()
+        for copy in range(copies):
+            for i in pages:
+                if not first_page_printed:
+                    printer.newPage()
+                first_page_printed = False
+                page = self._fitz_doc[i]
+                # Render at high DPI for print quality
+                dpi = printer.resolution()
+                zoom = dpi / 72.0
+                mat = fitz.Matrix(zoom, zoom)
+                # alpha=False avoids RGBA pixmaps (n=4) being misread as
+                # Format_RGB888 (3 bytes/pixel); n != 3 catches the residual
+                # cases (CMYK n=4, greyscale n=1) — convert them to RGB.
+                pix = page.get_pixmap(matrix=mat, alpha=False)
+                if pix.n != 3:
+                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                # QImage(pix.samples, ...) views the native pixmap buffer;
+                # on the next loop iteration the old pix is freed and the
+                # painter would be drawing from freed memory. .copy() forces
+                # an eager copy so the QImage no longer depends on pix
+                # lifetime (same fix that landed in OCR Round 3).
+                img = QImage(pix.samples, pix.width, pix.height,
+                             pix.stride, QImage.Format.Format_RGB888).copy()
+                target = QRectF(painter.viewport())
+                source = QRectF(0, 0, img.width(), img.height())
+                # Scale to fit page while maintaining aspect ratio
+                scale = min(target.width() / source.width(),
+                            target.height() / source.height())
+                w = source.width() * scale
+                h = source.height() * scale
+                x = (target.width() - w) / 2
+                y = (target.height() - h) / 2
+                painter.drawImage(QRectF(x, y, w, h), img, source)
 
         painter.end()
 
