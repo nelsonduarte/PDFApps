@@ -693,25 +693,12 @@ class PdfViewerPanel(QWidget):
     def _clear_pdf_password(self) -> None:
         """Best-effort wipe of the cached PDF password (R5/D2).
 
-        Python ``str`` is immutable so we cannot scrub the original
-        bytes — the interpreter may still hold a copy via interning.
-        What we *can* do is drop the only reachable reference, plus a
-        defensive ctypes zero-buffer hint. Called from ``load`` (new
-        file) and ``closeEvent`` (panel teardown).
+        Thin wrapper around :func:`app.utils.wipe_pdf_password` so the
+        ``load`` (new file) and ``closeEvent`` (panel teardown) paths
+        share a single implementation with BasePage and EditorTab.
         """
-        try:
-            pwd = getattr(self, "_pdf_password", "")
-        except Exception:
-            pwd = ""
-        if pwd:
-            try:
-                import ctypes
-                buf = ctypes.create_string_buffer(len(pwd.encode("utf-8")))
-                ctypes.memset(ctypes.addressof(buf), 0, len(buf))
-                del buf
-            except Exception:
-                pass
-        self._pdf_password = ""
+        from app.utils import wipe_pdf_password
+        wipe_pdf_password(self)
 
     def closeEvent(self, event):
         # Wipe cached password before the C++ widget is destroyed so a

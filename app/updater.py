@@ -265,7 +265,6 @@ def _apply_update_unix(downloaded: str):
     if downloaded.endswith(".dmg"):
         _apply_update_macos_dmg(downloaded)
         return
-    import contextlib
     import shutil
     import stat
     current = sys.executable
