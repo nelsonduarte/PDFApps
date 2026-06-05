@@ -81,6 +81,24 @@ class TabMarcaDagua(BasePage):
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
 
+    def _prompt_watermark_password(self, wm_path: str) -> str | None:
+        """Resolve an encryption password for the watermark PDF.
+
+        Returns:
+            ""        — watermark PDF is plaintext (no password needed)
+            "<pwd>"  — user supplied a valid password
+            None      — user cancelled the prompt (caller aborts)
+
+        Kept separate from ``self._pdf_password`` (which holds the
+        *source* PDF's password) so a corporate stamp PDF and the user's
+        own document don't leak credentials into one another.
+        """
+        from app.utils import prompt_pdf_password
+        ok, pwd = prompt_pdf_password(wm_path, self)
+        if not ok:
+            return None
+        return pwd
+
     def _run(self):
         pdf_path = self.drop_in.path(); wm_path = self.drop_wm.path()
         if not pdf_path or not os.path.isfile(pdf_path):
@@ -90,10 +108,23 @@ class TabMarcaDagua(BasePage):
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
 
+        # R8 bonus #6: the watermark PDF can itself be encrypted (rare
+        # but observed when users borrow a corporate stamp PDF).
+        # PdfReader(wm_path) used to raise PdfReadError cryptically;
+        # prompt for the watermark's password explicitly here so the
+        # error surface matches the source-PDF flow. Tracked separately
+        # from self._pdf_password (which holds the *source* PDF's
+        # password) so neither leaks into the other.
+        wm_pwd = self._prompt_watermark_password(wm_path)
+        if wm_pwd is None:
+            return  # user cancelled
+
         # Pre-flight on the main thread: validate inputs and resolve page
         # targets so the worker can be a tight loop with no Qt calls.
         try:
             wm_reader = PdfReader(wm_path)
+            if wm_reader.is_encrypted and wm_pwd:
+                wm_reader.decrypt(wm_pwd)
             if not wm_reader.pages:
                 QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.empty_wm"))
                 return
@@ -116,6 +147,8 @@ class TabMarcaDagua(BasePage):
             if r.is_encrypted and pwd:
                 r.decrypt(pwd)
             wm = PdfReader(wm_path)
+            if wm.is_encrypted and wm_pwd:
+                wm.decrypt(wm_pwd)
             wm_page = wm.pages[0]
             w = PdfWriter()
             n = len(r.pages)
