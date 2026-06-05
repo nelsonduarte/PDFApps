@@ -1,5 +1,6 @@
 """PDFApps – TabEncriptar: encrypt/decrypt PDF tool."""
 
+import contextlib
 import os
 
 from PySide6.QtCore import Qt
@@ -107,6 +108,22 @@ class TabEncriptar(BasePage):
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)
 
+    def _clear_password_fields(self) -> None:
+        """Best-effort wipe of password QLineEdits after encrypt/decrypt run.
+
+        QLineEdit text persisted in memory for the entire session prior
+        to R8-H1. Clearing the field both via ``setText('')`` and
+        ``clear()`` drops the cached display string and any pending
+        completer state; the underlying QString allocation may still
+        linger in Qt's heap until GC, same caveat as
+        ``wipe_pdf_password``.
+        """
+        for field in (self.edit_owner, self.edit_owner_confirm,
+                      self.edit_user, self.edit_pwd):
+            with contextlib.suppress(Exception):
+                field.setText("")
+                field.clear()
+
     def _run(self):
         pdf_path = self.drop_in.path()
         if not pdf_path or not os.path.isfile(pdf_path):
@@ -153,4 +170,10 @@ class TabEncriptar(BasePage):
                     self._pipeline_success(msg, out_path)
                 else:
                     QMessageBox.information(self, t("msg.done"), msg)
-        except Exception as e: show_error(self, e)
+        except Exception as e:
+            show_error(self, e)
+        finally:
+            # R8-H1: wipe password fields whether _run() succeeded or
+            # raised. Keeping the user's password in the QLineEdit text
+            # buffer for the whole session was a needless heap leak.
+            self._clear_password_fields()
