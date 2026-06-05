@@ -433,6 +433,11 @@ class PdfViewerPanel(QWidget):
         if self._fitz_doc:
             self._canvas.close_doc()
             self._fitz_doc = None
+            # Forget the previous file's password before we start the
+            # new one's prompt flow (R5/D2). _clear_pdf_password is a
+            # best-effort wipe — Python str immutability blocks a true
+            # zero-scrub.
+            self._clear_pdf_password()
         try:
             doc = fitz.open(path)
         except Exception as ex:
@@ -650,3 +655,33 @@ class PdfViewerPanel(QWidget):
             painter.drawImage(QRectF(x, y, w, h), img, source)
 
         painter.end()
+
+    # ── Password lifecycle ──────────────────────────────────────────────
+    def _clear_pdf_password(self) -> None:
+        """Best-effort wipe of the cached PDF password (R5/D2).
+
+        Python ``str`` is immutable so we cannot scrub the original
+        bytes — the interpreter may still hold a copy via interning.
+        What we *can* do is drop the only reachable reference, plus a
+        defensive ctypes zero-buffer hint. Called from ``load`` (new
+        file) and ``closeEvent`` (panel teardown).
+        """
+        try:
+            pwd = getattr(self, "_pdf_password", "")
+        except Exception:
+            pwd = ""
+        if pwd:
+            try:
+                import ctypes
+                buf = ctypes.create_string_buffer(len(pwd.encode("utf-8")))
+                ctypes.memset(ctypes.addressof(buf), 0, len(buf))
+                del buf
+            except Exception:
+                pass
+        self._pdf_password = ""
+
+    def closeEvent(self, event):
+        # Wipe cached password before the C++ widget is destroyed so a
+        # heap dump after teardown no longer surfaces it.
+        self._clear_pdf_password()
+        super().closeEvent(event)
