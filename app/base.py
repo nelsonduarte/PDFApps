@@ -341,6 +341,35 @@ class BasePage(QWidget):
             doc.authenticate(self._pdf_password)
         return doc
 
+    def _clear_pdf_password(self) -> None:
+        """Best-effort wipe of the cached PDF password from memory.
+
+        Python ``str`` is immutable, so we cannot scrub the original
+        bytes — the interpreter may keep the original buffer alive in
+        the string-intern table or as a constant. What we *can* do is
+        drop the attribute reference so the password is no longer
+        reachable from the live object graph.
+
+        The ctypes block below allocates a zeroed buffer of the same
+        length as a defensive hint to memory scanners; it does not
+        touch the original PyUnicode storage. Call from any close /
+        reload path that should forget the password (closeEvent,
+        ``_close_pdf``, loading a different file).
+        """
+        try:
+            pwd = getattr(self, "_pdf_password", "")
+        except Exception:
+            pwd = ""
+        if pwd:
+            try:
+                import ctypes
+                buf = ctypes.create_string_buffer(len(pwd.encode("utf-8")))
+                ctypes.memset(ctypes.addressof(buf), 0, len(buf))
+                del buf
+            except Exception:
+                pass
+        self._pdf_password = ""
+
     # ── safe PDF writer ────────────────────────────────────────────────────
 
     @staticmethod
