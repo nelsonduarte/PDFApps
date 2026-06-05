@@ -126,7 +126,7 @@ class TabEncriptar(BasePage):
                 w = PdfWriter(); w.append(reader)
                 w.encrypt(user_password=user_pwd,
                           owner_password=owner, algorithm="AES-256")
-                with open(out_path, "wb") as f: w.write(f)
+                self._atomic_pdf_write(w, out_path, sources=[pdf_path])
                 self._status(t("tool.encrypt.status.done",
                                name=os.path.basename(out_path)))
                 msg = t("tool.encrypt.done_enc", path=out_path)
@@ -145,7 +145,7 @@ class TabEncriptar(BasePage):
                         QMessageBox.warning(self, t("msg.warning"), t("tool.encrypt.wrong_pass"))
                         return
                 w = PdfWriter(); w.append(reader)
-                with open(out_path, "wb") as f: w.write(f)
+                self._atomic_pdf_write(w, out_path, sources=[pdf_path])
                 self._status(t("tool.encrypt.status.done",
                                name=os.path.basename(out_path)))
                 msg = t("tool.encrypt.done_dec", path=out_path)

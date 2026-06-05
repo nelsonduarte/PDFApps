@@ -422,8 +422,16 @@ class PdfViewerPanel(QWidget):
                                 t("viewer.invalid_msg"))
             return
         import fitz
+        # Close the previous document through the canvas helper so the
+        # canvas drops its _doc reference + bumps _gen BEFORE the
+        # fitz.Document is actually closed. Without this ordering, a
+        # paintEvent or _on_page_ready queued between the panel's
+        # _fitz_doc.close() and the next _canvas.load() touches a
+        # freed Document and raises ``RuntimeError: document closed``
+        # (B1). _canvas.close_doc() also handles closing the underlying
+        # doc, so don't double-close from this side.
         if self._fitz_doc:
-            self._fitz_doc.close()
+            self._canvas.close_doc()
             self._fitz_doc = None
         try:
             doc = fitz.open(path)
@@ -607,6 +615,7 @@ class PdfViewerPanel(QWidget):
         if not painter.begin(printer):
             return
 
+        import fitz
         page_count = len(self._fitz_doc)
         for i in range(page_count):
             if i > 0:
@@ -615,10 +624,20 @@ class PdfViewerPanel(QWidget):
             # Render at high DPI for print quality
             dpi = printer.resolution()
             zoom = dpi / 72.0
-            mat = __import__("fitz").Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat)
+            mat = fitz.Matrix(zoom, zoom)
+            # alpha=False avoids RGBA pixmaps (n=4) being misread as
+            # Format_RGB888 (3 bytes/pixel); n != 3 catches the residual
+            # cases (CMYK n=4, greyscale n=1) — convert them to RGB.
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            if pix.n != 3:
+                pix = fitz.Pixmap(fitz.csRGB, pix)
+            # QImage(pix.samples, ...) views the native pixmap buffer;
+            # on the next loop iteration the old pix is freed and the
+            # painter would be drawing from freed memory. .copy() forces
+            # an eager copy so the QImage no longer depends on pix
+            # lifetime (same fix that landed in OCR Round 3).
             img = QImage(pix.samples, pix.width, pix.height,
-                         pix.stride, QImage.Format.Format_RGB888)
+                         pix.stride, QImage.Format.Format_RGB888).copy()
             target = QRectF(painter.viewport())
             source = QRectF(0, 0, img.width(), img.height())
             # Scale to fit page while maintaining aspect ratio

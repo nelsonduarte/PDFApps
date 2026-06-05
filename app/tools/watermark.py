@@ -130,8 +130,7 @@ class TabMarcaDagua(BasePage):
                                        current=i + 1, total=n))
             if worker.is_cancelled():
                 return None
-            with open(out_path, "wb") as f:
-                w.write(f)
+            self._atomic_pdf_write(w, out_path, sources=[pdf_path, wm_path])
             return out_path
 
         def on_done(saved):
