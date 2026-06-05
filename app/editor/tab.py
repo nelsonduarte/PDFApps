@@ -1,6 +1,7 @@
 """PDFApps – TabEditar: visual PDF editor tool tab."""
 
 import contextlib
+import logging
 import os
 import tempfile
 
@@ -20,6 +21,23 @@ from app.i18n import t
 from app.widgets import DropFileEdit, ColorPickerButton
 from app.editor.canvas import PdfEditCanvas, _get_icon_cursor
 from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
+
+
+_log = logging.getLogger(__name__)
+
+
+# Mode indices in `_mode_btns` — kept as constants for readability so
+# call-sites like `if self._mode_idx == _MODE_FORMS:` document intent
+# without forcing a refactor of the existing numeric layout.
+_MODE_REDACT = 0
+_MODE_TEXT = 1
+_MODE_IMAGE = 2
+_MODE_HIGHLIGHT = 3
+_MODE_NOTE = 4
+_MODE_FORMS = 5
+_MODE_SIGNATURE = 6
+_MODE_DRAW = 7
+_MODE_SELECT = 8
 
 
 class TabEditar(QWidget):
@@ -898,6 +916,38 @@ class TabEditar(QWidget):
         edit = self._redo_stack.pop()
         self._add(edit, _from_redo=True)
 
+    def _prompt_encryption_choice(self) -> str | None:
+        """Ask the user how to handle an encrypted-input save.
+
+        Returns ``"protect"`` (re-encrypt with the cached user password),
+        ``"plaintext"`` (current behaviour, save unprotected) or ``None``
+        if the user cancelled.
+
+        Caller must only invoke this when the input PDF is actually
+        encrypted *and* a usable password was captured at load time —
+        otherwise re-encryption is impossible.
+        """
+        box = QMessageBox(self)
+        box.setWindowTitle(t("editor.encrypt.warning_title"))
+        box.setText(t("editor.encrypt.warning_text"))
+        box.setIcon(QMessageBox.Icon.Warning)
+        keep_btn = box.addButton(t("editor.encrypt.save_protected"),
+                                 QMessageBox.ButtonRole.AcceptRole)
+        plain_btn = box.addButton(t("editor.encrypt.save_unprotected"),
+                                  QMessageBox.ButtonRole.DestructiveRole)
+        cancel_btn = box.addButton(t("btn.cancel"),
+                                   QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(keep_btn)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is keep_btn:
+            return "protect"
+        if clicked is plain_btn:
+            return "plaintext"
+        if clicked is cancel_btn:
+            return None
+        return None
+
     def _on_note_deleted(self, overlay: dict):
         """Remove a deleted note from the pending edits list."""
         text = overlay.get("text", "").strip()
@@ -935,8 +985,19 @@ class TabEditar(QWidget):
             # Release the file lock without resetting the canvas
             self._canvas.release_doc()
             doc = fitz.open(self._doc_path)
+            was_encrypted = bool(doc.needs_pass)
             if doc.needs_pass and self._pdf_password:
                 doc.authenticate(self._pdf_password)
+            # If the input was encrypted, ask the user whether to preserve
+            # protection on the output. Defaults to "Keep protection" so
+            # silent down-grading never happens. We can only re-encrypt if
+            # we still hold the password from the load prompt.
+            encrypt_choice = "plaintext"
+            if was_encrypted and self._pdf_password:
+                encrypt_choice = self._prompt_encryption_choice()
+                if encrypt_choice is None:
+                    doc.close()
+                    return
             for e in self._pending:
                 if e.get("_existing"):
                     continue  # already saved in the PDF
@@ -999,7 +1060,28 @@ class TabEditar(QWidget):
                                        dir=os.path.dirname(out) or ".")
             os.close(fd)
             try:
-                doc.save(tmp, garbage=4, deflate=True); doc.close()
+                if encrypt_choice == "protect" and self._pdf_password:
+                    # Documented limitation: owner_pw == user_pw because we
+                    # only captured a single password from the load prompt
+                    # — the original owner password is not recoverable from
+                    # the input file. Future enhancement: ask the user for
+                    # a separate owner password.
+                    try:
+                        perms = self._fitz_permissions_of(doc)
+                    except Exception:
+                        perms = -1
+                    doc.save(
+                        tmp, garbage=4, deflate=True,
+                        encryption=fitz.PDF_ENCRYPT_AES_256,
+                        user_pw=self._pdf_password,
+                        owner_pw=self._pdf_password,
+                        permissions=perms,
+                    )
+                    _log.info(
+                        "Re-encrypted output with user password as owner")
+                else:
+                    doc.save(tmp, garbage=4, deflate=True)
+                doc.close()
                 os.replace(tmp, out)
             except Exception:
                 try: os.unlink(tmp)
@@ -1013,18 +1095,46 @@ class TabEditar(QWidget):
         except Exception as e:
             show_error(self, e)
 
+    @staticmethod
+    def _fitz_permissions_of(doc) -> int:
+        """Best-effort read of the input PDF's permissions flag. Returns
+        ``-1`` (PyMuPDF sentinel for "all permissions") when the
+        attribute is unavailable or unreadable."""
+        try:
+            perms = getattr(doc, "permissions", -1)
+            return int(perms) if perms is not None else -1
+        except Exception:
+            return -1
+
     def _apply_forms(self, out):
         try:
             from pypdf import PdfWriter, PdfReader
             _r = PdfReader(self._doc_path)
-            if _r.is_encrypted and self._pdf_password:
+            was_encrypted = bool(_r.is_encrypted)
+            if was_encrypted and self._pdf_password:
                 _r.decrypt(self._pdf_password)
+            # If input was encrypted, ask the user how to save the output.
+            encrypt_choice = "plaintext"
+            if was_encrypted and self._pdf_password:
+                encrypt_choice = self._prompt_encryption_choice()
+                if encrypt_choice is None:
+                    return
             writer = PdfWriter(); writer.append(_r)
             fields = {self._form_table.item(r, 0).text():
                       (self._form_table.item(r, 1).text() if self._form_table.item(r, 1) else "")
                       for r in range(self._form_table.rowCount())}
             for page in writer.pages:
                 writer.update_page_form_field_values(page, fields, auto_regenerate=False)
+            if encrypt_choice == "protect" and self._pdf_password:
+                # Documented limitation: owner == user; original owner
+                # password is not recoverable from the input file.
+                writer.encrypt(
+                    user_password=self._pdf_password,
+                    owner_password=self._pdf_password,
+                    algorithm="AES-256",
+                )
+                _log.info(
+                    "Re-encrypted forms output with user password as owner")
             fd, tmp = tempfile.mkstemp(prefix=".pdfapps_save_", suffix=".pdf",
                                        dir=os.path.dirname(out) or ".")
             os.close(fd)
