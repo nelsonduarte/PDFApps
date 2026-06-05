@@ -621,6 +621,13 @@ class TabEditar(QWidget):
                                 "point": fitz.Point(r.x0, r.y0 + r.height),
                                 "text": txt,
                                 "_existing": True,
+                                # Carried so a later delete from the canvas
+                                # context menu can register a stable
+                                # `delete_annot` pending edit (matched by
+                                # annot type + bbox, since xref is not
+                                # preserved across release_doc/fitz.open).
+                                "_annot_type": annot.type[0],
+                                "_annot_bbox": [r.x0, r.y0, r.x1, r.y1],
                             })
                             self._pending_list.addItem(
                                 t("edit.status.note_label", n=page_idx + 1))
@@ -892,8 +899,13 @@ class TabEditar(QWidget):
                                      new=e["new_text"][:15]) + suffix,
             "signature": lambda e: t("edit.mode.signature") + suffix,
             "draw":      lambda e: t("edit.mode.draw") + suffix,
+            "delete_annot": lambda e: t("edit.label.note_delete") + suffix,
         }
-        lbl = labels[edit["type"]](edit)
+        # ``.get`` with the raw type as fallback so a future unknown edit
+        # type still produces a (rough but readable) label instead of
+        # raising KeyError and crashing the editor.
+        builder = labels.get(edit["type"], lambda e: e["type"] + suffix)
+        lbl = builder(edit)
         self._pending_list.addItem(lbl)
         self._status(t("edit.status.added",
                        label=lbl, count=len(self._pending)))
@@ -949,14 +961,47 @@ class TabEditar(QWidget):
         return None
 
     def _on_note_deleted(self, overlay: dict):
-        """Remove a deleted note from the pending edits list."""
+        """Handle a note deletion triggered from the canvas.
+
+        Two scenarios:
+
+        * the overlay was a *pending* note (not yet saved) — just drop it
+          from the pending list. We still push to ``_redo_stack`` so
+          Ctrl+Z (which actually pops the *last* pending edit) doesn't
+          silently lose the deletion. We do NOT clear ``_redo_stack``
+          here because the user is removing an edit, not adding one.
+        * the overlay was an *existing* annotation already present in the
+          source PDF — register a ``delete_annot`` pending edit so the
+          deletion survives the ``release_doc()/fitz.open`` round-trip
+          performed inside ``_run``.
+        """
         text = overlay.get("text", "").strip()
         page = overlay.get("page")
         for i, p in enumerate(self._pending):
             if p.get("type") == "note" and p.get("text", "").strip() == text and p.get("page") == page:
-                self._pending.pop(i)
+                removed = self._pending.pop(i)
                 self._pending_list.takeItem(i)
-                break
+                # Allow Ctrl+Y to bring the note back. We don't clear
+                # the existing redo stack: the user is undoing a placed
+                # note, not adding a fresh edit.
+                self._redo_stack.append(removed)
+                if len(self._redo_stack) > self._MAX_REDO:
+                    self._redo_stack.pop(0)
+                return
+        if overlay.get("_existing"):
+            # Already-saved annotation: register a pending deletion so
+            # _run actually drops it from the output file.
+            edit = {
+                "type": "delete_annot",
+                "page": page,
+                "annot_type": overlay.get("_annot_type"),
+                "bbox": overlay.get("_annot_bbox"),
+                "_existing": True,
+            }
+            self._pending.append(edit)
+            suffix = t("edit.label.page_suffix", n=(page or 0) + 1)
+            self._pending_list.addItem(t("edit.label.note_delete") + suffix)
+            self._canvas.set_overlays(self._pending)
 
     def _clear_pending(self):
         self._pending.clear(); self._pending_list.clear()
@@ -1012,7 +1057,7 @@ class TabEditar(QWidget):
                     doc.close()
                     return
             for e in self._pending:
-                if e.get("_existing"):
+                if e.get("_existing") and e.get("type") != "delete_annot":
                     continue  # already saved in the PDF
                 pg = doc[e["page"]]
                 if e["type"] == "redact":
@@ -1045,6 +1090,19 @@ class TabEditar(QWidget):
                         annot.set_colors(stroke=e.get("color", (1, 0, 0)))
                         annot.set_border(width=max(1, int(e.get("width", 2))))
                         annot.update()
+                elif e["type"] == "delete_annot":
+                    # Match by annot type + bbox (xref isn't stable across
+                    # the canvas-release / fitz.open round-trip used here).
+                    target_type = e.get("annot_type")
+                    target_bbox = e.get("bbox")
+                    if target_bbox is not None:
+                        target_rect = fitz.Rect(target_bbox)
+                        for annot in list(pg.annots() or []):
+                            if (annot.type[0] == target_type
+                                    and abs(annot.rect.x0 - target_rect.x0) < 1
+                                    and abs(annot.rect.y0 - target_rect.y0) < 1):
+                                pg.delete_annot(annot)
+                                break
                 elif e["type"] == "text_edit":
                     bbox = fitz.Rect(e["bbox"])
                     pg.add_redact_annot(bbox, fill=(1, 1, 1))
