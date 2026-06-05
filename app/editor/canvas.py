@@ -912,13 +912,6 @@ class PdfEditCanvas(QWidget):
             pdf_rect = self._rect_to_pdf(page_idx, local_rect)
             if pdf_rect is not None:
                 self.rect_selected.emit(page_idx, pdf_rect)
-        elif self._drag_rect and (self._drag_rect.width() <= 3
-                                   or self._drag_rect.height() <= 3):
-            # LOW: tiny drags previously fell through to the click
-            # handler which felt unresponsive — emit a status hint via
-            # the click handler's normal path so the user still gets
-            # feedback.
-            pass
         else:
             hit = self._note_icon_at(pos)
             if hit < 0:

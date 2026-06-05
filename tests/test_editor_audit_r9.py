@@ -394,6 +394,87 @@ def test_note_deleted_keeps_undo_redo_in_sync():
     assert s._pending_list.count() == 0
 
 
+def test_note_deleted_existing_enqueues_delete_annot():
+    """When an existing PDF annotation already in ``_pending`` (loaded by
+    ``_load_existing_annotations`` with ``_existing=True``) is deleted via
+    the canvas context menu, ``_on_note_deleted`` must:
+
+    * pop the original note from ``_pending``
+    * push the original onto ``_redo_stack`` (so Ctrl+Z works)
+    * append a ``delete_annot`` edit so the save loop actually drops the
+      annotation from the output file
+    * stash the original note on the edit (``_original_note``) so the
+      undo path can put it back on the canvas
+
+    Regression for PR-D review finding #1: the first ``for`` loop in
+    ``_on_note_deleted`` returned early and the ``delete_annot`` branch
+    after it was never reached for the common case."""
+    pytest.importorskip("PySide6.QtWidgets")
+    from PySide6.QtWidgets import QApplication, QListWidget
+    app = QApplication.instance() or QApplication([])
+    from app.editor.tab import TabEditar
+
+    class _Stub:
+        _MAX_REDO = TabEditar._MAX_REDO
+        _MAX_PENDING = TabEditar._MAX_PENDING
+
+        def __init__(self):
+            self._pending = []
+            self._redo_stack = []
+            self._pending_list = QListWidget()
+
+            class _CV:
+                def __init__(self): self.set_overlays_calls = 0
+                def set_overlays(self, _ovs): self.set_overlays_calls += 1
+
+            self._canvas = _CV()
+
+        def _status(self, *a, **kw): pass
+
+        _on_note_deleted = TabEditar._on_note_deleted
+        _undo = TabEditar._undo
+
+    s = _Stub()
+    bbox = [10.0, 20.0, 30.0, 40.0]
+    existing = {
+        "type": "note",
+        "page": 2,
+        "text": "hello",
+        "_existing": True,
+        "_annot_type": 0,        # fitz.PDF_ANNOT_TEXT
+        "_annot_bbox": bbox,
+    }
+    s._pending.append(existing)
+    s._pending_list.addItem("note")
+
+    # Caller hands us the overlay dict (same structure as _pending entry).
+    s._on_note_deleted(dict(existing))
+
+    # The original note is gone from _pending, redo_stack has it.
+    assert len(s._redo_stack) == 1
+    assert s._redo_stack[0].get("_existing") is True
+    # A delete_annot edit must have been enqueued in its place.
+    types = [e.get("type") for e in s._pending]
+    assert "delete_annot" in types, (
+        "missing delete_annot — existing-note deletion will not persist")
+    da = next(e for e in s._pending if e.get("type") == "delete_annot")
+    assert da["page"] == 2
+    assert da["bbox"] == bbox
+    assert da["annot_type"] == 0
+    assert da.get("_existing") is True
+    # Original note stashed for undo restore.
+    assert da.get("_original_note", {}).get("text") == "hello"
+
+    # ── Undo behaviour: rolling back the delete_annot must put the
+    #    original note back into _pending so the canvas overlay reappears.
+    s._undo()
+    assert all(e.get("type") != "delete_annot" for e in s._pending)
+    notes = [e for e in s._pending
+             if e.get("type") == "note" and e.get("text") == "hello"]
+    assert len(notes) == 1, (
+        "undo of delete_annot must restore the original note overlay")
+
+
 def test_overlay_pixmap_cache_returns_same_instance(tmp_path):
     """Cache check: same (path, mtime) tuple returns the same QPixmap
     instance — proves the LRU is actually wired."""

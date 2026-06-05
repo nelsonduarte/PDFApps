@@ -963,6 +963,19 @@ class TabEditar(QWidget):
         if len(self._redo_stack) > self._MAX_REDO:
             self._redo_stack.pop(0)
         self._pending_list.takeItem(self._pending_list.count() - 1)
+        # Reversing a delete_annot edit must also bring the original note
+        # overlay back onto the canvas, otherwise the user sees the
+        # ``delete_annot`` removed from the side-list but no visible
+        # reappearance — overlay state stays out of sync with _pending
+        # until the next save/load. The original note dict is stashed on
+        # the edit at delete time (see ``_on_note_deleted``).
+        if edit.get("type") == "delete_annot":
+            original = edit.get("_original_note")
+            if isinstance(original, dict):
+                self._pending.append(original)
+                page = original.get("page", 0)
+                self._pending_list.addItem(
+                    t("edit.status.note_label", n=(page or 0) + 1))
         self._canvas.set_overlays(self._pending)
         self._status(t("edit.status.undo", n=len(self._pending)))
 
@@ -1017,7 +1030,12 @@ class TabEditar(QWidget):
         * the overlay was an *existing* annotation already present in the
           source PDF — register a ``delete_annot`` pending edit so the
           deletion survives the ``release_doc()/fitz.open`` round-trip
-          performed inside ``_run``.
+          performed inside ``_run``. Existing notes loaded by
+          ``_load_existing_annotations`` already live in ``_pending`` with
+          ``_existing=True``, so we both drop the note entry AND append a
+          ``delete_annot`` edit to enforce the deletion at save time. The
+          original note dict is stashed on the edit so ``_undo`` can
+          restore the overlay if the user reverses the action.
         """
         text = overlay.get("text", "").strip()
         page = overlay.get("page")
@@ -1031,10 +1049,36 @@ class TabEditar(QWidget):
                 self._redo_stack.append(removed)
                 if len(self._redo_stack) > self._MAX_REDO:
                     self._redo_stack.pop(0)
+                # CRIT: existing notes (loaded from the source PDF in
+                # ``_load_existing_annotations``) live in ``_pending`` with
+                # ``_existing=True``. Dropping them from ``_pending`` alone
+                # does NOT persist the deletion — ``_run`` reopens the file
+                # from disk and the original annotation survives. Enqueue a
+                # ``delete_annot`` edit so the save loop removes it.
+                if removed.get("_existing"):
+                    edit = {
+                        "type": "delete_annot",
+                        "page": removed.get("page"),
+                        "annot_type": removed.get("_annot_type"),
+                        "bbox": removed.get("_annot_bbox"),
+                        "_existing": True,
+                        # Stash the original note so ``_undo`` can put it
+                        # back on the canvas if the user reverses the
+                        # deletion before saving.
+                        "_original_note": removed,
+                    }
+                    self._pending.append(edit)
+                    suffix = t("edit.label.page_suffix",
+                               n=((removed.get("page") or 0) + 1))
+                    self._pending_list.addItem(
+                        t("edit.label.note_delete") + suffix)
+                self._canvas.set_overlays(self._pending)
                 return
         if overlay.get("_existing"):
-            # Already-saved annotation: register a pending deletion so
-            # _run actually drops it from the output file.
+            # Fallback path: the overlay was discovered late (via
+            # ``_annot_note_at`` in the canvas) and is NOT in
+            # ``_pending``. Register a pending deletion so ``_run``
+            # actually drops it from the output file.
             edit = {
                 "type": "delete_annot",
                 "page": page,
@@ -1181,10 +1225,10 @@ class TabEditar(QWidget):
                     # — the original owner password is not recoverable from
                     # the input file. Future enhancement: ask the user for
                     # a separate owner password.
-                    try:
-                        perms = self._fitz_permissions_of(doc)
-                    except Exception:
-                        perms = -1
+                    # ``_fitz_permissions_of`` already returns -1 on any
+                    # internal failure (PyMuPDF sentinel for "all perms"),
+                    # so a wrapping try/except here would be dead code.
+                    perms = self._fitz_permissions_of(doc)
                     doc.save(
                         tmp, garbage=4, deflate=True,
                         encryption=fitz.PDF_ENCRYPT_AES_256,
