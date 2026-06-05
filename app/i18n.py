@@ -241,10 +241,24 @@ def get_saved_signature() -> str | None:
 
 
 def save_signature(img_path: str):
-    """Copy signature image to persistent location."""
+    """Copy signature image to persistent location.
+
+    The persistent path is restricted to user-only access (``0o600``) on
+    POSIX so other users on the same host cannot read the cached
+    signature. Windows file permissions are governed by NTFS ACLs and
+    the user profile inherits owner-only access by default — chmod is
+    a no-op there but harmless.
+    """
     import shutil
     os.makedirs(os.path.dirname(_SIGNATURE_PATH), exist_ok=True)
     shutil.copy2(img_path, _SIGNATURE_PATH)
+    try:
+        os.chmod(_SIGNATURE_PATH, 0o600)
+    except OSError:
+        # Some filesystems (FAT/exFAT on USB sticks) ignore chmod and
+        # raise. Permission hardening is best-effort; the copy itself
+        # succeeded so we must not surface this as an error.
+        pass
 
 
 def clear_saved_signature():
