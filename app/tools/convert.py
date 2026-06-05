@@ -1,8 +1,11 @@
 """PDFApps – TabConverter: convert PDF to images, DOCX, TXT, PPTX, XLSX, HTML, EPUB."""
 
 import contextlib
+import logging
 import os
 import re
+
+_log = logging.getLogger(__name__)
 
 _CTRL_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
 
@@ -284,37 +287,262 @@ class TabConverter(BasePage):
             from docx import Document
             from docx.shared import Pt, RGBColor, Inches
             import io, re as _re
+            from app.tools._pdf_extract import (
+                extract_page_assets,
+                detect_repeated_regions,
+                detect_card_regions,
+                detect_table_regions,
+            )
             doc = fitz.open(pdf_path)
             if doc.needs_pass and pwd:
                 doc.authenticate(pwd)
             try:
-                docx_doc = Document()
-                for i, page in enumerate(doc):
+                # Pass 1: extract assets for every page (text blocks, images,
+                # widgets, annotations) using the shared helper.
+                pages_assets = []
+                for i in range(doc.page_count):
                     if worker.is_cancelled():
                         return None
-                    blocks = page.get_text("dict")["blocks"]
-                    for block in blocks:
-                        btype = block.get("type", 0)
-                        # Image block — extract and embed
-                        if btype == 1:
-                            img_data = block.get("image")
-                            if img_data:
-                                with contextlib.suppress(Exception):
-                                    para = docx_doc.add_paragraph()
-                                    run = para.add_run()
-                                    run.add_picture(io.BytesIO(img_data), width=Inches(5.0))
+                    pages_assets.append(extract_page_assets(doc, i))
+                    worker.progress.emit(i, f"{i + 1}/{total}…")
+
+                # Pass 2: detect headers/footers that repeat across pages so
+                # they are not duplicated in the body flow. The helper uses
+                # each page's own height, so mixed portrait/landscape PDFs
+                # are handled correctly; the second arg is just a fallback.
+                skip = detect_repeated_regions(pages_assets)
+
+                # Pass 3: write the DOCX out of the cached assets.
+                docx_doc = Document()
+                for pa in pages_assets:
+                    if worker.is_cancelled():
+                        return None
+                    # 3a. Inline images (best-effort).
+                    for img in pa.images:
+                        if not img.bytes:
                             continue
-                        # Text block
-                        lines = block.get("lines", [])
+                        with contextlib.suppress(Exception):
+                            para = docx_doc.add_paragraph()
+                            run = para.add_run()
+                            run.add_picture(io.BytesIO(img.bytes), width=Inches(5.0))
+
+                    # 3a-bis. Detect colored callout / card regions and
+                    # rasterize them as inline PNG images at 200 DPI. Text
+                    # blocks contained within a card are consumed (suppressed
+                    # from the flow below) to avoid duplication. Tables —
+                    # grids of filled cells — are excluded by the card
+                    # detector and handled by ``detect_table_regions`` below
+                    # so they survive as real ``<w:tbl>`` elements.
+                    try:
+                        card_regions = detect_card_regions(pa)
+                    except Exception as exc:
+                        _log.warning(
+                            "detect_card_regions failed on page %d: %s",
+                            pa.page_index, exc,
+                        )
+                        card_regions = []
+                    # 3a-ter. Detect tabular grids — Phase E3. Cards and
+                    # tables should be mutually exclusive (the card
+                    # detector already drops grid-like regions) but a
+                    # standalone "callout" can occasionally bbox-overlap
+                    # a multi-cell layout that the table detector also
+                    # picks up. We give tables priority and drop any
+                    # card whose bbox is largely covered by a detected
+                    # table region — that prevents the same text from
+                    # appearing both inside a rasterized card image and
+                    # again inside the table cell.
+                    try:
+                        table_regions = detect_table_regions(pa)
+                    except Exception as exc:
+                        _log.warning(
+                            "detect_table_regions failed on page %d: %s",
+                            pa.page_index, exc,
+                        )
+                        table_regions = []
+
+                    def _bbox_overlap_ratio_local(
+                        a: tuple[float, float, float, float],
+                        b: tuple[float, float, float, float],
+                    ) -> float:
+                        ax0, ay0, ax1, ay1 = a
+                        bx0, by0, bx1, by1 = b
+                        ix0 = max(ax0, bx0); iy0 = max(ay0, by0)
+                        ix1 = min(ax1, bx1); iy1 = min(ay1, by1)
+                        if ix1 <= ix0 or iy1 <= iy0:
+                            return 0.0
+                        inter = (ix1 - ix0) * (iy1 - iy0)
+                        a_area = max(1e-6, (ax1 - ax0) * (ay1 - ay0))
+                        return inter / a_area
+
+                    if table_regions:
+                        # Drop cards whose bbox is mostly inside a table
+                        # (>= 50 % of the card's own area). Mutual
+                        # exclusion: text shows up only as table cells.
+                        card_regions = [
+                            cr for cr in card_regions
+                            if not any(
+                                _bbox_overlap_ratio_local(cr.bbox, tr.bbox) >= 0.5
+                                for tr in table_regions
+                            )
+                        ]
+
+                    consumed_text_indices: set[int] = set()
+                    consumed_widget_indices: set[int] = set()
+                    consumed_annotation_indices: set[int] = set()
+                    for cr in card_regions:
+                        for ti in cr.text_block_indices:
+                            consumed_text_indices.add(ti)
+                        for wi in cr.widget_indices:
+                            consumed_widget_indices.add(wi)
+                        for ai in cr.annotation_indices:
+                            consumed_annotation_indices.add(ai)
+                    for tr in table_regions:
+                        for ti in tr.text_block_indices:
+                            consumed_text_indices.add(ti)
+                        # Phase E3 fix: widgets / annotations whose bbox
+                        # is inside the table region are already rendered
+                        # by the cell text, so suppress them from the
+                        # trailing widget / annotation passes.
+                        for wi in tr.widget_indices:
+                            consumed_widget_indices.add(wi)
+                        for ai in tr.annotation_indices:
+                            consumed_annotation_indices.add(ai)
+
+                    def _emit_card(cr) -> None:
+                        try:
+                            page = doc[pa.page_index]
+                            # Defensive: page.get_drawings() returns coords in
+                            # the post-rotation space and get_pixmap(clip=...)
+                            # expects the same, so the existing flow already
+                            # works for rotated pages. If a regression ever
+                            # surfaces we may need to apply
+                            # ``page.derotation_matrix`` to the clip rect.
+                            # TODO(E3): explicit derotation if a real-world
+                            # rotated PDF reproduces a misalignment.
+                            if getattr(page, "rotation", 0):
+                                _log.debug(
+                                    "page %d rotated %d°, card clip may "
+                                    "need derotation",
+                                    pa.page_index, page.rotation,
+                                )
+                            clip = fitz.Rect(*cr.bbox)
+                            pix = page.get_pixmap(
+                                clip=clip,
+                                dpi=200,
+                                colorspace=fitz.csRGB,
+                            )
+                            data = pix.tobytes("png")
+                            pix = None  # release native buffer
+                            if not data:
+                                return
+                            page_w = pa.width or 1.0
+                            card_w = max(0.0, cr.bbox[2] - cr.bbox[0])
+                            # Word usable width ~ 6 inches (Letter, 1" margins).
+                            width_in = (card_w / page_w) * 6.0
+                            # Floor very low so narrow sidebar callouts are
+                            # not blown up 2x; cap below the Letter usable
+                            # width so a near-full-page card doesn't push
+                            # past the right margin.
+                            width_in = max(width_in, 1.0)
+                            width_in = min(width_in, 6.5)
+                            para = docx_doc.add_paragraph()
+                            run = para.add_run()
+                            run.add_picture(
+                                io.BytesIO(data), width=Inches(width_in)
+                            )
+                        except Exception as exc:
+                            _log.warning(
+                                "card emit failed on page %d: %s",
+                                pa.page_index, exc,
+                            )
+                            return
+
+                    def _emit_table(tr) -> None:
+                        try:
+                            docx_table = docx_doc.add_table(
+                                rows=tr.rows, cols=tr.cols
+                            )
+                            # Default Word style — produces visible borders.
+                            # Borderless detection is recorded in
+                            # ``tr.has_borders`` for future styling work.
+                            with contextlib.suppress(Exception):
+                                docx_table.style = "Table Grid"
+                            for cell in tr.cells:
+                                if cell.row >= tr.rows or cell.col >= tr.cols:
+                                    continue
+                                texts: list[str] = []
+                                for ti in cell.text_block_indices:
+                                    if ti < 0 or ti >= len(pa.text_blocks):
+                                        continue
+                                    block = pa.text_blocks[ti]
+                                    for line in block.lines:
+                                        line_txt = "".join(
+                                            _clean(s.text) for s in line.spans
+                                        ).strip()
+                                        if line_txt:
+                                            texts.append(line_txt)
+                                try:
+                                    docx_cell = docx_table.rows[cell.row].cells[
+                                        cell.col
+                                    ]
+                                    # ``cell.text = "\n".join(...)`` injects a
+                                    # literal '\n' character into a single
+                                    # paragraph — Word does not interpret it
+                                    # as a line break. Instead, seed the cell
+                                    # with the first line and append the rest
+                                    # as additional paragraphs so the visual
+                                    # multi-line layout survives.
+                                    docx_cell.text = texts[0] if texts else ""
+                                    for extra in texts[1:]:
+                                        docx_cell.add_paragraph(extra)
+                                except Exception:
+                                    continue
+                        except Exception as exc:
+                            _log.warning(
+                                "table emit failed on page %d: %s",
+                                pa.page_index, exc,
+                            )
+
+                    # Merge cards + tables into a single Y-ordered queue so
+                    # the flush logic below preserves visual order when
+                    # both kinds appear on the same page.
+                    pending: list[tuple[float, str, object]] = []
+                    for cr in card_regions:
+                        pending.append((cr.bbox[1], "card", cr))
+                    for tr in table_regions:
+                        pending.append((tr.bbox[1], "table", tr))
+                    pending.sort(key=lambda x: x[0])
+                    pending_idx = 0
+
+                    def _flush_until(y_limit: float) -> None:
+                        nonlocal pending_idx
+                        while pending_idx < len(pending):
+                            top, kind, obj = pending[pending_idx]
+                            if top > y_limit:
+                                return
+                            if kind == "card":
+                                _emit_card(obj)
+                            else:
+                                _emit_table(obj)
+                            pending_idx += 1
+
+                    # 3b. Text blocks (skip repeated header/footer).
+                    for bi, block in enumerate(pa.text_blocks):
+                        if (pa.page_index, bi) in skip:
+                            continue
+                        # Emit any pending cards / tables whose top edge is
+                        # above the current block — keeps visual order.
+                        _flush_until(block.bbox[1])
+                        if bi in consumed_text_indices:
+                            continue
+                        lines = block.lines
                         if not lines:
                             continue
-                        all_spans = []
-                        for line in lines:
-                            all_spans.extend(line.get("spans", []))
+                        all_spans = [s for line in lines for s in line.spans]
                         if not all_spans:
                             continue
                         block_text = " ".join(
-                            _clean(s.get("text", "")) for s in all_spans
+                            _clean(s.text) for s in all_spans
                         ).strip()
                         if not block_text:
                             continue
@@ -326,8 +554,8 @@ class TabConverter(BasePage):
                         if _re.search(r'\.[\s.]*\.[\s.]*\.[\s.]*\.', block_text):
                             continue
                         # Detect heading level by font size
-                        max_size = max(s.get("size", 12) for s in all_spans)
-                        any_bold = any(s.get("flags", 0) & 16 for s in all_spans)
+                        max_size = max((s.size or 12) for s in all_spans)
+                        any_bold = any((s.flags & 16) for s in all_spans)
                         if max_size >= 20:
                             para = docx_doc.add_heading(level=1)
                         elif max_size >= 16:
@@ -339,17 +567,16 @@ class TabConverter(BasePage):
                         else:
                             para = docx_doc.add_paragraph()
                         for li, line in enumerate(lines):
-                            spans = line.get("spans", [])
-                            for span in spans:
-                                text = _clean(span.get("text", ""))
+                            for span in line.spans:
+                                text = _clean(span.text)
                                 if not text:
                                     continue
                                 run = para.add_run(text)
-                                run.font.size = Pt(span.get("size", 12))
-                                sf = span.get("flags", 0)
+                                run.font.size = Pt(span.size or 12)
+                                sf = span.flags
                                 run.font.bold = bool(sf & 16)
                                 run.font.italic = bool(sf & 2)
-                                color = span.get("color", 0)
+                                color = span.color
                                 if color and color != 0:
                                     r_val = (color >> 16) & 0xFF
                                     g_val = (color >> 8) & 0xFF
@@ -357,7 +584,32 @@ class TabConverter(BasePage):
                                     run.font.color.rgb = RGBColor(r_val, g_val, b_val)
                             if li < len(lines) - 1:
                                 para.add_run(" ")
-                    worker.progress.emit(i, f"{i + 1}/{total}…")
+
+                    # Flush any remaining cards / tables that sat below the
+                    # last text block (or pages whose only content is a
+                    # card / table).
+                    _flush_until(float("inf"))
+
+                    # 3c. Form widgets — emit captured values so they are not lost.
+                    for wi, w in enumerate(pa.widgets):
+                        if wi in consumed_widget_indices:
+                            # Already visible inside a rasterized card.
+                            continue
+                        value = _clean(w.field_value).strip()
+                        if not value:
+                            continue
+                        name = _clean(w.field_name).strip() or w.field_type or "field"
+                        docx_doc.add_paragraph(f"[Form: {name}] {value}")
+
+                    # 3d. Annotations — sticky notes, FreeText, etc.
+                    for ai, a in enumerate(pa.annotations):
+                        if ai in consumed_annotation_indices:
+                            # Already visible inside a rasterized card.
+                            continue
+                        content = _clean(a.content).strip()
+                        if not content:
+                            continue
+                        docx_doc.add_paragraph(f"[Note: {a.type}] {content}")
                 if worker.is_cancelled():
                     return None
                 docx_doc.save(out_path)
