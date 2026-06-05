@@ -11,6 +11,13 @@ from pathlib import Path
 # Make the project root importable so `from app.utils import ...` works.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# Anchor source-file lookups to the repo root so the suite passes from
+# any cwd (IDEs, CI matrices, sub-directories). Previously several
+# tests opened ``"app/base.py"`` etc. via a path relative to the
+# process cwd — running pytest from anywhere other than the repo root
+# broke them with FileNotFoundError.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
 from pypdf import PdfReader, PdfWriter
 
 # Import the real parse_pages from app.utils so the test catches drift —
@@ -591,7 +598,7 @@ class TestAuditRegressions:
         # PySide6 has no QPointer — the toast hide-timer must guard the
         # widget liveness check via shiboken6.isValid(). Importing
         # QPointer from PySide6 would fail with ImportError at load.
-        src = open("app/base.py", encoding="utf-8").read()
+        src = open(_REPO_ROOT / "app" / "base.py", encoding="utf-8").read()
         assert "from shiboken6 import isValid" in src
         assert "isValid(t)" in src
         # No QPointer import or instantiation — only the explanatory
@@ -606,7 +613,7 @@ class TestAuditRegressions:
         # _restart_app must branch on sys.frozen — using
         # os.path.dirname(__file__) + "pdfapps.py" breaks in frozen
         # bundles because __file__ points inside _MEIPASS.
-        src = open("app/window.py", encoding="utf-8").read()
+        src = open(_REPO_ROOT / "app" / "window.py", encoding="utf-8").read()
         # The fixed implementation references sys.frozen.
         assert 'getattr(sys, "frozen"' in src, \
             "_restart_app must check sys.frozen"
@@ -618,7 +625,7 @@ class TestAuditRegressions:
     def test_pdfapps_spec_reads_version_dynamically(self):
         # Avoids drift between APP_VERSION and the macOS BUNDLE
         # CFBundleVersion / CFBundleShortVersionString.
-        spec = open("pdfapps.spec", encoding="utf-8").read()
+        spec = open(_REPO_ROOT / "pdfapps.spec", encoding="utf-8").read()
         assert "_app_version" in spec
         assert "APP_VERSION" in spec  # parsed from app/constants.py
         assert "CFBundleVersion': '1.13" not in spec, \
@@ -627,7 +634,7 @@ class TestAuditRegressions:
     def test_installer_pins_third_party_hashes(self):
         # Tesseract and Ghostscript exes are downloaded and run with
         # admin — they MUST be hash-pinned in installer.py.
-        src = open("installer.py", encoding="utf-8").read()
+        src = open(_REPO_ROOT / "installer.py", encoding="utf-8").read()
         assert "TESSERACT_SHA256" in src
         assert "GHOSTSCRIPT_SHA256" in src
         assert "hmac.compare_digest" in src
@@ -689,7 +696,7 @@ class TestAuditRegressions:
         # The editor's _load_pdf must prompt for a password and pass it
         # through to the canvas. The audit flagged this as broken — the
         # job opened with fitz.open without authenticate().
-        src = open("app/editor/tab.py", encoding="utf-8").read()
+        src = open(_REPO_ROOT / "app" / "editor" / "tab.py", encoding="utf-8").read()
         # _load_pdf integrates the password prompt
         i = src.find("def _load_pdf(self, p: str):")
         assert i > 0
@@ -699,7 +706,7 @@ class TestAuditRegressions:
         assert "password=self._pdf_password" in block, \
             "canvas.load must receive the password"
         # The canvas job must accept and apply the password
-        canvas_src = open("app/editor/canvas.py", encoding="utf-8").read()
+        canvas_src = open(_REPO_ROOT / "app" / "editor" / "canvas.py", encoding="utf-8").read()
         assert "doc.authenticate(self._password)" in canvas_src, \
             "_EditPageJob.run must authenticate the document"
 
@@ -711,7 +718,7 @@ class TestAuditRegressions:
         # queue never drains. The lambda wrap forces a plain Python
         # call on the dialog's thread (main), which mutates the flag
         # immediately. Pin this so it can't be "simplified" back.
-        worker_src = open("app/worker.py", encoding="utf-8").read()
+        worker_src = open(_REPO_ROOT / "app" / "worker.py", encoding="utf-8").read()
         assert "lambda: runner.cancel()" in worker_src, \
             "cancel must be wrapped in a lambda; bare bound method gets queued"
 
@@ -744,7 +751,7 @@ class TestAuditRegressions:
         # ValueError: arg must be seq of seq of float pairs.
         # tab.py builds the stroke as plain (float, float) tuples now;
         # this test fails if anyone reintroduces fitz.Point wrapping.
-        src = open("app/editor/tab.py", encoding="utf-8").read()
+        src = open(_REPO_ROOT / "app" / "editor" / "tab.py", encoding="utf-8").read()
         # Locate the draw branch
         i = src.find('elif e["type"] == "draw":')
         assert i > 0, "draw branch missing in tab.py"
@@ -759,9 +766,9 @@ class TestAuditRegressions:
         # Bump script now keeps it in sync; this test ensures it matches
         # APP_VERSION at any given point.
         import re
-        const = open("app/constants.py", encoding="utf-8").read()
+        const = open(_REPO_ROOT / "app" / "constants.py", encoding="utf-8").read()
         version = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', const).group(1)
-        manifest = open("flatpak/io.github.nelsonduarte.PDFApps.yml",
+        manifest = open(_REPO_ROOT / "flatpak" / "io.github.nelsonduarte.PDFApps.yml",
                         encoding="utf-8").read()
         assert f"tag: v{version}" in manifest, \
             f"Flatpak manifest tag must match APP_VERSION ({version})"
