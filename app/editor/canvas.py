@@ -1,5 +1,7 @@
 """PDFApps – PdfEditCanvas: continuous-scroll visual PDF edit canvas."""
 
+import contextlib
+
 from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QRunnable, QThreadPool, QEvent
 from PySide6.QtWidgets import QWidget, QSizePolicy, QLineEdit
 
@@ -456,6 +458,30 @@ class PdfEditCanvas(QWidget):
         self._overlays = []; self._open_note = None
         self.setMinimumSize(300, 400)
         self.setMaximumSize(16777215, 16777215)
+        self.update()
+
+    # ── DPR change handling (R8/D1) ──────────────────────────────────────
+    def showEvent(self, event):
+        """Re-render pages when the top-level window crosses a screen
+        with a different devicePixelRatio. ``_schedule_visible`` only
+        sampled the DPR at scroll/zoom time, so dragging the window from
+        a 100 % monitor to a 200 % monitor left previously rendered
+        pages blurry until the user changed zoom (R8/D1)."""
+        super().showEvent(event)
+        win = self.window().windowHandle() if self.window() else None
+        if win:
+            # Disconnect before reconnecting — re-show events can stack
+            # the same handler multiple times.
+            with contextlib.suppress(TypeError, RuntimeError):
+                win.screenChanged.disconnect(self._on_screen_changed)
+            win.screenChanged.connect(self._on_screen_changed)
+
+    def _on_screen_changed(self, _screen):
+        """Drop cached pixmaps and re-queue visible pages at the new DPR."""
+        self._gen += 1
+        self._pending.clear()
+        self._page_pixmaps = [None] * len(self._page_pixmaps)
+        self._schedule_visible()
         self.update()
 
     def on_scroll(self):
