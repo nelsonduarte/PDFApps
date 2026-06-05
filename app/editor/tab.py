@@ -268,6 +268,14 @@ class TabEditar(QWidget):
         self._form_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self._form_table.setObjectName("pdf_table"); self._form_table.setMinimumHeight(130)
         v5.addWidget(self._form_table)
+        # Visible status row so a malformed-PDF read failure (or "no
+        # form fields detected") doesn't look like a successful-but-empty
+        # parse to the user.
+        self._form_status = QLabel("")
+        self._form_status.setWordWrap(True)
+        self._form_status.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
+        self._hint_labels.append(self._form_status)
+        v5.addWidget(self._form_status)
         self._opt_stack.addWidget(w5)
 
         # 6 - Signature
@@ -731,19 +739,26 @@ class TabEditar(QWidget):
 
     def _load_form_fields(self, path):
         self._form_table.setRowCount(0)
+        self._form_status.setText("")
         try:
             from pypdf import PdfReader
             self._form_table.setUpdatesEnabled(False)
             _r = PdfReader(path)
             if _r.is_encrypted and self._pdf_password:
                 _r.decrypt(self._pdf_password)
-            for name, field in (_r.get_fields() or {}).items():
+            fields = _r.get_fields() or {}
+            for name, field in fields.items():
                 r = self._form_table.rowCount(); self._form_table.insertRow(r)
                 self._form_table.setItem(r, 0, QTableWidgetItem(name))
                 self._form_table.setItem(r, 1, QTableWidgetItem(str(field.get("/V", "") or "")))
             self._form_table.setUpdatesEnabled(True)
-        except Exception:
+            if not fields:
+                # Distinguish "no fields" from "load failed" for the user.
+                self._form_status.setText(t("editor.forms.no_fields"))
+        except Exception as exc:
             self._form_table.setUpdatesEnabled(True)
+            _log.warning("Failed to load form fields from %s: %s", path, exc)
+            self._form_status.setText(t("editor.forms.load_failed"))
 
     # ── canvas callbacks ─────────────────────────────────────────────────────
 
@@ -1224,7 +1239,10 @@ class TabEditar(QWidget):
                       (self._form_table.item(r, 1).text() if self._form_table.item(r, 1) else "")
                       for r in range(self._form_table.rowCount())}
             for page in writer.pages:
-                writer.update_page_form_field_values(page, fields, auto_regenerate=False)
+                # auto_regenerate=True so the rendered widget appearance
+                # actually picks up the new value when viewed in a third-
+                # party viewer (Adobe etc.) that doesn't render NeedAppearances.
+                writer.update_page_form_field_values(page, fields, auto_regenerate=True)
             if encrypt_choice == "protect" and self._pdf_password:
                 # Documented limitation: owner == user; original owner
                 # password is not recoverable from the input file.
