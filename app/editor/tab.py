@@ -1289,6 +1289,17 @@ class TabEditar(QWidget):
             fields = {self._form_table.item(r, 0).text():
                       (self._form_table.item(r, 1).text() if self._form_table.item(r, 1) else "")
                       for r in range(self._form_table.rowCount())}
+            # R10 #6: pypdf's update_page_form_field_values raises
+            # PyPdfError("No /AcroForm dictionary in PDF…") on PDFs
+            # without form fields. The user hits this whenever they
+            # click Apply in Forms mode on a regular PDF; the cryptic
+            # error message looked like an internal crash. Detect
+            # up-front and short-circuit with a friendly status
+            # instead, leaving the file untouched.
+            if "/AcroForm" not in writer._root_object:
+                self._status(t("editor.forms.no_fields"))
+                self._form_status.setText(t("editor.forms.no_fields"))
+                return
             for page in writer.pages:
                 # auto_regenerate=True so the rendered widget appearance
                 # actually picks up the new value when viewed in a third-
