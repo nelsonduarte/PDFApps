@@ -978,14 +978,45 @@ class MainWindow(QMainWindow):
 
     # ── Drag & drop PDF on window ──────────────────────────────────────────
     def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
-            urls = e.mimeData().urls()
-            if urls and urls[0].toLocalFile().lower().endswith(".pdf"):
+        if not e.mimeData().hasUrls():
+            return
+        for url in e.mimeData().urls():
+            # R10 #12: accept folders + .pdf files. Drop iterates the
+            # folder for PDFs at dropEvent time so we can't validate
+            # contents here, but a folder drop should not be silently
+            # ignored either.
+            local = url.toLocalFile()
+            if not local:
+                continue
+            if (local.lower().endswith(".pdf")
+                    or os.path.isdir(local)):
                 e.acceptProposedAction()
+                return
 
     def dropEvent(self, e):
+        # R10 #12: accept folders (open every .pdf inside) and warn
+        # the user when a web URL is dropped instead of silently
+        # ignoring it.
+        import glob
         for url in e.mimeData().urls():
             path = url.toLocalFile()
+            if not path:
+                # Non-file URL (http/https/ftp...). Surface a friendly
+                # one-shot warning rather than swallowing the drop.
+                scheme = url.scheme().lower() if url.isValid() else ""
+                if scheme in ("http", "https", "ftp"):
+                    QMessageBox.warning(
+                        self, t("msg.warning"),
+                        t("viewer.drop_url_not_supported"))
+                    return
+                continue
+            if os.path.isdir(path):
+                for pdf in sorted(glob.glob(os.path.join(path, "*.pdf"))):
+                    self._load_and_track(pdf)
+                # Also pick up uppercase .PDF on case-sensitive FSes
+                for pdf in sorted(glob.glob(os.path.join(path, "*.PDF"))):
+                    self._load_and_track(pdf)
+                continue
             if path.lower().endswith(".pdf"):
                 self._load_and_track(path)
 
