@@ -807,6 +807,13 @@ class MainWindow(QMainWindow):
         else:
             self._viewer.load(path)
         add_recent_file(path)
+        # R10 #5: rebuild the recents list across every open viewer
+        # so the next return-to-placeholder shows the up-to-date list.
+        for v in self._viewers:
+            refresh = getattr(v, "_refresh_recents", None)
+            if callable(refresh):
+                with contextlib.suppress(Exception):
+                    refresh()
         self._refresh_viewer_top_buttons()
 
     def _open_in_new_tab(self):
@@ -817,6 +824,12 @@ class MainWindow(QMainWindow):
         if path:
             self._add_viewer_tab(path)
             add_recent_file(path)
+            # R10 #5: keep the recents list in sync with config.
+            for v in self._viewers:
+                refresh = getattr(v, "_refresh_recents", None)
+                if callable(refresh):
+                    with contextlib.suppress(Exception):
+                        refresh()
 
     def _show_recent_menu(self):
         menu = QMenu(self)
