@@ -38,7 +38,14 @@ def _read(rel: str) -> str:
 
 def test_run_detects_encrypted_input():
     src = _read("app/editor/tab.py")
-    assert "was_encrypted = bool(doc.needs_pass)" in src
+    # R10 (CRIT-2): the encryption peek now uses a short-lived
+    # ``peek = fitz.open(...)`` BEFORE releasing the canvas so a user
+    # cancel in the encryption prompt no longer strands the editor on
+    # the placeholder. Allow either the legacy ``doc.needs_pass``
+    # phrasing or the new ``peek.needs_pass`` one — both detect input
+    # encryption, the rest of the prompt-choice flow is unchanged.
+    assert ("was_encrypted = bool(doc.needs_pass)" in src
+            or "was_encrypted = bool(peek.needs_pass)" in src)
     assert "_prompt_encryption_choice" in src
 
 

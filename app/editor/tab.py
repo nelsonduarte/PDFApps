@@ -1122,22 +1122,35 @@ class TabEditar(QWidget):
             QMessageBox.warning(self, t("msg.warning"), t("msg.no_pending")); return
         try:
             import fitz
-            # Release the file lock without resetting the canvas
-            self._canvas.release_doc()
-            doc = fitz.open(self._doc_path)
-            was_encrypted = bool(doc.needs_pass)
-            if doc.needs_pass and self._pdf_password:
-                doc.authenticate(self._pdf_password)
-            # If the input was encrypted, ask the user whether to preserve
-            # protection on the output. Defaults to "Keep protection" so
-            # silent down-grading never happens. We can only re-encrypt if
-            # we still hold the password from the load prompt.
+            # CRIT-2 (R10): peek the encryption status BEFORE releasing
+            # the canvas. PR-D moved release_doc() ahead of the prompt
+            # so the canvas dropped its _doc reference even when the
+            # user then cancelled the encryption dialog — leaving the
+            # canvas stuck on the placeholder until the user manually
+            # reloaded the file. Now we open a short-lived peek doc,
+            # ask the user how to save, and only release the canvas
+            # once we know we will proceed.
+            peek = fitz.open(self._doc_path)
+            was_encrypted = bool(peek.needs_pass)
+            if was_encrypted and self._pdf_password:
+                peek.authenticate(self._pdf_password)
             encrypt_choice = "plaintext"
             if was_encrypted and self._pdf_password:
                 encrypt_choice = self._prompt_encryption_choice()
                 if encrypt_choice is None:
-                    doc.close()
+                    # User cancelled — peek must be closed BUT the
+                    # canvas must still hold the original doc so the
+                    # editor view survives the dismiss.
+                    peek.close()
                     return
+            peek.close()
+            # Encryption choice confirmed (or no prompt needed) —
+            # now safe to release the canvas's file lock so the
+            # real save reopen can take exclusive access.
+            self._canvas.release_doc()
+            doc = fitz.open(self._doc_path)
+            if doc.needs_pass and self._pdf_password:
+                doc.authenticate(self._pdf_password)
             for e in self._pending:
                 if e.get("_existing") and e.get("type") != "delete_annot":
                     continue  # already saved in the PDF
