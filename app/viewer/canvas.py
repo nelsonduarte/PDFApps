@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import os
+import shutil
+import tempfile
 
 from PySide6.QtCore import Qt, Signal, QRect, QObject, QRunnable, QThreadPool
 from PySide6.QtWidgets import QWidget, QApplication
@@ -615,23 +618,105 @@ class _SelectCanvas(QWidget):
                     # Remove annotation from fitz doc
                     if self._doc:
                         import fitz
+                        from app.utils import show_error
+                        # CRIT-1: backup the file before saveIncr so a
+                        # power loss / write failure leaves the original
+                        # intact. Same-directory tempfile keeps the
+                        # shutil.move(restore) atomic on POSIX/Windows.
+                        backup_path = None
+                        if self._path and os.path.isfile(self._path):
+                            try:
+                                src_dir = os.path.dirname(self._path) or "."
+                                fd, backup_path = tempfile.mkstemp(
+                                    prefix=".pdfapps_backup_",
+                                    suffix=".pdf.bak",
+                                    dir=src_dir,
+                                )
+                                os.close(fd)
+                                shutil.copy2(self._path, backup_path)
+                            except Exception as exc:
+                                if backup_path:
+                                    with contextlib.suppress(Exception):
+                                        os.unlink(backup_path)
+                                    backup_path = None
+                                show_error(self, exc)
+                                return
+                        # Step 1 (HIGH A2): mutate the in-memory doc.
+                        # If this raises, no disk state changes and we
+                        # bail before touching saveIncr().
+                        target_annot = None
                         try:
                             page = self._doc[page_idx]
                             for annot in page.annots() or []:
-                                if annot.type[0] == fitz.PDF_ANNOT_TEXT:
-                                    content = annot.info.get("content", "") or ""
+                                if annot.type[0] != fitz.PDF_ANNOT_TEXT:
+                                    continue
+                                content = annot.info.get("content", "") or ""
+                                if content.strip() != txt.strip():
+                                    continue
+                                # HIGH A3: 2 notes with identical content
+                                # would silently delete the wrong one.
+                                # Tiebreak with bbox match (1pt tol).
+                                ar = annot.rect
+                                if (abs(ar.x0 - rect.x0) < 1
+                                        and abs(ar.y0 - rect.y0) < 1):
+                                    target_annot = annot
+                                    break
+                            if target_annot is None:
+                                # Content-only fallback for legacy callers
+                                # that don't have a usable bbox (e.g.
+                                # rect was synthesised). Preserves the
+                                # old behaviour rather than no-op'ing.
+                                for annot in page.annots() or []:
+                                    if annot.type[0] != fitz.PDF_ANNOT_TEXT:
+                                        continue
+                                    content = annot.info.get(
+                                        "content", "") or ""
                                     if content.strip() == txt.strip():
-                                        page.delete_annot(annot)
+                                        target_annot = annot
                                         break
-                            # Save the doc. saveIncr() raises on read-only
-                            # files / permission errors; surface a friendly
-                            # dialog instead of crashing the Qt event loop.
-                            if self._path:
-                                self._doc.saveIncr()
+                            if target_annot is not None:
+                                page.delete_annot(target_annot)
                         except Exception as exc:
-                            from app.utils import show_error
+                            if backup_path:
+                                with contextlib.suppress(Exception):
+                                    os.unlink(backup_path)
                             show_error(self, exc)
                             return
+                        # Step 2 (HIGH A2): persist to disk. If this
+                        # fails (read-only file, ENOSPC, power loss
+                        # mid-write), restore from the backup so the
+                        # user does not lose the original AND reload
+                        # the in-memory doc so the next paint event
+                        # reflects the on-disk state.
+                        if self._path:
+                            try:
+                                self._doc.saveIncr()
+                            except Exception as exc:
+                                # CRIT-1: restore backup. shutil.move
+                                # is best-effort — if it fails we still
+                                # have the .bak on disk for the user.
+                                if backup_path:
+                                    with contextlib.suppress(Exception):
+                                        shutil.move(backup_path, self._path)
+                                    backup_path = None
+                                # HIGH A2: discard the in-memory delete
+                                # by reopening the file. Best-effort:
+                                # if reopen fails we still surface the
+                                # original write error.
+                                with contextlib.suppress(Exception):
+                                    saved_path = self._path
+                                    saved_password = self._password
+                                    self._doc.close()
+                                    new_doc = fitz.open(saved_path)
+                                    if new_doc.needs_pass and saved_password:
+                                        new_doc.authenticate(saved_password)
+                                    self._doc = new_doc
+                                show_error(self, exc)
+                                return
+                        # Both steps succeeded — drop the backup.
+                        if backup_path:
+                            with contextlib.suppress(Exception):
+                                os.unlink(backup_path)
                     # Remove from entry annots list
                     entry.annots.pop(annot_idx)
                     # The _open_note tuple stores (page_idx, annot_idx).

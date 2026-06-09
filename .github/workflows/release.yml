@@ -94,8 +94,12 @@ jobs:
               ], True),
               ("aur/pdfapps/.SRCINFO", [
                   (rf'pkgver = {ANY}', f'pkgver = {new}'),
-                  (rf'pdfapps-{ANY}', f'pdfapps-{new}'),
-                  (rf'v{ANY}', f'v{new}'),
+                  # R10 #9: anchor the source-tarball replacement to
+                  # the ``.tar.gz`` suffix + URL contexts. The previous
+                  # unanchored ``v{ANY}`` would happily rewrite a
+                  # future comment line like ``# since v1.10.0``.
+                  (rf'pdfapps-{ANY}\.tar\.gz', f'pdfapps-{new}.tar.gz'),
+                  (rf'/v{ANY}\.tar\.gz', f'/v{new}.tar.gz'),
               ], True),
               ("aur/pdfapps-bin/PKGBUILD", [
                   (rf'pkgver={ANY}', f'pkgver={new}'),
@@ -103,8 +107,11 @@ jobs:
               ("aur/pdfapps-bin/.SRCINFO", [
                   (rf'pkgver = {ANY}', f'pkgver = {new}'),
                   (rf'provides = pdfapps={ANY}', f'provides = pdfapps={new}'),
-                  (rf'v{ANY}', f'v{new}'),
-                  (rf'pdfapps-{ANY}', f'pdfapps-{new}'),
+                  # R10 #9: as for the source AUR variant — anchor on
+                  # path/tarball context so a future "# since v1.10.0"
+                  # comment is not rewritten by an unanchored v{ANY}.
+                  (rf'/v{ANY}/', f'/v{new}/'),
+                  (rf'pdfapps-{ANY}\.tar\.gz', f'pdfapps-{new}.tar.gz'),
               ], True),
               ("winget/nelsonduarte.PDFApps.installer.yaml", [
                   (rf'PackageVersion:\s*{ANY}', f'PackageVersion: {new}'),

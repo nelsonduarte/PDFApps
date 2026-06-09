@@ -36,7 +36,9 @@ def test_save_incr_is_inside_try_except():
     # the saveIncr call and an except Exception below.
     idx = CANVAS.index("self._doc.saveIncr()")
     before = CANVAS[max(0, idx - 800): idx]
-    after = CANVAS[idx: idx + 400]
+    # The post-saveIncr handler grew in R10 to include backup-restore
+    # + reopen logic before reaching show_error, so widen the window.
+    after = CANVAS[idx: idx + 2000]
     assert "try:" in before, "saveIncr is no longer inside a try block"
     assert "except Exception" in after, "saveIncr error path is missing"
     assert "show_error" in after, "saveIncr errors no longer route to show_error"

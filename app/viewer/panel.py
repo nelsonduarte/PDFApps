@@ -128,49 +128,16 @@ class PdfViewerPanel(QWidget):
         ph_lay.addWidget(ph_drag)
 
         # Recent files section
-        from app.i18n import get_recent_files, add_recent_file
         self._recents_container = QWidget()
         self._recents_container.setMaximumWidth(400)
         self._recent_links: list[QPushButton] = []
         self._recent_del_btns: list[QPushButton] = []
-        rc_lay = QVBoxLayout(self._recents_container)
-        rc_lay.setContentsMargins(0, 16, 0, 0); rc_lay.setSpacing(4)
-        recents = get_recent_files()
-        if recents:
-            rec_title = QLabel(t("viewer.recent"))
-            rec_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            rec_title.setStyleSheet("font-size: 10pt; font-weight: 600; opacity: 0.7;")
-            rc_lay.addWidget(rec_title)
-            for rp in recents[:5]:
-                if not os.path.isfile(rp):
-                    continue
-                fname = os.path.basename(rp)
-                row = QWidget()
-                row_h = QHBoxLayout(row); row_h.setContentsMargins(0, 0, 0, 0); row_h.setSpacing(0)
-                link = QPushButton(f"📄  {fname}")
-                link.setObjectName("recent_link")
-                link.setToolTip(rp)
-                link.setCursor(Qt.CursorShape.PointingHandCursor)
-                link.setFlat(True)
-                link.setStyleSheet(self._recent_link_style(dark=True))
-                link.clicked.connect(lambda checked, p=rp: self.load(p))
-                self._recent_links.append(link)
-                del_btn = QPushButton()
-                del_btn.setIcon(qta.icon("fa5s.trash-alt", color=TEXT_SEC))
-                del_btn.setFixedSize(28, 28)
-                del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                del_btn.setFlat(True)
-                del_btn.setToolTip(t("btn.remove"))
-                del_btn.setAccessibleName(t("btn.remove"))
-                del_btn.setStyleSheet(
-                    f"QPushButton {{ border: 1px solid transparent; background: transparent; }}"
-                    f"QPushButton:hover {{ background: rgba(239,68,68,0.15); border-radius: 4px; }}"
-                    f"QPushButton:focus {{ border: 1px solid {ACCENT}; border-radius: 4px; }}")
-                del_btn.clicked.connect(lambda checked, p=rp, r=row: self._remove_recent(p, r))
-                self._recent_del_btns.append(del_btn)
-                row_h.addWidget(link, 1)
-                row_h.addWidget(del_btn)
-                rc_lay.addWidget(row)
+        self._recents_layout = QVBoxLayout(self._recents_container)
+        self._recents_layout.setContentsMargins(0, 16, 0, 0)
+        self._recents_layout.setSpacing(4)
+        # R10 #5: populate via the refresh helper so the same code
+        # path drives both initial draw and post-load updates.
+        self._refresh_recents()
         ph_lay.addWidget(self._recents_container, 0, Qt.AlignmentFlag.AlignCenter)
 
         self._placeholder = ph_widget
@@ -335,6 +302,74 @@ class PdfViewerPanel(QWidget):
             btn.setIcon(qta.icon("fa5s.trash-alt", color=c))
 
     # Drag & drop is handled at the MainWindow level (see window.py).
+
+    # ── Recents ────────────────────────────────────────────────────────────
+    def _refresh_recents(self):
+        """Rebuild the recents section under the placeholder (R10 #5).
+
+        ``add_recent_file()`` is called from ``window._load_and_track``
+        AFTER a file is opened, but the recents UI was built once in
+        ``__init__`` and never re-read the config. Users opening a new
+        file saw the stale list until the next launch. Rebuild from
+        scratch so the next time the placeholder is shown (i.e. after
+        the user closes the open file) the list is up to date.
+        """
+        from app.i18n import get_recent_files
+        lay = self._recents_layout
+        # Wipe existing rows. takeAt(0) detaches and deleteLater
+        # the widget — including nested layouts via the recursive
+        # _drop_layout_item helper below.
+        while lay.count():
+            item = lay.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+        self._recent_links = []
+        self._recent_del_btns = []
+        recents = get_recent_files()
+        if not recents:
+            return
+        rec_title = QLabel(t("viewer.recent"))
+        rec_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        rec_title.setStyleSheet(
+            "font-size: 10pt; font-weight: 600; opacity: 0.7;")
+        lay.addWidget(rec_title)
+        for rp in recents[:5]:
+            if not os.path.isfile(rp):
+                continue
+            fname = os.path.basename(rp)
+            row = QWidget()
+            row_h = QHBoxLayout(row)
+            row_h.setContentsMargins(0, 0, 0, 0)
+            row_h.setSpacing(0)
+            link = QPushButton(f"📄  {fname}")
+            link.setObjectName("recent_link")
+            link.setToolTip(rp)
+            link.setCursor(Qt.CursorShape.PointingHandCursor)
+            link.setFlat(True)
+            link.setStyleSheet(self._recent_link_style(dark=True))
+            link.clicked.connect(lambda checked, p=rp: self.load(p))
+            self._recent_links.append(link)
+            del_btn = QPushButton()
+            del_btn.setIcon(qta.icon("fa5s.trash-alt", color=TEXT_SEC))
+            del_btn.setFixedSize(28, 28)
+            del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            del_btn.setFlat(True)
+            del_btn.setToolTip(t("btn.remove"))
+            del_btn.setAccessibleName(t("btn.remove"))
+            del_btn.setStyleSheet(
+                f"QPushButton {{ border: 1px solid transparent; "
+                f"background: transparent; }}"
+                f"QPushButton:hover {{ background: rgba(239,68,68,0.15); "
+                f"border-radius: 4px; }}"
+                f"QPushButton:focus {{ border: 1px solid {ACCENT}; "
+                f"border-radius: 4px; }}")
+            del_btn.clicked.connect(
+                lambda checked, p=rp, r=row: self._remove_recent(p, r))
+            self._recent_del_btns.append(del_btn)
+            row_h.addWidget(link, 1)
+            row_h.addWidget(del_btn)
+            lay.addWidget(row)
 
     # ── Open dialog ────────────────────────────────────────────────────────
     def _remove_recent(self, path: str, row_widget):

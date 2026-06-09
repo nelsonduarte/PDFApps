@@ -2,7 +2,6 @@
 
 import contextlib
 import os
-from functools import lru_cache
 
 from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QRunnable, QThreadPool, QEvent
 from PySide6.QtGui import QPixmap
@@ -18,19 +17,50 @@ _MAX_THREADS = 2
 
 _ICON_CURSORS: dict = {}
 
+# Manual FIFO cache for overlay QPixmaps (R10 #3).
+# The previous ``@lru_cache(maxsize=64)`` had no clear() hook the tab
+# close path could call — across long-running sessions with several
+# tabs each cache slot may hold a multi-MB QPixmap, leaking until
+# process exit. The explicit dict gives us:
+# - eviction by FIFO insertion order (next(iter(dict)) is O(1));
+# - a clear_overlay_pixmap_cache() public helper for tab teardown;
+# - an "uncached" code path for mtime lookup failures (R10 #11) so an
+#   OSError doesn't poison the cache with a null QPixmap that stays
+#   forever even after the file reappears on disk.
+_OVERLAY_PIXMAP_CACHE: "dict[tuple[str, float], QPixmap]" = {}
+_OVERLAY_PIXMAP_CACHE_MAX = 64
 
-@lru_cache(maxsize=64)
-def _load_overlay_pixmap(path: str, _mtime: float) -> QPixmap:
-    """LRU-cached QPixmap loader for overlay image/signature stamps.
+
+def _load_overlay_pixmap(path: str, mtime: float) -> QPixmap:
+    """Explicit FIFO-cached QPixmap loader for overlay image/signature stamps.
 
     The previous implementation built a fresh ``QPixmap(path)`` on every
     ``paintEvent`` — once per overlay — which became the dominant cost
     of scrolling a document containing dozens of inserted images. The
-    ``_mtime`` parameter (which the caller passes verbatim) participates
-    in the cache key so the cache auto-invalidates when the underlying
-    file is rewritten (e.g. signature regenerated on disk).
+    ``mtime`` parameter participates in the cache key so the cache
+    auto-invalidates when the underlying file is rewritten (e.g.
+    signature regenerated on disk).
     """
-    return QPixmap(path)
+    key = (path, mtime)
+    pix = _OVERLAY_PIXMAP_CACHE.get(key)
+    if pix is None:
+        pix = QPixmap(path)
+        if len(_OVERLAY_PIXMAP_CACHE) >= _OVERLAY_PIXMAP_CACHE_MAX:
+            # Evict the oldest entry (insertion order is preserved
+            # from Python 3.7+).
+            _OVERLAY_PIXMAP_CACHE.pop(next(iter(_OVERLAY_PIXMAP_CACHE)))
+        _OVERLAY_PIXMAP_CACHE[key] = pix
+    return pix
+
+
+def clear_overlay_pixmap_cache() -> None:
+    """Drop every cached overlay QPixmap.
+
+    Called from :meth:`PdfEditCanvas.close_doc` so closing a tab
+    releases the (potentially many MB worth of) pixmaps held by the
+    module-level cache. Safe to call multiple times.
+    """
+    _OVERLAY_PIXMAP_CACHE.clear()
 
 
 def _get_icon_cursor(icon_name: str, hx: int, hy: int,
@@ -488,6 +518,11 @@ class PdfEditCanvas(QWidget):
         self._page_pixmaps.clear()
         self._page_offsets.clear()
         self._overlays = []; self._open_note = None
+        # R10 #3: drop module-level overlay QPixmap cache so closing
+        # a tab actually releases the (potentially many MB) of cached
+        # image/signature pixmaps. The previous lru_cache had no
+        # clear hook and grew unboundedly across long sessions.
+        clear_overlay_pixmap_cache()
         self.setMinimumSize(300, 400)
         self.setMaximumSize(16777215, 16777215)
         self.update()
@@ -684,11 +719,16 @@ class PdfEditCanvas(QWidget):
                 r = e["rect"]
                 qr = QRect(int(r.x0*z), yo+int(r.y0*z), max(1,int(r.width*z)), max(1,int(r.height*z)))
                 path = e["path"]
+                # R10 #11: if getmtime fails (file removed, permission
+                # error, transient FS issue) we MUST NOT cache the
+                # resulting null QPixmap — otherwise the cache would
+                # keep returning the empty pixmap even after the file
+                # comes back. Load uncached in that case.
                 try:
                     mtime = os.path.getmtime(path)
+                    img_px = _load_overlay_pixmap(path, mtime)
                 except OSError:
-                    mtime = 0.0
-                img_px = _load_overlay_pixmap(path, mtime)
+                    img_px = QPixmap(path)
                 if not img_px.isNull():
                     p.drawPixmap(qr, img_px)
                 border = "#22C55E" if etype == "signature" else ACCENT
@@ -860,11 +900,24 @@ class PdfEditCanvas(QWidget):
         if hit < 0:
             hit, _ = self._annot_note_at(pos)
         if hit >= 0:
-            from PySide6.QtWidgets import QMenu
+            from PySide6.QtWidgets import QMenu, QMessageBox
             menu = QMenu(self)
             delete_action = menu.addAction(t("viewer.delete_comment"))
             action = menu.exec(e.globalPos())
             if action == delete_action:
+                # R10 #8: match the viewer's UX — delete is destructive
+                # (especially for _existing notes which persist on save),
+                # so confirm before pulling the trigger. defaultButton
+                # is No so a stray Enter cannot wipe a note.
+                reply = QMessageBox.question(
+                    self, t("msg.confirm"),
+                    t("viewer.confirm_delete_comment"),
+                    QMessageBox.StandardButton.Yes
+                    | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
                 overlay = self._overlays[hit]
                 if self._doc and overlay.get("_existing"):
                     import fitz
