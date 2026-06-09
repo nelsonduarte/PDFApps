@@ -900,11 +900,24 @@ class PdfEditCanvas(QWidget):
         if hit < 0:
             hit, _ = self._annot_note_at(pos)
         if hit >= 0:
-            from PySide6.QtWidgets import QMenu
+            from PySide6.QtWidgets import QMenu, QMessageBox
             menu = QMenu(self)
             delete_action = menu.addAction(t("viewer.delete_comment"))
             action = menu.exec(e.globalPos())
             if action == delete_action:
+                # R10 #8: match the viewer's UX — delete is destructive
+                # (especially for _existing notes which persist on save),
+                # so confirm before pulling the trigger. defaultButton
+                # is No so a stray Enter cannot wipe a note.
+                reply = QMessageBox.question(
+                    self, t("msg.confirm"),
+                    t("viewer.confirm_delete_comment"),
+                    QMessageBox.StandardButton.Yes
+                    | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
                 overlay = self._overlays[hit]
                 if self._doc and overlay.get("_existing"):
                     import fitz
