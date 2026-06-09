@@ -146,10 +146,13 @@ def test_image_mode_only_picks_when_empty():
 
 
 def test_overlay_pixmap_lru_cache_exists():
+    # R10 #3 replaced the @lru_cache(maxsize=64) module-level decorator
+    # with an explicit FIFO dict so tab close paths can drop the
+    # cached pixmaps (otherwise the cache leaks across long sessions).
     src = _read("app/editor/canvas.py")
-    assert "from functools import lru_cache" in src
     assert "_load_overlay_pixmap" in src
-    assert "@lru_cache" in src
+    assert "_OVERLAY_PIXMAP_CACHE" in src
+    assert "clear_overlay_pixmap_cache" in src
 
 
 def test_paint_event_uses_cached_pixmap():
