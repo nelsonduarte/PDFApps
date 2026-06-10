@@ -14,5 +14,5 @@ ebooklib>=0.20
 # Pin to >=6.1.0 to fix PYSEC-2026-87 (XXE — lxml < 6.1.0 resolves
 # external entities by default, allowing crafted DOCX/PPTX/EPUB/PDF-XMP
 # files to read arbitrary local files).
-lxml>=6.1.0
+lxml>=6.1.1
 pyinstaller>=6.20.0
