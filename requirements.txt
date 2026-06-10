@@ -8,7 +8,7 @@ pytesseract>=0.3.13
 python-docx>=1.2.0
 python-pptx>=1.0.2
 openpyxl>=3.1.5
-beautifulsoup4>=4.14.3
+beautifulsoup4>=4.15.0
 ebooklib>=0.20
 # Transitive of python-docx, python-pptx, ebooklib, pikepdf.
 # Pin to >=6.1.0 to fix PYSEC-2026-87 (XXE — lxml < 6.1.0 resolves
