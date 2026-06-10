@@ -1,5 +1,5 @@
 PySide6>=6.11.1
-pypdf>=6.13.0
+pypdf>=6.13.1
 cryptography>=48.0.0
 qtawesome>=1.4.1
 pillow>=12.1.1
