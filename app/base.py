@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import shutil
+import unicodedata
 from typing import Iterable
 
 from PySide6.QtCore import Qt, QTimer, Signal
@@ -294,6 +295,30 @@ class BasePage(QWidget):
 
     # ── encrypted-PDF helpers ──────────────────────────────────────────────
 
+    @staticmethod
+    def _nfc(pwd: str) -> str:
+        """Return the NFC-normalized form of ``pwd`` (R6 C1).
+
+        Unicode in PDF owner/user passwords is whatever the producing
+        application wrote (PDF 2.0 mandates SASLprep, but the world is
+        full of pre-2.0 files). macOS HFS/APFS often stores filenames
+        and clipboard text in NFD; Windows clipboards default to NFC.
+        A password typed once on macOS and copied to a Windows machine
+        can therefore fail to authenticate even though the on-screen
+        glyphs are identical. Normalize to NFC on every code path that
+        feeds the password to pypdf/PyMuPDF so the in-memory bytes are
+        deterministic regardless of where the password was originally
+        composed.
+        """
+        if not pwd:
+            return pwd
+        try:
+            return unicodedata.normalize("NFC", pwd)
+        except (TypeError, ValueError):
+            # str inputs only ever raise on absurd code points;
+            # falling back to the raw string is safer than crashing.
+            return pwd
+
     def _maybe_prompt_password(self, path: str) -> bool:
         """If the PDF at `path` is encrypted, prompt the user; on success
         store the password on `self._pdf_password` and return True. Plain
@@ -312,7 +337,7 @@ class BasePage(QWidget):
             if not doc.needs_pass:
                 self._pdf_password = ""
                 return True
-            if self._pdf_password and doc.authenticate(self._pdf_password):
+            if self._pdf_password and doc.authenticate(self._nfc(self._pdf_password)):
                 return True
         finally:
             doc.close()
@@ -320,25 +345,35 @@ class BasePage(QWidget):
         ok, pwd = prompt_pdf_password(path, self)
         if not ok:
             return False
-        self._pdf_password = pwd
+        self._pdf_password = self._nfc(pwd)
         return True
 
     def _open_reader(self, path: str):
         """Open a pypdf PdfReader, decrypting with the stored password if
-        the file is encrypted."""
+        the file is encrypted.
+
+        The cached password is NFC-normalized before being passed to
+        :meth:`pypdf.PdfReader.decrypt`. See :meth:`_nfc` for the
+        rationale (R6 C1).
+        """
         from pypdf import PdfReader
         r = PdfReader(path)
         if r.is_encrypted and self._pdf_password:
-            r.decrypt(self._pdf_password)
+            r.decrypt(self._nfc(self._pdf_password))
         return r
 
     def _open_fitz(self, path: str):
         """Open a PyMuPDF Document, authenticating with the stored
-        password if needed."""
+        password if needed.
+
+        The cached password is NFC-normalized before being passed to
+        :meth:`fitz.Document.authenticate`. See :meth:`_nfc` for the
+        rationale (R6 C1).
+        """
         import fitz
         doc = fitz.open(path)
         if doc.needs_pass and self._pdf_password:
-            doc.authenticate(self._pdf_password)
+            doc.authenticate(self._nfc(self._pdf_password))
         return doc
 
     def _clear_pdf_password(self) -> None:
