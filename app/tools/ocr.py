@@ -316,12 +316,14 @@ class TabOCR(BasePage):
                                 except OSError: pass
                             raise
                     else:
-                        # R11 I1: stream pages directly into the writer
-                        # instead of accumulating per-page PDF bytes in a
-                        # list. A 100-page @ 300dpi job otherwise sits on
-                        # ~200-500MB of peak RAM before the final write.
-                        # Each per-page BytesIO is dropped as soon as
-                        # writer.append() finishes copying its objects.
+                        # R11 I1: stream pages to the writer as they're
+                        # processed instead of accumulating all per-page
+                        # PDF bytes in a list before the final write.
+                        # This reduces peak memory usage for large PDFs;
+                        # the exact savings depend on pypdf's internal
+                        # page copy behavior. Each per-page BytesIO is
+                        # dropped as soon as writer.append() finishes
+                        # copying its objects.
                         writer = PdfWriter()
                         for i, page in enumerate(doc):
                             if _self.is_cancelled():

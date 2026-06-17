@@ -80,18 +80,30 @@ class TabEditar(QWidget):
 
     @property
     def _user_pending(self) -> list:
-        """Pending edits actually made by the user.
+        """Pending edits that represent USER changes since loading the PDF.
 
         ``_load_existing_annotations`` mirrors notes already embedded in
         the PDF into ``self._pending`` with ``_existing=True`` so the
         canvas can render their bubbles. Without this filter, just
         opening any PDF with notes would (a) make ``closeEvent`` prompt
         about "unsaved changes" the user never made and (b) trigger the
-        Forms-mode "has pending edits" warning. ``delete_annot`` edits
-        registered via the canvas context menu are real user actions and
-        are NOT tagged with ``_existing``, so they remain visible here.
+        Forms-mode "has pending edits" warning.
+
+        R11 C6: ``delete_annot`` edits raised by the canvas context menu
+        on an existing note are also tagged with ``_existing=True`` (see
+        ``_on_note_deleted`` — the flag carries through so undo can put
+        the original back). A plain ``_existing`` filter therefore
+        silently dropped real user deletions: ``_run`` warned "no
+        pending edits" and ``closeEvent`` skipped the unsaved-changes
+        prompt. The deletion was lost on save. We now keep
+        ``delete_annot`` edits regardless of ``_existing`` because they
+        always represent the user's explicit intent to remove an
+        annotation.
         """
-        return [e for e in self._pending if not e.get("_existing")]
+        return [
+            e for e in self._pending
+            if not e.get("_existing") or e.get("type") == "delete_annot"
+        ]
 
     def __init__(self, status_fn):
         super().__init__()
@@ -1128,8 +1140,9 @@ class TabEditar(QWidget):
             # pypdf and would silently drop the in-memory edits otherwise.
             # Use _user_pending so pre-existing notes loaded from the PDF
             # don't trigger a false-positive warning. delete_annot edits
-            # ARE included (no _existing flag) so the warning still fires
-            # when the user has removed an existing note.
+            # ARE included even when carrying _existing=True (see the
+            # _user_pending docstring) so the warning still fires when
+            # the user has removed an existing note.
             if self._user_pending:
                 reply = QMessageBox.question(
                     self, t("msg.warning"),

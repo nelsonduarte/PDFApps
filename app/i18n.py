@@ -211,10 +211,12 @@ def get_recent_files() -> list[str]:
             recents = cfg.get("recent_files", [])
     except Exception:
         return []
-    # R11 M3: use os.path.lexists so OneDrive Files-On-Demand placeholders
-    # are NOT eagerly downloaded just to validate the recents list.
-    # os.path.isfile triggers a sync that can freeze the UI for seconds
-    # the first time the app starts on a OneDrive folder.
+    # R11 M3: use lexists instead of isfile so OneDrive Files-On-Demand
+    # placeholders aren't force-downloaded on every startup. isfile
+    # triggers a sync that can freeze the UI for seconds the first time
+    # the app starts on a OneDrive folder. Note: UNC paths to offline
+    # SMB shares may still cause a network round-trip but won't trigger
+    # placeholder hydration like isfile would.
     valid = [p for p in recents
              if isinstance(p, str) and os.path.lexists(p)]
     # R11 M3: writeback when entries were dropped so the next call has

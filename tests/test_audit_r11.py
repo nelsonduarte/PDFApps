@@ -116,7 +116,8 @@ def test_window_closeevent_uses_user_pending():
 
 def test_editor_forms_warning_uses_user_pending():
     """Forms-mode 'you have pending edits' warning must filter existing
-    annotations but keep delete_annot (which has no _existing flag)."""
+    annotations but keep delete_annot (which may carry _existing=True
+    when the user removed a pre-existing note via the canvas menu)."""
     src = _read("app/editor/tab.py")
     forms_block_start = src.find("_MODE_FORMS:\n            # If there are also pending edits")
     assert forms_block_start > 0
@@ -174,6 +175,82 @@ def test_editor_pending_list_skips_existing_notes():
     # The cleanup comment marker we placed identifies the intentional
     # removal so a future refactor that re-adds the line is caught.
     assert "do NOT add existing notes to the" in tail
+
+
+# ── R11 C6 — _user_pending must keep delete_annot even for existing ─────
+
+
+def _make_user_pending_stub():
+    """Tiny stub so the _user_pending property can be exercised without
+    spinning up the full Qt tab. Only the attributes it touches matter."""
+    from app.editor.tab import TabEditar
+
+    class _Stub:
+        _user_pending = TabEditar._user_pending
+
+        def __init__(self):
+            self._pending: list = []
+
+    return _Stub()
+
+
+def test_user_pending_keeps_delete_annot_even_if_existing():
+    """Regression for reviewer R11 C6: ``delete_annot`` edits for
+    existing notes are also tagged with ``_existing=True`` (so undo can
+    restore the original). The previous ``_user_pending`` filter dropped
+    them, which made ``_run`` warn 'no pending edits' and ``closeEvent``
+    skip the unsaved-changes prompt — silently losing the deletion."""
+    s = _make_user_pending_stub()
+    s._pending = [
+        # Mirrored on load — must be filtered.
+        {"type": "note", "text": "original", "_existing": True},
+        # User right-clicked the loaded note and chose Delete. The
+        # _existing flag carries through so _undo can put the original
+        # back on the canvas. MUST stay in _user_pending.
+        {"type": "delete_annot", "page": 0, "bbox": (0, 0, 10, 10),
+         "_existing": True,
+         "_original_note": {"type": "note", "text": "original"}},
+        # Brand-new note typed by the user. MUST stay in _user_pending.
+        {"type": "note", "text": "new user note"},
+    ]
+    user_pending = s._user_pending
+    assert len(user_pending) == 2
+    types = [e["type"] for e in user_pending]
+    assert "delete_annot" in types
+    assert "note" in types
+    # The original existing note is filtered out.
+    assert not any(e.get("text") == "original" for e in user_pending)
+
+
+def test_delete_existing_note_then_apply_persists():
+    """End-to-end flow: user opens a PDF with one sticky note (mirrored
+    into ``_pending`` by ``_load_existing_annotations`` with
+    ``_existing=True``), right-clicks → Delete (which appends a
+    ``delete_annot`` edit also carrying ``_existing=True``), then clicks
+    Apply. ``_user_pending`` MUST surface the deletion so the save loop
+    processes it instead of hitting the no_changes warning."""
+    s = _make_user_pending_stub()
+    # _load_existing_annotations behavior.
+    s._pending = [{
+        "type": "note", "text": "loaded", "page": 0,
+        "rect": (0, 0, 10, 10), "_existing": True,
+    }]
+    # Context-menu delete (cf. _on_note_deleted at app/editor/tab.py
+    # ~line 1078): the delete_annot edit carries _existing=True so that
+    # undo can roll back to the original note.
+    s._pending.append({
+        "type": "delete_annot",
+        "page": 0,
+        "bbox": (0, 0, 10, 10),
+        "_existing": True,
+        "_original_note": s._pending[0],
+    })
+    # Apply click — the _run guard reads _user_pending.
+    user_pending = s._user_pending
+    # The delete MUST be visible to the save loop.
+    assert any(e["type"] == "delete_annot" for e in user_pending), (
+        "delete_annot with _existing=True was filtered out — the "
+        "user's deletion would be silently lost on save")
 
 
 # ── #4 — parse_pages friendly error ─────────────────────────────────────
