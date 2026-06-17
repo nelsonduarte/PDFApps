@@ -122,9 +122,15 @@ class _TextEditDialog(QDialog):
         lbl_new.setStyleSheet(f"color:{pri}; font-size:10pt;")
         v.addWidget(lbl_new)
 
-        self._edit = QTextEdit()
-        self._edit.setPlainText(old_text)
-        self._edit.setMinimumHeight(80)
+        # R11 B2: the previous QTextEdit accepted newlines that
+        # ``page.insert_text`` (PyMuPDF) cannot render — each \n got
+        # rasterized as a "?" glyph in the output PDF. Use QLineEdit
+        # so the input is restricted to what the writer can actually
+        # produce; Enter submits via returnPressed, matching the
+        # password dialog above.
+        self._edit = QLineEdit()
+        self._edit.setText(old_text)
+        self._edit.returnPressed.connect(self.accept)
         v.addWidget(self._edit)
 
         btns = QHBoxLayout(); btns.setSpacing(8); btns.addStretch()
@@ -135,7 +141,7 @@ class _TextEditDialog(QDialog):
         v.addLayout(btns)
 
     def new_text(self) -> str:
-        return self._edit.toPlainText()
+        return self._edit.text()
 
 
 class _TextDialog(QDialog):
