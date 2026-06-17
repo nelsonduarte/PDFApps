@@ -84,6 +84,16 @@ class _PdfPasswordDialog(QDialog):
         btns.addWidget(ca); btns.addWidget(ok)
         v.addLayout(btns)
 
+        # R11 G1: without an explicit tab order Qt walks widgets in the
+        # construction order (icon → title → password → Cancel → OK),
+        # but the dialog opens with focus on Cancel via the addStretch
+        # quirk on some platforms. Force a predictable, accessible
+        # path: password field → OK → Cancel. Keyboard-only users now
+        # land on the field they need to fill in first.
+        self._edit.setFocus()
+        self.setTabOrder(self._edit, ok)
+        self.setTabOrder(ok, ca)
+
     def password(self) -> str:
         return self._edit.text()
 
