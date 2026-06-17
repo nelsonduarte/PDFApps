@@ -211,7 +211,21 @@ def get_recent_files() -> list[str]:
             recents = cfg.get("recent_files", [])
     except Exception:
         return []
-    return [p for p in recents if isinstance(p, str) and os.path.isfile(p)]
+    # R11 M3: use os.path.lexists so OneDrive Files-On-Demand placeholders
+    # are NOT eagerly downloaded just to validate the recents list.
+    # os.path.isfile triggers a sync that can freeze the UI for seconds
+    # the first time the app starts on a OneDrive folder.
+    valid = [p for p in recents
+             if isinstance(p, str) and os.path.lexists(p)]
+    # R11 M3: writeback when entries were dropped so the next call has
+    # less to re-check on disk. Routed through _update_config to keep
+    # serialization with concurrent writers (add_recent_file etc.).
+    if len(valid) != len([p for p in recents if isinstance(p, str)]):
+        try:
+            _update_config(lambda c: c.__setitem__("recent_files", valid))
+        except Exception:
+            pass
+    return valid
 
 
 def add_recent_file(path: str):
