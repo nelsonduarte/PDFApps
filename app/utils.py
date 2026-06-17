@@ -72,14 +72,26 @@ def parse_pages(text: str, total: int) -> list:
         part = part.strip()
         if not part:
             continue
+        try:
+            if "-" in part:
+                a, b = part.split("-", 1)
+                a_int, b_int = int(a), int(b)
+            else:
+                a_int = b_int = int(part)
+        except ValueError as exc:
+            # int() raised "invalid literal for int() with base 10" —
+            # re-raise with a translated, user-actionable message so
+            # show_error() surfaces something useful instead of the
+            # raw Python error.
+            raise ValueError(
+                t("tool.err.bad_page_input", text=part)) from exc
         if "-" in part:
-            a, b = part.split("-", 1)
-            a_int, b_int = int(a), int(b)
             if b_int - a_int + 1 > _MAX_PAGES:
-                raise ValueError(f"Range too large: {a}-{b} (max {_MAX_PAGES})")
+                raise ValueError(
+                    f"Range too large: {a_int}-{b_int} (max {_MAX_PAGES})")
             pages.extend(range(a_int - 1, b_int))
         else:
-            pages.append(int(part) - 1)
+            pages.append(a_int - 1)
         if len(pages) > _MAX_PAGES:
             raise ValueError(f"Too many pages selected (max {_MAX_PAGES})")
     invalid = [p for p in pages if p < 0 or p >= total]
