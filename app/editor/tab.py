@@ -1303,56 +1303,65 @@ class TabEditar(QWidget):
     def _apply_forms(self, out):
         try:
             from pypdf import PdfWriter, PdfReader
-            _r = PdfReader(self._doc_path)
-            was_encrypted = bool(_r.is_encrypted)
-            if was_encrypted and self._pdf_password:
-                _r.decrypt(self._pdf_password)
-            # If input was encrypted, ask the user how to save the output.
-            encrypt_choice = "plaintext"
-            if was_encrypted and self._pdf_password:
-                encrypt_choice = self._prompt_encryption_choice()
-                if encrypt_choice is None:
+            # R11 #8: open the source via an explicit ``with open(...)`` so
+            # the file handle is closed deterministically when the block
+            # exits — previously ``PdfReader(self._doc_path)`` held an
+            # internal stream alive until garbage collection, which on
+            # Windows blocked another tool from renaming/overwriting the
+            # same file. We do all writer work INSIDE the with-block so
+            # the lazy reads triggered by writer.append / write happen
+            # while the stream is still valid.
+            with open(self._doc_path, "rb") as _src:
+                _r = PdfReader(_src)
+                was_encrypted = bool(_r.is_encrypted)
+                if was_encrypted and self._pdf_password:
+                    _r.decrypt(self._pdf_password)
+                # If input was encrypted, ask the user how to save.
+                encrypt_choice = "plaintext"
+                if was_encrypted and self._pdf_password:
+                    encrypt_choice = self._prompt_encryption_choice()
+                    if encrypt_choice is None:
+                        return
+                writer = PdfWriter(); writer.append(_r)
+                fields = {self._form_table.item(r, 0).text():
+                          (self._form_table.item(r, 1).text() if self._form_table.item(r, 1) else "")
+                          for r in range(self._form_table.rowCount())}
+                # R10 #6: pypdf's update_page_form_field_values raises
+                # PyPdfError("No /AcroForm dictionary in PDF…") on PDFs
+                # without form fields. The user hits this whenever they
+                # click Apply in Forms mode on a regular PDF; the cryptic
+                # error message looked like an internal crash. Detect
+                # up-front and short-circuit with a friendly status
+                # instead, leaving the file untouched.
+                if "/AcroForm" not in writer._root_object:
+                    self._status(t("editor.forms.no_fields"))
+                    self._form_status.setText(t("editor.forms.no_fields"))
                     return
-            writer = PdfWriter(); writer.append(_r)
-            fields = {self._form_table.item(r, 0).text():
-                      (self._form_table.item(r, 1).text() if self._form_table.item(r, 1) else "")
-                      for r in range(self._form_table.rowCount())}
-            # R10 #6: pypdf's update_page_form_field_values raises
-            # PyPdfError("No /AcroForm dictionary in PDF…") on PDFs
-            # without form fields. The user hits this whenever they
-            # click Apply in Forms mode on a regular PDF; the cryptic
-            # error message looked like an internal crash. Detect
-            # up-front and short-circuit with a friendly status
-            # instead, leaving the file untouched.
-            if "/AcroForm" not in writer._root_object:
-                self._status(t("editor.forms.no_fields"))
-                self._form_status.setText(t("editor.forms.no_fields"))
-                return
-            for page in writer.pages:
-                # auto_regenerate=True so the rendered widget appearance
-                # actually picks up the new value when viewed in a third-
-                # party viewer (Adobe etc.) that doesn't render NeedAppearances.
-                writer.update_page_form_field_values(page, fields, auto_regenerate=True)
-            if encrypt_choice == "protect" and self._pdf_password:
-                # Documented limitation: owner == user; original owner
-                # password is not recoverable from the input file.
-                writer.encrypt(
-                    user_password=self._pdf_password,
-                    owner_password=self._pdf_password,
-                    algorithm="AES-256",
-                )
-                _log.info(
-                    "Re-encrypted forms output with user password as owner")
-            fd, tmp = tempfile.mkstemp(prefix=".pdfapps_save_", suffix=".pdf",
-                                       dir=os.path.dirname(out) or ".")
-            os.close(fd)
-            try:
-                with open(tmp, "wb") as f: writer.write(f)
-                os.replace(tmp, out)
-            except Exception:
-                try: os.unlink(tmp)
-                except OSError: pass
-                raise
+                for page in writer.pages:
+                    # auto_regenerate=True so the rendered widget appearance
+                    # actually picks up the new value when viewed in a third-
+                    # party viewer (Adobe etc.) that doesn't render NeedAppearances.
+                    writer.update_page_form_field_values(page, fields, auto_regenerate=True)
+                if encrypt_choice == "protect" and self._pdf_password:
+                    # Documented limitation: owner == user; original owner
+                    # password is not recoverable from the input file.
+                    writer.encrypt(
+                        user_password=self._pdf_password,
+                        owner_password=self._pdf_password,
+                        algorithm="AES-256",
+                    )
+                    _log.info(
+                        "Re-encrypted forms output with user password as owner")
+                fd, tmp = tempfile.mkstemp(prefix=".pdfapps_save_", suffix=".pdf",
+                                           dir=os.path.dirname(out) or ".")
+                os.close(fd)
+                try:
+                    with open(tmp, "wb") as f: writer.write(f)
+                    os.replace(tmp, out)
+                except Exception:
+                    try: os.unlink(tmp)
+                    except OSError: pass
+                    raise
             self._status(t("edit.status.form_saved", path=out))
             QMessageBox.information(self, t("msg.done"), t("msg.form_saved", path=out))
         except Exception as e:
