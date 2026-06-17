@@ -1196,7 +1196,11 @@ class MainWindow(QMainWindow):
         # Check for unsaved edits in the editor tool (drawings, redactions,
         # text edits, signatures, notes added but not yet applied/saved)
         edit_w = self.stack.widget(self._edit_tool_idx())
-        if edit_w and getattr(edit_w, "_pending", None):
+        # Use _user_pending so we don't prompt about pre-existing
+        # annotations that the editor mirrored into _pending only for
+        # canvas rendering (loading a PDF with notes should not look
+        # like "unsaved edits").
+        if edit_w and getattr(edit_w, "_user_pending", None):
             ans = QMessageBox.question(
                 self, t("msg.warning"), t("pipeline.unsaved_prompt"),
                 QMessageBox.StandardButton.Discard

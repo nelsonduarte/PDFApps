@@ -78,6 +78,21 @@ class TabEditar(QWidget):
     def _DRAW_COLORS(self):
         return {t(k): v for k, v in zip(self._DRAW_COLORS_KEYS, self._DRAW_COLORS_VALS)}
 
+    @property
+    def _user_pending(self) -> list:
+        """Pending edits actually made by the user.
+
+        ``_load_existing_annotations`` mirrors notes already embedded in
+        the PDF into ``self._pending`` with ``_existing=True`` so the
+        canvas can render their bubbles. Without this filter, just
+        opening any PDF with notes would (a) make ``closeEvent`` prompt
+        about "unsaved changes" the user never made and (b) trigger the
+        Forms-mode "has pending edits" warning. ``delete_annot`` edits
+        registered via the canvas context menu are real user actions and
+        are NOT tagged with ``_existing``, so they remain visible here.
+        """
+        return [e for e in self._pending if not e.get("_existing")]
+
     def __init__(self, status_fn):
         super().__init__()
         self._status   = status_fn
@@ -651,8 +666,13 @@ class TabEditar(QWidget):
                                 "_annot_type": annot.type[0],
                                 "_annot_bbox": [r.x0, r.y0, r.x1, r.y1],
                             })
-                            self._pending_list.addItem(
-                                t("edit.status.note_label", n=page_idx + 1))
+                            # R11 #3: do NOT add existing notes to the
+                            # _pending_list UI — that list represents
+                            # edits THIS session that have not been
+                            # applied yet. Showing pre-existing notes
+                            # there made the user think they had
+                            # unsaved work the moment they opened a
+                            # PDF with sticky notes.
                             count += 1
             self._status(t("edit.status.note_loaded",
                            count=count, total=total_annots))
@@ -1106,7 +1126,11 @@ class TabEditar(QWidget):
         if self._mode_idx == _MODE_FORMS:
             # If there are also pending edits, warn — Forms apply uses
             # pypdf and would silently drop the in-memory edits otherwise.
-            if self._pending:
+            # Use _user_pending so pre-existing notes loaded from the PDF
+            # don't trigger a false-positive warning. delete_annot edits
+            # ARE included (no _existing flag) so the warning still fires
+            # when the user has removed an existing note.
+            if self._user_pending:
                 reply = QMessageBox.question(
                     self, t("msg.warning"),
                     t("editor.forms.has_pending"),
@@ -1118,7 +1142,11 @@ class TabEditar(QWidget):
                     return
             self._apply_forms(out)
             return
-        if not self._pending:
+        # R11 #3: filter pre-existing notes mirrored from the PDF so
+        # clicking Apply on a freshly-opened PDF (with only loaded
+        # annotations and no user edits) shows "no pending edits"
+        # instead of re-saving the same content unchanged.
+        if not self._user_pending:
             QMessageBox.warning(self, t("msg.warning"), t("msg.no_pending")); return
         try:
             import fitz
