@@ -131,7 +131,13 @@ class TabDividir(BasePage):
                                 r=r + 1, start=start, end=end)); continue
             w = PdfWriter()
             for p in range(start - 1, end): w.add_page(reader.pages[p])
-            with open(os.path.join(out_dir, name), "wb") as f: w.write(f)
+            out_path = os.path.join(out_dir, name)
+            try:
+                self._atomic_pdf_write(w, out_path, sources=[pdf_path])
+            except Exception as e:
+                errors.append(t("tool.split.row_invalid",
+                                r=r + 1, start=start, end=end) + f" — {e}")
+                continue
             generated.append(name)
         if errors: QMessageBox.warning(self, t("msg.warning"), t("tool.split.skipped", errors="\n".join(errors)))
         if generated:

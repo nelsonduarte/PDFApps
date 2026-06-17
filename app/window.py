@@ -858,6 +858,15 @@ class MainWindow(QMainWindow):
             _update_config(lambda cfg: cfg.__setitem__("recent_files", []))
         except Exception:
             pass
+        # R11 M5: mirror the _load_and_track refresh pattern so every
+        # open viewer's recents list updates immediately. Without this
+        # the user clears recents but the placeholder pane still shows
+        # the old entries until the next reload.
+        for v in self._viewers:
+            refresh = getattr(v, "_refresh_recents", None)
+            if callable(refresh):
+                with contextlib.suppress(Exception):
+                    refresh()
 
     def _set_status(self, msg: str):
         self._sb.showMessage(msg)
@@ -1011,10 +1020,20 @@ class MainWindow(QMainWindow):
                     return
                 continue
             if os.path.isdir(path):
-                for pdf in sorted(glob.glob(os.path.join(path, "*.pdf"))):
-                    self._load_and_track(pdf)
-                # Also pick up uppercase .PDF on case-sensitive FSes
-                for pdf in sorted(glob.glob(os.path.join(path, "*.PDF"))):
+                # Case-insensitive walk avoids double-loading on Windows /
+                # macOS HFS+ where glob("*.pdf") and glob("*.PDF") return
+                # the same files. Single os.listdir pass + extension filter
+                # works correctly on both case-sensitive and -insensitive FSes.
+                try:
+                    entries = os.listdir(path)
+                except OSError:
+                    entries = []
+                pdfs = sorted(
+                    os.path.join(path, f) for f in entries
+                    if f.lower().endswith(".pdf")
+                    and os.path.isfile(os.path.join(path, f))
+                )
+                for pdf in pdfs:
                     self._load_and_track(pdf)
                 continue
             if path.lower().endswith(".pdf"):
@@ -1186,7 +1205,11 @@ class MainWindow(QMainWindow):
         # Check for unsaved edits in the editor tool (drawings, redactions,
         # text edits, signatures, notes added but not yet applied/saved)
         edit_w = self.stack.widget(self._edit_tool_idx())
-        if edit_w and getattr(edit_w, "_pending", None):
+        # Use _user_pending so we don't prompt about pre-existing
+        # annotations that the editor mirrored into _pending only for
+        # canvas rendering (loading a PDF with notes should not look
+        # like "unsaved edits").
+        if edit_w and getattr(edit_w, "_user_pending", None):
             ans = QMessageBox.question(
                 self, t("msg.warning"), t("pipeline.unsaved_prompt"),
                 QMessageBox.StandardButton.Discard

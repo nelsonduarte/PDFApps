@@ -316,7 +316,15 @@ class TabOCR(BasePage):
                                 except OSError: pass
                             raise
                     else:
-                        pdf_pages = []
+                        # R11 I1: stream pages to the writer as they're
+                        # processed instead of accumulating all per-page
+                        # PDF bytes in a list before the final write.
+                        # This reduces peak memory usage for large PDFs;
+                        # the exact savings depend on pypdf's internal
+                        # page copy behavior. Each per-page BytesIO is
+                        # dropped as soon as writer.append() finishes
+                        # copying its objects.
+                        writer = PdfWriter()
                         for i, page in enumerate(doc):
                             if _self.is_cancelled():
                                 return None
@@ -334,12 +342,16 @@ class TabOCR(BasePage):
                                 pix = fitz.Pixmap(fitz.csRGB, pix)
                             img = Image.frombytes(
                                 "RGB", (pix.width, pix.height), pix.samples)
-                            pdf_pages.append(
-                                pytesseract.image_to_pdf_or_hocr(
-                                    img, lang=lang, extension="pdf"))
-                        writer = PdfWriter()
-                        for page_bytes in pdf_pages:
-                            writer.append(PdfReader(_io.BytesIO(page_bytes)))
+                            page_bytes = pytesseract.image_to_pdf_or_hocr(
+                                img, lang=lang, extension="pdf")
+                            writer.append(
+                                PdfReader(_io.BytesIO(page_bytes)))
+                            # Drop large per-page buffers now; without
+                            # this they linger until the next loop
+                            # iteration rebinds the locals.
+                            pix = None
+                            img.close()
+                            del page_bytes
                         self._atomic_pdf_write(
                             writer, out_path, sources=[pdf_path])
                 finally:
