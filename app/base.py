@@ -207,7 +207,15 @@ class BasePage(QWidget):
                 f"background:transparent; padding:2px 4px; text-align:left; }}"
                 f"QPushButton#compact_link:hover {{ text-decoration: underline; }}"
             )
-            link.clicked.connect(lambda: self.set_compact_mode(False))
+            # R6 O2: guard against the page being destroyed between the
+            # Qt click queueing and the slot actually running. PySide6
+            # has no QPointer, so use shiboken6.isValid() — without it
+            # the lambda may touch a dead C++ QWidget and crash with
+            # "Internal C++ object already deleted". The lambda is the
+            # only callback installed here, so cost is one isValid call
+            # per compact-mode exit.
+            link.clicked.connect(
+                lambda: self.set_compact_mode(False) if isValid(self) else None)
             self._form.insertWidget(0, link)
             self._compact_link = link
 
