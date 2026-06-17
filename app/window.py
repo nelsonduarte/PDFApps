@@ -1011,10 +1011,20 @@ class MainWindow(QMainWindow):
                     return
                 continue
             if os.path.isdir(path):
-                for pdf in sorted(glob.glob(os.path.join(path, "*.pdf"))):
-                    self._load_and_track(pdf)
-                # Also pick up uppercase .PDF on case-sensitive FSes
-                for pdf in sorted(glob.glob(os.path.join(path, "*.PDF"))):
+                # Case-insensitive walk avoids double-loading on Windows /
+                # macOS HFS+ where glob("*.pdf") and glob("*.PDF") return
+                # the same files. Single os.listdir pass + extension filter
+                # works correctly on both case-sensitive and -insensitive FSes.
+                try:
+                    entries = os.listdir(path)
+                except OSError:
+                    entries = []
+                pdfs = sorted(
+                    os.path.join(path, f) for f in entries
+                    if f.lower().endswith(".pdf")
+                    and os.path.isfile(os.path.join(path, f))
+                )
+                for pdf in pdfs:
                     self._load_and_track(pdf)
                 continue
             if path.lower().endswith(".pdf"):
