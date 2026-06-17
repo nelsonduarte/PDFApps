@@ -858,6 +858,15 @@ class MainWindow(QMainWindow):
             _update_config(lambda cfg: cfg.__setitem__("recent_files", []))
         except Exception:
             pass
+        # R11 M5: mirror the _load_and_track refresh pattern so every
+        # open viewer's recents list updates immediately. Without this
+        # the user clears recents but the placeholder pane still shows
+        # the old entries until the next reload.
+        for v in self._viewers:
+            refresh = getattr(v, "_refresh_recents", None)
+            if callable(refresh):
+                with contextlib.suppress(Exception):
+                    refresh()
 
     def _set_status(self, msg: str):
         self._sb.showMessage(msg)
