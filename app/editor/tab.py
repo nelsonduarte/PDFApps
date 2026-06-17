@@ -1350,6 +1350,24 @@ class TabEditar(QWidget):
                     self._status(t("editor.forms.no_fields"))
                     self._form_status.setText(t("editor.forms.no_fields"))
                     return
+                # R10 review follow-up: an /AcroForm dict can exist with
+                # zero actual widgets (e.g. forms whose fields were
+                # flattened by a third-party tool but the dict was left
+                # behind). update_page_form_field_values then runs a
+                # silent no-op and the user gets no feedback. Surface
+                # the same no_fields status so the result matches the
+                # 'plain PDF' case above. Use the get_fields() count
+                # since pypdf already exposes it cheaply via the cached
+                # AcroForm tree — avoids importing fitz just for a
+                # widget count.
+                try:
+                    _w_fields = _r.get_fields() or {}
+                except Exception:
+                    _w_fields = {}
+                if not _w_fields:
+                    self._status(t("editor.forms.no_fields"))
+                    self._form_status.setText(t("editor.forms.no_fields"))
+                    return
                 for page in writer.pages:
                     # auto_regenerate=True so the rendered widget appearance
                     # actually picks up the new value when viewed in a third-
