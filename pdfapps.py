@@ -1,5 +1,6 @@
 """PDFApps – entry point."""
 import argparse
+import logging
 import sys
 import os
 
@@ -26,6 +27,42 @@ from app.constants import APP_VERSION
 from app.window import MainWindow
 from app.styles import STYLE, STYLE_LIGHT
 from app.utils import _make_palette, setup_logging
+
+
+def _excepthook(exc_type, exc_value, exc_traceback):
+    """Route uncaught exceptions through the logging framework so
+    PyInstaller --windowed builds still surface crashes in the log
+    file instead of silently swallowing them on closed stderr.
+
+    Without this hook (R7 I2), tracebacks raised from queued Qt slots
+    in console=False builds (Windows/macOS PyInstaller --windowed) are
+    written to a stderr stream wired to ``NUL`` / ``/dev/null`` and
+    never reach ``pdfapps.log`` either. The default :data:`sys.excepthook`
+    only prints to stderr, so the user sees a silent "nothing happened"
+    while we have zero diagnostic trail.
+
+    KeyboardInterrupt keeps the default behavior so Ctrl-C in a console
+    build still exits cleanly without spamming the log.
+    """
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logging.getLogger(__name__).critical(
+        "Uncaught exception",
+        exc_info=(exc_type, exc_value, exc_traceback),
+    )
+    # Best-effort: surface a user-facing dialog so the app doesn't appear
+    # to silently hang after a slot blew up. Guarded against the (rare)
+    # case where the QApplication is gone or QMessageBox itself raises.
+    try:
+        from PySide6.QtWidgets import QApplication, QMessageBox
+        if QApplication.instance() is not None:
+            QMessageBox.critical(
+                None, "Unexpected error",
+                f"{exc_type.__name__}: {exc_value}\n\nDetails logged.",
+            )
+    except Exception:
+        pass
 
 
 def _load_dark_pref() -> bool:
@@ -68,6 +105,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main():
     setup_logging()
+    # Install the global excepthook AFTER setup_logging (so the rotating
+    # file handler is in place) and BEFORE QApplication so any crash in
+    # window construction is already covered.
+    sys.excepthook = _excepthook
     # Parse BEFORE QApplication so --help / --version exit cleanly
     # without bringing up the Qt event loop (and the splash screen).
     args = _parse_args(sys.argv[1:])
