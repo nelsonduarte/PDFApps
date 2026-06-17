@@ -72,19 +72,34 @@ def parse_pages(text: str, total: int) -> list:
         part = part.strip()
         if not part:
             continue
-        try:
-            if "-" in part:
-                a, b = part.split("-", 1)
-                a_int, b_int = int(a), int(b)
-            else:
+        # R7 E5 follow-up: accept open-ended ranges so '3-' means
+        # 'from page 3 to the end' and '-5' means 'from page 1 to
+        # page 5'. Without this, '3-' raised ValueError because
+        # int('') failed. Reject '-' alone (no bounds at all);
+        # otherwise default the missing side to the document's
+        # extreme. Matches the pdftk-style 1- range syntax.
+        if "-" in part:
+            a, b = part.split("-", 1)
+            a = a.strip(); b = b.strip()
+            if not a and not b:
+                raise ValueError(
+                    t("tool.err.bad_page_input", text=part))
+            try:
+                a_int = int(a) if a else 1
+                b_int = int(b) if b else total
+            except ValueError as exc:
+                raise ValueError(
+                    t("tool.err.bad_page_input", text=part)) from exc
+        else:
+            try:
                 a_int = b_int = int(part)
-        except ValueError as exc:
-            # int() raised "invalid literal for int() with base 10" —
-            # re-raise with a translated, user-actionable message so
-            # show_error() surfaces something useful instead of the
-            # raw Python error.
-            raise ValueError(
-                t("tool.err.bad_page_input", text=part)) from exc
+            except ValueError as exc:
+                # int() raised "invalid literal for int() with base 10" —
+                # re-raise with a translated, user-actionable message so
+                # show_error() surfaces something useful instead of the
+                # raw Python error.
+                raise ValueError(
+                    t("tool.err.bad_page_input", text=part)) from exc
         if "-" in part:
             if b_int - a_int + 1 > _MAX_PAGES:
                 raise ValueError(
