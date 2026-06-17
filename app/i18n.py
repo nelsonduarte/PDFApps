@@ -1,11 +1,16 @@
 """PDFApps – Internationalization (i18n) module."""
 
+import contextlib
 import json
 import locale
+import logging
 import os
+import shutil
 import sys
 import threading
 from typing import Callable
+
+_log = logging.getLogger(__name__)
 
 _TRANSLATIONS: dict = {}
 _LANG: str = "en"
@@ -146,13 +151,36 @@ def _update_config(mutator: Callable[[dict], None]) -> None:
     """
     with _CONFIG_LOCK:
         cfg: dict = {}
+        corrupt = False
         try:
             with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
+        except FileNotFoundError:
+            cfg = {}
         except Exception:
             cfg = {}
+            corrupt = True
         if not isinstance(cfg, dict):
             cfg = {}
+            corrupt = True
+        # R8 N1: previously a corrupt config.json was silently overwritten
+        # with `{}`, wiping the user's saved language / dark_mode / recents
+        # without warning. Snapshot the broken file before resetting so
+        # support can recover settings (and so we have evidence the
+        # corruption happened rather than a silent reset triggered by us).
+        if corrupt:
+            try:
+                if (os.path.isfile(_CONFIG_PATH)
+                        and os.path.getsize(_CONFIG_PATH) > 0):
+                    backup_path = _CONFIG_PATH + ".corrupt.bak"
+                    with contextlib.suppress(Exception):
+                        shutil.copy2(_CONFIG_PATH, backup_path)
+                        _log.warning(
+                            "config.json appeared corrupt; saved backup "
+                            "to %s before reset", backup_path,
+                        )
+            except OSError:
+                pass
         mutator(cfg)
         _atomic_write_config(cfg)
 
