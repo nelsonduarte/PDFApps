@@ -386,6 +386,15 @@ class _SignatureDialog(QDialog):
         btns.addWidget(ca); btns.addWidget(ok)
         v.addLayout(btns)
 
+        # R11-M12: explicit tab order — without this, focus jumps
+        # erratically between tabs/buttons depending on widget add order.
+        # Path: tabs -> type input -> font combo -> save cb -> cancel -> ok.
+        self.setTabOrder(tabs, self._type_input)
+        self.setTabOrder(self._type_input, self._font_combo)
+        self.setTabOrder(self._font_combo, self._save_cb)
+        self.setTabOrder(self._save_cb, ca)
+        self.setTabOrder(ca, ok)
+
     def _update_type_preview(self):
         text = self._type_input.text().strip()
         if not text:
