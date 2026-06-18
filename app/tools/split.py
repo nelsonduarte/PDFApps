@@ -82,7 +82,27 @@ class TabDividir(BasePage):
         try:
             r = self._open_reader(p); self._total = len(r.pages)
             self.lbl_info.setText(t("tool.split.pages_info", n=self._total))
+            # R11-M3: clamp any pre-existing rows so their endpoint stays
+            # within the new PDF's page count. Without this, swapping a
+            # 50-page PDF for a 10-page one leaves rows showing 1-50 and
+            # the row_invalid error fires on Apply.
+            self._clamp_rows_to_total()
         except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
+
+    def _clamp_rows_to_total(self) -> None:
+        """Ensure row start/end spinboxes are within ``self._total``."""
+        total = max(1, int(self._total or 1))
+        for r in range(self.table.rowCount()):
+            spn_s = self.table.cellWidget(r, 0)
+            spn_e = self.table.cellWidget(r, 1)
+            if spn_s is None or spn_e is None:
+                continue
+            if spn_s.value() > total:
+                spn_s.setValue(total)
+            if spn_e.value() > total:
+                spn_e.setValue(total)
+            if spn_e.value() < spn_s.value():
+                spn_e.setValue(spn_s.value())
 
     def auto_load(self, path: str):
         if path and not self.drop_in.path(): self._load_input(path)

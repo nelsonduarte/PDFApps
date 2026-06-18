@@ -16,6 +16,10 @@ QDialog     {{ background: {BG_CARD}; color: {TEXT_PRI}; }}
 QMenu       {{ background: {BG_CARD}; color: {TEXT_PRI}; border: 1px solid {BORDER}; }}
 QMenu::item:selected {{ background: #22303A; }}
 QMessageBox {{ background: {BG_CARD}; color: {TEXT_PRI}; }}
+/* R11-M10: themed tooltip — default Qt tooltips inherit OS chrome that
+   blends poorly with the dark palette (white-on-light-yellow). */
+QToolTip {{ background: {BG_CARD}; color: {TEXT_PRI};
+            border: 1px solid {BORDER}; padding: 4px 6px; }}
 QScrollArea {{ background: transparent; border: none; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
 
@@ -272,6 +276,9 @@ QDialog     {{ background: {_LC}; color: {_LP}; }}
 QMenu       {{ background: {_LC}; color: {_LP}; border: 1px solid {_LO}; }}
 QMenu::item:selected {{ background: #E7F0ED; }}
 QMessageBox {{ background: {_LC}; color: {_LP}; }}
+/* R11-M10: themed tooltip in light mode too. */
+QToolTip {{ background: {_LC}; color: {_LP};
+            border: 1px solid {_LO}; padding: 4px 6px; }}
 QScrollArea {{ background: transparent; border: none; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
 

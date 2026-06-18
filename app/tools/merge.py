@@ -120,7 +120,10 @@ class TabJuntar(BasePage):
                 if reader.is_encrypted:
                     pwd = self._pwd_map.get(p, "")
                     if pwd:
-                        reader.decrypt(pwd)
+                        # R11-M4: wrong password yields 0 pages, which
+                        # would silently produce an incomplete merge.
+                        if reader.decrypt(pwd) == 0:
+                            raise ValueError(t("tool.err.wrong_password"))
                 for page in reader.pages:
                     w.add_page(page)
             self._atomic_pdf_write(w, out, sources=paths)

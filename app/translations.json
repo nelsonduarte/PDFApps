@@ -265,6 +265,8 @@
                                 "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
                                 "tool.compress.no_gain": "Could not reduce the file size.\n\n{e}\n\nThe output file was not saved.",
                                 "tool.compress.gs_hint": "💡 Install Ghostscript for even better compression results.\nhttps://ghostscript.com",
+                                "tool.compress.deps_missing": "Install pypdf and/or PyMuPDF to compress PDFs.",
+                                "tool.compress.no_gain_detail": "Compression produced no size reduction ({before} KB to {after} KB).",
                                 "tool.encrypt.name": "Encrypt / Decrypt",
                                 "tool.encrypt.desc": "Protect the PDF with a password or remove existing protection.",
                                 "tool.encrypt.btn": "Execute",
@@ -598,7 +600,10 @@
                                 "editor.signature.empty_draw": "Please draw your signature before clicking OK.",
                                 "editor.signature.empty_type": "Please type your name before clicking OK.",
                                 "editor.signature.empty_import": "Please pick an image before clicking OK.",
-                                "edit.label.note_delete": "Delete note"
+                                "edit.label.note_delete": "Delete note",
+                                "tool.err.wrong_password": "Incorrect password — could not decrypt the PDF.",
+                                "tool.warn.font_latin_only": "Non-Latin characters may not render correctly with the default font.",
+                                "viewer.delete_no_match": "No matching comment found in the PDF — nothing to delete."
                 },
                 "pt": {
                                 "app.name": "PDFApps",
@@ -866,6 +871,8 @@
                                 "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
                                 "tool.compress.no_gain": "Não foi possível reduzir o tamanho.\n\n{e}\n\nO ficheiro de saída não foi guardado.",
                                 "tool.compress.gs_hint": "💡 Instale o Ghostscript para resultados de compressão ainda melhores.\nhttps://ghostscript.com",
+                                "tool.compress.deps_missing": "Instala pypdf e/ou PyMuPDF para comprimir PDFs.",
+                                "tool.compress.no_gain_detail": "A compressão não reduziu o tamanho ({before} KB para {after} KB).",
                                 "tool.encrypt.name": "Encriptar / Desencriptar",
                                 "tool.encrypt.desc": "Protege o PDF com senha ou remove a proteção existente.",
                                 "tool.encrypt.btn": "Executar",
@@ -1199,7 +1206,10 @@
                                 "editor.signature.empty_draw": "Desenhe a sua assinatura antes de clicar em OK.",
                                 "editor.signature.empty_type": "Escreva o seu nome antes de clicar em OK.",
                                 "editor.signature.empty_import": "Selecione uma imagem antes de clicar em OK.",
-                                "edit.label.note_delete": "Eliminar nota"
+                                "edit.label.note_delete": "Eliminar nota",
+                                "tool.err.wrong_password": "Palavra-passe incorreta — não foi possível desencriptar o PDF.",
+                                "tool.warn.font_latin_only": "Caracteres não-latinos podem não ser apresentados corretamente com o tipo de letra predefinido.",
+                                "viewer.delete_no_match": "Nenhum comentário correspondente encontrado no PDF — nada para eliminar."
                 },
                 "es": {
                                 "app.name": "PDFApps",
@@ -1467,6 +1477,8 @@
                                 "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
                                 "tool.compress.no_gain": "No se pudo reducir el tamaño.\n\n{e}\n\nEl archivo de salida no fue guardado.",
                                 "tool.compress.gs_hint": "💡 Instale Ghostscript para obtener mejores resultados de compresión.\nhttps://ghostscript.com",
+                                "tool.compress.deps_missing": "Instala pypdf y/o PyMuPDF para comprimir PDFs.",
+                                "tool.compress.no_gain_detail": "La compresión no redujo el tamaño ({before} KB a {after} KB).",
                                 "tool.encrypt.name": "Encriptar / Desencriptar",
                                 "tool.encrypt.desc": "Protege el PDF con contraseña o elimina la protección existente.",
                                 "tool.encrypt.btn": "Ejecutar",
@@ -1800,7 +1812,10 @@
                                 "editor.signature.empty_draw": "Dibuja tu firma antes de hacer clic en Aceptar.",
                                 "editor.signature.empty_type": "Escribe tu nombre antes de hacer clic en Aceptar.",
                                 "editor.signature.empty_import": "Selecciona una imagen antes de hacer clic en Aceptar.",
-                                "edit.label.note_delete": "Eliminar nota"
+                                "edit.label.note_delete": "Eliminar nota",
+                                "tool.err.wrong_password": "Contraseña incorrecta — no se pudo desencriptar el PDF.",
+                                "tool.warn.font_latin_only": "Los caracteres no latinos pueden no mostrarse correctamente con la fuente predeterminada.",
+                                "viewer.delete_no_match": "No se encontró ningún comentario coincidente en el PDF — nada que eliminar."
                 },
                 "fr": {
                                 "app.name": "PDFApps",
@@ -2068,6 +2083,8 @@
                                 "tool.compress.done": "{before} Ko  →  {after} Ko  (−{pct}%)",
                                 "tool.compress.no_gain": "Impossible de réduire la taille.\n\n{e}\n\nLe fichier de sortie n'a pas été enregistré.",
                                 "tool.compress.gs_hint": "💡 Installez Ghostscript pour de meilleurs résultats de compression.\nhttps://ghostscript.com",
+                                "tool.compress.deps_missing": "Installez pypdf et/ou PyMuPDF pour compresser les PDF.",
+                                "tool.compress.no_gain_detail": "La compression n'a pas réduit la taille ({before} Ko à {after} Ko).",
                                 "tool.encrypt.name": "Chiffrer / Déchiffrer",
                                 "tool.encrypt.desc": "Protège le PDF par mot de passe ou supprime la protection existante.",
                                 "tool.encrypt.btn": "Exécuter",
@@ -2401,7 +2418,10 @@
                                 "editor.signature.empty_draw": "Veuillez dessiner votre signature avant de cliquer sur OK.",
                                 "editor.signature.empty_type": "Veuillez saisir votre nom avant de cliquer sur OK.",
                                 "editor.signature.empty_import": "Veuillez sélectionner une image avant de cliquer sur OK.",
-                                "edit.label.note_delete": "Supprimer la note"
+                                "edit.label.note_delete": "Supprimer la note",
+                                "tool.err.wrong_password": "Mot de passe incorrect — impossible de déchiffrer le PDF.",
+                                "tool.warn.font_latin_only": "Les caractères non latins peuvent ne pas s'afficher correctement avec la police par défaut.",
+                                "viewer.delete_no_match": "Aucun commentaire correspondant trouvé dans le PDF — rien à supprimer."
                 },
                 "de": {
                                 "app.name": "PDFApps",
@@ -2669,6 +2689,8 @@
                                 "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
                                 "tool.compress.no_gain": "Die Dateigröße konnte nicht reduziert werden.\n\n{e}\n\nDie Ausgabedatei wurde nicht gespeichert.",
                                 "tool.compress.gs_hint": "💡 Installieren Sie Ghostscript für noch bessere Komprimierungsergebnisse.\nhttps://ghostscript.com",
+                                "tool.compress.deps_missing": "Installieren Sie pypdf und/oder PyMuPDF, um PDFs zu komprimieren.",
+                                "tool.compress.no_gain_detail": "Die Komprimierung hat die Größe nicht reduziert ({before} KB zu {after} KB).",
                                 "tool.encrypt.name": "Verschlüsseln / Entschlüsseln",
                                 "tool.encrypt.desc": "Schützt das PDF mit Passwort oder entfernt den vorhandenen Schutz.",
                                 "tool.encrypt.btn": "Ausführen",
@@ -3002,7 +3024,10 @@
                                 "editor.signature.empty_draw": "Bitte zeichnen Sie Ihre Unterschrift, bevor Sie auf OK klicken.",
                                 "editor.signature.empty_type": "Bitte geben Sie Ihren Namen ein, bevor Sie auf OK klicken.",
                                 "editor.signature.empty_import": "Bitte wählen Sie ein Bild, bevor Sie auf OK klicken.",
-                                "edit.label.note_delete": "Notiz löschen"
+                                "edit.label.note_delete": "Notiz löschen",
+                                "tool.err.wrong_password": "Falsches Passwort — PDF konnte nicht entschlüsselt werden.",
+                                "tool.warn.font_latin_only": "Nicht-lateinische Zeichen werden mit der Standardschriftart möglicherweise nicht korrekt angezeigt.",
+                                "viewer.delete_no_match": "Kein passender Kommentar im PDF gefunden — nichts zu löschen."
                 },
                 "zh": {
                                 "app.name": "PDFApps",
@@ -3270,6 +3295,8 @@
                                 "tool.compress.done": "{before} KB  →  {after} KB  （−{pct}%）",
                                 "tool.compress.no_gain": "无法减小文件大小。\n\n{e}\n\n输出文件未保存。",
                                 "tool.compress.gs_hint": "💡 安装 Ghostscript 可获得更好的压缩效果。\nhttps://ghostscript.com",
+                                "tool.compress.deps_missing": "请安装 pypdf 和/或 PyMuPDF 以压缩 PDF。",
+                                "tool.compress.no_gain_detail": "压缩未能减小文件大小（{before} KB 到 {after} KB）。",
                                 "tool.encrypt.name": "加密 / 解密",
                                 "tool.encrypt.desc": "使用密码保护 PDF 或移除现有保护。",
                                 "tool.encrypt.btn": "执行",
@@ -3603,7 +3630,10 @@
                                 "editor.signature.empty_draw": "请在点击确定前绘制您的签名。",
                                 "editor.signature.empty_type": "请在点击确定前输入您的姓名。",
                                 "editor.signature.empty_import": "请在点击确定前选择一张图像。",
-                                "edit.label.note_delete": "删除便笺"
+                                "edit.label.note_delete": "删除便笺",
+                                "tool.err.wrong_password": "密码不正确 — 无法解密 PDF。",
+                                "tool.warn.font_latin_only": "默认字体可能无法正确显示非拉丁字符。",
+                                "viewer.delete_no_match": "在 PDF 中未找到匹配的批注 — 无内容可删除。"
                 },
                 "it": {
                                 "app.name": "PDFApps",
@@ -3871,6 +3901,8 @@
                                 "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
                                 "tool.compress.no_gain": "Impossibile ridurre le dimensioni del file.\n\n{e}\n\nIl file di output non è stato salvato.",
                                 "tool.compress.gs_hint": "💡 Installa Ghostscript per risultati di compressione ancora migliori.\nhttps://ghostscript.com",
+                                "tool.compress.deps_missing": "Installa pypdf e/o PyMuPDF per comprimere i PDF.",
+                                "tool.compress.no_gain_detail": "La compressione non ha ridotto le dimensioni ({before} KB a {after} KB).",
                                 "tool.encrypt.name": "Crittografa / Decifra",
                                 "tool.encrypt.desc": "Proteggi il PDF con una password o rimuovi la protezione esistente.",
                                 "tool.encrypt.btn": "Esegui",
@@ -4204,7 +4236,10 @@
                                 "editor.signature.empty_draw": "Disegna la tua firma prima di fare clic su OK.",
                                 "editor.signature.empty_type": "Digita il tuo nome prima di fare clic su OK.",
                                 "editor.signature.empty_import": "Seleziona un'immagine prima di fare clic su OK.",
-                                "edit.label.note_delete": "Elimina nota"
+                                "edit.label.note_delete": "Elimina nota",
+                                "tool.err.wrong_password": "Password errata — impossibile decifrare il PDF.",
+                                "tool.warn.font_latin_only": "I caratteri non latini potrebbero non essere visualizzati correttamente con il font predefinito.",
+                                "viewer.delete_no_match": "Nessun commento corrispondente trovato nel PDF — niente da eliminare."
                 },
                 "nl": {
                                 "app.name": "PDFApps",
@@ -4472,6 +4507,8 @@
                                 "tool.compress.done": "{before} KB  →  {after} KB  (−{pct}%)",
                                 "tool.compress.no_gain": "Kon de bestandsgrootte niet verkleinen.\n\n{e}\n\nHet uitvoerbestand is niet opgeslagen.",
                                 "tool.compress.gs_hint": "💡 Installeer Ghostscript voor nog betere compressieresultaten.\nhttps://ghostscript.com",
+                                "tool.compress.deps_missing": "Installeer pypdf en/of PyMuPDF om PDF's te comprimeren.",
+                                "tool.compress.no_gain_detail": "Compressie heeft de grootte niet verkleind ({before} KB naar {after} KB).",
                                 "tool.encrypt.name": "Versleutelen / Ontsleutelen",
                                 "tool.encrypt.desc": "Beveilig de PDF met een wachtwoord of verwijder bestaande beveiliging.",
                                 "tool.encrypt.btn": "Uitvoeren",
@@ -4805,6 +4842,9 @@
                                 "editor.signature.empty_draw": "Teken je handtekening voordat je op OK klikt.",
                                 "editor.signature.empty_type": "Typ je naam voordat je op OK klikt.",
                                 "editor.signature.empty_import": "Kies een afbeelding voordat je op OK klikt.",
-                                "edit.label.note_delete": "Notitie verwijderen"
+                                "edit.label.note_delete": "Notitie verwijderen",
+                                "tool.err.wrong_password": "Onjuist wachtwoord — kon de PDF niet ontsleutelen.",
+                                "tool.warn.font_latin_only": "Niet-Latijnse tekens worden mogelijk niet correct weergegeven met het standaardlettertype.",
+                                "viewer.delete_no_match": "Geen overeenkomende reactie gevonden in het PDF — niets om te verwijderen."
                 }
 }

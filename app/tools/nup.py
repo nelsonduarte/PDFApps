@@ -220,7 +220,12 @@ class TabNUp(BasePage):
                                   current=src_idx + 1, total=total))
                     if worker.is_cancelled():
                         return None
-                    out.save(out_path, garbage=4, deflate=True)
+                    # R11-M8: atomic write — write to a sibling temp file
+                    # and os.replace into place so a crash mid-save can't
+                    # truncate a pre-existing output PDF.
+                    BasePage._atomic_pdf_write(
+                        out, out_path, sources=[pdf_path],
+                        save_opts={"garbage": 4, "deflate": True})
                 finally:
                     out.close()
             finally:

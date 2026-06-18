@@ -364,7 +364,11 @@ class BasePage(QWidget):
         from pypdf import PdfReader
         r = PdfReader(path)
         if r.is_encrypted and self._pdf_password:
-            r.decrypt(self._nfc(self._pdf_password))
+            # R11-M4: pypdf returns 0 on a wrong password and silently
+            # exposes a reader with zero accessible pages — every
+            # downstream tool then writes an empty PDF. Raise instead.
+            if r.decrypt(self._nfc(self._pdf_password)) == 0:
+                raise ValueError(t("tool.err.wrong_password"))
         return r
 
     def _open_fitz(self, path: str):

@@ -676,6 +676,20 @@ class _SelectCanvas(QWidget):
                                         break
                             if target_annot is not None:
                                 page.delete_annot(target_annot)
+                            else:
+                                # R11-L8: no annotation matched — there's
+                                # nothing to persist. Skip saveIncr() so
+                                # we don't bump the PDF's incremental
+                                # update offset (and hash) for a no-op,
+                                # and tell the user the comment is gone.
+                                if backup_path:
+                                    with contextlib.suppress(Exception):
+                                        os.unlink(backup_path)
+                                from PySide6.QtWidgets import QMessageBox
+                                QMessageBox.warning(
+                                    self, t("msg.warning"),
+                                    t("viewer.delete_no_match"))
+                                return
                         except Exception as exc:
                             if backup_path:
                                 with contextlib.suppress(Exception):
