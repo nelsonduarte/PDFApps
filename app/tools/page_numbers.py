@@ -140,6 +140,12 @@ class TabPageNumbers(BasePage):
         # ("Page {n}" → "Seite {n}"). Resolve via t() to a concrete
         # string before .format().
         fmt_template = t(_FORMATS[self.cmb_format.currentIndex()][1])
+        # R11-L4: ``helv`` is a Type-1 Latin-1 font; any char above
+        # U+0100 (CJK, Cyrillic, Arabic, Hebrew, accented Greek etc.)
+        # renders as a ? glyph. Surface a status-bar warning so the user
+        # is not surprised by tofu in the output PDF.
+        if any(ord(c) > 0xFF for c in fmt_template):
+            self._status(t("tool.warn.font_latin_only"))
         pos_code = _POSITIONS[self.cmb_position.currentIndex()][1]
         font_size = self.spin_size.value()
         start_page = self.spin_start_page.value() - 1  # 0-indexed
@@ -202,12 +208,16 @@ class TabPageNumbers(BasePage):
 
         replace = False
         if existing:
+            # R11-M11: default No — replacing existing page numbers is
+            # destructive (no undo once saveIncr is called). Stray Enter
+            # should preserve, not overwrite.
             ans = QMessageBox.question(
                 self, t("msg.warning"),
                 t("tool.page_numbers.existing_found", n=len(existing)),
                 QMessageBox.StandardButton.Yes
                 | QMessageBox.StandardButton.No
                 | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.No,
             )
             if ans == QMessageBox.StandardButton.Cancel:
                 return
