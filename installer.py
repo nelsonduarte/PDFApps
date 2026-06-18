@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 APP_NAME    = "PDFApps"
-APP_VERSION = "1.13.9"
+APP_VERSION = "1.13.16"
 BG          = "#FFFFFF"
 HEADER_BG   = "#1E3A5F"
 ACCENT      = "#3B82F6"
