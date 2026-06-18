@@ -621,8 +621,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 os.unlink(p)
 
     if not temps:
-        raise RuntimeError("Install pypdf and/or PyMuPDF:\n"
-                           "  pip install pypdf pymupdf pillow")
+        raise RuntimeError(t("tool.compress.deps_missing"))
 
     # ── Choose the best result ──────────────────────────────────────────
     best      = min(temps, key=lambda p: os.path.getsize(p))
@@ -636,7 +635,9 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     if best_size >= before:
         with contextlib.suppress(Exception):
             os.unlink(best)
-        raise ValueError(f"No gain: {before/1024:.0f} KB → {best_size/1024:.0f} KB")
+        raise ValueError(t("tool.compress.no_gain_detail",
+                           before=f"{before/1024:.0f}",
+                           after=f"{best_size/1024:.0f}"))
 
     # Atomic write: rename within the same volume, else copy to a temp
     # file next to dst and atomic-rename. shutil.move falls back to a
