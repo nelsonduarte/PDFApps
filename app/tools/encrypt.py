@@ -130,6 +130,10 @@ class TabEncriptar(BasePage):
             QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
+        # R11-M2: only wipe password fields on a fully successful run.
+        # Previously the finally-clause cleared fields on every exit,
+        # forcing users to retype on wrong-password / mismatch errors.
+        success = False
         try:
             reader = self._open_reader(pdf_path)
             if self.cmb_mode.currentIndex() == 0:
@@ -151,6 +155,7 @@ class TabEncriptar(BasePage):
                     self._pipeline_success(msg, out_path)
                 else:
                     QMessageBox.information(self, t("msg.done"), msg)
+                success = True
             else:
                 # _open_reader already decrypted with self._pdf_password (if any).
                 # The edit_pwd field acts as a manual override — if non-empty,
@@ -170,10 +175,11 @@ class TabEncriptar(BasePage):
                     self._pipeline_success(msg, out_path)
                 else:
                     QMessageBox.information(self, t("msg.done"), msg)
+                success = True
         except Exception as e:
             show_error(self, e)
         finally:
-            # R8-H1: wipe password fields whether _run() succeeded or
-            # raised. Keeping the user's password in the QLineEdit text
-            # buffer for the whole session was a needless heap leak.
-            self._clear_password_fields()
+            # R11-M2: wipe only on success. Wrong-pwd / mismatch keep
+            # user input so they can correct and retry.
+            if success:
+                self._clear_password_fields()
