@@ -271,12 +271,21 @@ def test_parse_pages_raises_friendly_message_for_invalid_input():
 
 
 def test_parse_pages_raises_friendly_message_for_open_range():
+    """Open-ended ranges with non-numeric bounds (e.g. 'abc-') still
+    surface the translated bad_page_input message. PR-H fix #10 made
+    purely-numeric open ranges like '1-' valid (interpreted as
+    '1..total'), so the regression target moves to a still-invalid
+    input."""
     from app.utils import parse_pages
     with pytest.raises(ValueError) as exc:
-        parse_pages("1-", 10)
+        parse_pages("abc-", 10)
     msg = str(exc.value)
-    assert "1-" in msg
+    assert "abc-" in msg
     assert "invalid literal for int" not in msg
+    # Empty range '-' must also fail (no bounds at all).
+    with pytest.raises(ValueError) as exc2:
+        parse_pages("-", 10)
+    assert "invalid literal for int" not in str(exc2.value)
 
 
 def test_parse_pages_still_accepts_valid_input():

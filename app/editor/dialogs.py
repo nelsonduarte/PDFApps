@@ -84,6 +84,16 @@ class _PdfPasswordDialog(QDialog):
         btns.addWidget(ca); btns.addWidget(ok)
         v.addLayout(btns)
 
+        # R11 G1: without an explicit tab order Qt walks widgets in the
+        # construction order (icon → title → password → Cancel → OK),
+        # but the dialog opens with focus on Cancel via the addStretch
+        # quirk on some platforms. Force a predictable, accessible
+        # path: password field → OK → Cancel. Keyboard-only users now
+        # land on the field they need to fill in first.
+        self._edit.setFocus()
+        self.setTabOrder(self._edit, ok)
+        self.setTabOrder(ok, ca)
+
     def password(self) -> str:
         return self._edit.text()
 
@@ -112,9 +122,23 @@ class _TextEditDialog(QDialog):
         lbl_new.setStyleSheet(f"color:{pri}; font-size:10pt;")
         v.addWidget(lbl_new)
 
-        self._edit = QTextEdit()
-        self._edit.setPlainText(old_text)
-        self._edit.setMinimumHeight(80)
+        # R11 B2: the previous QTextEdit accepted newlines that
+        # ``page.insert_text`` (PyMuPDF) cannot render — each \n got
+        # rasterized as a "?" glyph in the output PDF. Use QLineEdit
+        # so the input is restricted to what the writer can actually
+        # produce; Enter submits via returnPressed, matching the
+        # password dialog above.
+        self._edit = QLineEdit()
+        # R11 review F6: ``old_text`` can contain ``\n``/``\r`` when the
+        # viewer extracted text that spans multiple PDF lines. QLineEdit
+        # silently truncates at the first newline, which hides the
+        # remainder of the original content from the user. Collapse
+        # newlines into spaces so the whole detected string stays
+        # editable; PyMuPDF's writer cannot render real newlines anyway
+        # (see R11 B2 above).
+        safe_text = (old_text or "").replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+        self._edit.setText(safe_text)
+        self._edit.returnPressed.connect(self.accept)
         v.addWidget(self._edit)
 
         btns = QHBoxLayout(); btns.setSpacing(8); btns.addStretch()
@@ -125,7 +149,7 @@ class _TextEditDialog(QDialog):
         v.addLayout(btns)
 
     def new_text(self) -> str:
-        return self._edit.toPlainText()
+        return self._edit.text()
 
 
 class _TextDialog(QDialog):

@@ -13,7 +13,7 @@ from shiboken6 import isValid
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_SEC, _LQ, DESKTOP
-from app.utils import _paint_bg
+from app.utils import _paint_bg, normalize_password
 from app.i18n import t
 from app.viewer.canvas import _SelectCanvas
 
@@ -510,7 +510,13 @@ class PdfViewerPanel(QWidget):
                 if dlg.exec() != QDialog.DialogCode.Accepted:
                     doc.close(); return
                 if doc.authenticate(dlg.password()):
-                    self._pdf_password = dlg.password()
+                    # NFC-normalise at WRITE time so every consumer
+                    # downstream (canvas.load, propagation to editor
+                    # / tools) sees a deterministic value. R11 review
+                    # C2: per-call-site normalisation missed the ~30
+                    # raw reads under tools/ — see
+                    # utils.normalize_password.
+                    self._pdf_password = normalize_password(dlg.password())
                     break
                 wrong = True
         self._current_path = path

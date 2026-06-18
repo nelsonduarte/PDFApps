@@ -16,7 +16,10 @@ from PySide6.QtWidgets import (
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, DESKTOP, _LQ, _LP
-from app.utils import ToolHeader, ActionBar, info_lbl, _paint_bg, show_error
+from app.utils import (
+    ToolHeader, ActionBar, info_lbl, _paint_bg, show_error,
+    normalize_password,
+)
 from app.i18n import t
 from app.widgets import DropFileEdit, ColorPickerButton
 from app.editor.canvas import PdfEditCanvas, _get_icon_cursor
@@ -621,7 +624,12 @@ class TabEditar(QWidget):
             ok, pwd = prompt_pdf_password(p, self)
             if not ok:
                 return
-            self._pdf_password = pwd
+            # NFC-normalise at the WRITE site so every reader of
+            # self._pdf_password (~10 call sites in this file plus
+            # ~8 tools under tools/) receives a deterministic value
+            # without needing per-site normalisation. See R11 review
+            # C2 / utils.normalize_password.
+            self._pdf_password = normalize_password(pwd)
         elif not needs_pass:
             self._pdf_password = ""
         self._doc_path = p
@@ -1347,6 +1355,24 @@ class TabEditar(QWidget):
                 # up-front and short-circuit with a friendly status
                 # instead, leaving the file untouched.
                 if "/AcroForm" not in writer._root_object:
+                    self._status(t("editor.forms.no_fields"))
+                    self._form_status.setText(t("editor.forms.no_fields"))
+                    return
+                # R10 review follow-up: an /AcroForm dict can exist with
+                # zero actual widgets (e.g. forms whose fields were
+                # flattened by a third-party tool but the dict was left
+                # behind). update_page_form_field_values then runs a
+                # silent no-op and the user gets no feedback. Surface
+                # the same no_fields status so the result matches the
+                # 'plain PDF' case above. Use the get_fields() count
+                # since pypdf already exposes it cheaply via the cached
+                # AcroForm tree — avoids importing fitz just for a
+                # widget count.
+                try:
+                    _w_fields = _r.get_fields() or {}
+                except Exception:
+                    _w_fields = {}
+                if not _w_fields:
                     self._status(t("editor.forms.no_fields"))
                     self._form_status.setText(t("editor.forms.no_fields"))
                     return

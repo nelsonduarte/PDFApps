@@ -6,6 +6,7 @@ from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QColor, QPixmap, QPainter
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton, QFileDialog, QColorDialog,
+    QMessageBox,
 )
 import qtawesome as qta
 
@@ -167,8 +168,22 @@ class DropFileEdit(QWidget):
         self.setProperty("drag_active", "false")
         self.style().unpolish(self); self.style().polish(self)
         urls = e.mimeData().urls()
-        if urls and self._url_accepted(urls[0]):
-            self.set_path(urls[0].toLocalFile())
+        # R11 N3: DropFileEdit is a single-file widget but used to
+        # silently accept only urls[0] when the user dragged multiple
+        # files in. The extra files vanished with no feedback. Count
+        # the urls that PASS the extension filter (so dragging one
+        # PDF plus an unrelated screenshot still counts as 'one PDF
+        # dropped' and skips the warning) and surface a friendly
+        # notice when more than one valid file was dropped.
+        accepted = [u for u in urls if self._url_accepted(u)]
+        if not accepted:
+            return
+        if len(accepted) > 1:
+            QMessageBox.information(
+                self, t("msg.info"),
+                t("widgets.drop_first_only", count=len(accepted)),
+            )
+        self.set_path(accepted[0].toLocalFile())
 
     def _browse(self):
         if self._save:

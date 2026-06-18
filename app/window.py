@@ -1033,6 +1033,20 @@ class MainWindow(QMainWindow):
                     if f.lower().endswith(".pdf")
                     and os.path.isfile(os.path.join(path, f))
                 )
+                # R10 review nit: dropping a folder used to silently open
+                # every PDF inside it. A folder with 200 PDFs would
+                # flood the tab bar and lock the UI for several seconds
+                # with no escape. Confirm above a reasonable threshold
+                # before we start spawning tabs.
+                if len(pdfs) > 20:
+                    reply = QMessageBox.question(
+                        self, t("msg.confirm"),
+                        t("viewer.drop_many_pdfs_confirm", count=len(pdfs)),
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    )
+                    if reply != QMessageBox.StandardButton.Yes:
+                        continue
                 for pdf in pdfs:
                     self._load_and_track(pdf)
                 continue

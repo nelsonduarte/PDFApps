@@ -206,7 +206,15 @@ class BasePage(QWidget):
                 f"background:transparent; padding:2px 4px; text-align:left; }}"
                 f"QPushButton#compact_link:hover {{ text-decoration: underline; }}"
             )
-            link.clicked.connect(lambda: self.set_compact_mode(False))
+            # R6 O2: guard against the page being destroyed between the
+            # Qt click queueing and the slot actually running. PySide6
+            # has no QPointer, so use shiboken6.isValid() — without it
+            # the lambda may touch a dead C++ QWidget and crash with
+            # "Internal C++ object already deleted". The lambda is the
+            # only callback installed here, so cost is one isValid call
+            # per compact-mode exit.
+            link.clicked.connect(
+                lambda: self.set_compact_mode(False) if isValid(self) else None)
             self._form.insertWidget(0, link)
             self._compact_link = link
 
@@ -294,6 +302,24 @@ class BasePage(QWidget):
 
     # ── encrypted-PDF helpers ──────────────────────────────────────────────
 
+    @staticmethod
+    def _nfc(pwd: str) -> str:
+        """Return the NFC-normalized form of ``pwd`` (R6 C1).
+
+        Thin compatibility wrapper that now delegates to
+        :func:`app.utils.normalize_password` so the codebase has a
+        single source of truth for password normalisation (the R11
+        review of PR-H flagged that tools reading ``self._pdf_password``
+        directly bypassed the per-helper normalisation). Kept around so
+        BasePage subclasses calling ``self._nfc(...)`` keep working,
+        but new code should normalise at the WRITE site of the cache
+        (see PdfViewerPanel / EditorTab._load_pdf) so every consumer
+        — including the ~30 ``self._pdf_password`` reads across
+        ``tools/*.py`` — receives a deterministic value.
+        """
+        from app.utils import normalize_password
+        return normalize_password(pwd)
+
     def _maybe_prompt_password(self, path: str) -> bool:
         """If the PDF at `path` is encrypted, prompt the user; on success
         store the password on `self._pdf_password` and return True. Plain
@@ -312,33 +338,47 @@ class BasePage(QWidget):
             if not doc.needs_pass:
                 self._pdf_password = ""
                 return True
-            if self._pdf_password and doc.authenticate(self._pdf_password):
+            if self._pdf_password and doc.authenticate(self._nfc(self._pdf_password)):
                 return True
         finally:
             doc.close()
-        from app.utils import prompt_pdf_password
+        from app.utils import prompt_pdf_password, normalize_password
         ok, pwd = prompt_pdf_password(path, self)
         if not ok:
             return False
-        self._pdf_password = pwd
+        # NFC-normalise at WRITE time so every downstream consumer
+        # (tools/* that read self._pdf_password directly, plus the
+        # _open_reader / _open_fitz helpers) sees a deterministic
+        # value. R11 review C2 — see utils.normalize_password.
+        self._pdf_password = normalize_password(pwd)
         return True
 
     def _open_reader(self, path: str):
         """Open a pypdf PdfReader, decrypting with the stored password if
-        the file is encrypted."""
+        the file is encrypted.
+
+        The cached password is NFC-normalized before being passed to
+        :meth:`pypdf.PdfReader.decrypt`. See :meth:`_nfc` for the
+        rationale (R6 C1).
+        """
         from pypdf import PdfReader
         r = PdfReader(path)
         if r.is_encrypted and self._pdf_password:
-            r.decrypt(self._pdf_password)
+            r.decrypt(self._nfc(self._pdf_password))
         return r
 
     def _open_fitz(self, path: str):
         """Open a PyMuPDF Document, authenticating with the stored
-        password if needed."""
+        password if needed.
+
+        The cached password is NFC-normalized before being passed to
+        :meth:`fitz.Document.authenticate`. See :meth:`_nfc` for the
+        rationale (R6 C1).
+        """
         import fitz
         doc = fitz.open(path)
         if doc.needs_pass and self._pdf_password:
-            doc.authenticate(self._pdf_password)
+            doc.authenticate(self._nfc(self._pdf_password))
         return doc
 
     def _clear_pdf_password(self) -> None:

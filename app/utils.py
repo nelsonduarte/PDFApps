@@ -72,19 +72,34 @@ def parse_pages(text: str, total: int) -> list:
         part = part.strip()
         if not part:
             continue
-        try:
-            if "-" in part:
-                a, b = part.split("-", 1)
-                a_int, b_int = int(a), int(b)
-            else:
+        # R7 E5 follow-up: accept open-ended ranges so '3-' means
+        # 'from page 3 to the end' and '-5' means 'from page 1 to
+        # page 5'. Without this, '3-' raised ValueError because
+        # int('') failed. Reject '-' alone (no bounds at all);
+        # otherwise default the missing side to the document's
+        # extreme. Matches the pdftk-style 1- range syntax.
+        if "-" in part:
+            a, b = part.split("-", 1)
+            a = a.strip(); b = b.strip()
+            if not a and not b:
+                raise ValueError(
+                    t("tool.err.bad_page_input", text=part))
+            try:
+                a_int = int(a) if a else 1
+                b_int = int(b) if b else total
+            except ValueError as exc:
+                raise ValueError(
+                    t("tool.err.bad_page_input", text=part)) from exc
+        else:
+            try:
                 a_int = b_int = int(part)
-        except ValueError as exc:
-            # int() raised "invalid literal for int() with base 10" —
-            # re-raise with a translated, user-actionable message so
-            # show_error() surfaces something useful instead of the
-            # raw Python error.
-            raise ValueError(
-                t("tool.err.bad_page_input", text=part)) from exc
+            except ValueError as exc:
+                # int() raised "invalid literal for int() with base 10" —
+                # re-raise with a translated, user-actionable message so
+                # show_error() surfaces something useful instead of the
+                # raw Python error.
+                raise ValueError(
+                    t("tool.err.bad_page_input", text=part)) from exc
         if "-" in part:
             if b_int - a_int + 1 > _MAX_PAGES:
                 raise ValueError(
@@ -118,6 +133,32 @@ def pick_pdfs(parent: QWidget) -> list:
 
 def pick_folder(parent: QWidget) -> str:
     return QFileDialog.getExistingDirectory(parent, t("btn.select_folder"))
+
+
+def normalize_password(pwd: str) -> str:
+    """Return ``pwd`` normalised to Unicode NFC form (R6 C1 / R11 review C2).
+
+    Passwords typed on macOS frequently land in NFD (decomposed) form,
+    while Windows clipboards produce NFC (composed) form. The on-screen
+    glyphs are identical but the underlying byte sequences are not, so a
+    password that authenticates on one OS may fail on the other.
+
+    Normalising at the WRITE side of the cache (i.e. wherever
+    ``self._pdf_password = pwd`` happens) makes the cached value
+    deterministic and frees every downstream consumer
+    (``editor/tab.py``, ``viewer/panel.py``, ``tools/*``) from having to
+    remember to normalise on read. Returns falsy inputs unchanged so the
+    helper is safe to apply unconditionally.
+    """
+    if not pwd:
+        return pwd
+    try:
+        import unicodedata
+        return unicodedata.normalize("NFC", pwd)
+    except (TypeError, ValueError):
+        # str inputs only ever raise on absurd code points; falling
+        # back to the raw string is safer than crashing.
+        return pwd
 
 
 def wipe_pdf_password(obj) -> None:
