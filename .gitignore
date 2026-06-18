@@ -23,8 +23,16 @@ artifacts-*/
 
 # Testes / temporários
 test_ctrl_scroll.py
+test_*.pdf
+test_*.xlsx
 *.tmp
 *.bak
+
+# Build logs locais
+pyinstaller.log
+
+# MSIX listing CSV (gerado por msix/generate_listing_csv.py)
+listingData-*.csv
 
 # IDE
 .vscode/
