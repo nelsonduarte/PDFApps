@@ -6,7 +6,6 @@ import subprocess
 import sys
 import tempfile
 import shutil
-import unicodedata
 from typing import Iterable
 
 from PySide6.QtCore import Qt, QTimer, Signal
@@ -307,25 +306,19 @@ class BasePage(QWidget):
     def _nfc(pwd: str) -> str:
         """Return the NFC-normalized form of ``pwd`` (R6 C1).
 
-        Unicode in PDF owner/user passwords is whatever the producing
-        application wrote (PDF 2.0 mandates SASLprep, but the world is
-        full of pre-2.0 files). macOS HFS/APFS often stores filenames
-        and clipboard text in NFD; Windows clipboards default to NFC.
-        A password typed once on macOS and copied to a Windows machine
-        can therefore fail to authenticate even though the on-screen
-        glyphs are identical. Normalize to NFC on every code path that
-        feeds the password to pypdf/PyMuPDF so the in-memory bytes are
-        deterministic regardless of where the password was originally
-        composed.
+        Thin compatibility wrapper that now delegates to
+        :func:`app.utils.normalize_password` so the codebase has a
+        single source of truth for password normalisation (the R11
+        review of PR-H flagged that tools reading ``self._pdf_password``
+        directly bypassed the per-helper normalisation). Kept around so
+        BasePage subclasses calling ``self._nfc(...)`` keep working,
+        but new code should normalise at the WRITE site of the cache
+        (see PdfViewerPanel / EditorTab._load_pdf) so every consumer
+        — including the ~30 ``self._pdf_password`` reads across
+        ``tools/*.py`` — receives a deterministic value.
         """
-        if not pwd:
-            return pwd
-        try:
-            return unicodedata.normalize("NFC", pwd)
-        except (TypeError, ValueError):
-            # str inputs only ever raise on absurd code points;
-            # falling back to the raw string is safer than crashing.
-            return pwd
+        from app.utils import normalize_password
+        return normalize_password(pwd)
 
     def _maybe_prompt_password(self, path: str) -> bool:
         """If the PDF at `path` is encrypted, prompt the user; on success
@@ -349,11 +342,15 @@ class BasePage(QWidget):
                 return True
         finally:
             doc.close()
-        from app.utils import prompt_pdf_password
+        from app.utils import prompt_pdf_password, normalize_password
         ok, pwd = prompt_pdf_password(path, self)
         if not ok:
             return False
-        self._pdf_password = self._nfc(pwd)
+        # NFC-normalise at WRITE time so every downstream consumer
+        # (tools/* that read self._pdf_password directly, plus the
+        # _open_reader / _open_fitz helpers) sees a deterministic
+        # value. R11 review C2 — see utils.normalize_password.
+        self._pdf_password = normalize_password(pwd)
         return True
 
     def _open_reader(self, path: str):

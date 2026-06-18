@@ -129,7 +129,15 @@ class _TextEditDialog(QDialog):
         # produce; Enter submits via returnPressed, matching the
         # password dialog above.
         self._edit = QLineEdit()
-        self._edit.setText(old_text)
+        # R11 review F6: ``old_text`` can contain ``\n``/``\r`` when the
+        # viewer extracted text that spans multiple PDF lines. QLineEdit
+        # silently truncates at the first newline, which hides the
+        # remainder of the original content from the user. Collapse
+        # newlines into spaces so the whole detected string stays
+        # editable; PyMuPDF's writer cannot render real newlines anyway
+        # (see R11 B2 above).
+        safe_text = (old_text or "").replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+        self._edit.setText(safe_text)
         self._edit.returnPressed.connect(self.accept)
         v.addWidget(self._edit)
 

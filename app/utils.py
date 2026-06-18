@@ -135,6 +135,32 @@ def pick_folder(parent: QWidget) -> str:
     return QFileDialog.getExistingDirectory(parent, t("btn.select_folder"))
 
 
+def normalize_password(pwd: str) -> str:
+    """Return ``pwd`` normalised to Unicode NFC form (R6 C1 / R11 review C2).
+
+    Passwords typed on macOS frequently land in NFD (decomposed) form,
+    while Windows clipboards produce NFC (composed) form. The on-screen
+    glyphs are identical but the underlying byte sequences are not, so a
+    password that authenticates on one OS may fail on the other.
+
+    Normalising at the WRITE side of the cache (i.e. wherever
+    ``self._pdf_password = pwd`` happens) makes the cached value
+    deterministic and frees every downstream consumer
+    (``editor/tab.py``, ``viewer/panel.py``, ``tools/*``) from having to
+    remember to normalise on read. Returns falsy inputs unchanged so the
+    helper is safe to apply unconditionally.
+    """
+    if not pwd:
+        return pwd
+    try:
+        import unicodedata
+        return unicodedata.normalize("NFC", pwd)
+    except (TypeError, ValueError):
+        # str inputs only ever raise on absurd code points; falling
+        # back to the raw string is safer than crashing.
+        return pwd
+
+
 def wipe_pdf_password(obj) -> None:
     """Best-effort wipe of the cached PDF password attribute on ``obj``.
 

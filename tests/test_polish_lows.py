@@ -52,9 +52,16 @@ def test_pdfapps_installs_global_excepthook():
 
 def test_i18n_backs_up_corrupt_config_before_reset():
     """_update_config must copy a corrupt config.json aside as
-    <config>.corrupt.bak before overwriting it with {}."""
+    <config>.corrupt-<ts>.bak before overwriting it with {}.
+
+    R11 review B5 added the ``-<timestamp>`` suffix so successive
+    corruption events do not clobber each other; the marker we look
+    for therefore moves from the literal ``.corrupt.bak`` to the
+    ``.corrupt-`` prefix plus ``.bak`` extension.
+    """
     src = _read("app/i18n.py")
-    assert ".corrupt.bak" in src, "Backup suffix marker missing"
+    assert ".corrupt-" in src, "Timestamped backup prefix marker missing"
+    assert ".bak" in src, "Backup extension marker missing"
     assert "shutil.copy2" in src, (
         "_update_config must shutil.copy2 the corrupt file aside."
     )
@@ -63,6 +70,9 @@ def test_i18n_backs_up_corrupt_config_before_reset():
     assert "FileNotFoundError" in src, (
         "FileNotFoundError handled separately so first run is silent."
     )
+    # The timestamp source must be wall-clock so the backups sort
+    # naturally and we can tell which event came first.
+    assert "datetime.now()" in src
 
 
 # ── #3 — NFC password normalization ─────────────────────────────────────
@@ -70,16 +80,93 @@ def test_i18n_backs_up_corrupt_config_before_reset():
 
 def test_base_normalizes_passwords_to_nfc():
     """All three encrypted-PDF entry points must route the password
-    through unicodedata.normalize('NFC', ...) so a macOS-typed (NFD)
-    password unlocks the same PDF on Windows (NFC)."""
-    src = _read("app/base.py")
-    assert "import unicodedata" in src
-    assert "unicodedata.normalize(\"NFC\"" in src
-    # Helper exists and is called from each entry point.
-    assert "def _nfc(" in src
-    # The three call sites all use _nfc().
-    assert "self._nfc(self._pdf_password)" in src
-    assert "self._nfc(pwd)" in src
+    through ``unicodedata.normalize('NFC', ...)`` so a macOS-typed (NFD)
+    password unlocks the same PDF on Windows (NFC).
+
+    After the R11 review the canonical normalisation function moved to
+    :func:`app.utils.normalize_password` (so all the
+    ``self._pdf_password`` *read* sites in ``tools/*`` and
+    ``editor/tab.py`` are covered transitively when the cache is set);
+    ``BasePage._nfc`` is now a thin delegator. The actual
+    ``unicodedata.normalize("NFC", ...)`` call therefore lives in
+    ``utils.py`` rather than ``base.py``, which is what we assert here.
+
+    After the follow-up R11 review fix, normalisation now also happens at
+    the WRITE site of the cache (BasePage._maybe_prompt_password) so the
+    ``self._pdf_password`` attribute itself is deterministic for every
+    downstream consumer in ``tools/*`` that reads it directly. The three
+    helpers keep their defensive read-side ``self._nfc(self._pdf_password)``
+    so a value cached before this fix (or set externally without going
+    through ``normalize_password``) still authenticates correctly.
+    """
+    base_src = _read("app/base.py")
+    utils_src = _read("app/utils.py")
+    # Normalisation primitive lives in utils.py now.
+    assert "import unicodedata" in utils_src
+    assert "unicodedata.normalize(\"NFC\"" in utils_src
+    assert "def normalize_password(" in utils_src
+    # BasePage helper still exists and still has the three read-side
+    # call sites (defensive — the WRITE site below covers the cache).
+    assert "def _nfc(" in base_src
+    assert base_src.count("self._nfc(self._pdf_password)") == 3, (
+        "Expected three defensive read-side _nfc calls (auth probe, "
+        "PdfReader.decrypt, fitz.authenticate)."
+    )
+    # WRITE-site normalisation: the prompt path must NFC-normalise
+    # before storing on self._pdf_password so every tool that reads
+    # the attribute raw (~30 sites under tools/*) is covered without
+    # per-call instrumentation.
+    assert "self._pdf_password = normalize_password(pwd)" in base_src
+    # And the BasePage helper must delegate to the utils primitive so
+    # the two paths cannot drift.
+    assert "normalize_password" in base_src
+
+
+def test_editor_tab_normalizes_password_on_cache_write():
+    """R11 review C2 follow-up: the editor's _load_pdf path stores the
+    prompted password directly on self._pdf_password. It must route
+    through normalize_password so tools reading the cache raw
+    (merge, watermark, ocr, page_numbers, convert, nup, ...) see the
+    same NFC string the BasePage helpers would compare against."""
+    src = _read("app/editor/tab.py")
+    assert "self._pdf_password = normalize_password(pwd)" in src
+    assert "from app.utils import" in src and "normalize_password" in src
+
+
+def test_viewer_panel_normalizes_password_on_cache_write():
+    """R11 review C2 follow-up: PdfViewerPanel._open_path stores the
+    typed password on self._pdf_password. Same NFC-at-WRITE rule applies
+    — this is the value propagated to compact-mode tools by
+    MainWindow._on_tab_changed."""
+    src = _read("app/viewer/panel.py")
+    assert "normalize_password(dlg.password())" in src
+    assert "from app.utils import" in src and "normalize_password" in src
+
+
+def test_password_cache_round_trips_nfd_to_nfc():
+    """Behavioral guard: feed an NFD-composed string through the same
+    write path the prompt uses and confirm the cached attribute reads
+    back in NFC form, matching what tools that bypass _nfc would see."""
+    import unicodedata
+
+    from app.utils import normalize_password
+
+    nfd = unicodedata.normalize("NFD", "passé")
+    assert not unicodedata.is_normalized("NFC", nfd), (
+        "Test fixture must actually be in NFD form."
+    )
+
+    class _Fake:
+        _pdf_password = ""
+
+    obj = _Fake()
+    # Mirror the WRITE-site idiom used by BasePage / editor / viewer.
+    obj._pdf_password = normalize_password(nfd)
+    assert unicodedata.is_normalized("NFC", obj._pdf_password), (
+        "Cache must hold NFC after going through normalize_password."
+    )
+    # And the on-screen form must be preserved (no characters dropped).
+    assert obj._pdf_password == "passé"
 
 
 def test_nfc_helper_behavior_on_combining_characters():
@@ -159,6 +246,15 @@ def test_text_edit_dialog_uses_qlineedit():
     # new_text() must return .text(), not .toPlainText().
     assert "self._edit.text()" in block
     assert "self._edit.toPlainText()" not in block
+    # R11 review F6: newlines in old_text must be sanitised before
+    # setText (QLineEdit truncates at the first \n, so the user would
+    # only see the first physical line of the detected string).
+    assert ".replace(\"\\n\"" in block, (
+        "old_text newlines must be collapsed before QLineEdit.setText."
+    )
+    assert ".replace(\"\\r\"" in block, (
+        "old_text carriage returns must also be sanitised."
+    )
 
 
 # ── #8 — DropFileEdit multi-URL warning ─────────────────────────────────
