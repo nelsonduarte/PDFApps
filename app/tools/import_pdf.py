@@ -174,7 +174,9 @@ class TabImport(BasePage):
                 est_lines = max(1, len(line) * fontsize * 0.5 / max_width + 1)
                 y += line_height * est_lines
             try:
-                doc.save(out_path)
+                # R11-M8: atomic write — avoids truncating a pre-existing
+                # output file if the save crashes or the process is killed.
+                BasePage._atomic_pdf_write(doc, out_path)
             finally:
                 doc.close()
             return out_path
@@ -184,6 +186,13 @@ class TabImport(BasePage):
                              on_done=lambda _r: self._done(out_path))
 
     def _convert_images(self, sources: list, out_path: str):
+        # R11-L1: filter to recognised image extensions up front. The
+        # _IMG_EXTS tuple was previously declared but unused (dead code);
+        # using it here catches obvious mistakes (user picked a .pdf or
+        # .txt in the multi-select dialog) before fitz.open raises an
+        # unhelpful error.
+        sources = [p for p in sources
+                   if os.path.splitext(p)[1].lower() in _IMG_EXTS]
         n = len(sources)
 
         def do_work(worker):
@@ -205,7 +214,9 @@ class TabImport(BasePage):
                     finally:
                         img.close()
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
-                doc.save(out_path)
+                # R11-M8: atomic write — avoids truncating a pre-existing
+                # output file if the save crashes or the process is killed.
+                BasePage._atomic_pdf_write(doc, out_path)
             finally:
                 doc.close()
             return skipped
@@ -252,7 +263,9 @@ class TabImport(BasePage):
                             page.insert_text(fitz.Point(50, y), text,
                                              fontsize=size, fontname="helv")
                         y += size * 1.5
-                doc.save(out_path)
+                # R11-M8: atomic write — avoids truncating a pre-existing
+                # output file if the save crashes or the process is killed.
+                BasePage._atomic_pdf_write(doc, out_path)
             finally:
                 doc.close()
             return out_path
@@ -336,7 +349,9 @@ class TabImport(BasePage):
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
                 if worker.is_cancelled():
                     return None
-                doc.save(out_path)
+                # R11-M8: atomic write — avoids truncating a pre-existing
+                # output file if the save crashes or the process is killed.
+                BasePage._atomic_pdf_write(doc, out_path)
             finally:
                 doc.close()
             return out_path
@@ -403,7 +418,9 @@ class TabImport(BasePage):
                             f"{fi + 1}/{n}: {i + 1}/{total_slides}…")
                 if worker.is_cancelled():
                     return None
-                doc.save(out_path)
+                # R11-M8: atomic write — avoids truncating a pre-existing
+                # output file if the save crashes or the process is killed.
+                BasePage._atomic_pdf_write(doc, out_path)
             finally:
                 doc.close()
             return out_path
@@ -445,7 +462,9 @@ class TabImport(BasePage):
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
                 if worker.is_cancelled():
                     return None
-                doc.save(out_path)
+                # R11-M8: atomic write — avoids truncating a pre-existing
+                # output file if the save crashes or the process is killed.
+                BasePage._atomic_pdf_write(doc, out_path)
             finally:
                 doc.close()
             return out_path
@@ -479,7 +498,9 @@ class TabImport(BasePage):
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
                 if worker.is_cancelled():
                     return None
-                doc.save(out_path)
+                # R11-M8: atomic write — avoids truncating a pre-existing
+                # output file if the save crashes or the process is killed.
+                BasePage._atomic_pdf_write(doc, out_path)
             finally:
                 doc.close()
             return out_path
@@ -553,7 +574,9 @@ class TabImport(BasePage):
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
                 if worker.is_cancelled():
                     return None
-                doc.save(out_path)
+                # R11-M8: atomic write — avoids truncating a pre-existing
+                # output file if the save crashes or the process is killed.
+                BasePage._atomic_pdf_write(doc, out_path)
             finally:
                 doc.close()
             return out_path
