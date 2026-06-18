@@ -652,8 +652,15 @@ class TabEditar(QWidget):
         self._update_nav()
         # Defer annotation/form loading so the UI stays responsive
         from PySide6.QtCore import QTimer
+        from shiboken6 import isValid
         QTimer.singleShot(100, self._load_existing_annotations)
-        QTimer.singleShot(200, lambda: self._load_form_fields(p))
+        # R11-L3: guard the lambda closure — if the tab is closed during
+        # the 200 ms wait, the underlying QWidget may be deleted and
+        # calling self._load_form_fields raises RuntimeError.
+        QTimer.singleShot(
+            200,
+            lambda: self._load_form_fields(p) if isValid(self) else None,
+        )
 
     def _load_existing_annotations(self):
         """Load existing text annotations from the PDF as note overlays."""
@@ -779,7 +786,10 @@ class TabEditar(QWidget):
             self._form_table.setUpdatesEnabled(False)
             _r = PdfReader(path)
             if _r.is_encrypted and self._pdf_password:
-                _r.decrypt(self._pdf_password)
+                # R11-M4: 0 == wrong password — surface to the user
+                # instead of silently parsing an empty PDF.
+                if _r.decrypt(self._pdf_password) == 0:
+                    raise ValueError(t("tool.err.wrong_password"))
             fields = _r.get_fields() or {}
             for name, field in fields.items():
                 r = self._form_table.rowCount(); self._form_table.insertRow(r)
@@ -1200,6 +1210,18 @@ class TabEditar(QWidget):
             doc = fitz.open(self._doc_path)
             if doc.needs_pass and self._pdf_password:
                 doc.authenticate(self._pdf_password)
+            # R11-L4: warn once if any text/note edit uses chars that the
+            # PyMuPDF built-in Latin-1 fonts can't render. We still write
+            # the edit (PyMuPDF substitutes ?) — the warning just sets
+            # user expectations instead of letting them discover tofu
+            # after the save completes.
+            _non_latin = any(
+                e.get("type") in ("text", "note")
+                and any(ord(c) > 0xFF for c in (e.get("text") or ""))
+                for e in self._pending
+            )
+            if _non_latin:
+                self._status(t("tool.warn.font_latin_only"))
             for e in self._pending:
                 if e.get("_existing") and e.get("type") != "delete_annot":
                     continue  # already saved in the PDF
@@ -1336,7 +1358,10 @@ class TabEditar(QWidget):
                 _r = PdfReader(_src)
                 was_encrypted = bool(_r.is_encrypted)
                 if was_encrypted and self._pdf_password:
-                    _r.decrypt(self._pdf_password)
+                    # R11-M4: catch the wrong-password silent-fail path
+                    # so we never write an empty PDF over the user's file.
+                    if _r.decrypt(self._pdf_password) == 0:
+                        raise ValueError(t("tool.err.wrong_password"))
                 # If input was encrypted, ask the user how to save.
                 encrypt_choice = "plaintext"
                 if was_encrypted and self._pdf_password:

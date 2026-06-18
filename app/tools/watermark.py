@@ -124,7 +124,11 @@ class TabMarcaDagua(BasePage):
         try:
             wm_reader = PdfReader(wm_path)
             if wm_reader.is_encrypted and wm_pwd:
-                wm_reader.decrypt(wm_pwd)
+                # R11-M4: wrong password yields a reader with zero
+                # accessible pages — caught below, but a clearer error
+                # helps users distinguish "wrong pwd" from "empty WM".
+                if wm_reader.decrypt(wm_pwd) == 0:
+                    raise ValueError(t("tool.err.wrong_password"))
             if not wm_reader.pages:
                 QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.empty_wm"))
                 return
@@ -145,10 +149,14 @@ class TabMarcaDagua(BasePage):
         def do_work(worker):
             r = PdfReader(pdf_path)
             if r.is_encrypted and pwd:
-                r.decrypt(pwd)
+                # R11-M4: same guard as pre-flight; defence in depth in
+                # case the password gets cleared between checks.
+                if r.decrypt(pwd) == 0:
+                    raise ValueError(t("tool.err.wrong_password"))
             wm = PdfReader(wm_path)
             if wm.is_encrypted and wm_pwd:
-                wm.decrypt(wm_pwd)
+                if wm.decrypt(wm_pwd) == 0:
+                    raise ValueError(t("tool.err.wrong_password"))
             wm_page = wm.pages[0]
             w = PdfWriter()
             n = len(r.pages)
