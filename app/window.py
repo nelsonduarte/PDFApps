@@ -3,8 +3,9 @@
 import contextlib
 import os
 
-from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtCore import Qt, QSize, Signal, QTimer
 from PySide6.QtGui import QIcon
+from shiboken6 import isValid
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QListWidget, QListWidgetItem,
@@ -268,7 +269,14 @@ class MainWindow(QMainWindow):
         self._update_release = None
         self._update_thread = None
         self._update_worker = None
-        self._check_for_updates_async()
+        # R11-M7: defer the update check 2s past __init__ so the main
+        # window can finish painting + showMaximized before any network
+        # I/O races the UI. Previously fired before the window was even
+        # visible, occasionally stalling first paint on slow networks.
+        QTimer.singleShot(
+            2000,
+            lambda: self._check_for_updates_async() if isValid(self) else None,
+        )
 
         root_v.addWidget(self._workspace_bar)
 
@@ -510,10 +518,17 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("F11"), self, self._toggle_fullscreen)
         QShortcut(QKeySequence("Ctrl+O"), self, self._open_pdf)
         QShortcut(QKeySequence("Ctrl+P"), self, lambda: self._viewer._print_pdf())
-        QShortcut(QKeySequence("Ctrl+W"), self, self._close_current_tab)
-        QShortcut(QKeySequence("Ctrl+S"), self, self._save_current_tool)
-        QShortcut(QKeySequence("PgUp"), self, self._goto_prev_page)
-        QShortcut(QKeySequence("PgDown"), self, self._goto_next_page)
+        # R11-M9: scope shortcuts that could otherwise be triggered while
+        # editing a QTextEdit / QLineEdit. PgUp/PgDown previously paged
+        # the viewer behind any open editor; Ctrl+S/Ctrl+W could fire
+        # mid-typing in a tool input. WidgetWithChildrenShortcut routes
+        # the key through the focused widget first.
+        sc_close = QShortcut(QKeySequence("Ctrl+W"), self, self._close_current_tab)
+        sc_save  = QShortcut(QKeySequence("Ctrl+S"), self, self._save_current_tool)
+        sc_pgup  = QShortcut(QKeySequence("PgUp"), self, self._goto_prev_page)
+        sc_pgdn  = QShortcut(QKeySequence("PgDown"), self, self._goto_next_page)
+        for sc in (sc_close, sc_save, sc_pgup, sc_pgdn):
+            sc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         # Quick tool shortcuts: Ctrl+1..9 for tools 1-9,
         # Ctrl+Shift+1..6 for tools 10-15. Tools beyond idx=14 have no
         # dedicated shortcut — guard against silent overflow.
@@ -592,11 +607,14 @@ class MainWindow(QMainWindow):
     def _close_tab(self, idx: int):
         viewer = self._viewers[idx] if idx < len(self._viewers) else self._viewers[0]
         if self._viewer_has_unsaved(viewer):
+            # R11-M11: default to Cancel — Discard is destructive and
+            # an accidental Enter should not throw away pipeline work.
             ans = QMessageBox.question(
                 self, t("msg.warning"), t("pipeline.unsaved_prompt"),
                 QMessageBox.StandardButton.Save
                 | QMessageBox.StandardButton.Discard
-                | QMessageBox.StandardButton.Cancel)
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
             if ans == QMessageBox.StandardButton.Cancel:
                 return
             if ans == QMessageBox.StandardButton.Save:
@@ -1118,6 +1136,7 @@ class MainWindow(QMainWindow):
     def _save_pipeline(self):
         """Save the current pipeline result to a user-chosen file."""
         import shutil
+        import tempfile
         vid = id(self._viewer)
         ps = self._pipeline_state.get(vid)
         if not ps or not ps.get("temp_path"):
@@ -1129,7 +1148,36 @@ class MainWindow(QMainWindow):
             self, t("btn.choose"), suggested, t("file_filter.pdf"))
         if not path:
             return
-        shutil.copy2(ps["temp_path"], path)
+        # R11-M6: warn if destination is a symlink. A pre-placed symlink
+        # could redirect the write to an unintended location; we still
+        # honour the user's chosen path (os.replace follows symlinks),
+        # but logging gives an audit trail.
+        try:
+            if os.path.lexists(path) and os.path.realpath(path) != os.path.abspath(path):
+                import logging as _logging
+                _logging.getLogger("pdfapps").warning(
+                    "Pipeline save destination is a symlink: %s -> %s",
+                    path, os.path.realpath(path))
+        except Exception:
+            pass
+        # R11-M5: replace shutil.copy2 (non-atomic — a crash or power
+        # loss mid-copy would truncate the destination). Copy to a sibling
+        # temp file then os.replace it into place. Falls back to direct
+        # copy when the dst dir is unwritable (best effort).
+        try:
+            dst_dir = os.path.dirname(path) or "."
+            fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=dst_dir)
+            os.close(fd)
+            try:
+                shutil.copyfile(ps["temp_path"], tmp)
+                os.replace(tmp, path)
+            except Exception:
+                with contextlib.suppress(Exception):
+                    os.unlink(tmp)
+                raise
+        except OSError:
+            # Last-resort fallback if mkstemp can't write next to dst.
+            shutil.copy2(ps["temp_path"], path)
         # Load the saved file in the viewer (replaces temp)
         self._viewer.load(path)
         idx = self._viewer_stack.currentIndex()
@@ -1206,11 +1254,14 @@ class MainWindow(QMainWindow):
         # Check for unsaved pipeline changes
         for v in self._viewers:
             if self._viewer_has_unsaved(v):
+                # R11-M11: default Cancel — Enter on close shouldn't
+                # silently discard unsaved pipeline output.
                 ans = QMessageBox.question(
                     self, t("msg.warning"), t("pipeline.unsaved_prompt"),
                     QMessageBox.StandardButton.Save
                     | QMessageBox.StandardButton.Discard
-                    | QMessageBox.StandardButton.Cancel)
+                    | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Cancel)
                 if ans == QMessageBox.StandardButton.Cancel:
                     event.ignore(); return
                 if ans == QMessageBox.StandardButton.Save:
@@ -1224,10 +1275,12 @@ class MainWindow(QMainWindow):
         # canvas rendering (loading a PDF with notes should not look
         # like "unsaved edits").
         if edit_w and getattr(edit_w, "_user_pending", None):
+            # R11-M11: default Cancel for the editor unsaved-edits prompt.
             ans = QMessageBox.question(
                 self, t("msg.warning"), t("pipeline.unsaved_prompt"),
                 QMessageBox.StandardButton.Discard
-                | QMessageBox.StandardButton.Cancel)
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
             if ans == QMessageBox.StandardButton.Cancel:
                 event.ignore(); return
         # Cleanup all pipeline temp files
