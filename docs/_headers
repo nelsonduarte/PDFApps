@@ -1,0 +1,16 @@
+# Security headers for the PDFApps website.
+#
+# Format: Cloudflare Pages "_headers" file. If this site is ever moved
+# back to plain GitHub Pages (no Cloudflare in front), these headers
+# must instead be set via Cloudflare Transform Rules, a Cloudflare
+# Worker, or the hosting provider's equivalent — _headers is ignored
+# by GitHub Pages directly.
+
+/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://img.shields.io; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
+  X-Permitted-Cross-Domain-Policies: none
