@@ -125,6 +125,35 @@ def parse_pages(text: str, total: int) -> list:
     return sorted(set(pages))
 
 
+#: Megapixel hard limit applied to user-supplied raster images before
+#: they reach QPixmap / PyMuPDF. A 100MP cap rejects gigapixel scans
+#: (e.g. a malicious or accidentally-saved 50000x50000 TIFF) that would
+#: otherwise allocate multi-GB pixmaps and crash the process, while
+#: still admitting every realistic phone-camera / scanner output (the
+#: largest current consumer cameras top out around 200MP — at that
+#: point the warning is intentional and the user knows to downscale).
+_IMAGE_PIXEL_LIMIT = 100_000_000
+
+
+def check_image_size(path: str) -> tuple[bool, int, int]:
+    """Return ``(ok, width, height)`` for the image at ``path``.
+
+    ``ok`` is ``False`` when the image exceeds :data:`_IMAGE_PIXEL_LIMIT`
+    (width * height > 100 megapixels). Used by the editor signature
+    picker and the PDF import-images path to short-circuit before
+    allocating a giant pixmap. On any read error returns ``(True, 0, 0)``
+    so callers fall back to their existing failure path (a missing /
+    corrupted image is the existing tool's responsibility to surface).
+    """
+    try:
+        from PIL import Image
+        with Image.open(path) as img:
+            w, h = img.size
+    except Exception:
+        return True, 0, 0
+    return (w * h) <= _IMAGE_PIXEL_LIMIT, w, h
+
+
 def pick_pdfs(parent: QWidget) -> list:
     paths, _ = QFileDialog.getOpenFileNames(
         parent, t("btn.select_pdfs"), DESKTOP, t("file_filter.pdf"))

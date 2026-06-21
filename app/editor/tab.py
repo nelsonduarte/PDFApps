@@ -735,6 +735,17 @@ class TabEditar(QWidget):
         p, _ = QFileDialog.getOpenFileName(self, t("edit.image"), DESKTOP,
                                            t("file_filter.images"))
         if p:
+            # Reject gigapixel images before any downstream consumer
+            # (QPixmap preview, fitz.Pixmap on save) allocates a huge
+            # buffer. Mirrors the guard in _SignatureDialog._pick_image.
+            from app.utils import check_image_size
+            ok, w, h = check_image_size(p)
+            if not ok:
+                QMessageBox.warning(self, t("msg.warning"),
+                                    t("editor.image_too_large",
+                                      width=w, height=h,
+                                      megapix=w * h // 1_000_000))
+                return
             self._img_drop.blockSignals(True)
             self._img_drop.set_path(p)
             self._img_drop.blockSignals(False)

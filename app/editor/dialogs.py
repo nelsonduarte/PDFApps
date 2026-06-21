@@ -420,6 +420,17 @@ class _SignatureDialog(QDialog):
             self, t("edit.signature.import"), "",
             "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)")
         if p and os.path.isfile(p):
+            # Reject pathological / malicious gigapixel images BEFORE
+            # QPixmap allocates a multi-GB buffer (a 50000x50000 TIFF
+            # would crash the editor process). See utils.check_image_size.
+            from app.utils import check_image_size
+            ok, w, h = check_image_size(p)
+            if not ok:
+                QMessageBox.warning(self, t("msg.warning"),
+                                    t("editor.image_too_large",
+                                      width=w, height=h,
+                                      megapix=w * h // 1_000_000))
+                return
             self._imp_path = p
             pix = QPixmap(p)
             self._imp_preview.setPixmap(pix.scaled(
