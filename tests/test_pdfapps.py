@@ -654,10 +654,15 @@ class TestAuditRegressions:
         with open(enc, "wb") as f: w.write(f)
 
         # Stand-alone object that mimics a tool with a stored password
+        # PR-H added a staticmethod ``_nfc`` (NFC-normaliser); _open_*
+        # call it via ``self._nfc(...)`` so the stub must expose it too,
+        # otherwise the test fails with AttributeError instead of
+        # exercising the actual decrypt code path.
         class _Stub:
             _pdf_password = "topsecret"
-            _open_reader = BasePage._open_reader
-            _open_fitz   = BasePage._open_fitz
+            _nfc          = staticmethod(BasePage._nfc)
+            _open_reader  = BasePage._open_reader
+            _open_fitz    = BasePage._open_fitz
         stub = _Stub()
 
         r = stub._open_reader(enc)
@@ -697,10 +702,15 @@ class TestAuditRegressions:
         # through to the canvas. The audit flagged this as broken — the
         # job opened with fitz.open without authenticate().
         src = open(_REPO_ROOT / "app" / "editor" / "tab.py", encoding="utf-8").read()
-        # _load_pdf integrates the password prompt
+        # _load_pdf integrates the password prompt. PR-H/PR-I inflated
+        # the body of _load_pdf past the original 1500-char slice (now
+        # ~2 KB), so slice to the next function boundary instead of a
+        # fixed-width window — keeps the assertion robust to future
+        # additions inside the same function.
         i = src.find("def _load_pdf(self, p: str):")
         assert i > 0
-        block = src[i:i + 1500]
+        j = src.find("\n    def ", i + 1)
+        block = src[i:j if j > 0 else i + 5000]
         assert "prompt_pdf_password" in block, \
             "editor _load_pdf must call prompt_pdf_password"
         assert "password=self._pdf_password" in block, \
