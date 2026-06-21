@@ -97,6 +97,11 @@ class TabEncriptar(BasePage):
             # is_encrypted reflects the on-disk state, even after decrypt()
             encrypted = r.is_encrypted
             status = t("tool.encrypt.status_enc") if encrypted else t("tool.encrypt.status_dec")
+            # ``n_pages`` is rendered straight into the localised
+            # "Pages: {n}" label, so the unknown-count fallback needs
+            # to be a string. Annotate the union explicitly instead of
+            # the previous int-typed "?" reassignment (mypy R7 LOW).
+            n_pages: int | str
             try:
                 n_pages = len(r.pages)
             except Exception:
