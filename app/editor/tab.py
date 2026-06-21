@@ -1227,7 +1227,11 @@ class TabEditar(QWidget):
             # user expectations instead of letting them discover tofu
             # after the save completes.
             _non_latin = any(
-                e.get("type") in ("text", "note")
+                # text_edit also writes via the built-in helv font
+                # (see the type-dispatch a few lines below), so the
+                # warning must cover it too — previously the user
+                # got tofu on edited spans without any heads-up.
+                e.get("type") in ("text", "note", "text_edit")
                 and any(ord(c) > 0xFF for c in (e.get("text") or ""))
                 for e in self._pending
             )
