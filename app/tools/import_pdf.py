@@ -197,12 +197,22 @@ class TabImport(BasePage):
 
         def do_work(worker):
             import fitz
+            from app.utils import check_image_size
             doc = fitz.open()
             skipped = 0
             try:
                 for i, img_path in enumerate(sources):
                     if worker.is_cancelled():
                         return None
+                    # Mirror the editor's gigapixel guard — a single
+                    # 50000x50000 TIFF in the import list would otherwise
+                    # make fitz allocate multi-GB and bring down the
+                    # worker thread (which on a frozen PyInstaller build
+                    # takes the whole app with it).
+                    ok, _w, _h = check_image_size(img_path)
+                    if not ok:
+                        skipped += 1
+                        continue
                     img = fitz.open(img_path)
                     try:
                         if img.page_count == 0:
