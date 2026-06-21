@@ -4,6 +4,7 @@ import contextlib
 import logging
 import os
 import re
+import tempfile
 
 _log = logging.getLogger(__name__)
 
@@ -14,6 +15,33 @@ def _clean(text: str) -> str:
     """Strip control characters that break XML-based formats."""
     return _CTRL_RE.sub('', text)
 
+
+def _atomic_save(out_path: str, write_cb):
+    """Run ``write_cb(tmp_path)`` then atomically rename onto ``out_path``.
+
+    Mirrors BasePage._atomic_pdf_write for non-PDF outputs (DOCX, TXT,
+    PPTX, XLSX, HTML, EPUB) so a crash or cancel mid-save can no longer
+    leave a half-written file in place of the user's previous output —
+    the original output (if any) survives untouched until the rename
+    succeeds. Same-directory tempfile ensures os.replace is a single
+    filesystem operation (no cross-device move).
+    """
+    suffix = os.path.splitext(out_path)[1] or ".tmp"
+    out_dir = os.path.dirname(out_path) or "."
+    fd, tmp = tempfile.mkstemp(suffix=suffix, dir=out_dir)
+    os.close(fd)
+    try:
+        write_cb(tmp)
+        os.replace(tmp, out_path)
+    except BaseException:
+        # BaseException so KeyboardInterrupt / cancellation also cleans
+        # up. Suppress the cleanup OSError because the original error
+        # is the one the caller needs to see.
+        with contextlib.suppress(OSError):
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+        raise
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QComboBox, QLabel, QFileDialog,
@@ -22,7 +50,10 @@ from PySide6.QtWidgets import (
 
 from app.base import BasePage
 from app.i18n import t
-from app.utils import section, info_lbl, pick_folder, show_error, result_label_style
+from app.utils import (
+    section, info_lbl, pick_folder, show_error, result_label_style,
+    CancelledError,
+)
 from app.constants import DESKTOP
 from app.widgets import DropFileEdit
 
@@ -612,7 +643,7 @@ class TabConverter(BasePage):
                         docx_doc.add_paragraph(f"[Note: {a.type}] {content}")
                 if worker.is_cancelled():
                     return None
-                docx_doc.save(out_path)
+                _atomic_save(out_path, lambda p: docx_doc.save(p))
             finally:
                 doc.close()
             return total
@@ -647,16 +678,29 @@ class TabConverter(BasePage):
             doc = fitz.open(pdf_path)
             if doc.needs_pass and pwd:
                 doc.authenticate(pwd)
+            cancelled = False
             try:
-                with open(out_path, 'w', encoding='utf-8') as f:
-                    for i, page in enumerate(doc):
-                        if worker.is_cancelled():
-                            return None
-                        if i > 0:
-                            f.write(t("tool.convert.txt.page_separator",
-                                      n=i + 1))
-                        f.write(page.get_text())
-                        worker.progress.emit(i, f"{i + 1}/{total}…")
+                def _write_txt(tmp_path: str) -> None:
+                    nonlocal cancelled
+                    with open(tmp_path, 'w', encoding='utf-8') as f:
+                        for i, page in enumerate(doc):
+                            if worker.is_cancelled():
+                                cancelled = True
+                                # Bail out via exception so _atomic_save
+                                # discards the half-written tmp and does
+                                # not replace the user's previous output.
+                                raise CancelledError()
+                            if i > 0:
+                                f.write(t("tool.convert.txt.page_separator",
+                                          n=i + 1))
+                            f.write(page.get_text())
+                            worker.progress.emit(i, f"{i + 1}/{total}…")
+                try:
+                    _atomic_save(out_path, _write_txt)
+                except CancelledError:
+                    return None
+                if cancelled:
+                    return None
             finally:
                 doc.close()
             return total
@@ -942,7 +986,7 @@ class TabConverter(BasePage):
                     worker.progress.emit(i, f"{i + 1}/{total}…")
                 if worker.is_cancelled():
                     return None
-                prs.save(out_path)
+                _atomic_save(out_path, lambda p: prs.save(p))
             finally:
                 doc.close()
             return total
@@ -1007,7 +1051,7 @@ class TabConverter(BasePage):
                     worker.progress.emit(i, f"{i + 1}/{total}…")
                 if worker.is_cancelled():
                     return None
-                wb.save(out_path)
+                _atomic_save(out_path, lambda p: wb.save(p))
             finally:
                 doc.close()
             return total
@@ -1091,8 +1135,12 @@ class TabConverter(BasePage):
                 parts.append("</body></html>")
                 if worker.is_cancelled():
                     return None
-                with open(out_path, "w", encoding="utf-8") as f:
-                    f.write("\n".join(parts))
+                _html = "\n".join(parts)
+
+                def _write_html(tmp_path: str) -> None:
+                    with open(tmp_path, "w", encoding="utf-8") as f:
+                        f.write(_html)
+                _atomic_save(out_path, _write_html)
             finally:
                 doc.close()
             return total
@@ -1159,7 +1207,7 @@ class TabConverter(BasePage):
                 book.add_item(epub.EpubNav())
                 book.spine = ["nav"] + chapters
                 book.toc = chapters
-                epub.write_epub(out_path, book)
+                _atomic_save(out_path, lambda p: epub.write_epub(p, book))
             finally:
                 doc.close()
             return total
