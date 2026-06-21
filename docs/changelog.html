@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Changelog — PDFApps</title>
+    <title>Changelog - PDFApps</title>
     <meta name="description" content="PDFApps release history. Every version with what changed.">
     <link rel="canonical" href="https://pdf-apps.com/changelog.html">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="PDFApps">
     <meta property="og:url" content="https://pdf-apps.com/changelog.html">
-    <meta property="og:title" content="Changelog — PDFApps">
+    <meta property="og:title" content="Changelog - PDFApps">
     <meta property="og:description" content="PDFApps release history. Every version with what changed.">
     <meta property="og:image" content="https://pdf-apps.com/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Changelog — PDFApps">
+    <meta name="twitter:title" content="Changelog - PDFApps">
     <meta name="twitter:description" content="PDFApps release history.">
     <meta name="twitter:image" content="https://pdf-apps.com/og-image.png">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -155,9 +155,9 @@
             </div>
             <h3>Microsoft Store launch &amp; language-change fix</h3>
             <ul class="docs-list">
-                <li><strong>Microsoft Store launch</strong> — PDFApps is now <a href="https://apps.microsoft.com/detail/9P70QGR8BSMZ">live on the Microsoft Store</a> as a signed MSIX package, available in 8 interface languages (English, Portuguese, Spanish, French, German, Italian, Dutch, Chinese).</li>
-                <li><strong>Language-change crash fix</strong> — switching language no longer triggers an <code>Errno 2</code> crash on PyInstaller <code>--onefile</code> Windows builds. Root cause: PyInstaller 6.x uses <code>_PYI_APPLICATION_HOME_DIR</code> (not the legacy <code>_MEIPASS2</code>) for the parent→child temp-folder handoff; the relaunch was inheriting a stale value pointing at a folder the parent was about to delete. Fixed by sanitising the <code>QProcessEnvironment</code> before <code>QProcess.startDetached</code>.</li>
-                <li><strong>Privacy policy page</strong> — added <a href="privacy.html">pdf-apps.com/privacy.html</a> documenting the offline-only data posture (required for Store submissions declaring <code>runFullTrust</code>).</li>
+                <li><strong>Microsoft Store launch</strong> - PDFApps is now <a href="https://apps.microsoft.com/detail/9P70QGR8BSMZ">live on the Microsoft Store</a> as a signed MSIX package, available in 8 interface languages (English, Portuguese, Spanish, French, German, Italian, Dutch, Chinese).</li>
+                <li><strong>Language-change crash fix</strong> - switching language no longer triggers an <code>Errno 2</code> crash on PyInstaller <code>--onefile</code> Windows builds. Root cause: PyInstaller 6.x uses <code>_PYI_APPLICATION_HOME_DIR</code> (not the legacy <code>_MEIPASS2</code>) for the parent→child temp-folder handoff; the relaunch was inheriting a stale value pointing at a folder the parent was about to delete. Fixed by sanitising the <code>QProcessEnvironment</code> before <code>QProcess.startDetached</code>.</li>
+                <li><strong>Privacy policy page</strong> - added <a href="privacy.html">pdf-apps.com/privacy.html</a> documenting the offline-only data posture (required for Store submissions declaring <code>runFullTrust</code>).</li>
             </ul>
         </div>
 
@@ -168,14 +168,14 @@
             </div>
             <h3>Security audit, installer splash, and macOS DMG</h3>
             <ul class="docs-list">
-                <li><strong>macOS .app bundle in a .dmg</strong> — replaces the bare Unix binary zip. Mount, drag to Applications, done.</li>
-                <li><strong>Skip update check on system-managed installs</strong> — AUR, Snap, Flatpak, apt, and rpm installs are now updated via the package manager instead of the in-app updater.</li>
-                <li><strong>Security hardening</strong> — SHA256 checksum validation on update downloads, stricter ZIP/TAR extraction with symlink rejection, atomic config file writes, and 100k page limit in parse_pages.</li>
-                <li><strong>9 bug fixes across tools</strong> — merge validates files exist, watermark guards empty PDFs, encrypt allows empty user password, OCR handles missing language packs, convert shows progress dialog, reorder no longer leaks file handles.</li>
-                <li><strong>Translated installer splash</strong> — two-stage splash (static logo during extraction + animated "Loading…" text in the user's language).</li>
-                <li><strong>pypdf bumped to 6.10.2</strong> — multiple security patches (XMP metadata RAM exhaustion, FlateDecode limits, xref stream limits).</li>
+                <li><strong>macOS .app bundle in a .dmg</strong> - replaces the bare Unix binary zip. Mount, drag to Applications, done.</li>
+                <li><strong>Skip update check on system-managed installs</strong> - AUR, Snap, Flatpak, apt, and rpm installs are now updated via the package manager instead of the in-app updater.</li>
+                <li><strong>Security hardening</strong> - SHA256 checksum validation on update downloads, stricter ZIP/TAR extraction with symlink rejection, atomic config file writes, and 100k page limit in parse_pages.</li>
+                <li><strong>9 bug fixes across tools</strong> - merge validates files exist, watermark guards empty PDFs, encrypt allows empty user password, OCR handles missing language packs, convert shows progress dialog, reorder no longer leaks file handles.</li>
+                <li><strong>Translated installer splash</strong> - two-stage splash (static logo during extraction + animated "Loading…" text in the user's language).</li>
+                <li><strong>pypdf bumped to 6.10.2</strong> - multiple security patches (XMP metadata RAM exhaustion, FlateDecode limits, xref stream limits).</li>
                 <li><strong>Updater title and error messages</strong> translated in 8 languages. Animated dots (.../../...) while downloading and applying.</li>
-                <li><strong>Download thread cleanup</strong> — cancelling the update dialog mid-download no longer leaks QThreads.</li>
+                <li><strong>Download thread cleanup</strong> - cancelling the update dialog mid-download no longer leaks QThreads.</li>
             </ul>
         </div>
 
@@ -186,10 +186,10 @@
             </div>
             <h3>5 import formats and 4 export formats</h3>
             <ul class="docs-list">
-                <li><strong>Import to PDF</strong> — new formats: DOCX, PPTX, XLSX, HTML, and EPUB (on top of TXT, Markdown, and images).</li>
-                <li><strong>Convert from PDF</strong> — new targets: PPTX (slides rendered as images), XLSX (text blocks as rows), HTML (semantic headings), EPUB (e-book chapters).</li>
-                <li><strong>Website</strong> — hamburger menu, OS-detect CTA, scroll animations, and GitHub stars badge.</li>
-                <li><strong>Performance</strong> — non-blocking Google Fonts, explicit image dimensions, WCAG AA contrast fixes.</li>
+                <li><strong>Import to PDF</strong> - new formats: DOCX, PPTX, XLSX, HTML, and EPUB (on top of TXT, Markdown, and images).</li>
+                <li><strong>Convert from PDF</strong> - new targets: PPTX (slides rendered as images), XLSX (text blocks as rows), HTML (semantic headings), EPUB (e-book chapters).</li>
+                <li><strong>Website</strong> - hamburger menu, OS-detect CTA, scroll animations, and GitHub stars badge.</li>
+                <li><strong>Performance</strong> - non-blocking Google Fonts, explicit image dimensions, WCAG AA contrast fixes.</li>
             </ul>
         </div>
 
@@ -200,9 +200,9 @@
             </div>
             <h3>Bookmarks, night mode, and release notes in updater</h3>
             <ul class="docs-list">
-                <li><strong>Bookmarks / TOC panel</strong> — clickable side panel showing the PDF outline. Hidden for PDFs without bookmarks.</li>
-                <li><strong>Night reading mode</strong> — invert PDF colors for comfortable reading at night, independent from the app theme.</li>
-                <li><strong>Release notes in update dialog</strong> — see what's new before clicking install.</li>
+                <li><strong>Bookmarks / TOC panel</strong> - clickable side panel showing the PDF outline. Hidden for PDFs without bookmarks.</li>
+                <li><strong>Night reading mode</strong> - invert PDF colors for comfortable reading at night, independent from the app theme.</li>
+                <li><strong>Release notes in update dialog</strong> - see what's new before clicking install.</li>
                 <li><strong>TOC and night mode buttons</strong> moved to the workspace bar where all viewer controls live.</li>
             </ul>
         </div>
@@ -228,7 +228,7 @@
             </div>
             <h3>Digital signature and continuous scroll editor</h3>
             <ul class="docs-list">
-                <li><strong>Digital signature tool</strong> — draw, type with cursive fonts, or import an image; save and reuse</li>
+                <li><strong>Digital signature tool</strong> - draw, type with cursive fonts, or import an image; save and reuse</li>
                 <li>Editor now uses continuous scroll across all pages instead of single-page view</li>
                 <li>Drag &amp; drop a PDF anywhere in the window to open it</li>
                 <li>Multi-select PDFs in the file dialog</li>
@@ -242,8 +242,8 @@
             </div>
             <h3>Presentation mode and fullscreen</h3>
             <ul class="docs-list">
-                <li><strong>Presentation mode (F5)</strong> — fullscreen slideshow with keyboard navigation</li>
-                <li><strong>Fullscreen (F11)</strong> — distraction-free viewing with hidden toolbars</li>
+                <li><strong>Presentation mode (F5)</strong> - fullscreen slideshow with keyboard navigation</li>
+                <li><strong>Fullscreen (F11)</strong> - distraction-free viewing with hidden toolbars</li>
                 <li>Sidebar collapse strip replaced with a hamburger toggle in the workspace bar</li>
                 <li>Reduced viewer page gap from 12px to 4px</li>
             </ul>
@@ -256,10 +256,10 @@
             </div>
             <h3>Global keyboard shortcuts</h3>
             <ul class="docs-list">
-                <li>Ctrl+O — open PDF</li>
-                <li>Ctrl+S — save / apply active tool</li>
-                <li>Ctrl+P — print current PDF</li>
-                <li>Ctrl+W — close current tab</li>
+                <li>Ctrl+O - open PDF</li>
+                <li>Ctrl+S - save / apply active tool</li>
+                <li>Ctrl+P - print current PDF</li>
+                <li>Ctrl+W - close current tab</li>
                 <li>Drag &amp; drop opens PDFs anywhere in the window</li>
             </ul>
         </div>
