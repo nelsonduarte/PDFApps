@@ -67,9 +67,91 @@
     <div class="container" style="max-width: 880px;">
         <div class="release">
             <div class="release-header">
+                <span class="version-tag">v1.13.16</span>
+                <span class="release-date">June 21, 2026</span>
+                <span class="release-badge">Latest</span>
+            </div>
+            <h3>Editor audit fixes, atomic saves, and streaming OCR</h3>
+            <ul class="docs-list">
+                <li><strong>Editor</strong>: 13 audit fixes including encryption preservation on save (critical), <code>delete_annot</code> persistence, and signature key files written with mode <code>0o600</code>.</li>
+                <li><strong>Viewer</strong>: <code>saveIncr</code> now uses an atomic backup with restore-on-error (critical), notes are deleted with a bbox tiebreaker, and the Recents UI auto-refreshes after changes.</li>
+                <li><strong>Performance</strong>: streaming OCR writer lowers peak memory, and an explicit overlay pixmap cache reduces redraw cost.</li>
+                <li><strong>Conversions</strong>: PDF to DOCX is now layout-aware, with card rasterization and table reconstruction.</li>
+                <li><strong>Reliability</strong>: 8 critical fixes, 19 HIGH fixes, and atomic writes added across 9 tools.</li>
+                <li><strong>Translations</strong>: 12 new i18n keys covering the encrypt, forms, signature, and note flows.</li>
+                <li><strong>Dependencies</strong>: pypdf 6.13.3, cryptography 49.0.0, lxml 6.1.1, beautifulsoup4 4.15.0, pyinstaller 6.21.0.</li>
+                <li><strong>Security</strong>: 5 transitive CVEs closed.</li>
+                <li><strong>Installer</strong>: fixed a <code>NameError</code> on the error path that was hiding real install errors.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.13.15</span>
+                <span class="release-date">June 14, 2026</span>
+            </div>
+            <h3>MSIX file icons and Snap Store unfreeze</h3>
+            <ul class="docs-list">
+                <li><strong>MSIX file icons</strong>: generated <code>resources.pri</code> so Explorer resolves the targetsize variants and shows the proper PDF icon for associated files.</li>
+                <li><strong>Snap version bump</strong>: permanent fix that unfroze the Snap Store publication pipeline.</li>
+                <li><strong>Microsoft Store listing CSV</strong>: helper script that generates the localized listings spreadsheet from one source of truth.</li>
+                <li><strong>Polish</strong>: 10 low-severity audit fixes (excepthook, NFC password normalisation, config backup, and more).</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.13.14</span>
+                <span class="release-date">June 7, 2026</span>
+            </div>
+            <h3>lxml XXE patch and round 4 updater fixes</h3>
+            <ul class="docs-list">
+                <li><strong>lxml CVE PYSEC-2026-87</strong>: patched the XXE issue triggered when importing DOCX, PPTX, or EPUB content.</li>
+                <li><strong>Updater (round 4)</strong>: cancel reliability, signal lifecycle, and per-stage timeouts.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.13.13</span>
+                <span class="release-date">May 31, 2026</span>
+            </div>
+            <h3>Audit round 3 polish</h3>
+            <ul class="docs-list">
+                <li><strong>Presentation</strong>: faster rendering path with fewer redundant repaints.</li>
+                <li><strong>OCR</strong>: correct RGBA handling on transparent source pages.</li>
+                <li><strong>Theme</strong>: leftover hard-coded colors now respect the active theme.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.13.12</span>
+                <span class="release-date">May 24, 2026</span>
+            </div>
+            <h3>macOS DMG fix and background task migration</h3>
+            <ul class="docs-list">
+                <li><strong>macOS DMG</strong>: <code>hdiutil</code> now uses <code>-size 1g</code>, restoring reliable DMG creation in CI.</li>
+                <li><strong>Background tasks</strong>: compress, OCR, convert (8 targets), and watermark migrated to the shared <code>TaskRunner</code> for cancellable, progress-reporting work.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.13.11</span>
+                <span class="release-date">May 17, 2026</span>
+            </div>
+            <h3>PyInstaller relaunch fix and Microsoft Store submission</h3>
+            <ul class="docs-list">
+                <li><strong>PyInstaller relaunch</strong>: sanitise <code>_PYI_*</code> environment variables together and sweep <code>_MEIPASS*</code> on language change, preventing stale temp-folder handoff on <code>--onefile</code> Windows builds.</li>
+                <li><strong>Microsoft Store</strong>: v1.13.11 submitted as the first iteration after the initial Store launch.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
                 <span class="version-tag">v1.13.10</span>
                 <span class="release-date">May 8, 2026</span>
-                <span class="release-badge">Latest</span>
             </div>
             <h3>Microsoft Store launch &amp; language-change fix</h3>
             <ul class="docs-list">
