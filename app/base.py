@@ -247,13 +247,13 @@ class BasePage(QWidget):
 
         toast = QWidget(); toast.setObjectName("toast")
         toast.setStyleSheet(
-            f"#toast {{ background: #065F46; border: 1px solid #10B981; "
-            f"border-radius: 8px; padding: 8px 12px; }}"
-            f"#toast QLabel {{ color: white; font-size: 10pt; background: transparent; }}"
-            f"#toast QPushButton {{ color: #A7F3D0; border: none; background: transparent; "
-            f"font-size: 10pt; text-decoration: underline; padding: 0 4px; }}"
-            f"#toast QPushButton:hover {{ color: white; }}"
-            f"#toast QPushButton#toast_save {{ color: white; font-weight: 600; }}")
+            "#toast { background: #065F46; border: 1px solid #10B981; "
+            "border-radius: 8px; padding: 8px 12px; }"
+            "#toast QLabel { color: white; font-size: 10pt; background: transparent; }"
+            "#toast QPushButton { color: #A7F3D0; border: none; background: transparent; "
+            "font-size: 10pt; text-decoration: underline; padding: 0 4px; }"
+            "#toast QPushButton:hover { color: white; }"
+            "#toast QPushButton#toast_save { color: white; font-weight: 600; }")
         h = QHBoxLayout(toast); h.setContentsMargins(8, 4, 8, 4); h.setSpacing(8)
         h.addWidget(QLabel(f"✔ {message}"), 1)
         if with_save:

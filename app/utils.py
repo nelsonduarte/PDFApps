@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QPalette, QColor, QPainter
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
-    QScrollArea, QFrame, QFileDialog, QApplication,
+    QScrollArea, QFrame, QFileDialog,
 )
 import qtawesome as qta
 
@@ -18,7 +18,7 @@ from app.i18n import t
 from app.constants import (
     ACCENT, DESKTOP,
     BG_BASE, BG_CARD, BG_INPUT,
-    BORDER, TEXT_PRI, TEXT_SEC,
+    TEXT_PRI,
     SUCCESS_DARK, SUCCESS_LIGHT,
     _LA, _LB, _LC, _LI, _LN, _LO, _LP,
 )

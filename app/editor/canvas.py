@@ -369,7 +369,7 @@ class PdfEditCanvas(QWidget):
             f" border: none; border-bottom: 1px dashed {ACCENT}; padding: 0; }}")
 
     def _style_inline_edit(self, span: dict):
-        from PySide6.QtGui import QFont, QColor
+        from PySide6.QtGui import QFont
         bb = span["bbox"]
         visual_size = max(float(span.get("size") or 0), float(bb[3] - bb[1]))
         fname = (span.get("font", "") or "").lower()

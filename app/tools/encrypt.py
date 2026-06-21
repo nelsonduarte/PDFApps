@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QHBoxLayout, QComboBox, QLineEdit,
     QFileDialog, QMessageBox,
 )
-from pypdf import PdfReader, PdfWriter
+from pypdf import PdfWriter
 
 from app.base import BasePage
 from app.i18n import t

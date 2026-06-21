@@ -114,7 +114,7 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
         _state["in"] = True
         try:
             while _state["pct"] is not None or _state["label"]:
-                p = _state["pct"]; l = _state["label"]
+                p = _state["pct"]; lbl = _state["label"]
                 _state["pct"] = None; _state["label"] = None
                 try:
                     if p is not None:
@@ -129,8 +129,8 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
                             if progress_dlg.maximum() == 0:
                                 progress_dlg.setRange(0, 100)
                             progress_dlg.setValue(int(p))
-                    if l:
-                        progress_dlg.setLabelText(l)
+                    if lbl:
+                        progress_dlg.setLabelText(lbl)
                 except RuntimeError:
                     # Dialog already destroyed (page closed mid-task,
                     # window quit during a queued progress signal).

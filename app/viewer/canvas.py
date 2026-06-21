@@ -9,7 +9,7 @@ import tempfile
 
 from PySide6.QtCore import Qt, Signal, QRect, QObject, QRunnable, QThreadPool
 from PySide6.QtWidgets import QWidget, QApplication
-from PySide6.QtGui import QPixmap, QColor, QPainter, QPen, QFont
+from PySide6.QtGui import QColor, QPainter, QPen, QFont
 import qtawesome as qta
 
 from app.constants import BG_INNER, TEXT_SEC, _LN

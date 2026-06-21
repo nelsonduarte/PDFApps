@@ -7,7 +7,6 @@ import re
 import sys
 import tempfile
 import urllib.request
-from threading import Thread
 
 from PySide6.QtCore import Qt, Signal, QObject
 from PySide6.QtWidgets import (
@@ -15,7 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QTextEdit,
 )
 
-from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_H, TEXT_SEC, _LQ
+from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, TEXT_SEC, _LQ
 from app.utils import error_color
 
 

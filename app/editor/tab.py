@@ -9,8 +9,8 @@ from PySide6.QtCore import Qt, QEvent, QSize
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QStackedWidget, QGroupBox,
-    QGridLayout, QLayout, QSizePolicy, QListWidget, QTableWidget,
-    QTableWidgetItem, QHeaderView, QTextEdit, QComboBox, QFileDialog,
+    QSizePolicy, QListWidget, QTableWidget,
+    QTableWidgetItem, QHeaderView, QTextEdit, QFileDialog,
     QMessageBox, QDialog, QApplication, QSlider,
 )
 import qtawesome as qta
@@ -23,7 +23,7 @@ from app.utils import (
 from app.i18n import t
 from app.widgets import DropFileEdit, ColorPickerButton
 from app.editor.canvas import PdfEditCanvas, _get_icon_cursor
-from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
+from app.editor.dialogs import _NoteDialog
 
 
 _log = logging.getLogger(__name__)
@@ -500,8 +500,8 @@ class TabEditar(QWidget):
                         f"color:{ACCENT}; border-radius:6px; border-radius:6px;")
                 else:
                     b.setStyleSheet(
-                        f"background:#D6F2EC; border:1px solid #83CABB; "
-                        f"color:#0E5A51; border-radius:6px; border-radius:6px;")
+                        "background:#D6F2EC; border:1px solid #83CABB; "
+                        "color:#0E5A51; border-radius:6px; border-radius:6px;")
 
     def _update_nav(self):
         n = self._canvas.page_count()
@@ -538,8 +538,8 @@ class TabEditar(QWidget):
                         f"color:{ACCENT}; border-radius:6px; border-radius:6px;")
                 else:
                     b.setStyleSheet(
-                        f"background:#D6F2EC; border:1px solid #83CABB; "
-                        f"color:#0E5A51; border-radius:6px; border-radius:6px;")
+                        "background:#D6F2EC; border:1px solid #83CABB; "
+                        "color:#0E5A51; border-radius:6px; border-radius:6px;")
             else:
                 if self._dark_mode:
                     b.setStyleSheet(

@@ -7,7 +7,10 @@ import os
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 try:
-    from pypdf import PdfReader, PdfWriter
+    # Defensive import — surfaces the missing-dependency dialog before
+    # the rest of app.* drags pypdf in via tools/*.py and crashes with
+    # an opaque traceback. The names are intentionally unused here.
+    from pypdf import PdfReader, PdfWriter  # noqa: F401
 except ImportError:
     _app = QApplication(sys.argv)
     QMessageBox.critical(None, "Missing dependency",
