@@ -238,7 +238,39 @@ def t(key: str, **kwargs) -> str:
 
 # ── Recent files ──────────────────────────────────────────────────────────
 
-_MAX_RECENT = 5
+#: Conservative ceiling so a stray ``max_recent_files`` entry (corrupt
+#: config, manual edit) cannot blow the recents menu out to thousands
+#: of items and freeze the UI for seconds while it re-renders.
+_RECENT_FILES_MIN = 1
+_RECENT_FILES_MAX = 50
+#: Default bumped from 5 to 10 — modern app conventions (Office, Chrome,
+#: Acrobat) keep ~10 recents; 5 was leftover from the 1.0 prototype.
+_DEFAULT_MAX_RECENT = 10
+# Back-compat alias for any external code that still imports the legacy
+# constant. New call sites should use _get_max_recent() so the user's
+# config override is honoured.
+_MAX_RECENT = _DEFAULT_MAX_RECENT
+
+
+def _get_max_recent() -> int:
+    """Return the user-configured max recent-files count, clamped.
+
+    Reads ``max_recent_files`` from the on-disk config (falls back to
+    :data:`_DEFAULT_MAX_RECENT` for missing / non-int values). The value
+    is clamped to [_RECENT_FILES_MIN, _RECENT_FILES_MAX] so a hostile
+    or corrupt config cannot make the recents menu unusable.
+    """
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except Exception:
+        return _DEFAULT_MAX_RECENT
+    val = cfg.get("max_recent_files", _DEFAULT_MAX_RECENT)
+    try:
+        n = int(val)
+    except (TypeError, ValueError):
+        return _DEFAULT_MAX_RECENT
+    return max(_RECENT_FILES_MIN, min(_RECENT_FILES_MAX, n))
 
 
 def get_recent_files() -> list[str]:
@@ -281,7 +313,7 @@ def add_recent_file(path: str):
         if path in recents:
             recents.remove(path)
         recents.insert(0, path)
-        cfg["recent_files"] = recents[:_MAX_RECENT]
+        cfg["recent_files"] = recents[:_get_max_recent()]
 
     _update_config(_mutate)
 
