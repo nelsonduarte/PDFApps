@@ -3,7 +3,7 @@
 import os
 import tempfile
 
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPainter, QPen, QColor, QFont, QPainterPath, QPixmap
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
@@ -43,8 +43,18 @@ class _PdfPasswordDialog(QDialog):
 
         top = QHBoxLayout(); top.setSpacing(14)
         ico = QLabel()
-        _pix = qta.icon("fa5s.lock", color=ACCENT).pixmap(72, 72)
-        _pix.setDevicePixelRatio(2.0)
+        # Honour the actual screen DPR instead of hardcoding 2.0 — on
+        # a 1.0 (regular) monitor the icon was over-sized then scaled
+        # down (blur); on a 1.5/2.5 (mixed-DPI multi-monitor) layout
+        # the position drifted by a few pixels. Sampling the dialog's
+        # devicePixelRatioF gives a crisp 40x40 logical-pixel render
+        # on every monitor without per-platform fork.
+        dpr = self.devicePixelRatioF() if hasattr(self, "devicePixelRatioF") else 1.0
+        if dpr <= 0:  # paranoia: some headless / mocked widgets report 0
+            dpr = 1.0
+        size = int(40 * dpr)
+        _pix = qta.icon("fa5s.lock", color=ACCENT).pixmap(size, size)
+        _pix.setDevicePixelRatio(dpr)
         ico.setPixmap(_pix)
         ico.setFixedSize(40, 40)
         top.addWidget(ico)
@@ -420,6 +430,17 @@ class _SignatureDialog(QDialog):
             self, t("edit.signature.import"), "",
             "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)")
         if p and os.path.isfile(p):
+            # Reject pathological / malicious gigapixel images BEFORE
+            # QPixmap allocates a multi-GB buffer (a 50000x50000 TIFF
+            # would crash the editor process). See utils.check_image_size.
+            from app.utils import check_image_size
+            ok, w, h = check_image_size(p)
+            if not ok:
+                QMessageBox.warning(self, t("msg.warning"),
+                                    t("editor.image_too_large",
+                                      width=w, height=h,
+                                      megapix=w * h // 1_000_000))
+                return
             self._imp_path = p
             pix = QPixmap(p)
             self._imp_preview.setPixmap(pix.scaled(

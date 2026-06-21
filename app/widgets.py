@@ -3,7 +3,7 @@
 import os
 
 from PySide6.QtCore import Signal, Qt, QSize
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QColor, QPixmap, QPainter
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QColor
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton, QFileDialog, QColorDialog,
     QMessageBox,

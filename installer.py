@@ -1100,7 +1100,13 @@ class InstallerApp(tk.Tk):
             self.after(0, self._done, install_dir, app_exe)
 
         except Exception as exc:
-            self.after(0, lambda: messagebox.showerror("Error", str(exc)))
+            # Capture exc into a local string and bind it as a lambda
+            # default argument; otherwise Python's late-binding closure
+            # raises NameError once the worker thread frame unwinds and
+            # `exc` falls out of scope before tk runs the after-callback.
+            err_msg = str(exc)
+            self.after(0, lambda msg=err_msg:
+                       messagebox.showerror("Error", msg))
             self.after(0, lambda: self._btn.config(
                 state="normal", text=_t("install")))
 

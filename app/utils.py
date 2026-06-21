@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QPalette, QColor, QPainter
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
-    QScrollArea, QFrame, QFileDialog, QApplication,
+    QScrollArea, QFrame, QFileDialog,
 )
 import qtawesome as qta
 
@@ -18,7 +18,7 @@ from app.i18n import t
 from app.constants import (
     ACCENT, DESKTOP,
     BG_BASE, BG_CARD, BG_INPUT,
-    BORDER, TEXT_PRI, TEXT_SEC,
+    TEXT_PRI,
     SUCCESS_DARK, SUCCESS_LIGHT,
     _LA, _LB, _LC, _LI, _LN, _LO, _LP,
 )
@@ -123,6 +123,35 @@ def parse_pages(text: str, total: int) -> list:
     # double work. Input like "3,1,2,3" now returns [0, 1, 2] instead
     # of [2, 0, 1, 2].
     return sorted(set(pages))
+
+
+#: Megapixel hard limit applied to user-supplied raster images before
+#: they reach QPixmap / PyMuPDF. A 100MP cap rejects gigapixel scans
+#: (e.g. a malicious or accidentally-saved 50000x50000 TIFF) that would
+#: otherwise allocate multi-GB pixmaps and crash the process, while
+#: still admitting every realistic phone-camera / scanner output (the
+#: largest current consumer cameras top out around 200MP — at that
+#: point the warning is intentional and the user knows to downscale).
+_IMAGE_PIXEL_LIMIT = 100_000_000
+
+
+def check_image_size(path: str) -> tuple[bool, int, int]:
+    """Return ``(ok, width, height)`` for the image at ``path``.
+
+    ``ok`` is ``False`` when the image exceeds :data:`_IMAGE_PIXEL_LIMIT`
+    (width * height > 100 megapixels). Used by the editor signature
+    picker and the PDF import-images path to short-circuit before
+    allocating a giant pixmap. On any read error returns ``(True, 0, 0)``
+    so callers fall back to their existing failure path (a missing /
+    corrupted image is the existing tool's responsibility to surface).
+    """
+    try:
+        from PIL import Image
+        with Image.open(path) as img:
+            w, h = img.size
+    except Exception:
+        return True, 0, 0
+    return (w * h) <= _IMAGE_PIXEL_LIMIT, w, h
 
 
 def pick_pdfs(parent: QWidget) -> list:
@@ -381,6 +410,35 @@ def _find_gs():
     return None
 
 
+def _win_short_path(path: str) -> str:
+    """On Windows, try to map ``path`` to its 8.3 short form.
+
+    The 1.5 GB Ghostscript binary still uses the legacy ANSI process
+    locale on Windows when reading the command line, so paths under
+    user profiles with non-ASCII characters (e.g. ``C:\\Users\\José``)
+    get mangled by the time ``-sOutputFile=...`` reaches the engine —
+    causing a misleading "could not open output file" error. Convert
+    to the 8.3 short alias which is always ASCII when the volume has
+    short names enabled (default on NTFS).
+
+    On non-Windows, or if the conversion fails (short names disabled,
+    path does not exist yet), returns ``path`` unchanged.
+    """
+    if sys.platform != "win32" or not path:
+        return path
+    if not os.path.exists(path):
+        return path  # GetShortPathNameW requires the file to exist
+    try:
+        import ctypes
+        buf = ctypes.create_unicode_buffer(512)
+        n = ctypes.windll.kernel32.GetShortPathNameW(path, buf, 512)
+        if n and buf.value:
+            return buf.value
+    except Exception:
+        pass
+    return path
+
+
 def _compress_pdf(src: str, dst: str, level: str = "recommended",
                   progress_fn=None) -> tuple:
     """
@@ -461,7 +519,13 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 cmd += ["-sColorConversionStrategy=Gray",
                         "-dProcessColorModel=/DeviceGray",
                         "-dOverrideICC"]
-            cmd += [f"-sOutputFile={p}", src]
+            # Short-name conversion (Windows non-ASCII user profile
+            # safety). gs reads the command line through the legacy ANSI
+            # encoding; the short alias is always ASCII on NTFS volumes
+            # with 8.3 names enabled (default). No-op on POSIX.
+            _src_for_gs = _win_short_path(src)
+            _out_for_gs = _win_short_path(p)
+            cmd += [f"-sOutputFile={_out_for_gs}", _src_for_gs]
             # Spawn gs as a polled subprocess so the cancel button works
             # mid-render. subprocess.run(timeout=120) blocks the worker
             # thread for the whole timeout window, leaving Cancel dead

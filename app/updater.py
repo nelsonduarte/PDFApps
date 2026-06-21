@@ -7,7 +7,6 @@ import re
 import sys
 import tempfile
 import urllib.request
-from threading import Thread
 
 from PySide6.QtCore import Qt, Signal, QObject
 from PySide6.QtWidgets import (
@@ -15,7 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QTextEdit,
 )
 
-from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, ACCENT_H, TEXT_SEC, _LQ
+from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, TEXT_SEC, _LQ
 from app.utils import error_color
 
 
@@ -268,7 +267,22 @@ def _apply_update_unix(downloaded: str):
     import shutil
     import stat
     current = sys.executable
-    backup = current + ".bak"
+    # Place the backup in the system temp dir rather than next to the
+    # binary. On OneDrive-installed copies the previous "<exe>.bak"
+    # neighbour file became visible to the user's sync history and was
+    # uploaded over wifi every update. tempfile.gettempdir() lives
+    # outside OneDrive and is auto-cleaned by the OS.
+    #
+    # Use shutil.move (not os.rename) because temp dir is frequently
+    # on a different volume from /usr/bin on Linux installs — rename
+    # then ENOXDEV; move falls back to copy+delete transparently.
+    backup_fd, backup = tempfile.mkstemp(
+        suffix=".pdfapps-backup", prefix=os.path.basename(current) + ".")
+    os.close(backup_fd)
+    # mkstemp pre-creates an empty file; remove so shutil.move can
+    # rename current onto the same name without "destination exists".
+    with contextlib.suppress(OSError):
+        os.unlink(backup)
     try:
         try:
             shutil.move(current, backup)

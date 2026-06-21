@@ -3,7 +3,6 @@
 import os
 
 from PySide6.QtWidgets import QTextEdit
-from pypdf import PdfReader
 
 from app.base import BasePage
 from app.i18n import t

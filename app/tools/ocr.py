@@ -224,7 +224,7 @@ class TabOCR(BasePage):
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
         try:
-            import pytesseract
+            import pytesseract  # noqa: F401 — surface ImportError before launching worker
         except ImportError:
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pytesseract"))
             return

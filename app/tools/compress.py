@@ -7,12 +7,10 @@ from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QComboBox, QLabel, QFileDialog, QMessageBox,
     QProgressDialog,
 )
-from pypdf import PdfReader
-
 from app.base import BasePage
 from app.i18n import t
 from app.utils import (section, info_lbl, _compress_pdf, _find_gs,
-                        show_error, is_dark, result_label_style)
+                        show_error, result_label_style)
 from app.worker import TaskRunner, run_task
 from app.constants import DESKTOP, TEXT_SEC
 from app.widgets import DropFileEdit

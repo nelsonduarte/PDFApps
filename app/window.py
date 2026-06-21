@@ -3,7 +3,7 @@
 import contextlib
 import os
 
-from PySide6.QtCore import Qt, QSize, Signal, QTimer
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QIcon
 from shiboken6 import isValid
 from PySide6.QtWidgets import (
@@ -1024,7 +1024,6 @@ class MainWindow(QMainWindow):
         # R10 #12: accept folders (open every .pdf inside) and warn
         # the user when a web URL is dropped instead of silently
         # ignoring it.
-        import glob
         for url in e.mimeData().urls():
             path = url.toLocalFile()
             if not path:

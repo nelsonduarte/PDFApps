@@ -9,8 +9,8 @@ from PySide6.QtCore import Qt, QEvent, QSize
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QStackedWidget, QGroupBox,
-    QGridLayout, QLayout, QSizePolicy, QListWidget, QTableWidget,
-    QTableWidgetItem, QHeaderView, QTextEdit, QComboBox, QFileDialog,
+    QSizePolicy, QListWidget, QTableWidget,
+    QTableWidgetItem, QHeaderView, QTextEdit, QFileDialog,
     QMessageBox, QDialog, QApplication, QSlider,
 )
 import qtawesome as qta
@@ -23,7 +23,7 @@ from app.utils import (
 from app.i18n import t
 from app.widgets import DropFileEdit, ColorPickerButton
 from app.editor.canvas import PdfEditCanvas, _get_icon_cursor
-from app.editor.dialogs import _TextDialog, _NoteDialog, _TextEditDialog
+from app.editor.dialogs import _NoteDialog
 
 
 _log = logging.getLogger(__name__)
@@ -500,8 +500,8 @@ class TabEditar(QWidget):
                         f"color:{ACCENT}; border-radius:6px; border-radius:6px;")
                 else:
                     b.setStyleSheet(
-                        f"background:#D6F2EC; border:1px solid #83CABB; "
-                        f"color:#0E5A51; border-radius:6px; border-radius:6px;")
+                        "background:#D6F2EC; border:1px solid #83CABB; "
+                        "color:#0E5A51; border-radius:6px; border-radius:6px;")
 
     def _update_nav(self):
         n = self._canvas.page_count()
@@ -538,8 +538,8 @@ class TabEditar(QWidget):
                         f"color:{ACCENT}; border-radius:6px; border-radius:6px;")
                 else:
                     b.setStyleSheet(
-                        f"background:#D6F2EC; border:1px solid #83CABB; "
-                        f"color:#0E5A51; border-radius:6px; border-radius:6px;")
+                        "background:#D6F2EC; border:1px solid #83CABB; "
+                        "color:#0E5A51; border-radius:6px; border-radius:6px;")
             else:
                 if self._dark_mode:
                     b.setStyleSheet(
@@ -735,6 +735,17 @@ class TabEditar(QWidget):
         p, _ = QFileDialog.getOpenFileName(self, t("edit.image"), DESKTOP,
                                            t("file_filter.images"))
         if p:
+            # Reject gigapixel images before any downstream consumer
+            # (QPixmap preview, fitz.Pixmap on save) allocates a huge
+            # buffer. Mirrors the guard in _SignatureDialog._pick_image.
+            from app.utils import check_image_size
+            ok, w, h = check_image_size(p)
+            if not ok:
+                QMessageBox.warning(self, t("msg.warning"),
+                                    t("editor.image_too_large",
+                                      width=w, height=h,
+                                      megapix=w * h // 1_000_000))
+                return
             self._img_drop.blockSignals(True)
             self._img_drop.set_path(p)
             self._img_drop.blockSignals(False)
@@ -1216,7 +1227,11 @@ class TabEditar(QWidget):
             # user expectations instead of letting them discover tofu
             # after the save completes.
             _non_latin = any(
-                e.get("type") in ("text", "note")
+                # text_edit also writes via the built-in helv font
+                # (see the type-dispatch a few lines below), so the
+                # warning must cover it too — previously the user
+                # got tofu on edited spans without any heads-up.
+                e.get("type") in ("text", "note", "text_edit")
                 and any(ord(c) > 0xFF for c in (e.get("text") or ""))
                 for e in self._pending
             )
