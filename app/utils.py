@@ -410,6 +410,35 @@ def _find_gs():
     return None
 
 
+def _win_short_path(path: str) -> str:
+    """On Windows, try to map ``path`` to its 8.3 short form.
+
+    The 1.5 GB Ghostscript binary still uses the legacy ANSI process
+    locale on Windows when reading the command line, so paths under
+    user profiles with non-ASCII characters (e.g. ``C:\\Users\\José``)
+    get mangled by the time ``-sOutputFile=...`` reaches the engine —
+    causing a misleading "could not open output file" error. Convert
+    to the 8.3 short alias which is always ASCII when the volume has
+    short names enabled (default on NTFS).
+
+    On non-Windows, or if the conversion fails (short names disabled,
+    path does not exist yet), returns ``path`` unchanged.
+    """
+    if sys.platform != "win32" or not path:
+        return path
+    if not os.path.exists(path):
+        return path  # GetShortPathNameW requires the file to exist
+    try:
+        import ctypes
+        buf = ctypes.create_unicode_buffer(512)
+        n = ctypes.windll.kernel32.GetShortPathNameW(path, buf, 512)
+        if n and buf.value:
+            return buf.value
+    except Exception:
+        pass
+    return path
+
+
 def _compress_pdf(src: str, dst: str, level: str = "recommended",
                   progress_fn=None) -> tuple:
     """
@@ -490,7 +519,13 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 cmd += ["-sColorConversionStrategy=Gray",
                         "-dProcessColorModel=/DeviceGray",
                         "-dOverrideICC"]
-            cmd += [f"-sOutputFile={p}", src]
+            # Short-name conversion (Windows non-ASCII user profile
+            # safety). gs reads the command line through the legacy ANSI
+            # encoding; the short alias is always ASCII on NTFS volumes
+            # with 8.3 names enabled (default). No-op on POSIX.
+            _src_for_gs = _win_short_path(src)
+            _out_for_gs = _win_short_path(p)
+            cmd += [f"-sOutputFile={_out_for_gs}", _src_for_gs]
             # Spawn gs as a polled subprocess so the cancel button works
             # mid-render. subprocess.run(timeout=120) blocks the worker
             # thread for the whole timeout window, leaving Cancel dead
