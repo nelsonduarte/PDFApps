@@ -113,6 +113,33 @@ a {
     text-decoration: none;
 }
 
+/* Skip-to-content link: visually hidden until focused */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    z-index: 9999;
+    padding: 8px 16px;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    border-radius: 0 0 6px 0;
+}
+
+.skip-link:focus,
+.skip-link.is-focused {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: auto;
+    height: auto;
+    overflow: visible;
+}
+
 img, svg {
     display: block;
     max-width: 100%;

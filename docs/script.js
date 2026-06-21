@@ -56,6 +56,14 @@
             });
         }
 
+        // Skip-link focus management (mirrors :focus styles via class for
+        // browsers that strip focus on click, and ensures parity if the
+        // CSS file fails to load).
+        document.querySelectorAll('.skip-link').forEach(function (link) {
+            link.addEventListener('focus', function () { link.classList.add('is-focused'); });
+            link.addEventListener('blur', function () { link.classList.remove('is-focused'); });
+        });
+
         // Scroll-reveal animations
         var reveals = document.querySelectorAll('.reveal');
         if (reveals.length && 'IntersectionObserver' in window) {
