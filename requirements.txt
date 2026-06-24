@@ -1,5 +1,5 @@
 PySide6>=6.11.1
-pypdf>=6.13.3
+pypdf>=6.14.2
 # GHSA-537c-gmf6-5ccf: signature verification bypass in legacy OpenSSL
 # providers fixed in 48.0.1.
 cryptography>=49.0.0
