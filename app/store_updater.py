@@ -51,14 +51,19 @@ def is_msix_install() -> bool:
     """Detect if PDFApps is running inside a Windows App Package (MSIX/AppX).
 
     Returns True for MSIX installs (Microsoft Store), False for NSIS
-    installer / portable .exe / non-Windows platforms. Two indicators
-    are checked because either alone has edge cases:
+    installer / portable .exe / non-Windows platforms.
 
-    * ``PACKAGE_FULL_NAME`` is set by the Windows runtime for packaged
-      apps but can be unset when tooling launches the .exe outside the
-      AppContainer.
-    * The ``\\WindowsApps\\`` path prefix is reliable because MSIX
-      packages are always extracted to ``C:\\Program Files\\WindowsApps``.
+    Two detection methods are checked:
+
+    1. ``PACKAGE_FULL_NAME`` env var — best-effort fallback. Not
+       officially documented by Microsoft as guaranteed, but reported
+       by some packaged runtimes / tooling. May not fire in every
+       MSIX launch context, so we never rely on it alone.
+    2. Executable path under ``\\WindowsApps\\`` — reliable, because
+       MSIX packages are always extracted to
+       ``C:\\Program Files\\WindowsApps`` by the Windows package
+       installer (immutable convention). This is the load-bearing
+       detection in practice.
     """
     if sys.platform != "win32":
         return False
@@ -123,6 +128,14 @@ def get_store_version() -> Optional[str]:
                         versions.append(_parse_version(ver))
     except Exception as exc:
         _log.warning("Store API response parse failed: %s", exc)
+        # Snippet of the raw decoded payload for diagnosis if Microsoft
+        # changes the DisplayCatalog schema. Limited to 500 chars so a
+        # huge response doesn't flood logs, and wrapped in try/except
+        # because data may be unrepresentable.
+        try:
+            _log.debug("Raw response prefix: %s", str(data)[:500])
+        except Exception:
+            pass
         return None
 
     if not versions:
@@ -142,16 +155,38 @@ def get_store_version() -> Optional[str]:
 def check_for_store_update() -> Tuple[bool, Optional[str]]:
     """Returns ``(has_update, latest_version_str)``.
 
-    ``(False, None)`` is returned on error or when the Store reports the
-    same/older version than ``APP_VERSION``. Only meaningful when
+    ``(False, None)`` is returned on error, when the Store reports the
+    same/older version than ``APP_VERSION``, or when the user has
+    already dismissed a notification for this (or a newer) version via
+    :func:`app.i18n.set_dismissed_store_version`. Only meaningful when
     :func:`is_msix_install` is True; callers should guard.
     """
     latest = get_store_version()
     if not latest:
         return False, None
 
-    current = _parse_version(APP_VERSION)
-    latest_tuple = _parse_version(latest)
+    # Skip if user already dismissed THIS specific version (or newer):
+    # without this guard the MSIX update dialog fires on every launch
+    # until the user installs the new package, which because Store
+    # propagation lags 1-7 days behind our release means daily nags.
+    try:
+        from app.i18n import get_dismissed_store_version
+        dismissed = get_dismissed_store_version()
+    except Exception:
+        dismissed = None
+    if dismissed:
+        dismissed_tuple = _parse_version(dismissed) + (0, 0, 0, 0)
+        latest_for_dismiss = _parse_version(latest) + (0, 0, 0, 0)
+        if dismissed_tuple[:4] >= latest_for_dismiss[:4]:
+            return False, None
+
+    # Defensive version compare: pad both sides to a 4-tuple before
+    # comparing. _parse_version("1.13.16") -> (1, 13, 16) but the Store
+    # often reports 4-part versions like "1.13.16.0". Without padding,
+    # (1, 13, 16, 0) > (1, 13, 16) is True in Python (longer tuple wins
+    # on prefix tie) and we'd report a phantom update.
+    current = (_parse_version(APP_VERSION) + (0, 0, 0, 0))[:4]
+    latest_tuple = (_parse_version(latest) + (0, 0, 0, 0))[:4]
 
     has_update = latest_tuple > current
     return has_update, latest if has_update else None

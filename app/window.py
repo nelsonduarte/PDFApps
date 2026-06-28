@@ -1575,28 +1575,65 @@ class MainWindow(QMainWindow):
             self._show_update_dialog()
 
     def _notify_store_update(self, latest: str, deep_link: str):
-        """Show a non-blocking dialog directing MSIX users to the Microsoft Store.
+        """Modal dialog directing the user to the Microsoft Store listing.
+
+        Three options:
+
+        * **Open Store** — launch the Store deep-link AND persist
+          ``latest`` as dismissed (the user took action; no point
+          nagging again until a newer version ships).
+        * **Later** — close without persisting; the dialog reappears
+          on the next launch.
+        * **Don't show again for this version** — persist ``latest``
+          as dismissed so :func:`app.store_updater.check_for_store_update`
+          suppresses the dialog until the Store publishes something
+          newer.
 
         Used when :func:`app.updater.check_for_update` returns the
         special ``{"msix": True, ...}`` payload — see the rationale in
         :func:`_check_for_updates_async`.
         """
         from PySide6.QtWidgets import QMessageBox
+        from app.i18n import set_dismissed_store_version
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Information)
         box.setWindowTitle(t("update.store.title"))
         box.setText(t("update.store.message").format(version=latest))
-        box.setStandardButtons(
-            QMessageBox.StandardButton.Open
-            | QMessageBox.StandardButton.Cancel
+        # Custom 3-button layout: addButton + roles, NOT setStandardButtons,
+        # so we can have an explicit "don't show again" path distinct
+        # from "later".
+        open_btn = box.addButton(
+            t("update.store.btn.open"),
+            QMessageBox.ButtonRole.AcceptRole,
         )
-        box.button(QMessageBox.StandardButton.Open).setText(t("update.store.btn.open"))
-        box.button(QMessageBox.StandardButton.Cancel).setText(t("update.store.btn.later"))
-        box.setDefaultButton(QMessageBox.StandardButton.Open)
-        if box.exec() == QMessageBox.StandardButton.Open and deep_link:
-            from PySide6.QtCore import QUrl
-            from PySide6.QtGui import QDesktopServices
-            QDesktopServices.openUrl(QUrl(deep_link))
+        later_btn = box.addButton(
+            t("update.store.btn.later"),
+            QMessageBox.ButtonRole.RejectRole,
+        )
+        dismiss_btn = box.addButton(
+            t("update.store.btn.dismiss"),
+            QMessageBox.ButtonRole.ActionRole,
+        )
+        box.setDefaultButton(open_btn)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is open_btn:
+            if deep_link:
+                from PySide6.QtCore import QUrl
+                from PySide6.QtGui import QDesktopServices
+                QDesktopServices.openUrl(QUrl(deep_link))
+            # The user acted on this version — persist the dismiss too
+            # so we don't re-show the dialog before Store finishes
+            # propagating the new MSIX (which can lag 1-7 days).
+            with contextlib.suppress(Exception):
+                if latest:
+                    set_dismissed_store_version(latest)
+        elif clicked is dismiss_btn:
+            with contextlib.suppress(Exception):
+                if latest:
+                    set_dismissed_store_version(latest)
+        # "Later" (later_btn) and the close-box: do nothing; dialog
+        # will reappear on the next startup.
 
     def _show_update_dialog(self):
         if self._update_release:

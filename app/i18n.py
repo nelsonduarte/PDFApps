@@ -198,6 +198,53 @@ def _save_config_language(lang: str):
     _update_config(lambda cfg: cfg.__setitem__("language", lang))
 
 
+# ── Store-update dismiss persistence ──────────────────────────────────────
+#
+# Without a persistent dismissal flag, the MSIX "update available on
+# Microsoft Store" dialog fires on every launch until the user installs
+# the new MSIX. Because Store propagation lags 1-7 days behind our
+# GitHub release, users would see the same dialog daily — by design
+# noisy. We persist the last version the user explicitly dismissed so
+# `check_for_store_update` can suppress further nags until a NEWER
+# version is published.
+
+def get_dismissed_store_version() -> str | None:
+    """Return the Store version the user last dismissed, or ``None``.
+
+    A returned value means: "the user already saw and dismissed this
+    version; do not nag again unless the Store publishes something
+    newer". Stored under the ``dismissed_store_version`` key in
+    config.json.
+    """
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except Exception:
+        return None
+    if not isinstance(cfg, dict):
+        return None
+    val = cfg.get("dismissed_store_version")
+    if isinstance(val, str) and val:
+        return val
+    return None
+
+
+def set_dismissed_store_version(version: str | None) -> None:
+    """Persist the Store version the user dismissed.
+
+    Pass a version string (e.g. ``"1.13.17"``) to record the dismiss.
+    Pass ``None`` to clear the flag (so the next available-update
+    notification is shown unconditionally).
+    """
+    def _mutate(cfg: dict) -> None:
+        if version:
+            cfg["dismissed_store_version"] = version
+        else:
+            cfg.pop("dismissed_store_version", None)
+
+    _update_config(_mutate)
+
+
 def init():
     """Initialize i18n: load translations and set language."""
     global _LANG

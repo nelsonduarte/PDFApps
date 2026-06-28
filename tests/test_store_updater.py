@@ -6,19 +6,18 @@ Covers:
   * Store DisplayCatalog API response parsing (highest version wins,
     trailing .0 stripped).
   * Graceful network / parse failure handling (returns None, never raises).
-  * check_for_store_update branching (newer / same / older / error).
+  * check_for_store_update branching (newer / same / older / error,
+    dismissed-version suppression).
   * Store deep-link format.
   * Source-level guards that app/updater.py + app/window.py branch on
     the new MSIX path.
+  * Persistent dismiss helpers in app/i18n.py.
 """
-import io
 import json
 import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -213,6 +212,95 @@ def test_check_for_store_update_returns_false_on_lookup_failure():
     assert latest is None
 
 
+# ── check_for_store_update + dismissed-version persistence ────────────
+
+
+def test_check_for_update_skips_if_dismissed_same_version():
+    """Dismissed version == Store latest -> no update (suppress nag)."""
+    from app import store_updater
+    with patch.object(store_updater, "get_store_version", return_value="99.0.0"), \
+         patch("app.i18n.get_dismissed_store_version", return_value="99.0.0"):
+        has_update, latest = store_updater.check_for_store_update()
+    assert has_update is False
+    assert latest is None
+
+
+def test_check_for_update_skips_if_dismissed_newer_than_store():
+    """User somehow dismissed a future version > Store -> suppress."""
+    from app import store_updater
+    with patch.object(store_updater, "get_store_version", return_value="99.0.0"), \
+         patch("app.i18n.get_dismissed_store_version", return_value="99.0.1"):
+        has_update, latest = store_updater.check_for_store_update()
+    assert has_update is False
+    assert latest is None
+
+
+def test_check_for_update_shows_if_store_newer_than_dismissed():
+    """Store published a new version after the dismiss -> notify again."""
+    from app import store_updater
+    with patch.object(store_updater, "get_store_version", return_value="99.0.1"), \
+         patch("app.i18n.get_dismissed_store_version", return_value="99.0.0"):
+        has_update, latest = store_updater.check_for_store_update()
+    assert has_update is True
+    assert latest == "99.0.1"
+
+
+def test_check_for_update_shows_if_no_dismissed():
+    """Nothing dismissed yet -> standard newer-than-current behaviour."""
+    from app import store_updater
+    with patch.object(store_updater, "get_store_version", return_value="99.0.0"), \
+         patch("app.i18n.get_dismissed_store_version", return_value=None):
+        has_update, latest = store_updater.check_for_store_update()
+    assert has_update is True
+    assert latest == "99.0.0"
+
+
+def test_check_for_update_defensive_pad_avoids_phantom_update():
+    """Defensive 4-tuple padding: '1.13.16.0' from Store must not look
+    'newer' than APP_VERSION '1.13.16' just because the tuple is
+    longer (Python (1,13,16,0) > (1,13,16) without padding)."""
+    from app import store_updater
+    # Force APP_VERSION-shaped current ("X.Y.Z") and Store-shaped latest
+    # ("X.Y.Z.0") to confirm the padded comparison treats them as equal.
+    with patch.object(store_updater, "APP_VERSION", "1.13.16"), \
+         patch.object(store_updater, "get_store_version", return_value="1.13.16.0"), \
+         patch("app.i18n.get_dismissed_store_version", return_value=None):
+        has_update, latest = store_updater.check_for_store_update()
+    assert has_update is False
+    assert latest is None
+
+
+# ── i18n dismiss helpers ──────────────────────────────────────────────
+
+
+def test_dismissed_store_version_helpers_exist():
+    """get/set helpers must exist in app/i18n.py."""
+    src = (ROOT / "app" / "i18n.py").read_text(encoding="utf-8")
+    assert "def get_dismissed_store_version" in src
+    assert "def set_dismissed_store_version" in src
+    assert "dismissed_store_version" in src  # the config key
+
+
+def test_dismissed_store_version_round_trip(tmp_path, monkeypatch):
+    """set -> get must round-trip the value through config.json, and
+    passing None must clear it. Uses an isolated tmp config path so the
+    user's real config.json is untouched."""
+    from app import i18n
+    cfg = tmp_path / "config.json"
+    monkeypatch.setattr(i18n, "_CONFIG_PATH", str(cfg))
+    # Initially nothing
+    assert i18n.get_dismissed_store_version() is None
+    # Set + read back
+    i18n.set_dismissed_store_version("1.13.17")
+    assert i18n.get_dismissed_store_version() == "1.13.17"
+    # Overwrite with newer
+    i18n.set_dismissed_store_version("1.13.18")
+    assert i18n.get_dismissed_store_version() == "1.13.18"
+    # Clear with None
+    i18n.set_dismissed_store_version(None)
+    assert i18n.get_dismissed_store_version() is None
+
+
 # ── store_deep_link ────────────────────────────────────────────────────
 
 
@@ -286,6 +374,23 @@ def test_window_has_store_notify_handler():
     assert "QDesktopServices" in src
 
 
+def test_window_dialog_uses_three_buttons_with_persistent_dismiss():
+    """_notify_store_update must offer the new dismiss button and
+    persist the dismiss via app.i18n.set_dismissed_store_version,
+    otherwise the notification spams every startup until upgrade."""
+    src = (ROOT / "app" / "window.py").read_text(encoding="utf-8")
+    start = src.index("def _notify_store_update")
+    # Bound the slice to the next def to avoid matching unrelated code.
+    end = src.index("\n    def ", start + 1)
+    body = src[start:end]
+    assert "update.store.btn.dismiss" in body, "dismiss button missing"
+    assert "set_dismissed_store_version" in body, \
+        "dismiss must be persisted via set_dismissed_store_version"
+    # Open + dismiss paths both record the dismiss; Later does not.
+    assert "clickedButton" in body, \
+        "must distinguish Open/Later/Dismiss via clickedButton()"
+
+
 def test_window_no_longer_early_returns_on_windowsapps():
     """The MSIX skip in _check_for_updates_async must be gone — MSIX now
     flows through the regular check_for_update path and gets a Store
@@ -328,6 +433,7 @@ def test_store_i18n_keys_parity_across_all_languages():
         "update.store.message",
         "update.store.btn.open",
         "update.store.btn.later",
+        "update.store.btn.dismiss",
     }
     for lang_code, entries in langs.items():
         missing = required - set(entries.keys())
