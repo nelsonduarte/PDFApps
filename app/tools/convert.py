@@ -52,7 +52,7 @@ from app.base import BasePage
 from app.i18n import t
 from app.utils import (
     section, info_lbl, pick_folder, show_error, result_label_style,
-    CancelledError,
+    CancelledError, format_size_localized,
 )
 from app.constants import DESKTOP
 from app.widgets import DropFileEdit
@@ -171,7 +171,8 @@ class TabConverter(BasePage):
         size = os.path.getsize(p)
         try:
             r = self._open_reader(p)
-            self.lbl_info.setText(t("tool.compress.pages_info", n=len(r.pages), size=f"{size/1024:.1f}"))
+            self.lbl_info.setText(t("tool.compress.pages_info", n=len(r.pages),
+                                    size=format_size_localized(size / 1024)))
         except Exception as e:
             self.lbl_info.setText(t("tool.split.error_info", e=e))
         # auto-set output paths

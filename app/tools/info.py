@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QTextEdit
 
 from app.base import BasePage
 from app.i18n import t
+from app.utils import format_size_localized
 
 
 def _format_pdf_date(raw: str) -> str:
@@ -80,7 +81,7 @@ class TabInfo(BasePage):
                 f"  📁  {path}",
                 "",
                 f"  {t('tool.info.pages'):<16}{page_count}",
-                f"  {t('tool.info.size'):<16}{size/1024:.1f} KB  ({size:,} bytes)".replace(",", " "),
+                f"  {t('tool.info.size'):<16}{format_size_localized(size/1024)} KB  ({size:,} bytes)".replace(",", " "),
                 f"  {t('tool.info.encrypted'):<16}{enc}",
                 "",
             ]
@@ -103,6 +104,6 @@ class TabInfo(BasePage):
                     f"                   {w/72*25.4:.0f} × {h/72*25.4:.0f} mm",
                 ]
             self.txt.setPlainText("\n".join(lines))
-            self._status(f"ℹ  {os.path.basename(path)}  ·  {page_count} {t('tool.info.pages').lower()}  ·  {size/1024:.1f} KB")
+            self._status(f"ℹ  {os.path.basename(path)}  ·  {page_count} {t('tool.info.pages').lower()}  ·  {format_size_localized(size/1024)} KB")
         except Exception as e:
             self.txt.setPlainText(t("tool.info.error", e=e))

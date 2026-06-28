@@ -203,14 +203,65 @@ def main():
     # 7. sys.exit(app.exec())
 ```
 
-**Config file:** `~/.pdfapps_config.json`
+### `config.json` schema
+
+The application stores user preferences in `config.json` at:
+
+- **Linux**: `$XDG_CONFIG_HOME/pdfapps/config.json` (default `~/.config/pdfapps/`)
+- **Windows / macOS**: `~/.pdfapps_config.json` (legacy; macOS support for `~/Library/Application Support/PDFApps/` planned)
+
+Schema:
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `language` | str | system locale | UI language code (`en`, `pt`, `es`, `fr`, `de`, `it`, `nl`, `zh`) |
+| `dark_mode` | bool | `true` | Theme preference |
+| `recent_files` | list[str] | `[]` | Paths to recently opened PDFs (max controlled by `max_recent_files`) |
+| `max_recent_files` | int | `10` | Cap on the recent files list (clamped 1-50) |
+| `tool_usage` | dict[str, int] | `{}` | Per-tool invocation counter (for surface ordering) |
+
+Example:
+
 ```json
 {
-  "dark_mode": true,
   "language": "pt",
-  "recent_files": ["C:/path/to/file1.pdf", "C:/path/to/file2.pdf"]
+  "dark_mode": true,
+  "recent_files": ["C:/path/to/file1.pdf", "C:/path/to/file2.pdf"],
+  "max_recent_files": 10,
+  "tool_usage": {"compress": 12, "merge": 5}
 }
 ```
+
+## Environment Variables
+
+PDFApps respects the following environment variables for platform integration and PyInstaller relaunch handling.
+
+### Standard platform vars
+
+| Var | Source | Behaviour |
+|---|---|---|
+| `XDG_CONFIG_HOME` | Linux XDG Base Directory spec | Overrides config path location (`<XDG_CONFIG_HOME>/pdfapps/`) |
+| `FLATPAK_ID` | set by Flatpak runtime | Detected for sandbox-aware behaviour |
+| `SNAP` | set by snapd runtime | Detected for snap-aware paths |
+| `APPIMAGE` | set by AppImage runtime | Path to mounted AppImage; used to locate bundled resources |
+| `APPDIR` | set by AppImage AppRun | Mount point for AppImage extraction |
+
+### PyInstaller internals (auto-managed)
+
+These are cleared by `_restart_app` before relaunching to prevent stale state contamination. Do not set manually.
+
+- `_PYI_APPLICATION_HOME_DIR`
+- `_PYI_PARENT_PROCESS_LEVEL`
+- `_PYI_ARCHIVE_FILE`
+- `_MEIPASS`, `_MEIPASS2`
+
+See `app/window.py:_restart_app` and memory entry `feedback_pyinstaller_relaunch.md` for the relaunch contract.
+
+### Tesseract OCR
+
+| Var | Behaviour |
+|---|---|
+| `TESSDATA_PREFIX` | Override the location of `tessdata/` directory; set automatically by `app/tools/ocr.py:_ensure_tesseract` when a non-standard install is detected |
 
 ---
 
