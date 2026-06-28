@@ -10,10 +10,14 @@ Wire format
 -----------
 ``[4-byte big-endian length] [UTF-8 payload]``
 
-Payload is newline-separated absolute paths. The 4-byte length lets
-the server frame the message correctly even when ``readyRead`` arrives
-in multiple chunks. A 64 KB cap prevents a hostile or buggy peer from
-forcing the server to allocate unbounded memory.
+Payload is NUL-separated (``\\0``) absolute paths. NUL is illegal in
+every mainstream filesystem (POSIX + Windows NTFS/exFAT), so it is a
+safer delimiter than newline — paths can legitimately contain ``\\n``
+on macOS and Linux, which would have been silently split with the
+previous newline separator. The 4-byte length lets the server frame
+the message correctly even when ``readyRead`` arrives in multiple
+chunks. A 64 KB cap prevents a hostile or buggy peer from forcing the
+server to allocate unbounded memory.
 
 Socket naming
 -------------
@@ -75,7 +79,10 @@ def send_to_existing(paths: list[str]) -> bool:
     if not sock.waitForConnected(_SOCKET_TIMEOUT_MS):
         return False
     try:
-        payload = "\n".join(paths).encode("utf-8")
+        # NUL separator: paths can contain newlines on macOS/Linux but
+        # NUL is forbidden in every mainstream filesystem, so it is the
+        # only fully unambiguous delimiter for absolute paths.
+        payload = "\0".join(paths).encode("utf-8")
         if len(payload) > _MAX_PAYLOAD_BYTES:
             # Refuse to send a payload the server would just reject;
             # better to fall back to a normal second instance than
@@ -159,7 +166,7 @@ class SingleInstanceServer(QObject):
             _log.warning("single-instance: payload not valid UTF-8")
             sock.disconnectFromServer()
             return
-        paths = [p for p in text.split("\n") if p.strip()]
+        paths = [p for p in text.split("\0") if p.strip()]
         if paths:
             _log.info(
                 "single-instance: received %d path(s) from second instance",

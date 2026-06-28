@@ -122,23 +122,27 @@ def main():
     # opens them as new tabs and raises its window — much faster and
     # less RAM than a second full process. Must happen BEFORE
     # QApplication() so we never pay the splash/startup cost in the
-    # second invocation. A throw-away QCoreApplication is enough for
-    # the QtNetwork event loop to drive the local socket.
+    # second invocation.
+    #
+    # QLocalSocket.waitForConnected/waitForBytesWritten work standalone
+    # without any QApplication/QCoreApplication instance — so we do NOT
+    # construct a probe app here. A previous version did, then tried to
+    # ``del _probe_app`` before constructing the main app, but ``del``
+    # only drops the Python reference; the Qt singleton survives and
+    # the subsequent QApplication construction raised
+    # ``RuntimeError: Please destroy the QCoreApplication singleton
+    # before creating a new QApplication instance.`` That crashed the
+    # cold-start "open PDF from Explorer" path (the most common second
+    # invocation scenario when PDFApps was not already running).
     pdf_files = [
         os.path.abspath(f) for f in (args.files or [])
         if os.path.isfile(f) and f.lower().endswith(".pdf")
     ]
     if pdf_files:
-        from PySide6.QtCore import QCoreApplication
         from app.single_instance import send_to_existing
-        _probe_app = QCoreApplication.instance() or QCoreApplication(sys.argv)
         if send_to_existing(pdf_files):
             # Paths delivered to the existing instance — quit silently.
             sys.exit(0)
-        # No instance running — fall through to a normal startup. The
-        # probe QCoreApplication must be torn down before QApplication
-        # is constructed (Qt forbids two coexisting app singletons).
-        del _probe_app
 
     app = QApplication(sys.argv)
     app.setApplicationName(" ")
