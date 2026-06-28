@@ -300,25 +300,29 @@ class MainWindow(QMainWindow):
         from PySide6.QtGui import QPainter, QImage
         _svg_path = resource_path("pdfapps.svg")
         _h = 36  # target height
+        # Honor actual display DPR rather than assuming HiDPI (PR-J #4 pattern).
+        dpr = self.devicePixelRatioF() if hasattr(self, 'devicePixelRatioF') else 1.0
+        if dpr <= 0:
+            dpr = 1.0
         if os.path.exists(_svg_path):
             renderer = QSvgRenderer(_svg_path)
             vb = renderer.viewBox()
             ratio = vb.width() / vb.height() if vb.height() else 1.0
             _w = int(_h * ratio)
-            img = QImage(_w * 2, _h * 2, QImage.Format.Format_ARGB32_Premultiplied)
+            img = QImage(int(_w * dpr), int(_h * dpr), QImage.Format.Format_ARGB32_Premultiplied)
             img.fill(0)
             p = QPainter(img)
             renderer.render(p)
             p.end()
             _app_pix = _QPixmap.fromImage(img)
-            _app_pix.setDevicePixelRatio(2.0)
+            _app_pix.setDevicePixelRatio(dpr)
         else:
             _w = _h
             _ico_path = resource_path("icon.ico")
             _app_pix = _QPixmap(_ico_path).scaled(
-                _w * 2, _h * 2, Qt.AspectRatioMode.KeepAspectRatio,
+                int(_w * dpr), int(_h * dpr), Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation)
-            _app_pix.setDevicePixelRatio(2.0)
+            _app_pix.setDevicePixelRatio(dpr)
         ico_lbl.setPixmap(_app_pix)
         ico_lbl.setObjectName("app_icon")
         ico_lbl.setFixedSize(_w, _h)
