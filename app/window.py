@@ -1481,15 +1481,13 @@ class MainWindow(QMainWindow):
     # ── Auto-update ───────────────────────────────────────────────────────
 
     def _check_for_updates_async(self):
-        # Skip auto-update inside Flatpak/Snap/MSIX — the host package
-        # manager (or Microsoft Store) handles updates.
+        # Skip auto-update inside Flatpak/Snap — the host package
+        # manager handles updates. MSIX installs are NOT skipped here;
+        # check_for_update() returns a special {"msix": True, ...} dict
+        # so the user gets a Store-redirect notification (see
+        # app/store_updater.py and _notify_update below).
         if os.environ.get("FLATPAK_ID") or os.environ.get("SNAP"):
             return
-        import sys as _sys
-        if _sys.platform == "win32":
-            exe = os.path.realpath(_sys.executable)
-            if "\\WindowsApps\\" in exe or "/WindowsApps/" in exe:
-                return
         # Pre-import the updater module on the main thread BEFORE the
         # worker thread starts. The worker would otherwise lazy-import
         # `app.updater`, which transitively pulls in `urllib.request`
@@ -1554,6 +1552,16 @@ class MainWindow(QMainWindow):
     def _notify_update(self):
         """Show update notification dialog automatically."""
         self._update_btn.setVisible(True)
+        # MSIX install — route to Microsoft Store deep-link instead of
+        # the NSIS download dialog (the AppContainer sandbox blocks
+        # ShellExecuteW("runas", ...) and would, in any case, leave the
+        # user with two parallel installations).
+        if self._update_release.get("msix"):
+            self._notify_store_update(
+                self._update_release.get("latest_version") or "",
+                self._update_release.get("deep_link") or "",
+            )
+            return
         tag = self._update_release.get("tag_name", "?")
         from PySide6.QtWidgets import QMessageBox
         msg = t("update.available").format(version=tag)
@@ -1566,8 +1574,41 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             self._show_update_dialog()
 
+    def _notify_store_update(self, latest: str, deep_link: str):
+        """Show a non-blocking dialog directing MSIX users to the Microsoft Store.
+
+        Used when :func:`app.updater.check_for_update` returns the
+        special ``{"msix": True, ...}`` payload — see the rationale in
+        :func:`_check_for_updates_async`.
+        """
+        from PySide6.QtWidgets import QMessageBox
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setWindowTitle(t("update.store.title"))
+        box.setText(t("update.store.message").format(version=latest))
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Open
+            | QMessageBox.StandardButton.Cancel
+        )
+        box.button(QMessageBox.StandardButton.Open).setText(t("update.store.btn.open"))
+        box.button(QMessageBox.StandardButton.Cancel).setText(t("update.store.btn.later"))
+        box.setDefaultButton(QMessageBox.StandardButton.Open)
+        if box.exec() == QMessageBox.StandardButton.Open and deep_link:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+            QDesktopServices.openUrl(QUrl(deep_link))
+
     def _show_update_dialog(self):
         if self._update_release:
+            # MSIX users go straight to the Store dialog — the standard
+            # UpdateDialog tries to download PDFAppsSetup.exe which the
+            # sandbox cannot run.
+            if self._update_release.get("msix"):
+                self._notify_store_update(
+                    self._update_release.get("latest_version") or "",
+                    self._update_release.get("deep_link") or "",
+                )
+                return
             from app.updater import UpdateDialog
             dlg = UpdateDialog(self._update_release, parent=self)
             dlg.exec()
