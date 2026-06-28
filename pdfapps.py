@@ -115,6 +115,31 @@ def main():
     # Parse BEFORE QApplication so --help / --version exit cleanly
     # without bringing up the Qt event loop (and the splash screen).
     args = _parse_args(sys.argv[1:])
+
+    # Single-instance forwarding: if PDFApps is already running and the
+    # user double-clicked a PDF (or invoked us with one or more files),
+    # ship the paths over QLocalSocket and exit. The running instance
+    # opens them as new tabs and raises its window — much faster and
+    # less RAM than a second full process. Must happen BEFORE
+    # QApplication() so we never pay the splash/startup cost in the
+    # second invocation. A throw-away QCoreApplication is enough for
+    # the QtNetwork event loop to drive the local socket.
+    pdf_files = [
+        os.path.abspath(f) for f in (args.files or [])
+        if os.path.isfile(f) and f.lower().endswith(".pdf")
+    ]
+    if pdf_files:
+        from PySide6.QtCore import QCoreApplication
+        from app.single_instance import send_to_existing
+        _probe_app = QCoreApplication.instance() or QCoreApplication(sys.argv)
+        if send_to_existing(pdf_files):
+            # Paths delivered to the existing instance — quit silently.
+            sys.exit(0)
+        # No instance running — fall through to a normal startup. The
+        # probe QCoreApplication must be torn down before QApplication
+        # is constructed (Qt forbids two coexisting app singletons).
+        del _probe_app
+
     app = QApplication(sys.argv)
     app.setApplicationName(" ")
     app.setApplicationDisplayName(" ")
