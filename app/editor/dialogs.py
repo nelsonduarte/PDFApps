@@ -17,7 +17,7 @@ from app.constants import (
     _LO, _LP, _LQ, _LN,
 )
 from app.i18n import t
-from app.utils import error_color
+from app.utils import error_color, format_size_localized
 
 
 def _theme_colors(parent):
@@ -117,7 +117,8 @@ class _TextEditDialog(QDialog):
         pri, sec, bg, brd = _theme_colors(parent)
         v = QVBoxLayout(self); v.setContentsMargins(20, 20, 20, 16); v.setSpacing(10)
 
-        lbl_orig = QLabel(t("dialog.edit_text_detected", size=f"{font_size:.1f}"))
+        lbl_orig = QLabel(t("dialog.edit_text_detected",
+                              size=format_size_localized(font_size)))
         lbl_orig.setStyleSheet(f"color:{sec}; font-size:10pt;")
         v.addWidget(lbl_orig)
 

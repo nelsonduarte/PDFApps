@@ -10,7 +10,8 @@ from PySide6.QtWidgets import (
 from app.base import BasePage
 from app.i18n import t
 from app.utils import (section, info_lbl, _compress_pdf, _find_gs,
-                        show_error, result_label_style)
+                        show_error, result_label_style,
+                        format_size_localized)
 from app.worker import TaskRunner, run_task
 from app.constants import DESKTOP, TEXT_SEC
 from app.widgets import DropFileEdit
@@ -105,7 +106,8 @@ class TabComprimir(BasePage):
         size = os.path.getsize(p)
         try:
             r = self._open_reader(p)
-            self.lbl_info.setText(t("tool.compress.pages_info", n=len(r.pages), size=f"{size/1024:.1f}"))
+            self.lbl_info.setText(t("tool.compress.pages_info", n=len(r.pages),
+                                    size=format_size_localized(size / 1024)))
         except Exception as e: self.lbl_info.setText(t("tool.split.error_info", e=e))
 
     def auto_load(self, path: str):

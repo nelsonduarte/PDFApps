@@ -31,6 +31,20 @@ def resource_path(rel):
     return os.path.join(base, rel)
 
 
+def format_size_localized(value: float, decimals: int = 1) -> str:
+    """Format a numeric value using the system locale's decimal separator.
+
+    DE/FR/IT/ES typically use comma; EN/PT use period. Falls back to a plain
+    ``f"{value:.{decimals}f}"`` (period) if QLocale is unavailable, e.g. in
+    headless test environments where the Qt plugin failed to load.
+    """
+    try:
+        from PySide6.QtCore import QLocale
+        return QLocale.system().toString(float(value), 'f', decimals)
+    except Exception:
+        return f"{value:.{decimals}f}"
+
+
 def _make_palette(dark: bool) -> QPalette:
     p = QPalette()
     if dark:
