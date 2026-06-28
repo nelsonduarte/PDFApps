@@ -232,6 +232,37 @@ Example:
 }
 ```
 
+## Environment Variables
+
+PDFApps respects the following environment variables for platform integration and PyInstaller relaunch handling.
+
+### Standard platform vars
+
+| Var | Source | Behaviour |
+|---|---|---|
+| `XDG_CONFIG_HOME` | Linux XDG Base Directory spec | Overrides config path location (`<XDG_CONFIG_HOME>/pdfapps/`) |
+| `FLATPAK_ID` | set by Flatpak runtime | Detected for sandbox-aware behaviour |
+| `SNAP` | set by snapd runtime | Detected for snap-aware paths |
+| `APPIMAGE` | set by AppImage runtime | Path to mounted AppImage; used to locate bundled resources |
+| `APPDIR` | set by AppImage AppRun | Mount point for AppImage extraction |
+
+### PyInstaller internals (auto-managed)
+
+These are cleared by `_restart_app` before relaunching to prevent stale state contamination. Do not set manually.
+
+- `_PYI_APPLICATION_HOME_DIR`
+- `_PYI_PARENT_PROCESS_LEVEL`
+- `_PYI_ARCHIVE_FILE`
+- `_MEIPASS`, `_MEIPASS2`
+
+See `app/window.py:_restart_app` and memory entry `feedback_pyinstaller_relaunch.md` for the relaunch contract.
+
+### Tesseract OCR
+
+| Var | Behaviour |
+|---|---|
+| `TESSDATA_PREFIX` | Override the location of `tessdata/` directory; set automatically by `app/tools/ocr.py:_ensure_tesseract` when a non-standard install is detected |
+
 ---
 
 ## Main Window
