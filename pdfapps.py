@@ -115,6 +115,35 @@ def main():
     # Parse BEFORE QApplication so --help / --version exit cleanly
     # without bringing up the Qt event loop (and the splash screen).
     args = _parse_args(sys.argv[1:])
+
+    # Single-instance forwarding: if PDFApps is already running and the
+    # user double-clicked a PDF (or invoked us with one or more files),
+    # ship the paths over QLocalSocket and exit. The running instance
+    # opens them as new tabs and raises its window — much faster and
+    # less RAM than a second full process. Must happen BEFORE
+    # QApplication() so we never pay the splash/startup cost in the
+    # second invocation.
+    #
+    # QLocalSocket.waitForConnected/waitForBytesWritten work standalone
+    # without any QApplication/QCoreApplication instance — so we do NOT
+    # construct a probe app here. A previous version did, then tried to
+    # ``del _probe_app`` before constructing the main app, but ``del``
+    # only drops the Python reference; the Qt singleton survives and
+    # the subsequent QApplication construction raised
+    # ``RuntimeError: Please destroy the QCoreApplication singleton
+    # before creating a new QApplication instance.`` That crashed the
+    # cold-start "open PDF from Explorer" path (the most common second
+    # invocation scenario when PDFApps was not already running).
+    pdf_files = [
+        os.path.abspath(f) for f in (args.files or [])
+        if os.path.isfile(f) and f.lower().endswith(".pdf")
+    ]
+    if pdf_files:
+        from app.single_instance import send_to_existing
+        if send_to_existing(pdf_files):
+            # Paths delivered to the existing instance — quit silently.
+            sys.exit(0)
+
     app = QApplication(sys.argv)
     app.setApplicationName(" ")
     app.setApplicationDisplayName(" ")

@@ -21,6 +21,7 @@ from app.i18n import t, set_language, get_language, get_recent_files, add_recent
 from app.styles import STYLE, STYLE_LIGHT
 from app.utils import resource_path, _make_palette
 from app.widgets import DropFileEdit
+from app.single_instance import SingleInstanceServer
 from app.viewer.panel import PdfViewerPanel
 from app.tools.split import TabDividir
 from app.tools.merge import TabJuntar
@@ -552,6 +553,15 @@ class MainWindow(QMainWindow):
         if not self._dark_mode:
             self._apply_theme()
 
+        # Single-instance IPC: when the user double-clicks another PDF
+        # in Explorer/Finder while PDFApps is running, that second
+        # process forwards the paths here via QLocalSocket instead of
+        # spawning a redundant second window. See app/single_instance.py
+        # for the wire format. Construction is no-op-safe if the
+        # socket fails to bind, so the running instance keeps working.
+        self._instance_server = SingleInstanceServer(self)
+        self._instance_server.new_paths.connect(self._on_second_instance)
+
     # ── Viewer property (always returns the active tab's viewer) ──────
     @property
     def _viewer(self) -> PdfViewerPanel:
@@ -837,6 +847,33 @@ class MainWindow(QMainWindow):
                 with contextlib.suppress(Exception):
                     refresh()
         self._refresh_viewer_top_buttons()
+
+    def _on_second_instance(self, paths: list):
+        """Handle PDFs forwarded from a second invocation.
+
+        Each path is loaded as a new tab (mirroring drag-and-drop
+        semantics) and the main window is brought to the foreground so
+        the user sees the result immediately instead of wondering why
+        the click "did nothing". ``raise_`` + ``activateWindow`` is the
+        cross-platform incantation; ``showNormal`` is the only one of
+        the three that un-minimises on every supported OS.
+        """
+        import logging as _logging
+        _wlog = _logging.getLogger(__name__)
+        for path in paths:
+            if isinstance(path, str) and os.path.isfile(path) \
+                    and path.lower().endswith(".pdf"):
+                try:
+                    self._load_and_track(path)
+                except Exception as exc:
+                    _wlog.warning(
+                        "second instance: failed to load %s: %s",
+                        path, exc,
+                    )
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
 
     def _open_in_new_tab(self):
         """Open a PDF in a new tab."""
