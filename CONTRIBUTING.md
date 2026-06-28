@@ -203,12 +203,32 @@ def main():
     # 7. sys.exit(app.exec())
 ```
 
-**Config file:** `~/.pdfapps_config.json`
+### `config.json` schema
+
+The application stores user preferences in `config.json` at:
+
+- **Linux**: `$XDG_CONFIG_HOME/pdfapps/config.json` (default `~/.config/pdfapps/`)
+- **Windows / macOS**: `~/.pdfapps_config.json` (legacy; macOS support for `~/Library/Application Support/PDFApps/` planned)
+
+Schema:
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `language` | str | system locale | UI language code (`en`, `pt`, `es`, `fr`, `de`, `it`, `nl`, `zh`) |
+| `dark_mode` | bool | `true` | Theme preference |
+| `recent_files` | list[str] | `[]` | Paths to recently opened PDFs (max controlled by `max_recent_files`) |
+| `max_recent_files` | int | `10` | Cap on the recent files list (clamped 1-50) |
+| `tool_usage` | dict[str, int] | `{}` | Per-tool invocation counter (for surface ordering) |
+
+Example:
+
 ```json
 {
-  "dark_mode": true,
   "language": "pt",
-  "recent_files": ["C:/path/to/file1.pdf", "C:/path/to/file2.pdf"]
+  "dark_mode": true,
+  "recent_files": ["C:/path/to/file1.pdf", "C:/path/to/file2.pdf"],
+  "max_recent_files": 10,
+  "tool_usage": {"compress": 12, "merge": 5}
 }
 ```
 
