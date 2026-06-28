@@ -133,6 +133,21 @@ class TabImport(BasePage):
 
     def _convert_txt(self, sources: list, out_path: str):
         n = len(sources)
+        # Mirror page_numbers.py L4: ``helv`` is a Type-1 Latin-1 font; any
+        # codepoint > U+00FF (CJK, Cyrillic, Arabic, etc.) renders as tofu.
+        # Pre-scan a bounded prefix of each input so the user gets the same
+        # status-bar warning as the page-numbers tool surfaces.
+        try:
+            for _src in sources:
+                with open(_src, "r", encoding="utf-8", errors="replace") as _f:
+                    _chunk = _f.read(65536)
+                if any(ord(c) > 0xFF for c in _chunk):
+                    self._status(t("tool.warn.font_latin_only"))
+                    break
+        except OSError:
+            # File read errors will be surfaced again inside do_work; the
+            # warning pre-scan is best-effort and must never block the run.
+            pass
 
         def do_work(worker):
             import fitz
