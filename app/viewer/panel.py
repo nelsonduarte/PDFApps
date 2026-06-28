@@ -335,7 +335,9 @@ class PdfViewerPanel(QWidget):
             "font-size: 10pt; font-weight: 600; opacity: 0.7;")
         lay.addWidget(rec_title)
         for rp in recents[:5]:
-            if not os.path.isfile(rp):
+            # Use os.path.lexists to avoid hydrating OneDrive Files-On-Demand
+            # placeholders at viewer startup (matches i18n.py:290 fix).
+            if not os.path.lexists(rp):
                 continue
             fname = os.path.basename(rp)
             row = QWidget()
