@@ -39,13 +39,14 @@ _CURSOR_ICON_PX = 24
 def _cursor_for_tool(tool: "ToolMode", dark: bool = True) -> QCursor:
     """Build a QCursor that mirrors the active HUD tool.
 
-    The pen and highlighter share the 180° rotation used by
+    The pen and highlighter share the +90° clockwise rotation used by
     :mod:`app.viewer.annotation_hud` so the cursor tip visually matches the
-    icon shown on the toolbar. Hotspots are anchored to the writing tip
-    (top-left) for pen/highlighter — matching the mouse-pointer arrow
-    convention — and to the centre for the eraser. LASER returns
-    ``BlankCursor`` because the overlay draws the red dot manually —
-    showing a system cursor on top would be visually noisy.
+    icon shown on the toolbar. That quarter turn maps the FontAwesome native
+    bottom-right tip to the top-left corner, so hotspots are anchored to
+    ``(2, 2)`` (top-left) for pen/highlighter — matching the mouse-pointer
+    arrow convention — and to the centre for the eraser. LASER returns
+    ``BlankCursor`` because the overlay draws the red dot manually — showing
+    a system cursor on top would be visually noisy.
     """
     if tool == ToolMode.POINTER:
         return QCursor(Qt.CursorShape.ArrowCursor)
@@ -56,11 +57,11 @@ def _cursor_for_tool(tool: "ToolMode", dark: bool = True) -> QCursor:
     size = _CURSOR_ICON_PX
 
     if tool == ToolMode.PEN:
-        pix = qta.icon("fa5s.pen", color=icon_color, rotated=180).pixmap(size, size)
+        pix = qta.icon("fa5s.pen", color=icon_color, rotated=90).pixmap(size, size)
         return QCursor(pix, 2, 2)
     if tool == ToolMode.HIGHLIGHTER:
         pix = qta.icon(
-            "fa5s.highlighter", color=icon_color, rotated=180,
+            "fa5s.highlighter", color=icon_color, rotated=90,
         ).pixmap(size, size)
         return QCursor(pix, 2, 2)
     if tool == ToolMode.ERASER:
