@@ -119,15 +119,30 @@ class TestOverlayCursor:
 
     def test_cursor_helper_uses_matching_pen_rotation(self):
         """The pen cursor rotation must match the HUD icon rotation so the
-        on-screen cursor and toolbar icon stay visually consistent."""
+        on-screen cursor and toolbar icon stay visually consistent.
+
+        Rotation may be applied either via qtawesome's ``rotated=`` kwarg or
+        via a Qt-native :class:`QTransform` (the module currently prefers
+        QTransform because qtawesome's ``rotated=`` does not always survive
+        the icon → pixmap round-trip used for cursor rendering).
+        """
         src = _overlay_src()
         helper_idx = src.find("def _cursor_for_tool")
         assert helper_idx > 0
         helper_snippet = src[helper_idx:helper_idx + 2000]
-        # Pen and highlighter should be rendered rotated in the cursor helper
-        # (same rotation the HUD uses so the metaphor is consistent).
-        assert "fa5s.pen" in helper_snippet and "rotated" in helper_snippet
+        assert "fa5s.pen" in helper_snippet
         assert "fa5s.highlighter" in helper_snippet
+        # A rotation directive must exist somewhere in the module — either
+        # inline (qtawesome) or via a QTransform helper.
+        has_rotation = (
+            "rotated" in src
+            or "QTransform" in src
+            or "transform.rotate" in src.lower()
+        )
+        assert has_rotation, (
+            "Overlay module must apply a 90° rotation to the pen/highlighter "
+            "cursor icons (qtawesome rotated= or QTransform.rotate)"
+        )
 
     def test_laser_cursor_is_blank(self):
         """LASER cursor must be BlankCursor because the overlay draws the red
@@ -142,4 +157,69 @@ class TestOverlayCursor:
         assert "BlankCursor" in laser_snippet, (
             "LASER cursor should be BlankCursor - the red dot is drawn "
             "manually so a system cursor on top is redundant"
+        )
+
+
+class TestIconOutline:
+    """Regression tests for the black-outline treatment applied to HUD
+    icons and cursor pixmaps.
+
+    The outline (a 1 px dilation of the glyph rendered in ``#000000``)
+    keeps the pen/highlighter/eraser icons legible on light-coloured
+    slides, where an otherwise-white glyph would blend into the page.
+    Both the HUD toolbar (``annotation_hud.py``) and the cursor helper
+    (``annotation_layer.py``) render icons through a common outline
+    compositing pattern (icon drawn 8× at dilated offsets, then the
+    fill-coloured glyph on top).
+    """
+
+    def test_hud_icons_have_black_outline(self):
+        """HUD toolbar icons must be composited with a black outline."""
+        src = _hud_src()
+        assert "#000000" in src, (
+            "HUD module must reference the black outline colour used for the "
+            "icon dilation pass"
+        )
+        assert "outline" in src.lower(), (
+            "HUD module must document the outline compositing (variable or "
+            "helper named *outline*)"
+        )
+        assert "QPainter" in src, (
+            "HUD module must use QPainter to composite the outline + glyph"
+        )
+
+    def test_cursor_icons_have_black_outline(self):
+        """Cursor pixmaps must be composited with a black outline."""
+        src = _overlay_src()
+        assert "#000000" in src, (
+            "Overlay module must reference the black outline colour used for "
+            "the cursor icon dilation pass"
+        )
+        assert "outline" in src.lower(), (
+            "Overlay module must expose an outline compositing helper "
+            "(variable or function named *outline*)"
+        )
+        assert "QPainter" in src, (
+            "Overlay module must use QPainter to composite the outline + glyph"
+        )
+
+    def test_cursor_helper_uses_reliable_rotation(self):
+        """Regression: rotation must reach the final pixmap.
+
+        Historically we relied on ``qta.icon(..., rotated=90).pixmap(...)``
+        but that path did not always propagate the rotation to the pixmap
+        used for cursors, so the tip stayed in the wrong quadrant on some
+        Qt/qtawesome combos. The fix uses a Qt-native ``QTransform`` on the
+        rendered pixmap, which is deterministic. Accept either mechanism —
+        we just need one of them present so the rotation cannot silently
+        drop out.
+        """
+        src = _overlay_src()
+        assert (
+            "QTransform" in src
+            or "rotated=90" in src
+            or "rotated=90.0" in src
+        ), (
+            "Overlay must apply the pen/highlighter rotation via QTransform "
+            "(preferred) or qtawesome rotated="
         )

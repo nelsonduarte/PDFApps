@@ -1,7 +1,7 @@
 """PDFApps – Floating HUD toolbar for presentation-mode annotations."""
 
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap, QTransform
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFrame
 import qtawesome as qta
 
@@ -43,24 +43,70 @@ _TOOLS = [
 
 # FontAwesome renders the pen and highlighter with their writing tips at the
 # bottom-right, which visually clashes with the mouse-pointer icon whose tip
-# points up-left (standard cursor arrow convention). qtawesome's ``rotated``
-# argument applies a clockwise rotation, so +90° carries the native
-# bottom-right tip to the top-left corner — matching the mouse-pointer and
-# making every "pointing" icon in the HUD row read as pointing the same way.
-# (Pixel analysis of the rendered pixmaps confirms 90° — not 180° — is the
+# points up-left (standard cursor arrow convention). We apply a +90° clockwise
+# rotation via QTransform (not qtawesome's ``rotated=`` kwarg) so the same
+# quarter-turn behaviour survives the icon → pixmap conversion path used by
+# the cursor helper in :mod:`app.viewer.annotation_layer`. That maps the
+# FontAwesome bottom-right tip to the top-left corner — matching the
+# mouse-pointer and making every "pointing" icon in the HUD row read as
+# pointing the same way. (Pixel analysis confirms 90° — not 180° — is the
 # quarter turn that maps bottom-right → top-left.)
 _ICON_ROTATION: dict[str, float] = {
     "fa5s.pen": 90.0,
     "fa5s.highlighter": 90.0,
 }
 
+# 1 px black outline dilation on each side for HUD icons; the extra padding
+# keeps the glyph readable against the translucent band background on both
+# dark and light slides while giving qtawesome the full requested pixel
+# budget (rotation is applied to a full-size render, then the outline is
+# composited around it).
+_HUD_OUTLINE_PAD = 2
+_HUD_OUTLINE_COLOR = "#000000"
+_HUD_OUTLINE_OFFSETS = (
+    (-1, 0), (1, 0), (0, -1), (0, 1),
+    (-1, -1), (1, 1), (-1, 1), (1, -1),
+)
 
-def _tool_qta_icon(name: str, color: str):
-    """Build a qtawesome icon honouring the HUD's per-icon rotation table."""
-    rot = _ICON_ROTATION.get(name)
-    if rot is not None:
-        return qta.icon(name, color=color, rotated=rot)
-    return qta.icon(name, color=color)
+
+def _tool_qta_icon(name: str, color: str) -> QIcon:
+    """Build a HUD icon with a 1 px black outline for visibility.
+
+    Rotation is applied via :class:`QTransform` on the resulting pixmap so
+    the transform is guaranteed to survive the icon → pixmap conversion
+    used by the cursor helper (qtawesome's ``rotated=`` kwarg does not
+    always round-trip through that path). The outline is composited by
+    drawing the icon in black at 8 dilated offsets before drawing the
+    fill-coloured glyph on top.
+
+    The glyph is rendered at ``_ICON_PX - 2 * _HUD_OUTLINE_PAD`` so the
+    combined glyph + outline fits exactly the ``_ICON_PX`` box configured
+    on each ``QPushButton.setIconSize`` — otherwise Qt would scale the
+    pixmap down and blur the outline.
+    """
+    rotation = _ICON_ROTATION.get(name)
+    outer = _ICON_PX
+    glyph = max(1, outer - _HUD_OUTLINE_PAD * 2)
+
+    base_pix = qta.icon(name, color=color).pixmap(glyph, glyph)
+    outline_pix = qta.icon(name, color=_HUD_OUTLINE_COLOR).pixmap(glyph, glyph)
+
+    if rotation:
+        t = QTransform()
+        t.rotate(rotation)
+        mode = Qt.TransformationMode.SmoothTransformation
+        base_pix = base_pix.transformed(t, mode)
+        outline_pix = outline_pix.transformed(t, mode)
+
+    result = QPixmap(outer, outer)
+    result.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(result)
+    for dx, dy in _HUD_OUTLINE_OFFSETS:
+        painter.drawPixmap(_HUD_OUTLINE_PAD + dx, _HUD_OUTLINE_PAD + dy, outline_pix)
+    painter.drawPixmap(_HUD_OUTLINE_PAD, _HUD_OUTLINE_PAD, base_pix)
+    painter.end()
+    return QIcon(result)
 
 
 class AnnotationHUD(QFrame):

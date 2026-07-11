@@ -6,6 +6,7 @@ from enum import IntEnum
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import (
     QColor, QCursor, QPainter, QPainterPath, QPainterPathStroker, QPen,
+    QPixmap, QTransform,
 )
 from PySide6.QtWidgets import QWidget
 import qtawesome as qta
@@ -34,6 +35,58 @@ _LASER_RADIUS = 14
 _ERASER_TOL = 6
 _POINT_MERGE_SQ = 4
 _CURSOR_ICON_PX = 24
+# 1 px black outline dilation on each side; keep symmetric so hotspot math
+# stays predictable (the icon body lives at offset (_OUTLINE_PAD, _OUTLINE_PAD)
+# inside the enlarged pixmap and the hotspot must add the same offset).
+_OUTLINE_PAD = 2
+# Standard 8-direction dilation offsets used to fake a 1 px stroke around
+# the icon glyph; composited by drawing the icon in the outline colour once
+# per offset before overlaying the fill-coloured glyph on top.
+_OUTLINE_OFFSETS = (
+    (-1, 0), (1, 0), (0, -1), (0, 1),
+    (-1, -1), (1, 1), (-1, 1), (1, -1),
+)
+
+
+def _icon_with_outline(
+    icon_name: str,
+    fill_color: str,
+    rotation: float,
+    size: int,
+    outline_color: str = "#000000",
+) -> QPixmap:
+    """Render a qtawesome icon with a black outline for visibility.
+
+    Rotation is applied via :class:`QTransform` on the resulting pixmap
+    (not via qtawesome's ``rotated=`` kwarg) because qtawesome's icon
+    options do not always round-trip cleanly through the ``icon → pixmap``
+    conversion path used for cursors — the QTransform approach is
+    Qt-native and works identically for cursors and toolbar icons.
+
+    Output is padded by ``_OUTLINE_PAD`` px on every side so callers must
+    shift their hotspot by the same amount to keep it aligned with the
+    original glyph pixel.
+    """
+    base_pix = qta.icon(icon_name, color=fill_color).pixmap(size, size)
+    outline_pix = qta.icon(icon_name, color=outline_color).pixmap(size, size)
+
+    if rotation:
+        t = QTransform()
+        t.rotate(rotation)
+        mode = Qt.TransformationMode.SmoothTransformation
+        base_pix = base_pix.transformed(t, mode)
+        outline_pix = outline_pix.transformed(t, mode)
+
+    outer = size + _OUTLINE_PAD * 2
+    result = QPixmap(outer, outer)
+    result.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(result)
+    for dx, dy in _OUTLINE_OFFSETS:
+        painter.drawPixmap(_OUTLINE_PAD + dx, _OUTLINE_PAD + dy, outline_pix)
+    painter.drawPixmap(_OUTLINE_PAD, _OUTLINE_PAD, base_pix)
+    painter.end()
+    return result
 
 
 def _cursor_for_tool(tool: "ToolMode", dark: bool = True) -> QCursor:
@@ -47,6 +100,10 @@ def _cursor_for_tool(tool: "ToolMode", dark: bool = True) -> QCursor:
     arrow convention — and to the centre for the eraser. LASER returns
     ``BlankCursor`` because the overlay draws the red dot manually — showing
     a system cursor on top would be visually noisy.
+
+    Every rendered cursor also carries a 1 px black outline (via
+    :func:`_icon_with_outline`) so the glyph stays legible on light-coloured
+    slides regardless of theme.
     """
     if tool == ToolMode.POINTER:
         return QCursor(Qt.CursorShape.ArrowCursor)
@@ -57,16 +114,19 @@ def _cursor_for_tool(tool: "ToolMode", dark: bool = True) -> QCursor:
     size = _CURSOR_ICON_PX
 
     if tool == ToolMode.PEN:
-        pix = qta.icon("fa5s.pen", color=icon_color, rotated=90).pixmap(size, size)
-        return QCursor(pix, 2, 2)
+        pix = _icon_with_outline("fa5s.pen", icon_color, 90, size)
+        # Original hotspot was (2, 2); shift by outline pad so the tip still
+        # anchors on the same glyph pixel inside the enlarged pixmap.
+        return QCursor(pix, 2 + _OUTLINE_PAD, 2 + _OUTLINE_PAD)
     if tool == ToolMode.HIGHLIGHTER:
-        pix = qta.icon(
-            "fa5s.highlighter", color=icon_color, rotated=90,
-        ).pixmap(size, size)
-        return QCursor(pix, 2, 2)
+        pix = _icon_with_outline("fa5s.highlighter", icon_color, 90, size)
+        return QCursor(pix, 2 + _OUTLINE_PAD, 2 + _OUTLINE_PAD)
     if tool == ToolMode.ERASER:
-        pix = qta.icon("fa5s.eraser", color=icon_color).pixmap(size, size)
-        return QCursor(pix, size // 2, size // 2)
+        pix = _icon_with_outline("fa5s.eraser", icon_color, 0, size)
+        # Hotspot at glyph centre; enlarged pixmap is (size + 2*pad),
+        # centre is at (size + 2*pad) // 2.
+        c = (size + _OUTLINE_PAD * 2) // 2
+        return QCursor(pix, c, c)
     return QCursor(Qt.CursorShape.ArrowCursor)
 
 
