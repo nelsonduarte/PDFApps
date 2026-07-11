@@ -1520,6 +1520,24 @@ When writing code that handles files, user input, or external processes, follow 
 **Dependencies:**
 - Run `pip-audit` before releases to check for known CVEs
 - Keep minimum versions in `requirements.txt` updated when vulnerabilities are patched
+- CI enforces this automatically via the `Security - Python dependencies` workflow (`.github/workflows/security-deps.yml`) — see [CI security check](#ci-security-check) below
+
+### CI security check
+
+The `security-deps` workflow runs `pip-audit` against `requirements.txt` and `flatpak/requirements-pinned.txt` on every PR that touches those files. It also runs weekly (Monday 06:00 UTC) as a safety net so newly-published CVEs are caught even when the pins have not changed.
+
+| Trigger | When |
+|---|---|
+| `pull_request` | The PR modifies `requirements.txt`, `flatpak/requirements-pinned.txt`, or the workflow itself |
+| `push` to `main` | Same paths as above |
+| `schedule` | Weekly, Monday 06:00 UTC |
+| `workflow_dispatch` | Manual: `gh workflow run security-deps.yml` |
+
+**What it does:**
+- Posts (or updates) a single comment on the PR with the `pip-audit` findings for both requirement files, plus an informational outdated-packages table
+- Runs `pip-audit --strict` as a final gate — the PR merge is blocked if any known vulnerability is reported
+
+The PR comment is posted via the `gh` CLI (no third-party action), so there is no external supply-chain dependency in the security workflow itself.
 
 ### Before a Release
 

@@ -1,0 +1,224 @@
+name: Security - Python dependencies
+
+on:
+  pull_request:
+    paths:
+      - 'requirements.txt'
+      - 'flatpak/requirements-pinned.txt'
+      - '.github/workflows/security-deps.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'requirements.txt'
+      - 'flatpak/requirements-pinned.txt'
+  schedule:
+    # Weekly safety net: catch new CVEs even when deps have not changed.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: security-deps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: pip-audit + outdated check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.14'
+
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          # Pinned to a specific stable release so an upstream pip-audit
+          # regression cannot silently break the security gate. Bump
+          # deliberately when a new release is vetted.
+          python -m pip install pip-audit==2.10.1
+
+      - name: Run pip-audit on requirements.txt (informational render)
+        continue-on-error: true
+        run: |
+          echo "=== pip-audit requirements.txt ==="
+          # Never fail the workflow here — the strict gate at the end
+          # is what blocks the PR. This step only produces the human
+          # markdown report that gets posted as a comment.
+          pip-audit -r requirements.txt --format markdown \
+            --output audit-main.md \
+            || echo "_(pip-audit reported findings — see strict gate below.)_" >> audit-main.md
+          if [ ! -s audit-main.md ]; then
+            echo "No known vulnerabilities." > audit-main.md
+          fi
+          cat audit-main.md
+
+      - name: Run pip-audit on flatpak/requirements-pinned.txt (informational render)
+        continue-on-error: true
+        run: |
+          if [ -f flatpak/requirements-pinned.txt ]; then
+            echo "=== pip-audit flatpak/requirements-pinned.txt ==="
+            pip-audit -r flatpak/requirements-pinned.txt --format markdown \
+              --output audit-flatpak.md \
+              || echo "_(pip-audit reported findings — see strict gate below.)_" >> audit-flatpak.md
+            if [ ! -s audit-flatpak.md ]; then
+              echo "No known vulnerabilities." > audit-flatpak.md
+            fi
+            cat audit-flatpak.md
+          else
+            echo "_flatpak/requirements-pinned.txt not present._" > audit-flatpak.md
+          fi
+
+      - name: Check outdated packages (informational)
+        continue-on-error: true
+        run: |
+          # Simple outdated check: compare each direct pin in
+          # requirements.txt against the latest PyPI version.
+          # Purely informational — never blocks the PR.
+          python <<'PY'
+          import json
+          import re
+          import urllib.request
+
+          direct_deps = []
+          try:
+              with open('requirements.txt', encoding='utf-8') as f:
+                  for line in f:
+                      s = line.strip()
+                      if not s or s.startswith('#'):
+                          continue
+                      m = re.match(r'^([A-Za-z0-9][A-Za-z0-9_.\-]*)', s)
+                      if m:
+                          direct_deps.append((m.group(1), s))
+          except FileNotFoundError:
+              pass
+
+          rows = []
+          for pkg, raw in direct_deps:
+              latest = 'unknown'
+              try:
+                  req = urllib.request.Request(
+                      f'https://pypi.org/pypi/{pkg}/json',
+                      headers={'User-Agent': 'pdfapps-security-deps/1.0'},
+                  )
+                  with urllib.request.urlopen(req, timeout=15) as r:
+                      data = json.loads(r.read())
+                  latest = data['info']['version']
+              except Exception as exc:
+                  latest = f'error ({type(exc).__name__})'
+              rows.append((pkg, raw, latest))
+
+          def parse_parts(v):
+              parts = []
+              for chunk in re.split(r'[.\-+]', v):
+                  if chunk.isdigit():
+                      parts.append(int(chunk))
+                  else:
+                      # Stop at first non-numeric segment for a
+                      # coarse-but-safe comparison.
+                      break
+              return tuple(parts)
+
+          with open('outdated.md', 'w', encoding='utf-8') as f:
+              f.write('| Package | Pin | Latest on PyPI | Status |\n')
+              f.write('|---|---|---|---|\n')
+              for pkg, raw, latest in rows:
+                  m = re.search(r'(?:==|>=|~=|>)\s*([0-9][^\s,;]*)', raw)
+                  pin_ver = m.group(1) if m else ''
+                  status = ''
+                  if pin_ver and not latest.startswith('error') and latest != 'unknown':
+                      pv = parse_parts(pin_ver)
+                      lv = parse_parts(latest)
+                      if pv and lv:
+                          if pv < lv:
+                              status = 'outdated'
+                          elif pv == lv:
+                              status = 'up-to-date'
+                          else:
+                              status = 'ahead'
+                  f.write(
+                      '| {pkg} | `{raw}` | `{latest}` | {status} |\n'.format(
+                          pkg=pkg, raw=raw, latest=latest, status=status
+                      )
+                  )
+
+          with open('outdated.md', encoding='utf-8') as f:
+              print(f.read())
+          PY
+
+      - name: Assemble PR comment body
+        if: github.event_name == 'pull_request'
+        run: |
+          {
+            echo "## Python dependencies security check"
+            echo ""
+            echo "### pip-audit: \`requirements.txt\`"
+            echo ""
+            cat audit-main.md
+            echo ""
+            echo "### pip-audit: \`flatpak/requirements-pinned.txt\`"
+            echo ""
+            cat audit-flatpak.md
+            echo ""
+            echo "### Outdated check (informational)"
+            echo ""
+            cat outdated.md
+            echo ""
+            echo "_Auto-generated by \`security-deps\` workflow. Merge is blocked only when \`pip-audit --strict\` reports vulnerabilities._"
+          } > pr-comment.md
+          echo "--- assembled comment ---"
+          cat pr-comment.md
+
+      - name: Post or update PR comment
+        if: github.event_name == 'pull_request'
+        # Fork PRs receive a read-only GITHUB_TOKEN regardless of the
+        # `permissions:` block above, so `gh api PATCH` / `gh pr comment`
+        # returns 403. Without continue-on-error the step failure would
+        # skip the strict gate below (default `if: success()`), marking
+        # the workflow red without ever running the CVE check — a false
+        # signal to reviewers. Fork PRs still get the CI status; only
+        # the convenience comment is lost.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Locate a previous comment posted by this workflow so we
+          # replace it in place instead of piling up new ones on every
+          # push. The marker is the section heading, which is unique to
+          # this workflow.
+          COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("## Python dependencies security check")) | .id' \
+            | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            echo "Updating existing comment $COMMENT_ID"
+            gh api "repos/${REPO}/issues/comments/${COMMENT_ID}" -X PATCH \
+              -F body=@pr-comment.md
+          else
+            echo "Creating new comment on PR #${PR_NUMBER}"
+            gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body-file pr-comment.md
+          fi
+
+      - name: Strict gate - fail on any known vulnerability
+        run: |
+          # pip-audit exits non-zero when any known CVE is found, which
+          # blocks the PR merge via required-check policy. --strict also
+          # fails if pip-audit itself can't complete (missing metadata,
+          # skipped dep, etc.), which is the safe default for a CI gate.
+          echo "=== Strict gate: requirements.txt ==="
+          pip-audit -r requirements.txt --strict
+          if [ -f flatpak/requirements-pinned.txt ]; then
+            echo "=== Strict gate: flatpak/requirements-pinned.txt ==="
+            pip-audit -r flatpak/requirements-pinned.txt --strict
+          fi
