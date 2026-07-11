@@ -1,7 +1,7 @@
 """PDFApps – Floating HUD toolbar for presentation-mode annotations."""
 
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap, QTransform
+from PySide6.QtGui import QColor, QIcon, QTransform
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFrame
 import qtawesome as qta
 
@@ -56,57 +56,29 @@ _ICON_ROTATION: dict[str, float] = {
     "fa5s.highlighter": 90.0,
 }
 
-# 1 px black outline dilation on each side for HUD icons; the extra padding
-# keeps the glyph readable against the translucent band background on both
-# dark and light slides while giving qtawesome the full requested pixel
-# budget (rotation is applied to a full-size render, then the outline is
-# composited around it).
-_HUD_OUTLINE_PAD = 2
-_HUD_OUTLINE_COLOR = "#000000"
-_HUD_OUTLINE_OFFSETS = (
-    (-1, 0), (1, 0), (0, -1), (0, 1),
-    (-1, -1), (1, 1), (-1, 1), (1, -1),
-)
-
 
 def _tool_qta_icon(name: str, color: str) -> QIcon:
-    """Build a HUD icon with a 1 px black outline for visibility.
+    """Render a HUD toolbar icon with rotation but no outline.
 
-    Rotation is applied via :class:`QTransform` on the resulting pixmap so
+    HUD buttons sit on the dark toolbar background, so the outline stroke
+    used by the cursor icons (see :func:`app.viewer.annotation_layer._icon_with_outline`)
+    is redundant here and would clutter the visual. Cursor icons still get
+    the outline because they float over arbitrary slide content.
+
+    Rotation is applied via :class:`QTransform` on the rendered pixmap so
     the transform is guaranteed to survive the icon → pixmap conversion
-    used by the cursor helper (qtawesome's ``rotated=`` kwarg does not
-    always round-trip through that path). The outline is composited by
-    drawing the icon in black at 8 dilated offsets before drawing the
-    fill-coloured glyph on top.
-
-    The glyph is rendered at ``_ICON_PX - 2 * _HUD_OUTLINE_PAD`` so the
-    combined glyph + outline fits exactly the ``_ICON_PX`` box configured
-    on each ``QPushButton.setIconSize`` — otherwise Qt would scale the
-    pixmap down and blur the outline.
+    (qtawesome's ``rotated=`` kwarg does not always round-trip through
+    that path).
     """
-    rotation = _ICON_ROTATION.get(name)
-    outer = _ICON_PX
-    glyph = max(1, outer - _HUD_OUTLINE_PAD * 2)
-
-    base_pix = qta.icon(name, color=color).pixmap(glyph, glyph)
-    outline_pix = qta.icon(name, color=_HUD_OUTLINE_COLOR).pixmap(glyph, glyph)
-
+    rotation = _ICON_ROTATION.get(name, 0.0)
+    pix = qta.icon(name, color=color).pixmap(_ICON_PX, _ICON_PX)
     if rotation:
-        t = QTransform()
-        t.rotate(rotation)
-        mode = Qt.TransformationMode.SmoothTransformation
-        base_pix = base_pix.transformed(t, mode)
-        outline_pix = outline_pix.transformed(t, mode)
-
-    result = QPixmap(outer, outer)
-    result.fill(Qt.GlobalColor.transparent)
-
-    painter = QPainter(result)
-    for dx, dy in _HUD_OUTLINE_OFFSETS:
-        painter.drawPixmap(_HUD_OUTLINE_PAD + dx, _HUD_OUTLINE_PAD + dy, outline_pix)
-    painter.drawPixmap(_HUD_OUTLINE_PAD, _HUD_OUTLINE_PAD, base_pix)
-    painter.end()
-    return QIcon(result)
+        transform = QTransform()
+        transform.rotate(rotation)
+        pix = pix.transformed(
+            transform, mode=Qt.TransformationMode.SmoothTransformation
+        )
+    return QIcon(pix)
 
 
 class AnnotationHUD(QFrame):

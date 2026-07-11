@@ -161,31 +161,40 @@ class TestOverlayCursor:
 
 
 class TestIconOutline:
-    """Regression tests for the black-outline treatment applied to HUD
-    icons and cursor pixmaps.
+    """Regression tests for the black-outline treatment applied to cursor
+    pixmaps (and the deliberate absence of that treatment on HUD icons).
 
     The outline (a 1 px dilation of the glyph rendered in ``#000000``)
-    keeps the pen/highlighter/eraser icons legible on light-coloured
+    keeps the pen/highlighter/eraser cursors legible on light-coloured
     slides, where an otherwise-white glyph would blend into the page.
-    Both the HUD toolbar (``annotation_hud.py``) and the cursor helper
-    (``annotation_layer.py``) render icons through a common outline
-    compositing pattern (icon drawn 8× at dilated offsets, then the
-    fill-coloured glyph on top).
+    The HUD toolbar, by contrast, sits on the fixed dark band background
+    where the outline is redundant and visually noisy — so only the
+    cursor helper (``annotation_layer.py``) applies it.
     """
 
-    def test_hud_icons_have_black_outline(self):
-        """HUD toolbar icons must be composited with a black outline."""
+    def test_hud_icons_have_no_outline(self):
+        """Regression: HUD toolbar icons must NOT apply a black outline.
+
+        The buttons sit on the fixed dark HUD band, so the outline
+        dilation used for cursors would just add clutter. This test
+        pins that decision so the outline can't silently creep back
+        into the HUD renderer.
+        """
         src = _hud_src()
-        assert "#000000" in src, (
-            "HUD module must reference the black outline colour used for the "
-            "icon dilation pass"
+        # The old outline pipeline used QPainter to composite the dilated
+        # black glyph under the fill-coloured one; none of that machinery
+        # should exist in the HUD module anymore.
+        assert "QPainter" not in src, (
+            "HUD module should not use QPainter — outline compositing "
+            "belongs in annotation_layer.py (cursor pixmaps) only"
         )
-        assert "outline" in src.lower(), (
-            "HUD module must document the outline compositing (variable or "
-            "helper named *outline*)"
+        assert "_HUD_OUTLINE" not in src, (
+            "HUD outline constants must be removed; the HUD renders icons "
+            "cleanly without a dilation pass"
         )
-        assert "QPainter" in src, (
-            "HUD module must use QPainter to composite the outline + glyph"
+        assert "#000000" not in src, (
+            "HUD module should not reference the black outline colour — "
+            "only cursors need outlining"
         )
 
     def test_cursor_icons_have_black_outline(self):
