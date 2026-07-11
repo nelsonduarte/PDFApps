@@ -42,7 +42,10 @@ jobs:
       - name: Install pip-audit
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pip-audit
+          # Pinned to a specific stable release so an upstream pip-audit
+          # regression cannot silently break the security gate. Bump
+          # deliberately when a new release is vetted.
+          python -m pip install pip-audit==2.10.1
 
       - name: Run pip-audit on requirements.txt (informational render)
         continue-on-error: true
@@ -177,6 +180,14 @@ jobs:
 
       - name: Post or update PR comment
         if: github.event_name == 'pull_request'
+        # Fork PRs receive a read-only GITHUB_TOKEN regardless of the
+        # `permissions:` block above, so `gh api PATCH` / `gh pr comment`
+        # returns 403. Without continue-on-error the step failure would
+        # skip the strict gate below (default `if: success()`), marking
+        # the workflow red without ever running the CVE check — a false
+        # signal to reviewers. Fork PRs still get the CI status; only
+        # the convenience comment is lost.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

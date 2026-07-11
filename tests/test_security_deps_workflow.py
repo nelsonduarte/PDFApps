@@ -122,3 +122,23 @@ def test_security_deps_workflow_has_write_permission_for_pr_comments():
     assert perms.get("pull-requests") == "write", (
         "workflow cannot post its report comment without pull-requests: write"
     )
+
+
+def test_pr_comment_step_has_continue_on_error():
+    """Regression for review F1: without continue-on-error on the
+    comment step, fork PRs skip the strict gate (comment fails on the
+    read-only GITHUB_TOKEN -> gate step's implicit if: success() prevents
+    the CVE check from running, giving a false red signal to reviewers).
+    """
+    content = _read_workflow_text()
+    assert "Post or update PR comment" in content
+    comment_idx = content.find("Post or update PR comment")
+    assert comment_idx > 0
+    # Check that continue-on-error appears within the step definition
+    # (defensive text-based check — YAML parsing would be more robust
+    # but adds complexity for a marker-style assertion).
+    snippet = content[comment_idx:comment_idx + 800]
+    assert "continue-on-error: true" in snippet, (
+        "Comment step must have continue-on-error: true so the strict "
+        "gate still runs when the comment fails on fork PRs."
+    )
