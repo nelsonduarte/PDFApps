@@ -1,7 +1,7 @@
 """PDFApps – Floating HUD toolbar for presentation-mode annotations."""
 
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QIcon, QTransform
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFrame
 import qtawesome as qta
 
@@ -40,6 +40,45 @@ _TOOLS = [
     (ToolMode.ERASER,      "fa5s.eraser",        "present.eraser"),
     (ToolMode.LASER,       "fa5s.dot-circle",    "present.laser"),
 ]
+
+# FontAwesome renders the pen and highlighter with their writing tips at the
+# bottom-right, which visually clashes with the mouse-pointer icon whose tip
+# points up-left (standard cursor arrow convention). We apply a +90° clockwise
+# rotation via QTransform (not qtawesome's ``rotated=`` kwarg) so the same
+# quarter-turn behaviour survives the icon → pixmap conversion path used by
+# the cursor helper in :mod:`app.viewer.annotation_layer`. That maps the
+# FontAwesome bottom-right tip to the top-left corner — matching the
+# mouse-pointer and making every "pointing" icon in the HUD row read as
+# pointing the same way. (Pixel analysis confirms 90° — not 180° — is the
+# quarter turn that maps bottom-right → top-left.)
+_ICON_ROTATION: dict[str, float] = {
+    "fa5s.pen": 90.0,
+    "fa5s.highlighter": 90.0,
+}
+
+
+def _tool_qta_icon(name: str, color: str) -> QIcon:
+    """Render a HUD toolbar icon with rotation but no outline.
+
+    HUD buttons sit on the dark toolbar background, so the outline stroke
+    used by the cursor icons (see :func:`app.viewer.annotation_layer._icon_with_outline`)
+    is redundant here and would clutter the visual. Cursor icons still get
+    the outline because they float over arbitrary slide content.
+
+    Rotation is applied via :class:`QTransform` on the rendered pixmap so
+    the transform is guaranteed to survive the icon → pixmap conversion
+    (qtawesome's ``rotated=`` kwarg does not always round-trip through
+    that path).
+    """
+    rotation = _ICON_ROTATION.get(name, 0.0)
+    pix = qta.icon(name, color=color).pixmap(_ICON_PX, _ICON_PX)
+    if rotation:
+        transform = QTransform()
+        transform.rotate(rotation)
+        pix = pix.transformed(
+            transform, mode=Qt.TransformationMode.SmoothTransformation
+        )
+    return QIcon(pix)
 
 
 class AnnotationHUD(QFrame):
@@ -209,7 +248,7 @@ class AnnotationHUD(QFrame):
         for b in list(self._tool_btns.values()) + [self._clear_btn]:
             name = b.property("_icon_name")
             if name:
-                b.setIcon(qta.icon(name, color=fg))
+                b.setIcon(_tool_qta_icon(name, color=fg))
         for s in self._swatches:
             hex_color = s.property("_swatch_color")
             self._style_swatch(s, hex_color, active=False)
@@ -271,11 +310,11 @@ class AnnotationHUD(QFrame):
             name = b.property("_icon_name")
             if name:
                 col = ACCENT if is_active else fg
-                b.setIcon(qta.icon(name, color=col))
+                b.setIcon(_tool_qta_icon(name, color=col))
         self._clear_btn.setStyleSheet(inactive_qss)
         name = self._clear_btn.property("_icon_name")
         if name:
-            self._clear_btn.setIcon(qta.icon(name, color=fg))
+            self._clear_btn.setIcon(_tool_qta_icon(name, color=fg))
 
         active_hex = self._active_color.name().lower()
         for s in self._swatches:
