@@ -125,6 +125,12 @@ class _SelectCanvas(QWidget):
         self._open_note   = None   # (page_idx, annot_idx) of open balloon
         self._search_highlights: list[tuple[int, object]] = []  # [(page_idx, fitz_rect), ...]
         self._search_current = -1   # index of current match in _search_highlights
+        # Tracks the QWindow whose screenChanged signal we're currently
+        # connected to (see showEvent). Avoids calling disconnect() on
+        # a signal that was never connected — which raises a PySide6
+        # RuntimeWarning under 6.11 instead of an exception, so it
+        # can't be caught with contextlib.suppress.
+        self._screen_signal_window = None
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.IBeamCursor)
@@ -220,12 +226,20 @@ class _SelectCanvas(QWidget):
         (R8/D1)."""
         super().showEvent(event)
         win = self.window().windowHandle() if self.window() else None
-        if win:
-            # Re-show events may fire after a tab switch — disconnect
-            # first to avoid stacking duplicate handlers.
+        prev_win = self._screen_signal_window
+        # Same top-level QWindow as last showEvent → still connected,
+        # nothing to do. Prevents both double-connect and the PySide6
+        # 6.11 RuntimeWarning that fires when disconnect() runs on a
+        # never-connected signal (RuntimeWarning bypasses
+        # contextlib.suppress, which only catches exceptions).
+        if win is prev_win:
+            return
+        if prev_win is not None:
             with contextlib.suppress(TypeError, RuntimeError):
-                win.screenChanged.disconnect(self._on_screen_changed)
+                prev_win.screenChanged.disconnect(self._on_screen_changed)
+        if win is not None:
             win.screenChanged.connect(self._on_screen_changed)
+        self._screen_signal_window = win
 
     def _on_screen_changed(self, _screen):
         """Invalidate cached pixmaps and re-render at the new DPR."""
