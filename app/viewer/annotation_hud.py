@@ -43,11 +43,12 @@ _TOOLS = [
 
 # FontAwesome renders the pen and highlighter with their writing tips at the
 # bottom-right, which visually clashes with the mouse-pointer icon whose tip
-# points bottom-left. Rotating them -90° realigns the tips so all "pointing"
-# icons in the HUD row read as pointing in the same direction.
+# points up-left (standard cursor arrow convention). Rotating them 180°
+# flips the tip to the top-left so all "pointing" icons in the HUD row read
+# as pointing in the same direction.
 _ICON_ROTATION: dict[str, float] = {
-    "fa5s.pen": -90.0,
-    "fa5s.highlighter": -90.0,
+    "fa5s.pen": 180.0,
+    "fa5s.highlighter": 180.0,
 }
 
 
