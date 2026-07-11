@@ -5,9 +5,10 @@ from enum import IntEnum
 
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import (
-    QColor, QPainter, QPainterPath, QPainterPathStroker, QPen,
+    QColor, QCursor, QPainter, QPainterPath, QPainterPathStroker, QPen,
 )
 from PySide6.QtWidgets import QWidget
+import qtawesome as qta
 
 
 class ToolMode(IntEnum):
@@ -32,6 +33,39 @@ _HIGHLIGHTER_WIDTH = 18
 _LASER_RADIUS = 14
 _ERASER_TOL = 6
 _POINT_MERGE_SQ = 4
+_CURSOR_ICON_PX = 24
+
+
+def _cursor_for_tool(tool: "ToolMode", dark: bool = True) -> QCursor:
+    """Build a QCursor that mirrors the active HUD tool.
+
+    The pen and highlighter share the -90° rotation used by
+    :mod:`app.viewer.annotation_hud` so the cursor tip visually matches the
+    icon shown on the toolbar. Hotspots are anchored to the writing tip
+    (bottom-left) for pen/highlighter and to the centre for the eraser.
+    LASER returns ``BlankCursor`` because the overlay draws the red dot
+    manually — showing a system cursor on top would be visually noisy.
+    """
+    if tool == ToolMode.POINTER:
+        return QCursor(Qt.CursorShape.ArrowCursor)
+    if tool == ToolMode.LASER:
+        return QCursor(Qt.CursorShape.BlankCursor)
+
+    icon_color = "#FFFFFF" if dark else "#000000"
+    size = _CURSOR_ICON_PX
+
+    if tool == ToolMode.PEN:
+        pix = qta.icon("fa5s.pen", color=icon_color, rotated=-90).pixmap(size, size)
+        return QCursor(pix, 2, size - 2)
+    if tool == ToolMode.HIGHLIGHTER:
+        pix = qta.icon(
+            "fa5s.highlighter", color=icon_color, rotated=-90,
+        ).pixmap(size, size)
+        return QCursor(pix, 2, size - 2)
+    if tool == ToolMode.ERASER:
+        pix = qta.icon("fa5s.eraser", color=icon_color).pixmap(size, size)
+        return QCursor(pix, size // 2, size // 2)
+    return QCursor(Qt.CursorShape.ArrowCursor)
 
 
 class AnnotationOverlay(QWidget):
@@ -138,15 +172,13 @@ class AnnotationOverlay(QWidget):
     # ── internals ─────────────────────────────────────────────────────────
 
     def _apply_cursor(self) -> None:
-        t = self._tool
-        if t == ToolMode.POINTER:
+        # POINTER hands the cursor back to the parent (the overlay is also
+        # transparent-to-mouse in that mode, so this call is mostly for
+        # correctness after switching away from another tool).
+        if self._tool == ToolMode.POINTER:
             self.unsetCursor()
-        elif t == ToolMode.LASER:
-            self.setCursor(Qt.CursorShape.BlankCursor)
-        elif t == ToolMode.ERASER:
-            self.setCursor(Qt.CursorShape.PointingHandCursor)
-        else:
-            self.setCursor(Qt.CursorShape.CrossCursor)
+            return
+        self.setCursor(_cursor_for_tool(self._tool, dark=self._dark_mode))
 
     def _new_stroke(self, start: QPoint) -> Stroke:
         if self._tool == ToolMode.HIGHLIGHTER:
