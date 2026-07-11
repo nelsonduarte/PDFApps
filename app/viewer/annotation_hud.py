@@ -41,6 +41,23 @@ _TOOLS = [
     (ToolMode.LASER,       "fa5s.dot-circle",    "present.laser"),
 ]
 
+# FontAwesome renders the pen and highlighter with their writing tips at the
+# bottom-right, which visually clashes with the mouse-pointer icon whose tip
+# points bottom-left. Rotating them -90° realigns the tips so all "pointing"
+# icons in the HUD row read as pointing in the same direction.
+_ICON_ROTATION: dict[str, float] = {
+    "fa5s.pen": -90.0,
+    "fa5s.highlighter": -90.0,
+}
+
+
+def _tool_qta_icon(name: str, color: str):
+    """Build a qtawesome icon honouring the HUD's per-icon rotation table."""
+    rot = _ICON_ROTATION.get(name)
+    if rot is not None:
+        return qta.icon(name, color=color, rotated=rot)
+    return qta.icon(name, color=color)
+
 
 class AnnotationHUD(QFrame):
     """Bottom-centred floating toolbar. Sibling of `AnnotationOverlay`,
@@ -209,7 +226,7 @@ class AnnotationHUD(QFrame):
         for b in list(self._tool_btns.values()) + [self._clear_btn]:
             name = b.property("_icon_name")
             if name:
-                b.setIcon(qta.icon(name, color=fg))
+                b.setIcon(_tool_qta_icon(name, color=fg))
         for s in self._swatches:
             hex_color = s.property("_swatch_color")
             self._style_swatch(s, hex_color, active=False)
@@ -271,11 +288,11 @@ class AnnotationHUD(QFrame):
             name = b.property("_icon_name")
             if name:
                 col = ACCENT if is_active else fg
-                b.setIcon(qta.icon(name, color=col))
+                b.setIcon(_tool_qta_icon(name, color=col))
         self._clear_btn.setStyleSheet(inactive_qss)
         name = self._clear_btn.property("_icon_name")
         if name:
-            self._clear_btn.setIcon(qta.icon(name, color=fg))
+            self._clear_btn.setIcon(_tool_qta_icon(name, color=fg))
 
         active_hex = self._active_color.name().lower()
         for s in self._swatches:

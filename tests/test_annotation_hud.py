@@ -1,8 +1,12 @@
-"""Regression tests for the presentation-mode annotation overlay.
+"""Regression tests for the presentation-mode HUD and annotation overlay.
 
 Source-level assertions (no QApplication required in CI) that lock in the
-tool-specific cursor behaviour added by ``fix/presentation-hud-cursor-icons``.
-Additional HUD-icon rotation tests live below once the HUD fix is applied.
+two UX fixes shipped in ``fix/presentation-hud-cursor-icons``:
+
+1. The HUD Pen and Highlighter icons must be rotated so their writing tip
+   aligns with the mouse-pointer arrow.
+2. ``AnnotationOverlay.set_tool`` must update the on-screen cursor so the
+   user gets visual feedback when switching tools from the HUD.
 """
 import sys
 from pathlib import Path
@@ -10,11 +14,74 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
+_HUD_PATH = Path(__file__).resolve().parent.parent / "app" / "viewer" / "annotation_hud.py"
 _OVERLAY_PATH = Path(__file__).resolve().parent.parent / "app" / "viewer" / "annotation_layer.py"
+
+
+def _hud_src() -> str:
+    return _HUD_PATH.read_text(encoding="utf-8")
 
 
 def _overlay_src() -> str:
     return _OVERLAY_PATH.read_text(encoding="utf-8")
+
+
+class TestHudIconRotation:
+    def test_hud_pen_icon_rotated(self):
+        """Regression: Pen icon must have a rotation applied.
+
+        The rotation may be inlined at the call site or table-driven via a
+        module-level dict - both count. We assert both facets: (a) some
+        rotation directive exists in the module and (b) the pen icon is
+        registered in the rotation registry.
+        """
+        src = _hud_src()
+        assert '"fa5s.pen"' in src
+        has_rotation_directive = ("rotated" in src) or ("IconOptions" in src)
+        assert has_rotation_directive, (
+            "HUD module must apply a rotation (rotated=... or IconOptions) "
+            "somewhere so the pen/highlighter icons align with the pointer"
+        )
+        assert ("_ICON_ROTATION" in src and '"fa5s.pen"' in src) or (
+            "fa5s.pen" in src and "rotated" in src.split('"fa5s.pen"')[1][:300]
+        ), "Pen icon must be included in the HUD rotation registry"
+
+    def test_hud_highlighter_icon_rotated(self):
+        src = _hud_src()
+        assert '"fa5s.highlighter"' in src
+        has_rotation_directive = ("rotated" in src) or ("IconOptions" in src)
+        assert has_rotation_directive, (
+            "HUD module must apply a rotation somewhere so the highlighter "
+            "icon aligns with the pointer"
+        )
+        assert ("_ICON_ROTATION" in src and '"fa5s.highlighter"' in src) or (
+            "fa5s.highlighter" in src
+            and "rotated" in src.split('"fa5s.highlighter"')[1][:300]
+        ), "Highlighter icon must be included in the HUD rotation registry"
+
+    def test_rotation_table_covers_pen_and_highlighter(self):
+        """The rotation table must include both pen and highlighter and must
+        not accidentally rotate the pointer/eraser/laser icons."""
+        src = _hud_src()
+        assert "_ICON_ROTATION" in src, (
+            "Expected an _ICON_ROTATION table listing icons that must rotate"
+        )
+        # Extract just the _ICON_ROTATION literal block so we can verify
+        # membership without accidentally matching the _TOOLS list.
+        rot_idx = src.find("_ICON_ROTATION")
+        rot_end = src.find("}", rot_idx)
+        assert rot_end > rot_idx
+        rot_block = src[rot_idx:rot_end]
+        assert '"fa5s.pen"' in rot_block
+        assert '"fa5s.highlighter"' in rot_block
+        # Guardrail: pointer / eraser / laser icons must NOT be listed -
+        # rotating them would break the fix.
+        assert '"fa5s.mouse-pointer"' not in rot_block, (
+            "Pointer icon is the reference direction and must not appear in "
+            "_ICON_ROTATION"
+        )
+        assert '"fa5s.eraser"' not in rot_block
+        assert '"fa5s.dot-circle"' not in rot_block
 
 
 class TestOverlayCursor:
