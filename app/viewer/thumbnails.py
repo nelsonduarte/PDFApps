@@ -32,7 +32,8 @@ import contextlib
 import logging
 
 from PySide6.QtCore import (
-    QAbstractListModel, QModelIndex, QRect, QSize, Qt, QThread, Signal, Slot,
+    QAbstractListModel, QModelIndex, QRect, QSize, Qt, QThread, QTimer,
+    Signal, Slot,
 )
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (
@@ -71,14 +72,18 @@ class ThumbnailWorker(QThread):
     # so the receiver slot ``ThumbnailPanel._on_image_ready`` performs
     # the ``QPixmap.fromImage()`` conversion on the main thread before
     # handing the pixmap to the model.
-    thumbnail_ready = Signal(int, QImage)  # (page_index, thumbnail)
+    thumbnail_ready = Signal(int, QImage, int)  # (page_index, thumbnail, epoch)
 
     def __init__(self, doc_path: str, page_indices: list[int],
-                 password: str = "", parent=None) -> None:
+                 password: str = "", epoch: int = 0, parent=None) -> None:
         super().__init__(parent)
         self._doc_path = doc_path
         self._pages = list(page_indices)
         self._password = password
+        # Generation this worker was launched for. Emitted alongside
+        # each thumbnail so the panel can discard images produced for a
+        # document that has since been replaced (see ThumbnailPanel).
+        self._epoch = epoch
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -127,7 +132,7 @@ class ThumbnailWorker(QThread):
                         pix.samples, pix.width, pix.height,
                         pix.stride, QImage.Format.Format_RGB888,
                     ).copy()
-                    self.thumbnail_ready.emit(idx, img)
+                    self.thumbnail_ready.emit(idx, img, self._epoch)
                 except Exception:
                     # Skip page — bad object / partial doc, keep going.
                     continue
@@ -298,6 +303,11 @@ class ThumbnailPanel(QWidget):
         self._doc_path = ""
         self._password = ""
         self._worker: ThumbnailWorker | None = None
+        # Monotonic generation counter. Bumped on every set_document /
+        # clear so late thumbnails from a superseded worker (still in the
+        # queued-connection event queue) can be identified and dropped
+        # instead of being cached against the NEW document's indices.
+        self._epoch = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -332,6 +342,9 @@ class ThumbnailPanel(QWidget):
         self._doc_path = doc_path
         self._password = password or ""
         self._stop_worker()
+        # New generation: any thumbnail still queued from a prior worker
+        # now carries a stale epoch and will be dropped in _on_image_ready.
+        self._epoch += 1
         self._model.set_document(doc_path, page_count)
         self._delegate.set_current_page(-1)
         if page_count > 0 and doc_path:
@@ -342,6 +355,8 @@ class ThumbnailPanel(QWidget):
         self._doc_path = ""
         self._password = ""
         self._stop_worker()
+        # New generation — see set_document.
+        self._epoch += 1
         self._model.clear()
         self._delegate.set_current_page(-1)
 
@@ -375,7 +390,7 @@ class ThumbnailPanel(QWidget):
 
     def _start_worker(self, page_indices: list[int]) -> None:
         self._worker = ThumbnailWorker(
-            self._doc_path, page_indices, self._password, self)
+            self._doc_path, page_indices, self._password, self._epoch, self)
         # Explicit QueuedConnection so the slot runs on this (main)
         # thread rather than the worker — required for QPixmap
         # construction, and matches the Py3.14 PySide6 routing rules
@@ -386,14 +401,24 @@ class ThumbnailPanel(QWidget):
         )
         self._worker.start()
 
-    @Slot(int, QImage)
-    def _on_image_ready(self, page_idx: int, img: QImage) -> None:
+    @Slot(int, QImage, int)
+    def _on_image_ready(self, page_idx: int, img: QImage, epoch: int) -> None:
         """Runs on the main GUI thread. Convert the worker's QImage
         into a QPixmap and hand it to the model.
 
         QPixmap construction is only valid on the main thread; doing it
         here (instead of in the worker) is why the parent signal
         carries QImage."""
+        # Drop thumbnails from a superseded document: a queued emission
+        # from the previous worker can still be delivered after
+        # set_document/clear bumped the epoch, and caching it would paint
+        # the old document's page into the new document's index.
+        if epoch != self._epoch:
+            _log.debug(
+                "Dropping stale thumbnail page %d (epoch %d != %d)",
+                page_idx + 1, epoch, self._epoch,
+            )
+            return
         _log.debug(
             "Thumbnail received for page %d (%dx%d)",
             page_idx + 1, img.width(), img.height(),
@@ -405,11 +430,55 @@ class ThumbnailPanel(QWidget):
         if self._worker is None:
             return
         self._worker.cancel()
+        # Disconnect BEFORE waiting so a thumbnail emitted between the
+        # cancel flag check and the worker unwinding can't sneak into
+        # the model for the old document. The epoch guard in
+        # _on_image_ready is the belt; this disconnect is the braces.
+        with contextlib.suppress(RuntimeError, TypeError):
+            self._worker.thumbnail_ready.disconnect(self._on_image_ready)
         # 2 s is generous — a single page render at 40 DPI is well
         # under 100 ms; the cancel flag is polled between pages so
         # worst case we wait for the current page to finish.
         self._worker.wait(2000)
         self._worker = None
+
+    def showEvent(self, event):  # noqa: D401
+        """Force a viewport repaint when the panel becomes visible.
+
+        The worker fills the model's pixmap cache in the background even
+        while this widget is hidden (e.g. the sidebar is on the
+        "Contents" tab). Qt normally coalesces / drops repaints for
+        hidden widgets, so ``dataChanged`` signals emitted during that
+        window never reach the viewport. Calling ``update()`` here on
+        first show — and on every subsequent show — makes the QListView
+        redraw all visible rows against the current cache so any
+        pixmaps that arrived while hidden appear immediately instead of
+        remaining as ``…`` placeholders.
+        """
+        super().showEvent(event)
+        if self._view is not None:
+            vp = self._view.viewport()
+            if vp is not None:
+                vp.update()
+                # Layout can still be incomplete when showEvent fires
+                # (e.g. the tab was just switched — viewport size is
+                # still the collapsed placeholder value). Schedule a
+                # second update after the current event-loop iteration
+                # so it runs against the final resized geometry. Without
+                # this, the first update() marks the wrong (tiny) area
+                # dirty and Qt does not repaint the newly-resized
+                # region.
+                QTimer.singleShot(0, vp.update)
+
+    def resizeEvent(self, event):  # noqa: D401
+        """Force viewport repaint on resize so newly-visible rows paint
+        against the current cache (not against stale/degenerate
+        geometry from before the layout settled)."""
+        super().resizeEvent(event)
+        if self._view is not None:
+            vp = self._view.viewport()
+            if vp is not None:
+                vp.update()
 
     def closeEvent(self, event):  # noqa: D401
         self._stop_worker()

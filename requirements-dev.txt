@@ -1,0 +1,14 @@
+# Development / CI tooling for PDFApps.
+#
+# Runtime dependencies live in requirements.txt; this file is only the
+# static-analysis / security / lint toolchain used locally and by the
+# CI workflows (e.g. security-deps.yml runs pip-audit; the lint gate
+# runs ruff). Install with:  pip install -r requirements-dev.txt
+#
+# Lower bounds mirror the >= style of requirements.txt so a fresh venv
+# picks up current releases while staying reproducible enough.
+mypy>=1.11.0
+bandit>=1.7.9
+pip-audit>=2.7.3
+pyyaml>=6.0.2
+ruff>=0.6.0

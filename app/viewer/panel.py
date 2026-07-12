@@ -683,13 +683,11 @@ class PdfViewerPanel(QWidget):
         all_highlights = []
         flat_idx = 0
         current_page = 0
-        current_rect_idx = 0
         for page_idx, rects in self._search_results:
             for rect in rects:
                 all_highlights.append((page_idx, rect))
                 if flat_idx == self._search_current:
                     current_page = page_idx
-                    current_rect_idx = flat_idx
                 flat_idx += 1
         self._canvas.set_search_highlights(all_highlights, self._search_current)
         # Scroll to current match

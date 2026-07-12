@@ -382,7 +382,12 @@ class BasePage(QWidget):
         import fitz
         doc = fitz.open(path)
         if doc.needs_pass and self._pdf_password:
-            doc.authenticate(self._nfc(self._pdf_password))
+            # PyMuPDF's authenticate() returns a falsy value (0) on a
+            # wrong password and leaves the document locked — mirror
+            # _open_reader and raise instead of handing back a Document
+            # whose pages can't be read.
+            if not doc.authenticate(self._nfc(self._pdf_password)):
+                raise ValueError(t("tool.err.wrong_password"))
         return doc
 
     def _clear_pdf_password(self) -> None:

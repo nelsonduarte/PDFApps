@@ -57,8 +57,10 @@ def test_worker_pixmap_lifetime_uses_copy():
 def test_worker_emits_qimage_not_qpixmap():
     """QPixmap construction is main-thread-only in Qt. The worker must
     emit QImage; the panel converts to QPixmap in a main-thread slot."""
-    # Signal should carry QImage, not QPixmap.
-    assert "Signal(int, QImage)" in THUMBS_SRC, (
+    # Signal should carry QImage, not QPixmap. It also carries the
+    # generation/epoch (trailing int) so stale thumbnails from a
+    # superseded document can be dropped by the panel.
+    assert "Signal(int, QImage, int)" in THUMBS_SRC, (
         "ThumbnailWorker.thumbnail_ready must emit QImage, not QPixmap, "
         "since QPixmap construction requires the main GUI thread"
     )
@@ -76,7 +78,7 @@ def test_signal_uses_queued_connection():
 def test_image_ready_slot_decorated():
     """@Slot decorator on the receiver keeps Py3.14 PySide6 routing
     predictable for cross-thread signal delivery."""
-    assert "@Slot(int, QImage)" in THUMBS_SRC
+    assert "@Slot(int, QImage, int)" in THUMBS_SRC
     assert "_on_image_ready" in THUMBS_SRC
 
 

@@ -5,6 +5,7 @@ import json
 import locale
 import logging
 import os
+import re
 import shutil
 import sys
 import threading
@@ -208,6 +209,43 @@ def _save_config_language(lang: str):
 # `check_for_store_update` can suppress further nags until a NEWER
 # version is published.
 
+# A dismissed version must be a plain dotted-numeric string (1 to 4
+# components, e.g. "1", "1.13", "1.13.17", "1.13.17.0"). Anything else —
+# a bare integer serialized without dots (e.g. "281530812399616") or
+# junk — is treated as corrupt and ignored. Without this guard a bogus
+# huge value like "281530812399616" parses (via _parse_version) to a
+# tuple that dwarfs every real Store version, so `check_for_store_update`
+# would suppress ALL future update notifications forever.
+#
+# The format regex alone is NOT enough: a single gigantic component like
+# "281530812399616" is a valid dotted-numeric string (0 dots), so it
+# passes the regex and would still poison the comparison. MSIX / Windows
+# package versions are Major.Minor.Build.Revision where every component
+# is a UInt16 (0-65535), so we additionally reject any component that
+# exceeds that ceiling. This rejects "281530812399616" while keeping
+# real versions like "1.13.17", "1.13.17.0" and small bare ints like
+# "12345".
+_STORE_VERSION_RE = re.compile(r"^\d+(\.\d+){0,3}$")
+_STORE_VERSION_COMPONENT_MAX = 65535  # UInt16 ceiling per MSIX spec
+
+
+def _is_valid_store_version(value) -> bool:
+    """True if ``value`` is a well-formed dotted-numeric version string.
+
+    Beyond matching the dotted-numeric *format*, each integer component
+    must fit in a UInt16 (<= 65535) — the MSIX/Windows package-version
+    range. This rejects an oversized bare integer (e.g.
+    ``"281530812399616"``) that would otherwise pass the format check
+    and permanently suppress update notifications.
+    """
+    if not isinstance(value, str) or not _STORE_VERSION_RE.match(value):
+        return False
+    # Regex guarantees every split part is a non-empty run of digits, so
+    # int() cannot raise here; the only remaining check is magnitude.
+    return all(int(part) <= _STORE_VERSION_COMPONENT_MAX
+               for part in value.split("."))
+
+
 def get_dismissed_store_version() -> str | None:
     """Return the Store version the user last dismissed, or ``None``.
 
@@ -215,6 +253,10 @@ def get_dismissed_store_version() -> str | None:
     version; do not nag again unless the Store publishes something
     newer". Stored under the ``dismissed_store_version`` key in
     config.json.
+
+    If the persisted value is malformed (not a dotted-numeric version),
+    it is treated as "nothing dismissed" AND scrubbed from config so the
+    corrupt key can't keep suppressing notifications on every launch.
     """
     try:
         with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -224,8 +266,13 @@ def get_dismissed_store_version() -> str | None:
     if not isinstance(cfg, dict):
         return None
     val = cfg.get("dismissed_store_version")
-    if isinstance(val, str) and val:
+    if val is None:
+        return None
+    if _is_valid_store_version(val):
         return val
+    # Corrupt value: drop it so it stops masking real updates.
+    with contextlib.suppress(Exception):
+        _update_config(lambda c: c.pop("dismissed_store_version", None))
     return None
 
 
@@ -235,12 +282,17 @@ def set_dismissed_store_version(version: str | None) -> None:
     Pass a version string (e.g. ``"1.13.17"``) to record the dismiss.
     Pass ``None`` to clear the flag (so the next available-update
     notification is shown unconditionally).
+
+    Malformed version strings are rejected (never persisted) to avoid
+    writing a value that would later suppress all notifications.
     """
     def _mutate(cfg: dict) -> None:
-        if version:
+        if version and _is_valid_store_version(version):
             cfg["dismissed_store_version"] = version
-        else:
+        elif not version:
             cfg.pop("dismissed_store_version", None)
+        # An invalid non-empty version is silently ignored: neither
+        # written nor used to clear an existing valid value.
 
     _update_config(_mutate)
 

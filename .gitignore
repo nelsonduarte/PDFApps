@@ -27,6 +27,8 @@ test_*.pdf
 test_*.xlsx
 *.tmp
 *.bak
+# Debug repro artifacts for the thumbnails sidebar
+thumb_repro*.png
 
 # Build logs locais
 pyinstaller.log
