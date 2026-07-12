@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QFileDialog, QMessageBox, QDialog,
-    QLineEdit, QSplitter, QTreeWidget, QTreeWidgetItem,
+    QLineEdit, QSplitter, QTabWidget, QTreeWidget, QTreeWidgetItem,
 )
 from PySide6.QtGui import QKeySequence, QShortcut
 from shiboken6 import isValid
@@ -16,6 +16,7 @@ from app.constants import ACCENT, TEXT_SEC, _LQ, DESKTOP
 from app.utils import _paint_bg, normalize_password
 from app.i18n import t
 from app.viewer.canvas import _SelectCanvas
+from app.viewer.thumbnails import ThumbnailPanel
 
 
 class PdfViewerPanel(QWidget):
@@ -143,12 +144,28 @@ class PdfViewerPanel(QWidget):
         self._placeholder = ph_widget
         layout.addWidget(self._placeholder, 1)
 
-        # ── TOC tree (left of canvas) ──────────────────────────────────
+        # ── TOC tree (Contents tab of the sidebar) ─────────────────────
         self._toc_tree = QTreeWidget()
         self._toc_tree.setObjectName("toc_tree")
         self._toc_tree.setHeaderHidden(True)
         self._toc_tree.setMinimumWidth(180)
         self._toc_tree.itemClicked.connect(self._on_toc_clicked)
+
+        # ── Thumbnails (Pages tab of the sidebar) ───────────────────────
+        self._thumbnails = ThumbnailPanel(self)
+        self._thumbnails.page_requested.connect(self._on_thumbnail_clicked)
+
+        # Sidebar tab widget: [Contents | Pages]. Individual tabs are
+        # shown/hidden dynamically: Contents only when the PDF has a
+        # non-empty TOC, Pages always once a doc is loaded.
+        self._sidebar_tabs = QTabWidget()
+        self._sidebar_tabs.setObjectName("viewer_sidebar_tabs")
+        self._sidebar_tabs.setDocumentMode(True)
+        self._sidebar_tabs.setMinimumWidth(180)
+        self._toc_tab_idx = self._sidebar_tabs.addTab(
+            self._toc_tree, t("viewer.sidebar.contents"))
+        self._pages_tab_idx = self._sidebar_tabs.addTab(
+            self._thumbnails, t("viewer.sidebar.pages"))
 
         # ── Canvas with continuous scroll of all pages ──────────────────
         self._canvas = _SelectCanvas()
@@ -162,9 +179,9 @@ class PdfViewerPanel(QWidget):
         self._canvas_scroll.viewport().installEventFilter(self)
         self._canvas_scroll.verticalScrollBar().valueChanged.connect(self._on_scroll)
 
-        # Splitter: TOC | canvas
+        # Splitter: sidebar | canvas
         self._viewer_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self._viewer_splitter.addWidget(self._toc_tree)
+        self._viewer_splitter.addWidget(self._sidebar_tabs)
         self._viewer_splitter.addWidget(self._canvas_scroll)
         self._viewer_splitter.setStretchFactor(0, 0)
         self._viewer_splitter.setStretchFactor(1, 1)
@@ -172,7 +189,7 @@ class PdfViewerPanel(QWidget):
         self._viewer_splitter.setCollapsible(0, True)
         self._viewer_splitter.setCollapsible(1, False)
         self._viewer_splitter.setVisible(False)
-        self._toc_tree.setVisible(False)  # hidden until a PDF with TOC is loaded
+        self._sidebar_tabs.setVisible(False)  # hidden until a PDF is loaded
         layout.addWidget(self._viewer_splitter, 1)
 
         # ── Search bar (Ctrl+F) ───────────────────────────────────────────
@@ -300,6 +317,8 @@ class PdfViewerPanel(QWidget):
             link.setStyleSheet(link_style)
         for btn in self._recent_del_btns:
             btn.setIcon(qta.icon("fa5s.trash-alt", color=c))
+        # Thumbnail delegate re-reads dark flag to pick hover colour.
+        self._thumbnails.update_theme(dark)
 
     # Drag & drop is handled at the MainWindow level (see window.py).
 
@@ -405,8 +424,30 @@ class PdfViewerPanel(QWidget):
         return self._current_path
 
     # ── TOC / Bookmarks ─────────────────────────────────────────────────
+    def _set_toc_tab_visible(self, visible: bool) -> None:
+        """Show/hide the Contents tab without removing it from the tab
+        widget. Qt has no first-class ``setTabVisible`` on older
+        PySide6 releases, but 6.11 does — guard with hasattr so we
+        keep working on legacy bindings by inserting/removing instead.
+        """
+        if hasattr(self._sidebar_tabs, "setTabVisible"):
+            self._sidebar_tabs.setTabVisible(self._toc_tab_idx, visible)
+            return
+        # Legacy path: remove/insert. Best-effort; safe if already gone.
+        present = self._sidebar_tabs.indexOf(self._toc_tree) != -1
+        if visible and not present:
+            self._sidebar_tabs.insertTab(
+                0, self._toc_tree, t("viewer.sidebar.contents"))
+            self._toc_tab_idx = 0
+            # Pages moved to index 1 after re-insert.
+            self._pages_tab_idx = self._sidebar_tabs.indexOf(self._thumbnails)
+        elif not visible and present:
+            self._sidebar_tabs.removeTab(self._toc_tab_idx)
+            self._pages_tab_idx = self._sidebar_tabs.indexOf(self._thumbnails)
+
     def _populate_toc(self, doc):
-        """Read the PDF outline and build the tree. Hides the panel if empty.
+        """Read the PDF outline and build the tree. Hides the Contents
+        tab (but keeps Pages) if the outline is empty.
 
         Wrapped in try/except: a malformed outline (cyclic refs, bad
         page indexes, unexpected entry shape) used to leave the TOC
@@ -424,8 +465,12 @@ class PdfViewerPanel(QWidget):
                 "Failed to read TOC for %s: %s", self._current_path, exc)
             toc = []
         if not toc:
-            self._toc_tree.setVisible(False)
-            self._toc_btn.setVisible(False)
+            self._set_toc_tab_visible(False)
+            # Pages tab is still there → activate it so the user sees
+            # something useful when they open the sidebar.
+            pages_idx = self._sidebar_tabs.indexOf(self._thumbnails)
+            if pages_idx >= 0:
+                self._sidebar_tabs.setCurrentIndex(pages_idx)
             return
         try:
             # toc is a list of [level, title, page] (page is 1-indexed)
@@ -439,9 +484,7 @@ class PdfViewerPanel(QWidget):
                 item.setToolTip(0, title)
                 stack.append((level, item))
             self._toc_tree.expandToDepth(1)
-            self._toc_tree.setVisible(True)
-            self._toc_btn.setVisible(True)
-            self._toc_btn.setEnabled(True)
+            self._set_toc_tab_visible(True)
         except Exception as exc:
             import logging
             logging.getLogger(__name__).warning(
@@ -450,8 +493,7 @@ class PdfViewerPanel(QWidget):
             # Reset to a known-empty state so a partial build does not
             # leave dangling QTreeWidgetItems pointing at invalid pages.
             self._toc_tree.clear()
-            self._toc_tree.setVisible(False)
-            self._toc_btn.setVisible(False)
+            self._set_toc_tab_visible(False)
 
     def _on_toc_clicked(self, item, column):
         page_idx = item.data(0, Qt.ItemDataRole.UserRole)
@@ -460,11 +502,24 @@ class PdfViewerPanel(QWidget):
         y = self._canvas.scroll_to_page(int(page_idx))
         self._canvas_scroll.verticalScrollBar().setValue(y)
 
+    def _on_thumbnail_clicked(self, page_idx: int) -> None:
+        """User clicked a page thumbnail — scroll the canvas there."""
+        y = self._canvas.scroll_to_page(int(page_idx))
+        self._canvas_scroll.verticalScrollBar().setValue(y)
+
     def _toggle_toc(self):
-        visible = self._toc_tree.isVisible()
-        self._toc_tree.setVisible(not visible)
+        """Toggle the whole sidebar (Contents + Pages tab widget).
+
+        The button still lives on the header with the bookmark icon —
+        the semantics widened when thumbnails joined the sidebar, but
+        renaming the attribute would break existing accessibility hooks
+        and translation strings on this release.
+        """
+        visible = self._sidebar_tabs.isVisible()
+        self._sidebar_tabs.setVisible(not visible)
         if not visible:
-            self._viewer_splitter.setSizes([220, max(800, self._viewer_splitter.width() - 220)])
+            self._viewer_splitter.setSizes(
+                [220, max(800, self._viewer_splitter.width() - 220)])
         # Re-layout pages after splitter change
         if self._canvas._doc and self._canvas._zoom_factor == 1.0:
             from PySide6.QtCore import QTimer
@@ -492,6 +547,9 @@ class PdfViewerPanel(QWidget):
         if self._fitz_doc:
             self._canvas.close_doc()
             self._fitz_doc = None
+            # Stop the thumbnail worker and drop cached pixmaps of the
+            # previous doc before we point the panel at a new file.
+            self._thumbnails.clear()
             # Forget the previous file's password before we start the
             # new one's prompt flow (R5/D2). _clear_pdf_password is a
             # best-effort wipe — Python str immutability blocks a true
@@ -527,12 +585,27 @@ class PdfViewerPanel(QWidget):
         self._canvas_scroll.verticalScrollBar().setValue(0)
         self._placeholder.setVisible(False)
         self._viewer_splitter.setVisible(True)
+        # Sidebar is always available once a PDF loads — thumbnails
+        # don't depend on the PDF having a TOC.
+        self._sidebar_tabs.setVisible(True)
         self._sel_status.setVisible(True)
         self._name_lbl.setText(os.path.basename(path))
         self._zoom_lbl.setText(t("zoom.fit"))
         for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn,
                     self._print_btn, self._night_btn):
             btn.setEnabled(True)
+        # The sidebar toggle used to live behind a "PDF has TOC" gate;
+        # now that Pages is a first-class tab the button is always
+        # meaningful. Keep the icon/tooltip — see _toggle_toc note.
+        self._toc_btn.setVisible(True)
+        self._toc_btn.setEnabled(True)
+        # Populate thumbnails BEFORE the TOC so the worker starts
+        # rendering while _populate_toc walks the outline on the UI
+        # thread.
+        self._thumbnails.set_document(
+            path, doc.page_count,
+            password=getattr(self, "_pdf_password", ""))
+        self._thumbnails.set_current_page(0)
         self._populate_toc(doc)
 
     # ── Search ──────────────────────────────────────────────────────────
@@ -643,6 +716,9 @@ class PdfViewerPanel(QWidget):
         self._page_lbl.setText(f"{idx + 1} / {total}")
         self._prev_btn.setEnabled(idx > 0)
         self._next_btn.setEnabled(idx < total - 1)
+        # Keep the thumbnail sidebar highlight in sync with whichever
+        # page the user is currently reading in the canvas.
+        self._thumbnails.set_current_page(idx)
 
     def _prev_page(self):
         if not self._canvas._entries:
@@ -769,4 +845,10 @@ class PdfViewerPanel(QWidget):
         # Wipe cached password before the C++ widget is destroyed so a
         # heap dump after teardown no longer surfaces it.
         self._clear_pdf_password()
+        # Cancel + join the thumbnail render thread so tearing the
+        # panel down doesn't leak a QThread past the C++ deletion.
+        try:
+            self._thumbnails.clear()
+        except Exception:
+            pass
         super().closeEvent(event)
