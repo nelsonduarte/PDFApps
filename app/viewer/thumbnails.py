@@ -29,9 +29,10 @@ Public API
 from __future__ import annotations
 
 import contextlib
+import logging
 
 from PySide6.QtCore import (
-    QAbstractListModel, QModelIndex, QRect, QSize, Qt, QThread, Signal,
+    QAbstractListModel, QModelIndex, QRect, QSize, Qt, QThread, Signal, Slot,
 )
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (
@@ -40,6 +41,9 @@ from PySide6.QtWidgets import (
 )
 
 from app.constants import ACCENT, TEXT_SEC
+
+
+_log = logging.getLogger(__name__)
 
 
 THUMB_WIDTH = 120     # px – target thumbnail width before aspect-fit
@@ -62,7 +66,12 @@ class ThumbnailWorker(QThread):
     graceful shutdown before dropping the reference.
     """
 
-    thumbnail_ready = Signal(int, QPixmap)  # (page_index, thumbnail)
+    # Emits QImage (thread-safe) rather than QPixmap: Qt requires
+    # QPixmap to be constructed / mutated only in the main GUI thread,
+    # so the receiver slot ``ThumbnailPanel._on_image_ready`` performs
+    # the ``QPixmap.fromImage()`` conversion on the main thread before
+    # handing the pixmap to the model.
+    thumbnail_ready = Signal(int, QImage)  # (page_index, thumbnail)
 
     def __init__(self, doc_path: str, page_indices: list[int],
                  password: str = "", parent=None) -> None:
@@ -93,6 +102,10 @@ class ThumbnailWorker(QThread):
                 if idx < 0 or idx >= page_count:
                     continue
                 try:
+                    _log.debug(
+                        "ThumbnailWorker: rendering page %d/%d",
+                        idx + 1, page_count,
+                    )
                     page = doc[idx]
                     # 40 DPI ≈ 330×467 px for A4 — plenty of detail
                     # for a 120×160 downscale with smooth transform.
@@ -105,11 +118,16 @@ class ThumbnailWorker(QThread):
                     # emitting — otherwise the receiver sees a
                     # dangling buffer (same fix pattern as the print
                     # loop and OCR round 3).
+                    #
+                    # Emit QImage (thread-safe) — the main-thread slot
+                    # converts to QPixmap. Constructing QPixmap here in
+                    # the worker thread is invalid per Qt's threading
+                    # model (silent no-op or crash on some platforms).
                     img = QImage(
                         pix.samples, pix.width, pix.height,
                         pix.stride, QImage.Format.Format_RGB888,
                     ).copy()
-                    self.thumbnail_ready.emit(idx, QPixmap.fromImage(img))
+                    self.thumbnail_ready.emit(idx, img)
                 except Exception:
                     # Skip page — bad object / partial doc, keep going.
                     continue
@@ -358,8 +376,30 @@ class ThumbnailPanel(QWidget):
     def _start_worker(self, page_indices: list[int]) -> None:
         self._worker = ThumbnailWorker(
             self._doc_path, page_indices, self._password, self)
-        self._worker.thumbnail_ready.connect(self._model.cache_pixmap)
+        # Explicit QueuedConnection so the slot runs on this (main)
+        # thread rather than the worker — required for QPixmap
+        # construction, and matches the Py3.14 PySide6 routing rules
+        # documented in memory/project_compress_freeze_py314.md.
+        self._worker.thumbnail_ready.connect(
+            self._on_image_ready,
+            Qt.ConnectionType.QueuedConnection,
+        )
         self._worker.start()
+
+    @Slot(int, QImage)
+    def _on_image_ready(self, page_idx: int, img: QImage) -> None:
+        """Runs on the main GUI thread. Convert the worker's QImage
+        into a QPixmap and hand it to the model.
+
+        QPixmap construction is only valid on the main thread; doing it
+        here (instead of in the worker) is why the parent signal
+        carries QImage."""
+        _log.debug(
+            "Thumbnail received for page %d (%dx%d)",
+            page_idx + 1, img.width(), img.height(),
+        )
+        pix = QPixmap.fromImage(img)
+        self._model.cache_pixmap(page_idx, pix)
 
     def _stop_worker(self) -> None:
         if self._worker is None:

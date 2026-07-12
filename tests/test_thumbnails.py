@@ -54,6 +54,32 @@ def test_worker_pixmap_lifetime_uses_copy():
     assert ".copy()" in THUMBS_SRC
 
 
+def test_worker_emits_qimage_not_qpixmap():
+    """QPixmap construction is main-thread-only in Qt. The worker must
+    emit QImage; the panel converts to QPixmap in a main-thread slot."""
+    # Signal should carry QImage, not QPixmap.
+    assert "Signal(int, QImage)" in THUMBS_SRC, (
+        "ThumbnailWorker.thumbnail_ready must emit QImage, not QPixmap, "
+        "since QPixmap construction requires the main GUI thread"
+    )
+    # The main-thread slot converts image -> pixmap.
+    assert "QPixmap.fromImage" in THUMBS_SRC
+
+
+def test_signal_uses_queued_connection():
+    """Py3.14 PySide6 requires explicit QueuedConnection for
+    cross-thread signals so slots run on the receiver's thread
+    (see memory/project_compress_freeze_py314.md)."""
+    assert "QueuedConnection" in THUMBS_SRC
+
+
+def test_image_ready_slot_decorated():
+    """@Slot decorator on the receiver keeps Py3.14 PySide6 routing
+    predictable for cross-thread signal delivery."""
+    assert "@Slot(int, QImage)" in THUMBS_SRC
+    assert "_on_image_ready" in THUMBS_SRC
+
+
 def test_worker_passes_password_to_fitz():
     """Encrypted PDFs would raise on every page render without this."""
     assert "authenticate" in THUMBS_SRC
