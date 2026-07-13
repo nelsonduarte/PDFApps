@@ -80,9 +80,35 @@ jobs:
                   (rf'"softwareVersion":\s*"{ANY}"', f'"softwareVersion": "{new}"'),
                   (rf'v{old_re}', f'v{new}'),
               ], True),
+              # changelog.html carries the *whole* release history: every past
+              # release has a ``<span class="version-tag">v...</span>`` heading
+              # that must NEVER change. A global ``v{old}`` rewrite clobbered the
+              # topmost historical heading every release (this is why v1.13.16
+              # "disappeared" in 72f25e8: its heading was renamed to v1.13.17).
+              # Anchor the bump to the footer changelog link ONLY. New release
+              # headings (incl. moving the "Latest" badge) are an editorial step
+              # done by hand in the same PR that ships the feature work.
               ("docs/changelog.html", [
+                  (rf'(<a href="changelog\.html">)v{old_re}(</a>)', rf'\g<1>v{new}\g<2>'),
+              ], True),
+              # Every remaining marketing page carries the current version only,
+              # in an eyebrow badge and/or the footer changelog link (no historical
+              # version strings — verified by grep). The global ``v{old}`` -> ``v{new}``
+              # rewrite is therefore safe and keeps all pages in lock-step. required=True
+              # so the release fails loudly if a page ever drifts off the old tag
+              # (instead of silently masking the drift).
+              ("docs/download.html", [
                   (rf'v{old_re}', f'v{new}'),
-              ], False),
+              ], True),
+              ("docs/features.html", [
+                  (rf'v{old_re}', f'v{new}'),
+              ], True),
+              ("docs/privacy.html", [
+                  (rf'v{old_re}', f'v{new}'),
+              ], True),
+              ("docs/docs.html", [
+                  (rf'v{old_re}', f'v{new}'),
+              ], True),
               ("snap/snapcraft.yaml", [
                   (rf"version:\s*'{ANY}'", f"version: '{new}'"),
               ], True),

@@ -49,7 +49,18 @@ def fake_repo(tmp_path: Path) -> Path:
     (tmp_path / "docs" / "index.html").write_text(
         '"softwareVersion": "1.13.14"\nv1.13.14\n', encoding="utf-8"
     )
-    (tmp_path / "docs" / "changelog.html").write_text("v1.13.14\n", encoding="utf-8")
+    # The changelog rewrite is anchored to the footer changelog link only
+    # (release headings carry the whole history and must never be clobbered),
+    # so the fixture must expose that exact footer-link shape to be matched.
+    (tmp_path / "docs" / "changelog.html").write_text(
+        '<span class="version-tag">v1.13.14</span>\n'
+        '<a href="changelog.html">v1.13.14</a>\n',
+        encoding="utf-8",
+    )
+    # The four remaining marketing pages carry the current version only and are
+    # required=True, so each must contain a v{old} string for the bump to match.
+    for page in ("download.html", "features.html", "privacy.html", "docs.html"):
+        (tmp_path / "docs" / page).write_text("v1.13.14\n", encoding="utf-8")
     (tmp_path / "snap").mkdir()
     # Frozen one minor behind app/constants.py — this is exactly the
     # bug we're guarding against.

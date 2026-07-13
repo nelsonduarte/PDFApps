@@ -1180,7 +1180,6 @@ def detect_table_regions(
         drawing_idx_list: list[int] = []
         any_text = False
         consumed_text: list[int] = []
-        seen_text: set[int] = set()
         # Precompute cell bboxes so we can pre-assign each text block
         # to whichever cell contains its centroid (handles the common
         # PyMuPDF case where adjacent columns of one table row land in

@@ -181,7 +181,11 @@ def test_get_store_version_returns_none_when_no_packages():
 
 def test_check_for_store_update_detects_newer():
     from app import store_updater
-    with patch.object(store_updater, "get_store_version", return_value="99.0.0"):
+    # Patch the dismiss lookup so the test is hermetic — otherwise a
+    # real ~/.pdfapps_config.json with a dismissed_store_version could
+    # suppress the update and make this assertion machine-dependent.
+    with patch.object(store_updater, "get_store_version", return_value="99.0.0"), \
+         patch("app.i18n.get_dismissed_store_version", return_value=None):
         has_update, latest = store_updater.check_for_store_update()
     assert has_update is True
     assert latest == "99.0.0"
@@ -299,6 +303,101 @@ def test_dismissed_store_version_round_trip(tmp_path, monkeypatch):
     # Clear with None
     i18n.set_dismissed_store_version(None)
     assert i18n.get_dismissed_store_version() is None
+
+
+def test_is_valid_store_version_magnitude_guard():
+    """A dotted-numeric string with an oversized (> UInt16) component must
+    be rejected even though it matches the format regex, while real
+    versions and small bare integers stay valid.
+
+    Regression: the corrupt value "281530812399616" that broke update
+    notifications is a valid dotted-numeric string (0 dots) and slipped
+    past the format-only check."""
+    from app import i18n
+    # Corrupt: single gigantic component exceeds 65535.
+    assert i18n._is_valid_store_version("281530812399616") is False
+    # Still valid: real dotted versions.
+    assert i18n._is_valid_store_version("1.13.17") is True
+    assert i18n._is_valid_store_version("1.13.17.0") is True
+    # Still valid: small bare integer within UInt16 range.
+    assert i18n._is_valid_store_version("12345") is True
+    # Boundary: exactly the UInt16 ceiling is accepted, one over is not.
+    assert i18n._is_valid_store_version("65535") is True
+    assert i18n._is_valid_store_version("65536") is False
+    # A per-component overflow inside a dotted version is also rejected.
+    assert i18n._is_valid_store_version("1.99999") is False
+    # Non-string junk stays invalid.
+    assert i18n._is_valid_store_version(281530812399616) is False
+    assert i18n._is_valid_store_version(None) is False
+
+
+def test_dismissed_store_version_scrubs_oversized_string(tmp_path,
+                                                         monkeypatch):
+    """A persisted STRING "281530812399616" must be treated as "nothing
+    dismissed" AND scrubbed from config, so it can't keep suppressing
+    every future update notification."""
+    from app import i18n
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({
+        "language": "pt",
+        "dismissed_store_version": "281530812399616",
+    }), encoding="utf-8")
+    monkeypatch.setattr(i18n, "_CONFIG_PATH", str(cfg))
+
+    # Corrupt value is ignored on read.
+    assert i18n.get_dismissed_store_version() is None
+    # And scrubbed from disk (self-heal), without wiping other keys.
+    on_disk = json.loads(cfg.read_text(encoding="utf-8"))
+    assert "dismissed_store_version" not in on_disk
+    assert on_disk["language"] == "pt"
+
+
+def test_dismissed_store_version_scrubs_oversized_number(tmp_path,
+                                                         monkeypatch):
+    """Same guard for the JSON-number subcase (not a string)."""
+    from app import i18n
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({
+        "dismissed_store_version": 281530812399616,
+    }), encoding="utf-8")
+    monkeypatch.setattr(i18n, "_CONFIG_PATH", str(cfg))
+
+    assert i18n.get_dismissed_store_version() is None
+    on_disk = json.loads(cfg.read_text(encoding="utf-8"))
+    assert "dismissed_store_version" not in on_disk
+
+
+def test_set_dismissed_store_version_rejects_oversized(tmp_path,
+                                                       monkeypatch):
+    """set_dismissed_store_version must not persist an oversized value,
+    and must not clear an existing valid dismiss when handed junk."""
+    from app import i18n
+    cfg = tmp_path / "config.json"
+    monkeypatch.setattr(i18n, "_CONFIG_PATH", str(cfg))
+
+    # Seed a valid dismiss.
+    i18n.set_dismissed_store_version("1.13.17")
+    assert i18n.get_dismissed_store_version() == "1.13.17"
+
+    # An oversized value is silently rejected: not written, and the
+    # existing valid value is preserved.
+    i18n.set_dismissed_store_version("281530812399616")
+    assert i18n.get_dismissed_store_version() == "1.13.17"
+
+
+def test_dismissed_store_version_no_scrub_on_unreadable_json(tmp_path,
+                                                            monkeypatch):
+    """If config.json is unreadable, get_dismissed_store_version returns
+    None WITHOUT rewriting (scrubbing) the file — we must never touch a
+    file we couldn't parse."""
+    from app import i18n
+    cfg = tmp_path / "config.json"
+    cfg.write_text("not json at all", encoding="utf-8")
+    monkeypatch.setattr(i18n, "_CONFIG_PATH", str(cfg))
+
+    assert i18n.get_dismissed_store_version() is None
+    # File left untouched (not overwritten with "{}").
+    assert cfg.read_text(encoding="utf-8") == "not json at all"
 
 
 # ── store_deep_link ────────────────────────────────────────────────────

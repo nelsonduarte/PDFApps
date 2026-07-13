@@ -67,9 +67,24 @@
     <div class="container" style="max-width: 880px;">
         <div class="release">
             <div class="release-header">
+                <span class="version-tag">v1.14.0</span>
+                <span class="release-date">July 13, 2026</span>
+                <span class="release-badge">Latest</span>
+            </div>
+            <h3>Page thumbnails sidebar in the viewer</h3>
+            <ul class="docs-list">
+                <li><strong>Page thumbnails</strong>: the viewer sidebar now has a <strong>Pages</strong> tab showing a live thumbnail of every page. Click a thumbnail to jump straight to that page; the current page stays highlighted and in sync as you scroll.</li>
+                <li><strong>Fast &amp; crisp</strong>: thumbnails render on demand for the pages you are actually looking at, so even large documents open instantly, and they stay sharp on high-DPI displays.</li>
+                <li><strong>Contents tab</strong>: when a PDF has bookmarks, the sidebar opens on a <strong>Contents</strong> tab with the document outline; the bookmark button now toggles the whole sidebar.</li>
+                <li><strong>Encrypted PDFs</strong>: password-protected documents are now verified correctly when opened for viewing, with a clear error on the wrong password instead of a silent failure.</li>
+                <li><strong>Store updates</strong>: hardened version handling for Microsoft Store update notifications so stale or malformed entries can no longer suppress a genuine update prompt.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
                 <span class="version-tag">v1.13.17</span>
                 <span class="release-date">June 21, 2026</span>
-                <span class="release-badge">Latest</span>
             </div>
             <h3>Editor audit fixes, atomic saves, and streaming OCR</h3>
             <ul class="docs-list">
@@ -82,6 +97,23 @@
                 <li><strong>Dependencies</strong>: pypdf 6.13.3, cryptography 49.0.0, lxml 6.1.1, beautifulsoup4 4.15.0, pyinstaller 6.21.0.</li>
                 <li><strong>Security</strong>: 5 transitive CVEs closed.</li>
                 <li><strong>Installer</strong>: fixed a <code>NameError</code> on the error path that was hiding real install errors.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
+                <span class="version-tag">v1.13.16</span>
+                <span class="release-date">June 18, 2026</span>
+            </div>
+            <h3>Audit hardening rounds 10 &amp; 11</h3>
+            <ul class="docs-list">
+                <li><strong>Editor</strong>: 13 audit findings resolved (1 critical, 7 high, 5 medium plus low-severity polish).</li>
+                <li><strong>Round 10</strong>: 12 findings fixed (2 critical, 5 high, 3 medium, 2 low).</li>
+                <li><strong>Round 11</strong>: 8 findings fixed (3 high, 5 medium).</li>
+                <li><strong>Polish</strong>: 10 low-severity fixes plus a further cluster of 20 medium and low findings.</li>
+                <li><strong>Snap Store</strong>: permanent version-bump fix that unfroze the Snap publication pipeline at v1.13.15.</li>
+                <li><strong>CI</strong>: pinned the snapcore actions to the Node.js 24 runtime and ignored local <code>artifacts-*/</code> release folders.</li>
+                <li><strong>Dependencies</strong>: pypdf 6.13.0, PySide6 6.11.1, shiboken6 6.11.1.</li>
             </ul>
         </div>
 

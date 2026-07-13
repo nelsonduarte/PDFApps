@@ -1606,7 +1606,10 @@ class MainWindow(QMainWindow):
             t("update.store.btn.open"),
             QMessageBox.ButtonRole.AcceptRole,
         )
-        later_btn = box.addButton(
+        # "Later" button: its handle isn't needed — clickedButton() is
+        # compared against open/dismiss only, and anything else (Later or
+        # the close-box) is a no-op — but the button must still exist.
+        box.addButton(
             t("update.store.btn.later"),
             QMessageBox.ButtonRole.RejectRole,
         )
@@ -1632,8 +1635,8 @@ class MainWindow(QMainWindow):
             with contextlib.suppress(Exception):
                 if latest:
                     set_dismissed_store_version(latest)
-        # "Later" (later_btn) and the close-box: do nothing; dialog
-        # will reappear on the next startup.
+        # "Later" and the close-box: do nothing; dialog will reappear on
+        # the next startup.
 
     def _show_update_dialog(self):
         if self._update_release:
