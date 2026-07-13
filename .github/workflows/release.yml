@@ -83,6 +83,23 @@ jobs:
               ("docs/changelog.html", [
                   (rf'v{old_re}', f'v{new}'),
               ], False),
+              # Every remaining marketing page carries the version in an
+              # eyebrow badge and/or the footer changelog link. They use the
+              # same ``v{old}`` -> ``v{new}`` rewrite as index/changelog so a
+              # single release run keeps all pages in lock-step (prevents the
+              # docs version drift where these stayed pinned to an old tag).
+              ("docs/download.html", [
+                  (rf'v{old_re}', f'v{new}'),
+              ], False),
+              ("docs/features.html", [
+                  (rf'v{old_re}', f'v{new}'),
+              ], False),
+              ("docs/privacy.html", [
+                  (rf'v{old_re}', f'v{new}'),
+              ], False),
+              ("docs/docs.html", [
+                  (rf'v{old_re}', f'v{new}'),
+              ], False),
               ("snap/snapcraft.yaml", [
                   (rf"version:\s*'{ANY}'", f"version: '{new}'"),
               ], True),
