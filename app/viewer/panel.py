@@ -485,6 +485,14 @@ class PdfViewerPanel(QWidget):
                 stack.append((level, item))
             self._toc_tree.expandToDepth(1)
             self._set_toc_tab_visible(True)
+            # Make Contents the active tab by default when the PDF has a
+            # TOC — the original (pre-sidebar-tabs) behaviour showed the
+            # outline as the sidebar itself. Without this, a prior no-TOC
+            # document that switched the active tab to "Pages" (see the
+            # empty-TOC branch above) leaves the sidebar parked on Pages,
+            # so re-showing the Contents tab button here never actually
+            # surfaces the outline: the tab appears absent to the user.
+            self._sidebar_tabs.setCurrentIndex(self._toc_tab_idx)
         except Exception as exc:
             import logging
             logging.getLogger(__name__).warning(
