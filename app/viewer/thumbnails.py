@@ -690,10 +690,11 @@ class ThumbnailPanel(QWidget):
         # Read the LIVE device-pixel ratio off the view (falls back to the
         # panel, then 1.0) so thumbnails render sharp on HiDPI screens.
         # Never hardcoded — see memory/feedback_icons.md.
-        dpr = 1.0
-        with contextlib.suppress(Exception):
+        try:
             dpr = (self._view.devicePixelRatioF()
                    or self.devicePixelRatioF() or 1.0)
+        except Exception:
+            dpr = 1.0
         worker = ThumbnailWorker(
             self._doc_path, page_indices, self._password, self._epoch,
             dpr, self)
