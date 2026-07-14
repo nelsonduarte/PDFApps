@@ -94,6 +94,74 @@ def test_parse_version_empty_returns_zero_tuple():
     assert _parse_version("") == (0,)
 
 
+# ── packed UInt64 decode / normalisation ──────────────────────────────
+#
+# Regression for the perpetual "PDFApps 281535106252800 is available"
+# nag: the DisplayCatalog API returned the version as a packed UInt64
+# PackageVersion, which was neither decoded (shown raw) nor comparable
+# (always looked newer than the installed semantic version).
+
+
+def test_decode_packed_version_1_14_0_0():
+    from app.store_updater import _decode_packed_version
+    # (1 << 48) | (14 << 32) | 0 | 0
+    assert _decode_packed_version(281535106252800) == (1, 14, 0, 0)
+
+
+def test_decode_packed_version_all_fields():
+    from app.store_updater import _decode_packed_version
+    packed = (1 << 48) | (14 << 32) | (3 << 16) | 7
+    assert _decode_packed_version(packed) == (1, 14, 3, 7)
+
+
+def test_normalize_store_version_packed_int():
+    from app.store_updater import _normalize_store_version
+    assert _normalize_store_version(281535106252800) == (1, 14, 0, 0)
+
+
+def test_normalize_store_version_packed_string():
+    from app.store_updater import _normalize_store_version
+    assert _normalize_store_version("281535106252800") == (1, 14, 0, 0)
+
+
+def test_normalize_store_version_dotted_string():
+    from app.store_updater import _normalize_store_version
+    assert _normalize_store_version("1.14.0.0") == (1, 14, 0, 0)
+    assert _normalize_store_version("1.14.0") == (1, 14, 0, 0)
+
+
+def test_normalize_store_version_small_bare_int():
+    from app.store_updater import _normalize_store_version
+    # Within UInt16 range -> major-only version, not a packed value.
+    assert _normalize_store_version(65535) == (65535, 0, 0, 0)
+    assert _normalize_store_version("12345") == (12345, 0, 0, 0)
+
+
+def test_normalize_store_version_rejects_junk():
+    from app.store_updater import _normalize_store_version
+    assert _normalize_store_version(None) is None
+    assert _normalize_store_version("") is None
+    assert _normalize_store_version("   ") is None
+    assert _normalize_store_version("1.14.x") is None
+    assert _normalize_store_version("1.2.3.4.5") is None  # too many parts
+    assert _normalize_store_version(-1) is None
+    assert _normalize_store_version(True) is None  # bool is not a version
+    assert _normalize_store_version(["1", "14"]) is None
+
+
+def test_normalize_store_version_rejects_dotted_component_overflow():
+    from app.store_updater import _normalize_store_version
+    # A per-component overflow inside a dotted version is corrupt.
+    assert _normalize_store_version("1.99999") is None
+
+
+def test_format_version_strips_trailing_zeros_to_three():
+    from app.store_updater import _format_version
+    assert _format_version((1, 14, 0, 0)) == "1.14.0"
+    assert _format_version((2, 0, 0, 0)) == "2.0.0"
+    assert _format_version((1, 13, 16, 5)) == "1.13.16.5"
+
+
 # ── get_store_version ─────────────────────────────────────────────────
 
 
@@ -166,6 +234,29 @@ def test_get_store_version_returns_none_on_invalid_json():
         assert store_updater.get_store_version() is None
 
 
+def test_get_store_version_decodes_packed_uint64():
+    """The Store returns the version as a packed UInt64 integer — it must
+    be decoded to the readable dotted form, never shown/compared raw."""
+    from app import store_updater
+    payload = {"Products": [{"DisplaySkuAvailabilities": [{"Sku": {"Properties": {
+        "Packages": [{"Version": 281535106252800}]  # packed 1.14.0.0
+    }}}]}]}
+    with patch.object(store_updater.urllib.request, "urlopen",
+                      return_value=_mock_urlopen_response(payload)):
+        assert store_updater.get_store_version() == "1.14.0"
+
+
+def test_get_store_version_decodes_packed_uint64_string():
+    """Same, but the packed value arrives as a JSON string."""
+    from app import store_updater
+    payload = {"Products": [{"DisplaySkuAvailabilities": [{"Sku": {"Properties": {
+        "Packages": [{"Version": "281535106252800"}]
+    }}}]}]}
+    with patch.object(store_updater.urllib.request, "urlopen",
+                      return_value=_mock_urlopen_response(payload)):
+        assert store_updater.get_store_version() == "1.14.0"
+
+
 def test_get_store_version_returns_none_when_no_packages():
     from app import store_updater
     payload = {"Products": [{"DisplaySkuAvailabilities": [{"Sku": {"Properties": {
@@ -206,6 +297,75 @@ def test_check_for_store_update_returns_false_when_older_version():
         has_update, latest = store_updater.check_for_store_update()
     assert has_update is False
     assert latest is None
+
+
+def test_check_for_store_update_packed_equal_no_notification():
+    """End-to-end regression: Store publishes the packed encoding of the
+    version we already run (1.14.0.0). After decoding they are equal, so
+    NO update must be reported — this is the perpetual-nag bug."""
+    from app import store_updater
+    payload = {"Products": [{"DisplaySkuAvailabilities": [{"Sku": {"Properties": {
+        "Packages": [{"Version": 281535106252800}]  # packed 1.14.0.0
+    }}}]}]}
+    with patch.object(store_updater, "APP_VERSION", "1.14.0"), \
+         patch.object(store_updater.urllib.request, "urlopen",
+                      return_value=_mock_urlopen_response(payload)), \
+         patch("app.i18n.get_dismissed_store_version", return_value=None):
+        has_update, latest = store_updater.check_for_store_update()
+    assert has_update is False
+    assert latest is None
+
+
+def test_check_for_store_update_packed_newer_notifies_with_decoded_version():
+    """Store genuinely newer (packed 1.15.0.0) while installed is 1.14.0:
+    notify, and hand the UI the DECODED version string, never the raw
+    packed integer."""
+    from app import store_updater
+    packed_1_15 = (1 << 48) | (15 << 32)
+    payload = {"Products": [{"DisplaySkuAvailabilities": [{"Sku": {"Properties": {
+        "Packages": [{"Version": packed_1_15}]
+    }}}]}]}
+    with patch.object(store_updater, "APP_VERSION", "1.14.0"), \
+         patch.object(store_updater.urllib.request, "urlopen",
+                      return_value=_mock_urlopen_response(payload)), \
+         patch("app.i18n.get_dismissed_store_version", return_value=None):
+        has_update, latest = store_updater.check_for_store_update()
+    assert has_update is True
+    assert latest == "1.15.0"
+
+
+def test_check_for_store_update_packed_older_no_notification():
+    """Store reports the packed encoding of an OLDER version (1.13.0.0)
+    than installed 1.14.0 -> no notification."""
+    from app import store_updater
+    packed_1_13 = (1 << 48) | (13 << 32)
+    payload = {"Products": [{"DisplaySkuAvailabilities": [{"Sku": {"Properties": {
+        "Packages": [{"Version": packed_1_13}]
+    }}}]}]}
+    with patch.object(store_updater, "APP_VERSION", "1.14.0"), \
+         patch.object(store_updater.urllib.request, "urlopen",
+                      return_value=_mock_urlopen_response(payload)), \
+         patch("app.i18n.get_dismissed_store_version", return_value=None):
+        has_update, latest = store_updater.check_for_store_update()
+    assert has_update is False
+    assert latest is None
+
+
+def test_check_for_store_update_dotted_string_still_works():
+    """Defensive: if the Store reverts to dotted strings, behaviour is
+    unchanged — a newer dotted version still notifies with the readable
+    version."""
+    from app import store_updater
+    payload = {"Products": [{"DisplaySkuAvailabilities": [{"Sku": {"Properties": {
+        "Packages": [{"Version": "1.15.0.0"}]
+    }}}]}]}
+    with patch.object(store_updater, "APP_VERSION", "1.14.0"), \
+         patch.object(store_updater.urllib.request, "urlopen",
+                      return_value=_mock_urlopen_response(payload)), \
+         patch("app.i18n.get_dismissed_store_version", return_value=None):
+        has_update, latest = store_updater.check_for_store_update()
+    assert has_update is True
+    assert latest == "1.15.0"
 
 
 def test_check_for_store_update_returns_false_on_lookup_failure():
