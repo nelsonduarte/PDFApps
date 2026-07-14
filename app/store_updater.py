@@ -86,6 +86,11 @@ def _parse_version(s: str) -> Tuple[int, ...]:
 
     Non-numeric components are coerced to 0 so a tag like
     ``'1.13.16-beta'`` still produces a comparable tuple.
+
+    Used for *trusted* inputs (``APP_VERSION`` and an already-validated
+    dismissed version). Untrusted Store payloads go through
+    :func:`_normalize_store_version` instead, which also decodes the
+    packed UInt64 form.
     """
     if not s:
         return (0,)
@@ -96,6 +101,99 @@ def _parse_version(s: str) -> Tuple[int, ...]:
         except ValueError:
             parts.append(0)
     return tuple(parts)
+
+
+# UInt16 ceiling: every MSIX/Windows package-version component (major,
+# minor, build, revision) fits in 16 bits. A single version value above
+# this can only be a packed UInt64 PackageVersion, never a real dotted
+# component.
+_UINT16_MAX = 0xFFFF
+
+
+def _decode_packed_version(value: int) -> Tuple[int, int, int, int]:
+    """Decode a packed UInt64 MSIX ``PackageVersion`` into a 4-tuple.
+
+    Windows encodes a package version as
+    ``(major << 48) | (minor << 32) | (build << 16) | revision`` where
+    each field is a UInt16. The DisplayCatalog API sometimes returns this
+    raw 64-bit integer (e.g. ``281535106252800`` for ``1.14.0.0``)
+    instead of the dotted string. Left undecoded, the huge integer is
+    read as a gigantic *major* version and looks perpetually "newer" than
+    the installed build — which is exactly the perpetual-nag bug this
+    decode fixes.
+    """
+    return (
+        (value >> 48) & _UINT16_MAX,
+        (value >> 32) & _UINT16_MAX,
+        (value >> 16) & _UINT16_MAX,
+        value & _UINT16_MAX,
+    )
+
+
+def _normalize_store_version(raw) -> Optional[Tuple[int, int, int, int]]:
+    """Normalise a Store-provided version to a ``(maj, min, build, rev)`` tuple.
+
+    Handles, defensively, every shape the DisplayCatalog API is known to
+    (or might) return:
+
+    * a packed UInt64 integer or its numeric string
+      (``281535106252800`` / ``"281535106252800"``) → decoded via
+      :func:`_decode_packed_version`;
+    * a dotted string (``"1.14.0"`` / ``"1.14.0.0"``) → parsed directly;
+    * a small bare integer within UInt16 range → treated as a major-only
+      version.
+
+    Returns ``None`` for anything unparseable, out-of-range or corrupt so
+    callers fail safe (no notification) rather than surfacing garbage.
+    """
+    if isinstance(raw, bool):  # bool is an int subclass — reject explicitly.
+        return None
+    if isinstance(raw, int):
+        if raw < 0:
+            return None
+        if raw > _UINT16_MAX:
+            return _decode_packed_version(raw)
+        return (raw, 0, 0, 0)
+    if not isinstance(raw, str):
+        return None
+    s = raw.strip()
+    if not s:
+        return None
+    if "." not in s:
+        # Bare integer string: a value above UInt16 is a packed UInt64.
+        if not s.isdigit():
+            return None
+        n = int(s)
+        if n > _UINT16_MAX:
+            return _decode_packed_version(n)
+        return (n, 0, 0, 0)
+    parts = s.split(".")
+    if len(parts) > 4:
+        return None
+    out = []
+    for chunk in parts:
+        if not chunk.isdigit():
+            return None
+        n = int(chunk)
+        if n > _UINT16_MAX:  # a real component never overflows UInt16.
+            return None
+        out.append(n)
+    while len(out) < 4:
+        out.append(0)
+    return (out[0], out[1], out[2], out[3])
+
+
+def _format_version(v: Tuple[int, ...]) -> str:
+    """Render a version tuple as a human-readable dotted string.
+
+    Trailing zero components are dropped down to a minimum of three
+    (``(1, 14, 0, 0)`` → ``"1.14.0"``, ``(2, 0, 0, 0)`` → ``"2.0.0"``) so
+    the display matches ``APP_VERSION``'s usual ``X.Y.Z`` shape.
+    """
+    parts = list(v)
+    while len(parts) > 3 and parts[-1] == 0:
+        parts.pop()
+    return ".".join(str(n) for n in parts)
 
 
 def get_store_version() -> Optional[str]:
@@ -117,15 +215,19 @@ def get_store_version() -> Optional[str]:
         _log.warning("Store version check failed: %s", exc)
         return None
 
-    versions: list[Tuple[int, ...]] = []
+    versions: list[Tuple[int, int, int, int]] = []
     try:
         for product in data.get("Products", []) or []:
             for sku in product.get("DisplaySkuAvailabilities", []) or []:
                 properties = (sku.get("Sku") or {}).get("Properties") or {}
                 for pkg in properties.get("Packages", []) or []:
-                    ver = pkg.get("Version")
-                    if ver:
-                        versions.append(_parse_version(ver))
+                    # The Store may report the version either as a dotted
+                    # string ("1.14.0.0") or as a packed UInt64 integer
+                    # (281535106252800). _normalize_store_version decodes
+                    # both and drops anything corrupt (returns None).
+                    ver = _normalize_store_version(pkg.get("Version"))
+                    if ver is not None:
+                        versions.append(ver)
     except Exception as exc:
         _log.warning("Store API response parse failed: %s", exc)
         # Snippet of the raw decoded payload for diagnosis if Microsoft
@@ -143,13 +245,13 @@ def get_store_version() -> Optional[str]:
         return None
 
     # Highest version published — Store may list older revisions for
-    # rollback purposes.
+    # rollback purposes. Every entry is a normalised 4-tuple, so max()
+    # compares them semantically (no packed-integer skew).
     latest = max(versions)
-    # Drop trailing .0 if present (e.g. 1.13.16.0 -> 1.13.16) so the
-    # comparison with APP_VERSION ("1.13.16") matches in length.
-    while len(latest) > 3 and latest[-1] == 0:
-        latest = latest[:-1]
-    return ".".join(str(n) for n in latest)
+    # Render as a readable dotted string (e.g. 1.14.0.0 -> "1.14.0"),
+    # never the packed UInt64, so the UI and the per-version dismiss key
+    # both get a canonical value.
+    return _format_version(latest)
 
 
 def check_for_store_update() -> Tuple[bool, Optional[str]]:
