@@ -7,7 +7,7 @@
 #
 # Lower bounds mirror the >= style of requirements.txt so a fresh venv
 # picks up current releases while staying reproducible enough.
-mypy>=1.11.0
+mypy>=2.3.0
 bandit>=1.7.9
 pip-audit>=2.7.3
 pyyaml>=6.0.2
