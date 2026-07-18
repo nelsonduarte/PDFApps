@@ -88,8 +88,18 @@ jobs:
               # Anchor the bump to the footer changelog link ONLY. New release
               # headings (incl. moving the "Latest" badge) are an editorial step
               # done by hand in the same PR that ships the feature work.
+              #
+              # The href accepts both the clean-URL form ``/changelog`` (current,
+              # since the SEO clean-URL migration) and the legacy ``changelog.html``
+              # form, so this stays anchored to the footer link regardless of which
+              # shape the site uses. It must NEVER be relaxed into a global
+              # ``v{old}`` rewrite: that is what clobbered the historical
+              # ``<span class="version-tag">`` headings every release.
               ("docs/changelog.html", [
-                  (rf'(<a href="changelog\.html">)v{old_re}(</a>)', rf'\g<1>v{new}\g<2>'),
+                  (
+                      rf'(<a href="(?:/changelog|changelog\.html)">)v{old_re}(</a>)',
+                      rf'\g<1>v{new}\g<2>',
+                  ),
               ], True),
               # Every remaining marketing page carries the current version only,
               # in an eyebrow badge and/or the footer changelog link (no historical

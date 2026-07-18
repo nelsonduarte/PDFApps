@@ -52,9 +52,10 @@ def fake_repo(tmp_path: Path) -> Path:
     # The changelog rewrite is anchored to the footer changelog link only
     # (release headings carry the whole history and must never be clobbered),
     # so the fixture must expose that exact footer-link shape to be matched.
+    # Since the SEO clean-URL migration the footer link is ``/changelog``.
     (tmp_path / "docs" / "changelog.html").write_text(
         '<span class="version-tag">v1.13.14</span>\n'
-        '<a href="changelog.html">v1.13.14</a>\n',
+        '<a href="/changelog">v1.13.14</a>\n',
         encoding="utf-8",
     )
     # The four remaining marketing pages carry the current version only and are
@@ -157,6 +158,46 @@ def test_bump_script_updates_all_required_packaging_files(fake_repo: Path) -> No
         assert "1.13.9" not in body, f"{path.name} still references 1.13.9"
         assert "1.13.10" not in body, f"{path.name} still references 1.13.10"
         assert "1.13.14" not in body, f"{path.name} still references 1.13.14"
+
+
+def test_bump_script_updates_changelog_footer_link_only(fake_repo: Path) -> None:
+    """The changelog bump must hit the footer link and spare release headings.
+
+    Guards the coupling between docs/changelog.html's footer markup and the
+    anchored regex in release.yml: the link is now a clean URL (``/changelog``),
+    and because that target is required=True, a stale regex would fail the
+    whole release job instead of silently no-op'ing.
+    """
+    result = _run_script(fake_repo, old="1.13.14", new="1.13.15")
+    assert result.returncode == 0, f"bump failed:\n{result.stdout}\n{result.stderr}"
+
+    body = (fake_repo / "docs" / "changelog.html").read_text()
+    assert '<a href="/changelog">v1.13.15</a>' in body, (
+        "footer changelog link was not bumped - the anchored regex in "
+        "release.yml no longer matches the markup in docs/changelog.html"
+    )
+    assert '<span class="version-tag">v1.13.14</span>' in body, (
+        "historical release heading was clobbered - the changelog rewrite "
+        "must stay anchored to the footer link, never global"
+    )
+
+
+def test_changelog_footer_link_matches_release_regex() -> None:
+    """The real docs/changelog.html must be matchable by the real regex."""
+    workflow = RELEASE_YML.read_text(encoding="utf-8")
+    assert '(?:/changelog|changelog\\.html)' in workflow, (
+        "release.yml changelog anchor changed shape; update this test with it"
+    )
+    changelog = (REPO_ROOT / "docs" / "changelog.html").read_text(encoding="utf-8")
+    constants = (REPO_ROOT / "app" / "constants.py").read_text(encoding="utf-8")
+    version = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', constants).group(1)
+    assert re.search(
+        rf'<a href="(?:/changelog|changelog\.html)">v{re.escape(version)}</a>',
+        changelog,
+    ), (
+        "docs/changelog.html footer link does not carry the current version in "
+        "the shape release.yml expects - the next release would fail"
+    )
 
 
 def test_bump_script_is_idempotent(fake_repo: Path) -> None:
