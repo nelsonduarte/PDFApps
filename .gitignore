@@ -20,6 +20,7 @@ build_*.txt
 
 # Local release artifacts (downloaded for Microsoft Store submission)
 artifacts-*/
+artefacts-*/
 
 # Testes / temporários
 test_ctrl_scroll.py
