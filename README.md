@@ -90,7 +90,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 ### Other highlights
 
 - **Pipeline mode** — apply multiple tools in sequence (e.g. rotate then compress) and save only at the end with Ctrl+S
-- **Auto-update** — checks for new versions on startup; download and install updates in-app with progress bar
+- **Auto-update** — direct installs check for new versions on startup and download/install them in-app with a progress bar; Microsoft Store, Snap, Flatpak and distro packages skip the check entirely and are updated by the platform
 - **Multi-language** — auto-detects system language (EN, PT, ES, FR, DE, ZH, IT, NL), with selector in toolbar; auto-restarts on change
 - **Localized installer** — installer and uninstaller detect the OS language and display in the user's language
 - **Recent files** — quick access to the last 10 opened PDFs via history icon
