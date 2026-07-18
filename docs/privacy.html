@@ -92,9 +92,9 @@
             <h2>3. Network connections the app <em>does</em> make</h2>
             <p>To stay useful, the app makes a small number of outbound network requests. These are limited and transparent:</p>
             <ul class="docs-list">
-                <li><strong>Update check.</strong> When you launch the app, it queries the public GitHub Releases API (<code>api.github.com</code>) to see whether a newer version is available. The request contains no personal data, only a standard HTTP user-agent. You can disable update checks in the app settings.</li>
+                <li><strong>Update check.</strong> On direct installs (the Windows installer, the Linux tarball, the macOS disk image) the app queries the public GitHub Releases API (<code>api.github.com</code>) on launch to see whether a newer version is available. The request contains no personal data, only a standard HTTP user-agent.</li>
                 <li><strong>Update download.</strong> If you choose to install an update, the installer is downloaded from the official GitHub release URL.</li>
-                <li><strong>System-managed installs</strong> (Microsoft Store, Snap, Flatpak, Homebrew, AUR, apt, rpm) skip the in-app updater entirely; updates flow through your platform's package manager.</li>
+                <li><strong>System-managed installs</strong> (Microsoft Store, Snap, Flatpak, Homebrew, AUR, apt, rpm) skip the in-app update check entirely — they make no update request at all. Updates flow through your platform's package manager, which for the Microsoft Store means Windows keeps the app up to date for you.</li>
             </ul>
             <p>The app does <strong>not</strong> connect to any other server. PDF processing (merging, splitting, compressing, OCR, conversion, watermarking, and every other tool) runs 100% offline.</p>
         </section>

@@ -306,7 +306,7 @@
             </div>
             <div class="faq-item">
                 <h3>Do my files leave my computer?</h3>
-                <p>No. Everything runs locally. The only network requests are an optional update check on startup (which can be disabled) and the OCR/compression engine downloads during first install.</p>
+                <p>No. Everything runs locally. The only network requests are the startup update check on direct installs (Microsoft Store and other system-managed installs skip it, because the platform handles updates) and the OCR/compression engine downloads during first install.</p>
             </div>
             <div class="faq-item">
                 <h3>Why is the app so big?</h3>
@@ -338,7 +338,7 @@
             </div>
             <div class="faq-item">
                 <h3>The auto-updater is stuck</h3>
-                <p>Auto-updater is disabled in Flatpak and Snap installations because the package manager handles updates. In direct installations, check that you have admin rights, because the installer needs UAC elevation on Windows.</p>
+                <p>Auto-updater is disabled in Microsoft Store, Flatpak and Snap installations because the platform handles updates for you — the Store keeps the app current automatically. In direct installations, check that you have admin rights, because the installer needs UAC elevation on Windows.</p>
             </div>
             <div class="faq-item">
                 <h3>Found a bug?</h3>

@@ -73,19 +73,52 @@ class _Signals(QObject):
     cancelled = Signal()         # user closed dialog mid-download
 
 
-def is_system_install() -> bool:
-    """True when running from a system package manager (AUR, Snap, Flatpak, apt, rpm).
+def is_msix_install() -> bool:
+    """Detect if PDFApps is running inside a Windows App Package (MSIX/AppX).
 
-    Note: MSIX/Microsoft Store installs used to return True here so the
-    auto-updater would short-circuit. They are now handled separately
-    via :mod:`app.store_updater` so the user still gets a notification
-    (with a deep-link to the Store) instead of silence — see
-    :func:`check_for_update`.
+    Returns True for MSIX installs (Microsoft Store), False for NSIS
+    installer / portable .exe / non-Windows platforms.
+
+    Two detection methods are checked:
+
+    1. ``PACKAGE_FULL_NAME`` env var — best-effort fallback. Not
+       officially documented by Microsoft as guaranteed, but reported
+       by some packaged runtimes / tooling. May not fire in every
+       MSIX launch context, so we never rely on it alone.
+    2. Executable path under ``\\WindowsApps\\`` — reliable, because
+       MSIX packages are always extracted to
+       ``C:\\Program Files\\WindowsApps`` by the Windows package
+       installer (immutable convention). This is the load-bearing
+       detection in practice.
+    """
+    if sys.platform != "win32":
+        return False
+    # Method 1: env var set by Windows runtime for packaged apps.
+    if os.environ.get("PACKAGE_FULL_NAME"):
+        return True
+    # Method 2: executable path under WindowsApps (MSIX install location).
+    # Normalise with realpath so a symlinked launcher still matches.
+    try:
+        exe = os.path.realpath(sys.executable).lower()
+    except OSError:
+        exe = (sys.executable or "").lower()
+    if "\\windowsapps\\" in exe or "/windowsapps/" in exe:
+        return True
+    return False
+
+
+def is_system_install() -> bool:
+    """True when the install is managed by an external updater.
+
+    Covers system package managers (AUR, Snap, Flatpak, apt, rpm) and
+    MSIX/Microsoft Store packages. In every one of these cases the
+    platform keeps the app up to date on its own, so the in-app updater
+    must short-circuit — see :func:`check_for_update`.
     """
     if sys.platform == "win32":
-        # No system package manager on Windows other than MSIX, which is
-        # branched on separately in check_for_update().
-        return False
+        # The only "managed" Windows install is MSIX (Microsoft Store),
+        # which the Store updates automatically by default.
+        return is_msix_install()
     # Sandboxed runtimes
     if os.environ.get("SNAP") or os.environ.get("FLATPAK_ID") or os.environ.get("APPIMAGE"):
         return True
@@ -100,33 +133,21 @@ def is_system_install() -> bool:
 def check_for_update() -> dict | None:
     """Return release info dict if a newer version exists, else None.
 
-    For MSIX/Microsoft Store installs a special dict shape is returned
-    so the UI can show a Store-redirect notification instead of trying
-    to download and run the NSIS installer (which the MSIX sandbox
-    forbids and which would create a parallel installation):
+    Externally-managed installs short-circuit to ``None``:
 
-        {"msix": True, "latest_version": "1.13.17", "deep_link": "ms-windows-store://..."}
+    * AUR / Snap / Flatpak / apt / rpm — the system package manager owns
+      updates.
+    * MSIX / Microsoft Store — the Store updates packaged apps
+      automatically by default, so an in-app notification is redundant.
+      The short-circuit is also load-bearing for safety: without it the
+      NSIS branch below would try to download and run
+      ``PDFAppsSetup.exe`` inside the AppContainer sandbox, which cannot
+      execute it and would otherwise leave the user with two parallel
+      installations.
     """
-    # System-managed installs (AUR, Snap, Flatpak, rpm, apt) must be updated via the package manager.
+    # System-managed installs (MSIX/Store, AUR, Snap, Flatpak, rpm, apt)
+    # must be updated by their own platform, never by this module.
     if is_system_install():
-        return None
-    # MSIX / Microsoft Store users — route to Store deep-link instead of
-    # GitHub Releases download. The NSIS installer cannot run inside the
-    # AppContainer sandbox and would, in any case, leave the user with
-    # two parallel installations.
-    from app.store_updater import (
-        is_msix_install,
-        check_for_store_update,
-        store_deep_link,
-    )
-    if is_msix_install():
-        has_update, latest = check_for_store_update()
-        if has_update and latest:
-            return {
-                "msix": True,
-                "latest_version": latest,
-                "deep_link": store_deep_link(),
-            }
         return None
     try:
         req = urllib.request.Request(_API_URL, headers={"User-Agent": "PDFApps"})
