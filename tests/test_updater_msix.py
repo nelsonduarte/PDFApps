@@ -106,8 +106,41 @@ def test_is_system_install_false_for_nsis():
 
 
 def test_check_for_update_returns_none_on_msix():
-    with patch.object(updater, "is_system_install", return_value=True):
+    """End-to-end: real detection, no updater internals mocked.
+
+    Nothing on the detection path (``is_msix_install`` /
+    ``is_system_install``) is patched here — only the *environment* they
+    read (platform, env var, executable path) and the network boundary.
+    So this exercises the genuine composition
+    ``check_for_update -> is_system_install -> is_msix_install`` and
+    fails if any link in that chain stops short-circuiting.
+    """
+    with patch.object(updater.sys, "platform", "win32"), \
+         patch.dict(updater.os.environ,
+                    {"PACKAGE_FULL_NAME": "PDFApps_1.14.0.0_x64__abcdefg"},
+                    clear=False), \
+         patch.object(updater.urllib.request, "urlopen") as mock_open:
         assert check_for_update() is None
+        mock_open.assert_not_called()
+
+
+def test_check_for_update_returns_none_on_msix_via_windowsapps_path():
+    """Same, but through the load-bearing \\WindowsApps\\ path detection.
+
+    The env var is cleared so the only thing that can short-circuit the
+    update check is the real executable-path branch of
+    ``is_msix_install``.
+    """
+    exe = r"C:\Program Files\WindowsApps\PDFApps_1.14.0.0_x64__abc\PDFApps.exe"
+    env = {k: v for k, v in updater.os.environ.items()
+           if k != "PACKAGE_FULL_NAME"}
+    with patch.object(updater.sys, "platform", "win32"), \
+         patch.dict(updater.os.environ, env, clear=True), \
+         patch.object(updater.sys, "executable", exe), \
+         patch.object(updater.os.path, "realpath", side_effect=lambda p: p), \
+         patch.object(updater.urllib.request, "urlopen") as mock_open:
+        assert check_for_update() is None
+        mock_open.assert_not_called()
 
 
 def test_check_for_update_makes_no_network_call_on_msix():
