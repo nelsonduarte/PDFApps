@@ -103,6 +103,7 @@ class _SelectCanvas(QWidget):
 
     zoom_changed = Signal(int)   # current zoom percentage
     text_copied  = Signal(str)   # copied text (empty = no text layer)
+    doc_replaced = Signal(object)  # new fitz.Document after a close/reopen
 
     def __init__(self):
         super().__init__()
@@ -717,6 +718,18 @@ class _SelectCanvas(QWidget):
                         # the in-memory doc so the next paint event
                         # reflects the on-disk state.
                         if self._path:
+                            # Race guard: saveIncr() appends an incremental
+                            # update to the SAME file the background
+                            # _PageJob workers open via fitz.open(self._path).
+                            # A worker mid-open would read a half-written
+                            # trailer (parse failure) or hit a Windows
+                            # sharing violation. Bump _gen so any results
+                            # that land after this point are discarded, clear
+                            # _pending, and join in-flight workers so none is
+                            # reading the file while we append.
+                            self._gen += 1
+                            self._pending.clear()
+                            QThreadPool.globalInstance().waitForDone()
                             try:
                                 self._doc.saveIncr()
                             except Exception as exc:
@@ -739,6 +752,18 @@ class _SelectCanvas(QWidget):
                                     if new_doc.needs_pass and saved_password:
                                         new_doc.authenticate(saved_password)
                                     self._doc = new_doc
+                                    # M2: the panel shares this handle via
+                                    # its own _fitz_doc reference and would
+                                    # otherwise keep pointing at the closed
+                                    # Document (crashing _do_search /
+                                    # _print_pdf with "document closed").
+                                    # Hand it the fresh handle.
+                                    self.doc_replaced.emit(new_doc)
+                                # In-flight renders were cancelled above by
+                                # the _gen bump; re-schedule the visible
+                                # pages against the restored file so the
+                                # canvas doesn't stay blank.
+                                self._schedule_visible()
                                 show_error(self, exc)
                                 return
                         # Both steps succeeded — drop the backup.
@@ -759,6 +784,10 @@ class _SelectCanvas(QWidget):
                                 self._open_note = None
                             elif open_idx > annot_idx:
                                 self._open_note = (open_page, open_idx - 1)
+                    # Renders in flight were cancelled by the pre-saveIncr
+                    # _gen bump; re-schedule so any page that was mid-render
+                    # is repainted from the updated file.
+                    self._schedule_visible()
                     self.update()
             return
         if not self._sel_text:
