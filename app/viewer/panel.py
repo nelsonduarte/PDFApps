@@ -2,7 +2,7 @@
 
 import os
 
-from PySide6.QtCore import Qt, QEvent
+from PySide6.QtCore import Qt, QEvent, QTimer
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QFileDialog, QMessageBox, QDialog,
@@ -170,6 +170,10 @@ class PdfViewerPanel(QWidget):
         # ── Canvas with continuous scroll of all pages ──────────────────
         self._canvas = _SelectCanvas()
         self._canvas.zoom_changed.connect(self._on_zoom_changed)
+        # M2: the canvas may close+reopen the shared fitz.Document (failed
+        # saveIncr in the delete-comment path). When it does, it hands us
+        # the new handle so _fitz_doc never points at a closed Document.
+        self._canvas.doc_replaced.connect(self._on_doc_replaced)
         self._canvas_scroll = QScrollArea()
         self._canvas_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._canvas_scroll.setWidgetResizable(False)
@@ -228,6 +232,16 @@ class PdfViewerPanel(QWidget):
         layout.addWidget(self._search_bar)
         self._search_results: list[tuple[int, list]] = []  # [(page_idx, [fitz_rects]), ...]
         self._search_current = -1
+        # Debounce keystrokes: _do_search scans every page synchronously on
+        # the UI thread, which froze the viewer for seconds per keystroke on
+        # large PDFs. Coalesce rapid edits into a single search a short
+        # moment after the user stops typing (same pattern as the thumbnail
+        # scroll timer).
+        self._search_debounce = QTimer(self)
+        self._search_debounce.setSingleShot(True)
+        self._search_debounce.setInterval(250)
+        self._search_debounce.timeout.connect(self._run_pending_search)
+        self._pending_search_query = ""
 
         # Shortcuts
         QShortcut(QKeySequence("Ctrl+F"), self, self._toggle_search)
@@ -536,6 +550,57 @@ class PdfViewerPanel(QWidget):
     def _toggle_night_mode(self):
         self._canvas.set_night_mode(self._night_btn.isChecked())
 
+    def _on_doc_replaced(self, new_doc):
+        """The canvas closed+reopened the shared fitz.Document (e.g. after a
+        failed saveIncr in the delete-comment path). Repoint _fitz_doc at the
+        fresh handle so search/print never touch the closed one (M2)."""
+        self._fitz_doc = new_doc
+
+    def _reset_search_state(self):
+        """Cancel any pending debounced search and clear its results.
+
+        Shared by ``load`` (opening a new document) and
+        ``_reset_to_placeholder`` (teardown). A search scheduled against
+        the previous document must never fire against the new one: the
+        _do_search guard keeps a stale fire from crashing, but leaving the
+        timer armed is incoherent — the highlights/label would flash the
+        old query's hits on the freshly loaded file.
+        """
+        self._search_debounce.stop()
+        self._pending_search_query = ""
+        self._close_search()
+
+    def _reset_to_placeholder(self):
+        """Return the viewer to its initial empty state.
+
+        Used when the user cancels the password prompt for a new encrypted
+        PDF after the previously open document was already closed: without
+        this the splitter stays visible with a stale title and active
+        navigation buttons, leaving the viewer in an inconsistent empty
+        state.
+        """
+        self._current_path = ""
+        self._fitz_doc = None
+        # Cancel any pending debounced search, drop stale highlights and
+        # close the search bar.
+        self._reset_search_state()
+        self._placeholder.setVisible(True)
+        self._viewer_splitter.setVisible(False)
+        self._sidebar_tabs.setVisible(False)
+        self._sel_status.setVisible(False)
+        self._name_lbl.setText(t("viewer.title"))
+        self._page_lbl.setText("— / —")
+        self._zoom_lbl.setText(t("zoom.fit"))
+        self._toc_btn.setVisible(False)
+        self._night_btn.setChecked(False)
+        for btn in (self._zoom_out_btn, self._zoom_in_btn, self._fit_btn,
+                    self._print_btn, self._night_btn, self._prev_btn,
+                    self._next_btn, self._toc_btn):
+            btn.setEnabled(False)
+        # Recents may have changed since the panel was built; rebuild so the
+        # placeholder shows the current list.
+        self._refresh_recents()
+
     def load(self, path: str):
         if not path or not os.path.isfile(path):
             return
@@ -555,6 +620,10 @@ class PdfViewerPanel(QWidget):
         if self._fitz_doc:
             self._canvas.close_doc()
             self._fitz_doc = None
+            # A search scheduled (debounced) against the outgoing document
+            # must not fire against the new one — stop the timer, drop the
+            # pending query and close the search bar before the swap.
+            self._reset_search_state()
             # Stop the thumbnail worker and drop cached pixmaps of the
             # previous doc before we point the panel at a new file.
             self._thumbnails.clear()
@@ -576,7 +645,13 @@ class PdfViewerPanel(QWidget):
             while True:
                 dlg = _PdfPasswordDialog(os.path.basename(path), wrong=wrong, parent=self)
                 if dlg.exec() != QDialog.DialogCode.Accepted:
-                    doc.close(); return
+                    # The previously open document (if any) was already torn
+                    # down above, so simply returning would leave the viewer
+                    # showing an empty splitter with the old title and live
+                    # nav buttons. Restore the placeholder state instead.
+                    doc.close()
+                    self._reset_to_placeholder()
+                    return
                 if doc.authenticate(dlg.password()):
                     # NFC-normalise at WRITE time so every consumer
                     # downstream (canvas.load, propagation to editor
@@ -634,24 +709,46 @@ class PdfViewerPanel(QWidget):
         self._canvas.update()
 
     def _on_search_text_changed(self, text: str):
-        if not text.strip():
+        query = text.strip()
+        if not query:
+            # Empty query resets immediately (no scan needed) and cancels
+            # any pending debounced search.
+            self._search_debounce.stop()
+            self._pending_search_query = ""
             self._search_results.clear()
             self._search_current = -1
             self._search_lbl.setText("")
             self._canvas.set_search_highlights([])
             self._canvas.update()
             return
-        self._do_search(text.strip())
+        # Defer the expensive full-document scan until typing settles.
+        self._pending_search_query = query
+        self._search_debounce.start()
+
+    def _run_pending_search(self):
+        query = self._pending_search_query
+        if query:
+            self._do_search(query)
 
     def _do_search(self, query: str):
-        if not self._fitz_doc:
+        # Running the debounce timer can outlive the document, and a failed
+        # saveIncr in the canvas may have closed+reopened the handle. Guard
+        # against a None or already-closed Document so a keystroke can never
+        # crash with "document closed".
+        doc = self._fitz_doc
+        if doc is None or getattr(doc, "is_closed", False):
             return
         results = []
-        for page_idx in range(self._fitz_doc.page_count):
-            page = self._fitz_doc[page_idx]
-            rects = page.search_for(query)
-            if rects:
-                results.append((page_idx, rects))
+        try:
+            for page_idx in range(doc.page_count):
+                page = doc[page_idx]
+                rects = page.search_for(query)
+                if rects:
+                    results.append((page_idx, rects))
+        except (RuntimeError, ValueError):
+            # Document was closed underneath us mid-scan — abort gracefully
+            # rather than propagate to the Qt event loop.
+            return
         self._search_results = results
         total = sum(len(rects) for _, rects in results)
         if total == 0:
@@ -749,7 +846,12 @@ class PdfViewerPanel(QWidget):
 
     # ── Print ────────────────────────────────────────────────────────────────
     def _print_pdf(self):
-        if not self._fitz_doc:
+        # Guard the shared handle: a failed saveIncr in the canvas may have
+        # closed+reopened it (the panel is repointed via _on_doc_replaced),
+        # but defend against a None or already-closed Document either way so
+        # printing can never raise "document closed".
+        doc = self._fitz_doc
+        if doc is None or getattr(doc, "is_closed", False):
             return
         from PySide6.QtPrintSupport import QPrinter, QPrintDialog
         from PySide6.QtGui import QPainter, QImage

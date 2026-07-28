@@ -37,8 +37,10 @@ def test_save_incr_is_inside_try_except():
     idx = CANVAS.index("self._doc.saveIncr()")
     before = CANVAS[max(0, idx - 800): idx]
     # The post-saveIncr handler grew in R10 to include backup-restore
-    # + reopen logic before reaching show_error, so widen the window.
-    after = CANVAS[idx: idx + 2000]
+    # + reopen logic (and, in the shared-doc-handle fix, a doc_replaced
+    # emit + render reschedule) before reaching show_error, so widen the
+    # window.
+    after = CANVAS[idx: idx + 3600]
     assert "try:" in before, "saveIncr is no longer inside a try block"
     assert "except Exception" in after, "saveIncr error path is missing"
     assert "show_error" in after, "saveIncr errors no longer route to show_error"
@@ -150,7 +152,9 @@ def test_print_loop_preserves_pixmap_safety_fix():
     """The R7-H1 patch must NOT regress CRIT-3 (alpha=False, csRGB
     fallback, .copy()) which lives in the same loop body."""
     print_idx = PANEL.index("def _print_pdf")
-    body = PANEL[print_idx: print_idx + 3500]
+    # Window widened: the shared-doc-handle fix prepends a closed-Document
+    # guard to _print_pdf, shifting the render loop (and its .copy()) down.
+    body = PANEL[print_idx: print_idx + 4000]
     assert "alpha=False" in body
     assert "fitz.csRGB" in body
     assert "pix.n != 3" in body
