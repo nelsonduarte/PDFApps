@@ -17,7 +17,7 @@ from PySide6.QtGui import QColor
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP, BORDER
-from app.i18n import t, set_language, get_language, get_recent_files, add_recent_file
+from app.i18n import t, set_language, get_language, add_recent_file
 from app.styles import STYLE, STYLE_LIGHT
 from app.utils import resource_path, _make_palette
 from app.widgets import DropFileEdit
@@ -270,6 +270,10 @@ class MainWindow(QMainWindow):
         self._update_release = None
         self._update_thread = None
         self._update_worker = None
+        # Holds the in-flight urlopen response of the background update
+        # check so _release_update_worker can abort a blocked network
+        # read from closeEvent instead of waiting out the socket timeout.
+        self._update_cancel = None
         # R11-M7: defer the update check 2s past __init__ so the main
         # window can finish painting + showMaximized before any network
         # I/O races the UI. Previously fired before the window was even
@@ -583,10 +587,15 @@ class MainWindow(QMainWindow):
         # Wrap load to update tab title + recent files + page nav
         original_load = v.load
         def _make_wrapped(viewer, orig, tab_idx_ref):
-            def _wrapped(*args, **kwargs):
+            def _wrapped(*args, track=True, **kwargs):
+                # `track` is consumed here (not forwarded to the real load):
+                # pipeline results are TEMPORARY files and must not pollute
+                # the recent-files list. User-opened documents keep the
+                # default track=True so they still register as recents.
                 orig(*args, **kwargs)
                 if args:
-                    add_recent_file(args[0])
+                    if track:
+                        add_recent_file(args[0])
                     name = os.path.basename(args[0])
                     # Find this viewer's current tab index
                     for i in range(len(self._viewers)):
@@ -875,38 +884,6 @@ class MainWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
-    def _open_in_new_tab(self):
-        """Open a PDF in a new tab."""
-        from PySide6.QtWidgets import QFileDialog
-        path, _ = QFileDialog.getOpenFileName(
-            self, t("btn.open_pdf"), DESKTOP, t("file_filter.pdf"))
-        if path:
-            self._add_viewer_tab(path)
-            add_recent_file(path)
-            # R10 #5: keep the recents list in sync with config.
-            for v in self._viewers:
-                refresh = getattr(v, "_refresh_recents", None)
-                if callable(refresh):
-                    with contextlib.suppress(Exception):
-                        refresh()
-
-    def _show_recent_menu(self):
-        menu = QMenu(self)
-        recents = get_recent_files()
-        if not recents:
-            action = menu.addAction(t("recent.empty"))
-            action.setEnabled(False)
-        else:
-            for path in recents:
-                name = os.path.basename(path)
-                action = menu.addAction(f"  {name}")
-                action.setToolTip(path)
-                action.triggered.connect(lambda checked, p=path: self._load_and_track(p))
-            menu.addSeparator()
-            clear_action = menu.addAction(t("recent.clear"))
-            clear_action.triggered.connect(self._clear_recent)
-        menu.exec(self._recent_btn.mapToGlobal(self._recent_btn.rect().bottomLeft()))
-
     def _clear_recent(self):
         # Route through _update_config so the read-modify-write cycle is
         # serialized with other config writes (theme toggle, recent
@@ -1153,8 +1130,10 @@ class MainWindow(QMainWindow):
             ps = {"original_path": viewer.current_path(), "temp_path": None}
             self._pipeline_state[vid] = ps
         ps["temp_path"] = temp_path
-        # Reload the viewer with the pipeline result
-        viewer.load(temp_path)
+        # Reload the viewer with the pipeline result. track=False keeps the
+        # temporary pipeline file out of the recent-files list (it would
+        # otherwise show up until the lexists filter self-heals it).
+        viewer.load(temp_path, track=False)
         # Mark tab as dirty
         idx = self._viewer_stack.currentIndex()
         orig_name = os.path.basename(ps["original_path"])
@@ -1502,19 +1481,24 @@ class MainWindow(QMainWindow):
         from app.updater import check_for_update
         from PySide6.QtCore import QThread, QObject, Signal as _Sig
 
+        # Shared holder so the main thread can close the worker's urlopen
+        # response and unblock its network read on shutdown (M4).
+        self._update_cancel = {"resp": None}
+
         class _Worker(QObject):
             done = _Sig()
-            def __init__(self):
+            def __init__(self, cancel_holder):
                 super().__init__()
                 self.release = None
+                self._cancel = cancel_holder
             def run(self):
-                self.release = check_for_update()
+                self.release = check_for_update(self._cancel)
                 if self.release:
                     self.done.emit()
                 self.thread().quit()
 
         self._update_thread = QThread()
-        self._update_worker = _Worker()
+        self._update_worker = _Worker(self._update_cancel)
         self._update_worker.moveToThread(self._update_thread)
         self._update_thread.started.connect(self._update_worker.run)
         self._update_worker.done.connect(self._on_update_found)
@@ -1536,7 +1520,28 @@ class MainWindow(QMainWindow):
 
         Safe to call from both ``_on_update_found`` (the happy path) and
         ``closeEvent`` (in case the worker never emitted ``done`` — e.g.
-        no update available, network failure)."""
+        no update available, network failure).
+
+        The check worker runs ``check_for_update()`` which blocks in
+        ``urllib.request.urlopen(..., timeout=10)``. ``quit()`` only signals
+        the worker's event loop AFTER ``run()`` returns, so it cannot
+        interrupt a network read that is still parked inside urlopen. If the
+        user closes the window during the ~10 s window right after launch
+        the old code's ``wait(1000)`` returned False and closeEvent went on
+        to destroy the MainWindow with the QThread still running ("QThread:
+        Destroyed while thread is still running" + possible abort()).
+
+        Root-cause fix: (1) close the in-flight urlopen response so the
+        blocked read raises and ``run()`` returns immediately; (2) wait long
+        enough to cover the urlopen timeout; (3) ``terminate()`` as a last
+        resort so a running QThread is never left to be destroyed."""
+        # (1) Abort the blocked network read, if any.
+        holder = getattr(self, "_update_cancel", None)
+        if holder is not None:
+            resp = holder.get("resp")
+            if resp is not None:
+                with contextlib.suppress(Exception):
+                    resp.close()
         worker = getattr(self, "_update_worker", None)
         if worker is not None:
             with contextlib.suppress(RuntimeError):
@@ -1547,10 +1552,24 @@ class MainWindow(QMainWindow):
             with contextlib.suppress(RuntimeError):
                 if thread.isRunning():
                     thread.quit()
-                    thread.wait(1000)
+                    # (2) Cover the urlopen timeout; the aborted read above
+                    # should return well before this elapses.
+                    if not thread.wait(12000):
+                        # (3) Last resort — never destroy a running QThread.
+                        thread.terminate()
+                        thread.wait(2000)
+            self._update_thread = None
+        self._update_cancel = None
 
     def _notify_update(self):
         """Show update notification dialog automatically."""
+        # Guard against a race with closeEvent -> _release_update_worker,
+        # which nulls _update_worker (and thus leaves _update_release
+        # unset/None) between the worker's done.emit() on the worker thread
+        # and this queued slot running on the main thread. Without this
+        # guard the .get() below raises AttributeError on None.
+        if not self._update_release:
+            return
         self._update_btn.setVisible(True)
         tag = self._update_release.get("tag_name", "?")
         from PySide6.QtWidgets import QMessageBox

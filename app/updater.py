@@ -66,6 +66,24 @@ def _parse_version(tag: str) -> tuple:
     return tuple(int(g) if g else 0 for g in m.groups())
 
 
+# Pre-release markers. _parse_version deliberately strips these suffixes
+# (so 'v1.13.3-rc1' parses to (1,13,3)), which means an rc/beta/alpha tag
+# would otherwise compare EQUAL-OR-HIGHER than the current stable build
+# and be offered as an update. We must never push users from a stable
+# release onto a pre-release, so check_for_update() rejects any tag whose
+# suffix (or the GitHub 'prerelease' flag) marks it as non-final.
+_PRERELEASE_RE = re.compile(
+    r"-(?:rc|beta|alpha|dev|pre|preview|snapshot)", re.IGNORECASE
+)
+
+
+def _is_prerelease(tag: str) -> bool:
+    """True when a version tag carries a pre-release suffix (-rc/-beta/…)."""
+    if not tag:
+        return False
+    return bool(_PRERELEASE_RE.search(tag.strip()))
+
+
 class _Signals(QObject):
     progress = Signal(int)       # 0-100
     finished = Signal(str)       # path to downloaded file
@@ -130,8 +148,15 @@ def is_system_install() -> bool:
     return False
 
 
-def check_for_update() -> dict | None:
+def check_for_update(cancel_holder: dict | None = None) -> dict | None:
     """Return release info dict if a newer version exists, else None.
+
+    If ``cancel_holder`` is provided, the in-flight ``urlopen`` response is
+    written into ``cancel_holder["resp"]`` while the body is being read.
+    A UI thread can then call ``.close()`` on that response to abort the
+    blocked network read immediately (``urlopen`` blocks for the full
+    ``timeout`` otherwise), so a window ``closeEvent`` never has to wait
+    for the socket to time out. The reference is cleared in ``finally``.
 
     Externally-managed installs short-circuit to ``None``:
 
@@ -152,8 +177,16 @@ def check_for_update() -> dict | None:
     try:
         req = urllib.request.Request(_API_URL, headers={"User-Agent": "PDFApps"})
         with urllib.request.urlopen(req, timeout=10) as resp:
+            if cancel_holder is not None:
+                cancel_holder["resp"] = resp
             data = json.loads(resp.read())
-        remote = _parse_version(data.get("tag_name", "v0"))
+        tag = data.get("tag_name", "v0")
+        # Never offer a pre-release (rc/beta/alpha) as an update: _parse_version
+        # strips the suffix, so 'v1.13.3-rc1' would otherwise look >= the
+        # current stable build. Honour the GitHub 'prerelease' flag too.
+        if data.get("prerelease") or _is_prerelease(tag):
+            return None
+        remote = _parse_version(tag)
         local = _parse_version(APP_VERSION)
         if remote > local:
             return data
@@ -165,6 +198,11 @@ def check_for_update() -> dict | None:
         logging.getLogger("updater").debug(
             "check_for_update failed", exc_info=True
         )
+    finally:
+        # Drop the response reference so a UI thread can't touch a stale
+        # (closed) socket after the check completes.
+        if cancel_holder is not None:
+            cancel_holder["resp"] = None
     return None
 
 
@@ -228,6 +266,13 @@ def _download(url: str, dest: str, signals: _Signals, expected_hash: str | None 
     try:
         if not expected_hash:
             raise ValueError(t("update.error.missing_hash"))
+        # Defence in depth: the asset URL comes from the GitHub releases
+        # JSON (browser_download_url). Even though the payload is SHA256
+        # verified afterwards, refuse any non-HTTPS scheme up front so a
+        # tampered/malformed response can't make us fetch over http:// or
+        # touch a local file:// path before the hash gate runs.
+        if not url.lower().startswith("https://"):
+            raise ValueError(f"Refusing insecure download URL (not https): {url}")
         req = urllib.request.Request(url, headers={"User-Agent": "PDFApps"})
         # Connect-phase timeout intentionally kept short so cancel during
         # TLS handshake (where cancel_holder["resp"] is still None) doesn't
@@ -455,6 +500,11 @@ class UpdateDialog(QDialog):
         # objects (R6/B6-B7). Until the first download starts no signals
         # exist yet — that's fine; nothing connects to them.
         self._signals: _Signals | None = None
+        # Download QThread wrapper. Reset to None by _on_dl_thread_finished
+        # once the thread's C++ object is torn down (finished -> deleteLater)
+        # so reject()/closeEvent never call .isRunning() on a dangling
+        # wrapper (RuntimeError: Internal C++ object already deleted).
+        self._dl_thread = None
         self._dest = ""
         # Holder for the in-flight urlopen response so closeEvent/reject
         # can abort a blocked read() immediately (urlopen.read() blocks
@@ -524,6 +574,12 @@ class UpdateDialog(QDialog):
         # an error toast) don't leak QThread and _Worker objects. Mirrors
         # the pattern in window.py:_update_thread.finished -> deleteLater.
         self._dl_thread.finished.connect(self._dl_thread.deleteLater)
+        # Root-cause fix for the dangling-wrapper bug: once the thread is
+        # done (success, error OR cancel) drop our Python reference so the
+        # pending deleteLater can free the C++ object without leaving
+        # reject()/closeEvent holding a stale wrapper. Mirrors the
+        # _release_update_worker pattern in window.py.
+        self._dl_thread.finished.connect(self._on_dl_thread_finished)
         self._signals.finished.connect(self._dl_worker.deleteLater)
         self._signals.error.connect(self._dl_worker.deleteLater)
         self._signals.cancelled.connect(self._dl_worker.deleteLater)
@@ -617,6 +673,28 @@ class UpdateDialog(QDialog):
             return
         self._stop_dots_animation()
 
+    def _on_dl_thread_finished(self) -> None:
+        """Drop the Python wrapper for the finished download thread.
+
+        Connected to ``_dl_thread.finished`` (alongside deleteLater). After
+        this runs, ``self._dl_thread`` is None, so a subsequent
+        reject()/closeEvent takes the ``_dl_thread_running() is False`` path
+        instead of dereferencing a wrapper whose C++ object deleteLater is
+        about to (or already did) destroy."""
+        self._dl_thread = None
+
+    def _dl_thread_running(self) -> bool:
+        """Safely report whether the download thread is alive and running.
+
+        Guards against BOTH a None wrapper (no download started / already
+        finished) AND a wrapper whose C++ object was destroyed by a
+        deleteLater processed inside the modal exec() event loop — calling
+        .isRunning() on the latter raises
+        'RuntimeError: Internal C++ object already deleted'."""
+        from shiboken6 import isValid
+        thread = self._dl_thread
+        return thread is not None and isValid(thread) and thread.isRunning()
+
     def _abort_download(self) -> None:
         """Best-effort: ask the worker to stop and rip the socket open
         so urlopen.read() returns immediately. Without this, .quit() just
@@ -639,7 +717,7 @@ class UpdateDialog(QDialog):
     def closeEvent(self, event):
         """Clean up download thread if dialog is closed mid-download."""
         self._stop_dots_animation()
-        if hasattr(self, "_dl_thread") and self._dl_thread.isRunning():
+        if self._dl_thread_running():
             self._abort_download()
             self._dl_thread.quit()
             # Short wait — read() is already unblocked by _abort_download
@@ -654,7 +732,7 @@ class UpdateDialog(QDialog):
     def reject(self):
         """Handle Cancel button — also cleans up thread."""
         self._stop_dots_animation()
-        if hasattr(self, "_dl_thread") and self._dl_thread.isRunning():
+        if self._dl_thread_running():
             self._abort_download()
             self._dl_thread.quit()
             if not self._dl_thread.wait(500):

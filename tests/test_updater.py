@@ -20,12 +20,15 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from app import updater
 from app.updater import (
     _parse_version,
+    _is_prerelease,
     _get_expected_hash,
     _download,
     _DownloadCancelled,
     _Signals,
+    check_for_update,
 )
 
 
@@ -500,3 +503,225 @@ class TestSignalsLifecycleLive:
         # exactly one more. No cross-pollination.
         assert first == ["a.bin"]
         assert d.received == ["a.bin", "b.bin"]
+
+
+# ── Pre-release filter (MINOR) ──────────────────────────────────────────
+
+
+class TestPrereleaseFilter:
+    """_parse_version deliberately strips '-rc1' etc., so an rc/beta tag
+    compares >= the current stable build. check_for_update() must NOT
+    offer a pre-release as an update; a stable higher tag must still be
+    offered."""
+
+    @staticmethod
+    def _release(tag: str, prerelease: bool = False) -> bytes:
+        import json as _json
+        return _json.dumps({
+            "tag_name": tag,
+            "prerelease": prerelease,
+            "assets": [{"name": "PDFAppsSetup.exe",
+                        "browser_download_url": "https://example.invalid/x.exe"}],
+            "body": "notes",
+        }).encode()
+
+    def test_is_prerelease_rc(self):
+        assert _is_prerelease("v9.9.9-rc1") is True
+
+    def test_is_prerelease_beta(self):
+        assert _is_prerelease("v9.9.9-beta.2") is True
+
+    def test_is_prerelease_alpha(self):
+        assert _is_prerelease("v9.9.9-alpha") is True
+
+    def test_is_prerelease_stable_false(self):
+        assert _is_prerelease("v9.9.9") is False
+
+    def test_is_prerelease_empty_false(self):
+        assert _is_prerelease("") is False
+
+    def _run_check(self, payload: bytes):
+        cm = MagicMock()
+        cm.__enter__.return_value.read.return_value = payload
+        with patch.object(updater.sys, "platform", "win32"), \
+             patch.object(updater, "is_system_install", return_value=False), \
+             patch.object(updater.urllib.request, "urlopen", return_value=cm):
+            return check_for_update()
+
+    def test_higher_prerelease_by_suffix_not_offered(self):
+        """A higher version carrying a -rc suffix must NOT be offered."""
+        assert self._run_check(self._release("v999.0.0-rc1")) is None
+
+    def test_higher_prerelease_by_flag_not_offered(self):
+        """GitHub 'prerelease': true must also suppress the offer even if
+        the tag itself has no suffix."""
+        assert self._run_check(self._release("v999.0.0", prerelease=True)) is None
+
+    def test_higher_stable_still_offered(self):
+        """A higher STABLE version must still be offered — regression
+        guard so the pre-release filter doesn't suppress real updates."""
+        result = self._run_check(self._release("v999.0.0"))
+        assert result is not None
+        assert result["tag_name"] == "v999.0.0"
+
+
+# ── _download HTTPS scheme validation (MINOR) ──────────────────────────
+
+
+class TestDownloadSchemeValidation:
+    """_download must reject any non-HTTPS asset URL up front (defence in
+    depth beyond the SHA256 gate) so a tampered browser_download_url can't
+    make us fetch over http:// or touch a local file:// path."""
+
+    def test_rejects_http_url(self, tmp_path):
+        signals = _StubSignals()
+        dest = str(tmp_path / "d.bin")
+        with patch("app.updater.urllib.request.urlopen") as mock_open:
+            _download("http://example.invalid/x.exe", dest, signals,
+                      expected_hash="a" * 64)
+            mock_open.assert_not_called()
+        assert len(signals.error.emissions) == 1
+        assert len(signals.finished.emissions) == 0
+
+    def test_rejects_file_url(self, tmp_path):
+        signals = _StubSignals()
+        dest = str(tmp_path / "d.bin")
+        with patch("app.updater.urllib.request.urlopen") as mock_open:
+            _download("file:///etc/passwd", dest, signals,
+                      expected_hash="a" * 64)
+            mock_open.assert_not_called()
+        assert len(signals.error.emissions) == 1
+
+    def test_accepts_https_url(self, tmp_path):
+        """An https:// URL passes the scheme gate and proceeds to the
+        (mocked) download + hash check."""
+        payload = b"payload" * 100
+        good_hash = hashlib.sha256(payload).hexdigest()
+        signals = _StubSignals()
+        dest = str(tmp_path / "d.bin")
+        with patch("app.updater.urllib.request.urlopen",
+                   return_value=_FakeResponse(payload)):
+            _download("https://example.invalid/x.exe", dest, signals,
+                      expected_hash=good_hash)
+        assert len(signals.error.emissions) == 0
+        assert len(signals.finished.emissions) == 1
+
+
+# ── M4: check_for_update cancel_holder abort mechanism ─────────────────
+
+
+class TestCheckForUpdateCancelHolder:
+    """The background update-check worker blocks in urlopen(). M4's
+    root-cause fix threads a cancel_holder into check_for_update so the UI
+    thread can close the in-flight response and unblock a hung read on
+    window close, instead of destroying a still-running QThread."""
+
+    def test_response_stored_in_holder_and_close_aborts_read(self):
+        import threading
+
+        started = threading.Event()
+
+        class _BlockingResp:
+            def __init__(self):
+                self.headers = {}
+                self._closed = threading.Event()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self.close()
+                return False
+
+            def read(self, *a):
+                started.set()
+                # Block like a real socket read until the UI thread closes us.
+                if not self._closed.wait(5):
+                    raise TimeoutError("read was never aborted")
+                raise ValueError("I/O operation on closed file.")
+
+            def close(self):
+                self._closed.set()
+
+        resp = _BlockingResp()
+        holder = {"resp": None}
+        result_box = {}
+
+        def _worker():
+            with patch.object(updater.sys, "platform", "win32"), \
+                 patch.object(updater, "is_system_install", return_value=False), \
+                 patch.object(updater.urllib.request, "urlopen",
+                              return_value=resp):
+                result_box["r"] = check_for_update(holder)
+
+        th = threading.Thread(target=_worker)
+        th.start()
+        # Wait until the worker is parked inside read() with the response
+        # published into the holder.
+        assert started.wait(5), "worker never entered the blocking read"
+        assert holder["resp"] is resp, \
+            "check_for_update must publish the live response into the holder"
+        # Simulate the UI thread aborting the read on window close.
+        holder["resp"].close()
+        th.join(5)
+        assert not th.is_alive(), "closing the response must unblock the read"
+        # The aborted read is swallowed as a silent failure -> None.
+        assert result_box["r"] is None
+        # finally must clear the reference so the UI can't touch a dead socket.
+        assert holder["resp"] is None
+
+
+# ── M3: UpdateDialog download-thread lifecycle ─────────────────────────
+
+
+class TestDownloadThreadLifecycle:
+    """After a download finishes/fails, the QThread's C++ object is torn
+    down by deleteLater processed in the modal exec() loop, while the
+    Python wrapper persists. Pre-fix, reject()/closeEvent called
+    ``self._dl_thread.isRunning()`` on that dangling wrapper and raised
+    'RuntimeError: Internal C++ object already deleted'. The fix nulls the
+    wrapper in _on_dl_thread_finished AND guards every use with
+    shiboken6.isValid (via _dl_thread_running)."""
+
+    @staticmethod
+    def _dialog():
+        from app.updater import UpdateDialog
+        release = {"tag_name": "v9.9.9", "assets": [], "body": ""}
+        return UpdateDialog(release, parent=None)
+
+    def test_fresh_dialog_reports_thread_not_running(self, qt_app):
+        dlg = self._dialog()
+        assert dlg._dl_thread is None
+        assert dlg._dl_thread_running() is False
+
+    def test_finished_slot_nulls_wrapper(self, qt_app):
+        from PySide6.QtCore import QThread
+        dlg = self._dialog()
+        dlg._dl_thread = QThread()
+        dlg._on_dl_thread_finished()
+        assert dlg._dl_thread is None
+
+    def test_reject_safe_after_cpp_object_deleted(self, qt_app):
+        """The load-bearing regression test: point _dl_thread at a QThread
+        whose C++ object has been destroyed (as deleteLater does inside the
+        modal exec() loop), leaving only the dangling Python wrapper, then
+        call reject(). Pre-fix this raised RuntimeError inside
+        .isRunning(); post-fix it is a clean no-op."""
+        from PySide6.QtCore import QThread
+        from shiboken6 import isValid, delete
+
+        dlg = self._dialog()
+        th = QThread()
+        dlg._dl_thread = th
+        th.start()
+        th.quit()
+        th.wait()
+        # Destroy the underlying C++ object while the Python wrapper on
+        # dlg._dl_thread persists — exactly the dangling state deleteLater
+        # produces once the modal event loop processes it.
+        delete(th)
+        assert not isValid(dlg._dl_thread), \
+            "precondition: C++ object must be deleted"
+        # The pre-fix `self._dl_thread.isRunning()` would raise RuntimeError.
+        dlg.reject()  # must not raise
+        assert dlg._dl_thread_running() is False

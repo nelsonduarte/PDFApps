@@ -137,9 +137,9 @@ def test_window_load_and_track_refreshes_recents():
     viewer after add_recent_file so the placeholder shows the
     up-to-date list on next return."""
     src = _read("app/window.py")
-    # Locate the _load_and_track body.
+    # Locate the _load_and_track body (bounded by the next real method).
     body = src[src.find("def _load_and_track"):
-               src.find("def _open_in_new_tab")]
+               src.find("def _on_second_instance")]
     assert "_refresh_recents" in body
 
 
