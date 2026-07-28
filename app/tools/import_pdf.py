@@ -19,6 +19,24 @@ from app.widgets import DropFileEdit
 _IMG_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp", ".gif")
 
 
+class _NoContent:
+    """Sentinel result: a converter produced a zero-page document.
+
+    Returned (instead of the output path) when every input was empty,
+    rejected or unreadable so ``do_work`` never hands a page-less
+    ``fitz.Document`` to ``doc.save()`` — which raises the cryptic
+    ``ValueError: cannot save with zero pages``. It is truthy/non-None so
+    ``_run_background`` treats it as success (not a cancel) and routes it
+    to the friendly ``tool.import.no_content`` message. ``skipped`` carries
+    any per-item skip count so the images path keeps its existing detail.
+    """
+
+    __slots__ = ("skipped",)
+
+    def __init__(self, skipped: int = 0):
+        self.skipped = skipped
+
+
 class TabImport(BasePage):
     def __init__(self, status_fn):
         super().__init__("fa5s.file-import", t("tool.import.name"),
@@ -155,7 +173,11 @@ class TabImport(BasePage):
             for i, src in enumerate(sources):
                 if worker.is_cancelled():
                     return None
-                with open(src, "r", encoding="utf-8") as f:
+                # errors="replace" mirrors the font pre-scan above: a
+                # Notepad/Excel .txt saved as Windows-1252/Latin-1 must not
+                # crash the real conversion with UnicodeDecodeError after
+                # the pre-scan told the user the file was fine.
+                with open(src, "r", encoding="utf-8", errors="replace") as f:
                     all_lines.extend(f.read().split("\n"))
                 all_lines.append("")  # separator between files
                 worker.progress.emit(i + 1, f"{i + 1}/{n}…")
@@ -188,6 +210,11 @@ class TabImport(BasePage):
                                                fontname="helv")
                 est_lines = max(1, len(line) * fontsize * 0.5 / max_width + 1)
                 y += line_height * est_lines
+            # Guard against an all-empty input set: doc.save() raises the
+            # cryptic "cannot save with zero pages" otherwise.
+            if doc.page_count == 0:
+                doc.close()
+                return _NoContent()
             try:
                 # R11-M8: atomic write — avoids truncating a pre-existing
                 # output file if the save crashes or the process is killed.
@@ -198,7 +225,7 @@ class TabImport(BasePage):
 
         self._run_background(do_work, total=max(n, 1),
                              label=t("tool.import.converting"),
-                             on_done=lambda _r: self._done(out_path))
+                             on_done=lambda r: self._on_result(r, out_path))
 
     def _convert_images(self, sources: list, out_path: str):
         # R11-L1: filter to recognised image extensions up front. The
@@ -239,6 +266,12 @@ class TabImport(BasePage):
                     finally:
                         img.close()
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
+                # When every image was non-image/rejected/unreadable the
+                # doc has no pages. Signal that (carrying the skip count)
+                # rather than letting doc.save() raise "cannot save with
+                # zero pages" — which used to mask the skipped feedback.
+                if doc.page_count == 0:
+                    return _NoContent(skipped)
                 # R11-M8: atomic write — avoids truncating a pre-existing
                 # output file if the save crashes or the process is killed.
                 BasePage._atomic_pdf_write(doc, out_path)
@@ -246,9 +279,12 @@ class TabImport(BasePage):
                 doc.close()
             return skipped
 
-        def on_done(skipped):
-            if skipped:
-                self._status(t("tool.import.skipped_images", n=skipped))
+        def on_done(result):
+            if isinstance(result, _NoContent):
+                self._on_result(result, out_path)
+                return
+            if result:
+                self._status(t("tool.import.skipped_images", n=result))
             self._done(out_path)
 
         self._run_background(do_work, total=max(n, 1),
@@ -264,7 +300,9 @@ class TabImport(BasePage):
             for i, src in enumerate(sources):
                 if worker.is_cancelled():
                     return None
-                with open(src, "r", encoding="utf-8") as f:
+                # errors="replace": tolerate legacy Latin-1/Windows-1252
+                # .md files instead of aborting with UnicodeDecodeError.
+                with open(src, "r", encoding="utf-8", errors="replace") as f:
                     all_md.append(f.read())
                 worker.progress.emit(i + 1, f"{i + 1}/{n}…")
             md_text = "\n\n---\n\n".join(all_md)
@@ -288,6 +326,8 @@ class TabImport(BasePage):
                             page.insert_text(fitz.Point(50, y), text,
                                              fontsize=size, fontname="helv")
                         y += size * 1.5
+                if doc.page_count == 0:
+                    return _NoContent()
                 # R11-M8: atomic write — avoids truncating a pre-existing
                 # output file if the save crashes or the process is killed.
                 BasePage._atomic_pdf_write(doc, out_path)
@@ -297,7 +337,7 @@ class TabImport(BasePage):
 
         self._run_background(do_work, total=max(n, 1),
                              label=t("tool.import.converting"),
-                             on_done=lambda _r: self._done(out_path))
+                             on_done=lambda r: self._on_result(r, out_path))
 
     def _md_to_lines(self, md: str) -> list:
         """Convert markdown to list of (text, fontsize, bold) tuples."""
@@ -374,6 +414,11 @@ class TabImport(BasePage):
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
                 if worker.is_cancelled():
                     return None
+                # Empty/blank inputs (e.g. a text-less DOCX or an all-empty
+                # workbook) leave the doc page-less; signal that instead of
+                # letting doc.save() raise "cannot save with zero pages".
+                if doc.page_count == 0:
+                    return _NoContent()
                 # R11-M8: atomic write — avoids truncating a pre-existing
                 # output file if the save crashes or the process is killed.
                 BasePage._atomic_pdf_write(doc, out_path)
@@ -383,7 +428,7 @@ class TabImport(BasePage):
 
         self._run_background(do_work, total=max(n, 1),
                              label=t("tool.import.converting"),
-                             on_done=lambda _r: self._done(out_path))
+                             on_done=lambda r: self._on_result(r, out_path))
 
     # ── PPTX → PDF ──────────────────────────────────────────────────────
 
@@ -443,6 +488,11 @@ class TabImport(BasePage):
                             f"{fi + 1}/{n}: {i + 1}/{total_slides}…")
                 if worker.is_cancelled():
                     return None
+                # Empty/blank inputs (e.g. a text-less DOCX or an all-empty
+                # workbook) leave the doc page-less; signal that instead of
+                # letting doc.save() raise "cannot save with zero pages".
+                if doc.page_count == 0:
+                    return _NoContent()
                 # R11-M8: atomic write — avoids truncating a pre-existing
                 # output file if the save crashes or the process is killed.
                 BasePage._atomic_pdf_write(doc, out_path)
@@ -452,7 +502,7 @@ class TabImport(BasePage):
 
         self._run_background(do_work, total=max(n, 1),
                              label=t("tool.import.converting"),
-                             on_done=lambda _r: self._done(out_path))
+                             on_done=lambda r: self._on_result(r, out_path))
 
     # ── XLSX → PDF ──────────────────────────────────────────────────────
 
@@ -487,6 +537,11 @@ class TabImport(BasePage):
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
                 if worker.is_cancelled():
                     return None
+                # Empty/blank inputs (e.g. a text-less DOCX or an all-empty
+                # workbook) leave the doc page-less; signal that instead of
+                # letting doc.save() raise "cannot save with zero pages".
+                if doc.page_count == 0:
+                    return _NoContent()
                 # R11-M8: atomic write — avoids truncating a pre-existing
                 # output file if the save crashes or the process is killed.
                 BasePage._atomic_pdf_write(doc, out_path)
@@ -496,7 +551,7 @@ class TabImport(BasePage):
 
         self._run_background(do_work, total=max(n, 1),
                              label=t("tool.import.converting"),
-                             on_done=lambda _r: self._done(out_path))
+                             on_done=lambda r: self._on_result(r, out_path))
 
     # ── HTML → PDF ──────────────────────────────────────────────────────
 
@@ -516,13 +571,20 @@ class TabImport(BasePage):
                 for i, src in enumerate(sources):
                     if worker.is_cancelled():
                         return None
-                    with open(src, "r", encoding="utf-8") as f:
+                    # errors="replace": tolerate legacy Latin-1/Windows-1252
+                    # .html files instead of aborting with UnicodeDecodeError.
+                    with open(src, "r", encoding="utf-8", errors="replace") as f:
                         soup = BeautifulSoup(f.read(), "html.parser")
                     lines = self._html_to_lines(soup)
                     self._render_lines_to_doc(doc, lines)
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
                 if worker.is_cancelled():
                     return None
+                # Empty/blank inputs (e.g. a text-less DOCX or an all-empty
+                # workbook) leave the doc page-less; signal that instead of
+                # letting doc.save() raise "cannot save with zero pages".
+                if doc.page_count == 0:
+                    return _NoContent()
                 # R11-M8: atomic write — avoids truncating a pre-existing
                 # output file if the save crashes or the process is killed.
                 BasePage._atomic_pdf_write(doc, out_path)
@@ -532,7 +594,7 @@ class TabImport(BasePage):
 
         self._run_background(do_work, total=max(n, 1),
                              label=t("tool.import.converting"),
-                             on_done=lambda _r: self._done(out_path))
+                             on_done=lambda r: self._on_result(r, out_path))
 
     def _html_to_lines(self, soup) -> list:
         lines = []
@@ -599,6 +661,11 @@ class TabImport(BasePage):
                     worker.progress.emit(i + 1, f"{i + 1}/{n}…")
                 if worker.is_cancelled():
                     return None
+                # Empty/blank inputs (e.g. a text-less DOCX or an all-empty
+                # workbook) leave the doc page-less; signal that instead of
+                # letting doc.save() raise "cannot save with zero pages".
+                if doc.page_count == 0:
+                    return _NoContent()
                 # R11-M8: atomic write — avoids truncating a pre-existing
                 # output file if the save crashes or the process is killed.
                 BasePage._atomic_pdf_write(doc, out_path)
@@ -608,7 +675,7 @@ class TabImport(BasePage):
 
         self._run_background(do_work, total=max(n, 1),
                              label=t("tool.import.converting"),
-                             on_done=lambda _r: self._done(out_path))
+                             on_done=lambda r: self._on_result(r, out_path))
 
     # ── Shared line renderer ────────────────────────────────────────────
 
@@ -632,6 +699,25 @@ class TabImport(BasePage):
                 page.insert_text(fitz.Point(50, y), text,
                                  fontsize=size, fontname="helv")
             y += size * 1.5
+
+    def _on_result(self, result, out_path: str):
+        """Shared completion handler for every converter.
+
+        Surfaces a friendly, translated message when the converter yielded
+        no pages (``_NoContent``) instead of letting the raw
+        ``ValueError: cannot save with zero pages`` escape; otherwise
+        finishes normally.
+        """
+        if isinstance(result, _NoContent):
+            if result.skipped:
+                self._status(t("tool.import.skipped_images",
+                               n=result.skipped))
+            else:
+                self._status(t("tool.import.no_content"))
+            QMessageBox.warning(self, t("msg.warning"),
+                                t("tool.import.no_content"))
+            return
+        self._done(out_path)
 
     def _done(self, out_path: str):
         self.lbl_result.setText(f"  \u2192 {os.path.basename(out_path)}")
