@@ -382,6 +382,19 @@ def scrolled(widget: QWidget) -> QScrollArea:
 class CancelledError(Exception):
     """Raised when the user cancels a long-running operation."""
 
+
+class WrongPasswordError(Exception):
+    """Raised when an encrypted PDF cannot be unlocked with the supplied
+    password (missing or wrong).
+
+    Deliberately NOT a subclass of ``ValueError``: the compress tool
+    treats ``ValueError`` from ``_compress_pdf`` as the friendly
+    "no size gain" outcome, so a password failure must be a distinct
+    type to reach the real error path instead of being reported as
+    "no gain". Carries the translated ``tool.err.wrong_password``
+    message so callers can surface it directly.
+    """
+
 # Compression presets — DPI + JPEG quality + grayscale flag
 _COMPRESS_LEVELS = {
     "extreme":     {"dpi": 72,  "quality": 40, "grayscale": True},
@@ -453,8 +466,45 @@ def _win_short_path(path: str) -> str:
     return path
 
 
+def _is_valid_pdf(path: str) -> bool:
+    """Return True if ``path`` is a readable, non-empty PDF with pages.
+
+    Guards against a compression pass silently emitting a zero-page or
+    otherwise corrupt file (e.g. saving a still-locked encrypted doc)
+    and having it accepted as a successful result. Any parse error or
+    a page count of zero is treated as invalid.
+    """
+    try:
+        if not path or not os.path.isfile(path) or os.path.getsize(path) <= 0:
+            return False
+    except OSError:
+        return False
+    try:
+        import fitz
+        doc = fitz.open(path)
+        try:
+            # A still-encrypted doc reports needs_pass and 0 readable
+            # pages; treat that as invalid so it is never accepted.
+            if doc.needs_pass:
+                return False
+            return doc.page_count > 0
+        finally:
+            doc.close()
+    except Exception:
+        pass  # fitz probe failed/unavailable — fall through to the pypdf fallback below.
+    # fitz unavailable — fall back to pypdf (a guaranteed dependency).
+    try:
+        from pypdf import PdfReader
+        r = PdfReader(path)
+        if r.is_encrypted:
+            return False
+        return len(r.pages) > 0
+    except Exception:
+        return False
+
+
 def _compress_pdf(src: str, dst: str, level: str = "recommended",
-                  progress_fn=None) -> tuple:
+                  progress_fn=None, password: str | None = None) -> tuple:
     """
     3-pass compression pipeline (keeps the smallest result):
 
@@ -485,6 +535,51 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     gray    = cfg["grayscale"]
     before  = os.path.getsize(src)
     temps: list = []
+
+    # ── Encryption gate ──────────────────────────────────────────────────
+    # A previous bug let an encrypted source fall through every pass:
+    # Ghostscript exits non-zero (output discarded), fitz.open leaves the
+    # doc locked (operations swallowed by `except Exception: pass`), and
+    # pikepdf.open raises PasswordError (also swallowed) — leaving
+    # `temps` empty so the function raised the MISLEADING
+    # "deps_missing" error even with every dependency installed. Detect
+    # encryption up front and abort with a clear password error when the
+    # supplied password is missing or wrong, so downstream passes can
+    # authenticate deterministically.
+    #
+    # Probe with fitz first: it is a guaranteed dependency and unlocks
+    # AES-256 natively, whereas pypdf.decrypt() needs an optional crypto
+    # backend and would spuriously report a correct AES password as
+    # wrong. pypdf is only the fallback if fitz is somehow unavailable.
+    encrypted = False
+    authed = False
+    try:
+        import fitz
+        probe = fitz.open(src)
+        try:
+            encrypted = probe.needs_pass
+            if encrypted and password:
+                authed = bool(probe.authenticate(password))
+        finally:
+            probe.close()
+    except Exception:
+        try:
+            from pypdf import PdfReader
+            pr = PdfReader(src)
+            encrypted = pr.is_encrypted
+            if encrypted and password:
+                # decrypt() returns PasswordType.NOT_DECRYPTED (0) on a
+                # wrong password; anything else means success.
+                authed = bool(pr.decrypt(password))
+        except Exception:
+            encrypted = False
+    if encrypted and not authed:
+        raise WrongPasswordError(t("tool.err.wrong_password"))
+    # Password is only meaningful for an encrypted source. Normalise to
+    # None otherwise so each pass can pass it through unconditionally
+    # without confusing the decrypted intermediate temps in Pass C.
+    if not encrypted:
+        password = None
 
     def _prog(stage, cur=0, tot=0):
         if progress_fn and progress_fn(stage, cur, tot) is False:
@@ -533,6 +628,10 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 cmd += ["-sColorConversionStrategy=Gray",
                         "-dProcessColorModel=/DeviceGray",
                         "-dOverrideICC"]
+            if password:
+                # Let Ghostscript open the encrypted source. Without this
+                # gs exits non-zero and the pass silently produced nothing.
+                cmd += [f"-sPDFPassword={password}"]
             # Short-name conversion (Windows non-ASCII user profile
             # safety). gs reads the command line through the legacy ANSI
             # encoding; the short alias is always ASCII on NTFS volumes
@@ -571,7 +670,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 try: os.unlink(p)
                 except Exception: pass
                 raise CancelledError()
-            if proc.returncode == 0 and os.path.isfile(p) and os.path.getsize(p) > 0:
+            if proc.returncode == 0 and _is_valid_pdf(p):
                 temps.append(p)
             else:
                 try: os.unlink(p)
@@ -590,6 +689,13 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     try:
         import fitz
         doc = fitz.open(src)
+        if doc.needs_pass:
+            # The encryption gate above already validated the password,
+            # so a failure here means the file changed underneath us —
+            # abort loudly instead of scrubbing a locked doc into an
+            # empty output that would be reported as success.
+            if not (password and doc.authenticate(password)):
+                raise WrongPasswordError(t("tool.err.wrong_password"))
 
         # 1. Remove dead weight
         try:
@@ -634,13 +740,18 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             doc.save(p, **save_kw, use_objstms=True)
         except TypeError:
             doc.save(p, **save_kw)
-        if os.path.isfile(p) and os.path.getsize(p) > 0:
+        if _is_valid_pdf(p):
             temps.append(p)
             p = None  # ownership transferred to temps
     except CancelledError:
         # Re-raise so do_work cancels cleanly. The bare `except
         # Exception:` below would otherwise swallow it and the pipeline
         # would silently continue into Pass C.
+        raise
+    except WrongPasswordError:
+        # A locked doc must never be scrubbed into an (empty) output and
+        # reported as success — surface the password error instead of
+        # being swallowed by `except Exception` below.
         raise
     except Exception:
         pass
@@ -660,7 +771,13 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         import pikepdf
         # Optimize the best result so far (or the original)
         best_so_far = min(temps, key=lambda f: os.path.getsize(f)) if temps else src
-        pdf = pikepdf.open(best_so_far)
+        # Pass A/B temps are always decrypted; only the original source
+        # (used when no prior pass produced a temp) may still need the
+        # password. Passing it there lets pikepdf unlock the source
+        # instead of raising PasswordError that the old `except
+        # Exception: pass` swallowed.
+        open_kw = {"password": password} if (best_so_far == src and password) else {}
+        pdf = pikepdf.open(best_so_far, **open_kw)
         fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
         # Cancel checkpoint between open and save — pdf.save is the
         # slow part (linearize + recompress_flate). Without this, a
@@ -672,7 +789,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                  compress_streams=True,
                  recompress_flate=True,
                  linearize=True)
-        if os.path.isfile(p) and os.path.getsize(p) > 0:
+        if _is_valid_pdf(p):
             temps.append(p)
             p = None  # ownership transferred to temps
     except CancelledError:

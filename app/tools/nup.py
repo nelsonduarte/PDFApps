@@ -185,8 +185,13 @@ class TabNUp(BasePage):
         def do_work(worker):
             import fitz
             sd = fitz.open(pdf_path)
-            if sd.needs_pass and pwd:
-                sd.authenticate(pwd)
+            if sd.needs_pass:
+                # Verify authenticate() succeeded: if the password
+                # changed between _load_input validation and now, an
+                # unchecked call would leave the doc locked and produce
+                # empty/garbled output. Mirror _open_fitz and raise.
+                if not (pwd and sd.authenticate(pwd)):
+                    raise ValueError(t("tool.err.wrong_password"))
             try:
                 out = fitz.open()
                 try:

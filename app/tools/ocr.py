@@ -271,8 +271,13 @@ class TabOCR(BasePage):
                 from PIL import Image
                 import pytesseract
                 doc = fitz.open(pdf_path)
-                if doc.needs_pass and pwd:
-                    doc.authenticate(pwd)
+                if doc.needs_pass:
+                    # Verify authenticate() succeeded: an unchecked call
+                    # on a doc whose password changed since _load_input
+                    # would leave it locked and OCR empty pages. Mirror
+                    # _open_fitz and raise a clear password error.
+                    if not (pwd and doc.authenticate(pwd)):
+                        raise ValueError(t("tool.err.wrong_password"))
                 try:
                     if fmt == 1:
                         texts = []

@@ -120,6 +120,11 @@ class TabComprimir(BasePage):
         out_path = self._resolve_output_file(self.drop_out, pdf_path)
         if not out_path: return
         level = self._LEVEL_KEYS[self.cmb_level.currentIndex()]
+        # Propagate the password captured by _maybe_prompt_password so
+        # _compress_pdf can unlock an encrypted source in every pass.
+        # Without this the file fell through all passes and raised the
+        # misleading "deps_missing" error.
+        password = self._pdf_password or None
 
         progress = QProgressDialog(t("progress.compress.passA"),
                                    t("progress.cancel"), 0, 100, self)
@@ -160,9 +165,13 @@ class TabComprimir(BasePage):
                     return True
                 try:
                     return _compress_pdf(pdf_path, out_path, level,
-                                         progress_fn=progress_fn)
+                                         progress_fn=progress_fn,
+                                         password=password)
                 except ValueError as ve:
                     # "no gain" is a friendly outcome, not an error.
+                    # WrongPasswordError is deliberately NOT a ValueError
+                    # so it propagates to the real error path (_on_err)
+                    # instead of being reported here as "no gain".
                     return ("__no_gain__", str(ve))
 
         self.action_btn.setEnabled(False)

@@ -117,10 +117,16 @@ class TabReordenar(BasePage):
     def _run(self):
         if not self._page_count:
             QMessageBox.warning(self, t("msg.warning"), t("msg.open_pdf_first")); return
+        indices = [self.lst.item(i).data(256) for i in range(self.lst.count())]
+        if not indices:
+            # Every page was removed via the "−" button. PdfWriter() with
+            # no pages writes an invalid/empty PDF — warn and abort before
+            # touching the output file.
+            QMessageBox.warning(self, t("msg.warning"), t("tool.reorder.no_pages"))
+            return
         out = self._resolve_output_file(self.drop_out, self.drop_in.path())
         if not out: return
         try:
-            indices = [self.lst.item(i).data(256) for i in range(self.lst.count())]
             reader = self._open_reader(self.drop_in.path())
             w = PdfWriter()
             for idx in indices: w.add_page(reader.pages[idx])
