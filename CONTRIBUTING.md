@@ -343,8 +343,6 @@ Each tuple maps a translated name, a Font Awesome icon, and a Tab class. The sid
 |--------|-----------|-------------|
 | `_open_pdf()` | — | Opens file dialog, calls `_load_and_track()` |
 | `_load_and_track(path)` | `path: str` | Loads PDF; opens new tab if current tab has a document |
-| `_open_in_new_tab()` | — | Opens file dialog and loads in a new tab |
-| `_show_recent_menu()` | — | Shows popup menu with recent files list |
 | `_clear_recent()` | — | Clears recent files from config |
 
 **Page Navigation (workspace bar):**
