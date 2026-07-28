@@ -35,12 +35,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # we instantiate. Offscreen keeps headless CI display-free.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication  # noqa: E402
-_app = QApplication.instance() or QApplication([])
+_unused_app = QApplication.instance() or QApplication([])
 
 import fitz  # noqa: E402
 
 from app.i18n import t  # noqa: E402
-from app.tools.import_pdf import TabImport, _NoContent  # noqa: E402
+from app.tools.import_pdf import (  # noqa: E402
+    TabImport, _NoContent, QMessageBox,
+)
 from app.editor.canvas import PdfEditCanvas  # noqa: E402
 
 
@@ -124,7 +126,7 @@ def test_md_latin1_produces_valid_pdf(tmp_path, monkeypatch):
 
 def test_html_latin1_produces_valid_pdf(tmp_path, monkeypatch):
     """Latin-1 .html must not crash the real conversion."""
-    bs4 = pytest.importorskip("bs4")  # noqa: F841
+    pytest.importorskip("bs4")
     src = tmp_path / "latin1.html"
     src.write_bytes(
         b"<html><body><p>caf\xe9 \xe0 la maison</p></body></html>")
@@ -175,15 +177,13 @@ def test_images_all_rejected_returns_no_content(tmp_path, monkeypatch):
 def test_no_content_on_done_shows_friendly_message(tmp_path, monkeypatch):
     """The images on_done must surface tool.import.no_content via a
     warning box instead of crashing — and must NOT call self._done."""
-    import app.tools.import_pdf as mod
-
     not_images = [str(tmp_path / "a.txt")]
     Path(not_images[0]).write_text("x")
     out = tmp_path / "out.pdf"
     page = _make_page()
 
     warned = {}
-    monkeypatch.setattr(mod.QMessageBox, "warning",
+    monkeypatch.setattr(QMessageBox, "warning",
                         lambda *a, **k: warned.setdefault("text", a[2]))
     done_called = []
     monkeypatch.setattr(page, "_done", lambda p: done_called.append(p))
