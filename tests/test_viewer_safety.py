@@ -40,7 +40,7 @@ def test_save_incr_is_inside_try_except():
     # + reopen logic (and, in the shared-doc-handle fix, a doc_replaced
     # emit + render reschedule) before reaching show_error, so widen the
     # window.
-    after = CANVAS[idx: idx + 2800]
+    after = CANVAS[idx: idx + 3600]
     assert "try:" in before, "saveIncr is no longer inside a try block"
     assert "except Exception" in after, "saveIncr error path is missing"
     assert "show_error" in after, "saveIncr errors no longer route to show_error"

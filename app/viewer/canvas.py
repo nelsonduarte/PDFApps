@@ -118,6 +118,13 @@ class _SelectCanvas(QWidget):
         self._pending: set[int] = set()
         self._signals     = _RenderSignals()
         self._signals.page_ready.connect(self._on_page_ready)
+        # Dedicated render pool so the pre-saveIncr waitForDone() joins
+        # ONLY our own _PageJob workers, never unrelated jobs on the
+        # global pool (e.g. an editor tab rendering), which could
+        # otherwise pin the UI thread indefinitely. See
+        # _prepare_for_save / _schedule_visible.
+        self._pool        = QThreadPool()
+        self._pool.setMaxThreadCount(_MAX_THREADS)
         self._night_mode  = False
         self._drag_start  = None
         self._drag_end    = None
@@ -344,8 +351,7 @@ class _SelectCanvas(QWidget):
         first, last = self._visible_range()
         dpr = self.devicePixelRatioF() or 1.0
         gen = self._gen
-        pool = QThreadPool.globalInstance()
-        pool.setMaxThreadCount(_MAX_THREADS)
+        pool = self._pool
         for i in range(first, last + 1):
             e = self._entries[i]
             if e.pixmap is None and i not in self._pending:
@@ -362,6 +368,70 @@ class _SelectCanvas(QWidget):
             self._entries[idx].pixmap = pixmap
             self._entries[idx].words  = words
             self.update()
+
+    def _prepare_for_save(self, timeout_ms: int = 5000) -> bool:
+        """Cancel/join in-flight render workers before an on-disk write.
+
+        saveIncr() appends an incremental update to the SAME file the
+        background _PageJob workers open via ``fitz.open(self._path)``. A
+        worker mid-open would read a half-written trailer (parse failure)
+        or hit a Windows sharing violation. So we:
+
+        * bump ``_gen`` — any result that lands after this point is
+          discarded by the epoch guard in ``_on_page_ready``;
+        * clear ``_pending`` so those pages are re-scheduled afterwards;
+        * join the render pool so no worker is reading the file while we
+          append.
+
+        The join is bounded (default 5 s) so a pathological render can
+        never pin the UI thread indefinitely. Returns ``True`` if the
+        pool drained, ``False`` if the wait timed out. A ``False`` is
+        SAFE to proceed past: the ``_gen`` bump already invalidated every
+        outstanding result, so any late render is dropped on arrival.
+        """
+        self._gen += 1
+        self._pending.clear()
+        return self._pool.waitForDone(timeout_ms)
+
+    def _reopen_document(self):
+        """Reopen ``self._path`` into a fresh fitz.Document after an
+        in-place write (saveIncr) failed, discarding the in-memory
+        mutation so the canvas reflects the on-disk state.
+
+        Ordering is deliberate (MINOR 3): publish ``self._doc = None``
+        BEFORE closing the old handle and only swap in the fresh Document
+        AFTER ``fitz.open`` succeeds. So if the reopen itself fails (a
+        double failure: write AND reopen), ``self._doc`` stays ``None`` —
+        which every accessor already guards for — rather than a closed
+        Document that would fault on the next paint/search (latent
+        use-after-close).
+
+        Emits ``doc_replaced`` with the new handle so the panel (shared
+        owner of the same reference) follows — or with ``None`` on a
+        double failure so it drops the shared reference too. Returns the
+        new Document, or ``None``.
+        """
+        import fitz
+        saved_path = self._path
+        saved_password = self._password
+        old_doc = self._doc
+        self._doc = None
+        with contextlib.suppress(Exception):
+            if old_doc is not None:
+                old_doc.close()
+        new_doc = None
+        try:
+            new_doc = fitz.open(saved_path)
+            if new_doc.needs_pass and saved_password:
+                new_doc.authenticate(saved_password)
+        except Exception:
+            with contextlib.suppress(Exception):
+                if new_doc is not None:
+                    new_doc.close()
+            new_doc = None
+        self._doc = new_doc
+        self.doc_replaced.emit(new_doc)
+        return new_doc
 
     # ── Text selection ─────────────────────────────────────────────────────
 
@@ -723,13 +793,13 @@ class _SelectCanvas(QWidget):
                             # _PageJob workers open via fitz.open(self._path).
                             # A worker mid-open would read a half-written
                             # trailer (parse failure) or hit a Windows
-                            # sharing violation. Bump _gen so any results
-                            # that land after this point are discarded, clear
-                            # _pending, and join in-flight workers so none is
-                            # reading the file while we append.
-                            self._gen += 1
-                            self._pending.clear()
-                            QThreadPool.globalInstance().waitForDone()
+                            # sharing violation. _prepare_for_save bumps
+                            # _gen (invalidating late results), clears
+                            # _pending, and joins in-flight workers with a
+                            # bounded wait so a pathological render can't
+                            # pin the UI thread. A timeout return is safe —
+                            # the _gen bump already discards stale renders.
+                            self._prepare_for_save()
                             try:
                                 self._doc.saveIncr()
                             except Exception as exc:
@@ -740,30 +810,21 @@ class _SelectCanvas(QWidget):
                                     with contextlib.suppress(Exception):
                                         shutil.move(backup_path, self._path)
                                     backup_path = None
-                                # HIGH A2: discard the in-memory delete
-                                # by reopening the file. Best-effort:
-                                # if reopen fails we still surface the
-                                # original write error.
-                                with contextlib.suppress(Exception):
-                                    saved_path = self._path
-                                    saved_password = self._password
-                                    self._doc.close()
-                                    new_doc = fitz.open(saved_path)
-                                    if new_doc.needs_pass and saved_password:
-                                        new_doc.authenticate(saved_password)
-                                    self._doc = new_doc
-                                    # M2: the panel shares this handle via
-                                    # its own _fitz_doc reference and would
-                                    # otherwise keep pointing at the closed
-                                    # Document (crashing _do_search /
-                                    # _print_pdf with "document closed").
-                                    # Hand it the fresh handle.
-                                    self.doc_replaced.emit(new_doc)
+                                # HIGH A2 + MINOR 3: discard the in-memory
+                                # delete by reopening the file. _reopen_document
+                                # publishes self._doc = None first and only
+                                # swaps in the fresh handle after fitz.open
+                                # succeeds, so a failed reopen can never leave
+                                # a closed Document behind. It also emits
+                                # doc_replaced so the panel (shared owner) is
+                                # repointed off the closed one.
+                                new_doc = self._reopen_document()
                                 # In-flight renders were cancelled above by
                                 # the _gen bump; re-schedule the visible
-                                # pages against the restored file so the
-                                # canvas doesn't stay blank.
-                                self._schedule_visible()
+                                # pages against the restored file — but only
+                                # if we still have a live document to render.
+                                if new_doc is not None:
+                                    self._schedule_visible()
                                 show_error(self, exc)
                                 return
                         # Both steps succeeded — drop the backup.

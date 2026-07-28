@@ -33,6 +33,7 @@ _app = QApplication.instance() or QApplication([])
 
 import fitz  # noqa: E402
 from app.i18n import t  # noqa: E402
+from app.viewer.canvas import _SelectCanvas  # noqa: E402
 from app.viewer.panel import PdfViewerPanel  # noqa: E402
 
 CANVAS_SRC = (ROOT / "app" / "viewer" / "canvas.py").read_text(encoding="utf-8")
@@ -135,23 +136,69 @@ def test_print_pdf_guards_closed_document(qtbot, tmp_path, monkeypatch):
     assert panel._print_pdf() is None
 
 
-def test_canvas_error_path_emits_doc_replaced_source():
-    """End-to-end driving of the delete-comment context menu is not
-    feasible headless (QMenu.exec spins a blocking native popup loop that
-    PySide won't let us monkeypatch). Guard the two canvas-internal halves
-    of the M2 fix at source level instead:
+def test_reopen_document_swaps_handle_and_emits_live(qtbot, tmp_path):
+    """Behavioural M2: _reopen_document (the failed-saveIncr recovery
+    step) must close the old handle, open a FRESH live Document, publish
+    it on self._doc and emit doc_replaced with it — so the panel (shared
+    owner) never keeps pointing at the closed one."""
+    pdf = _make_pdf(tmp_path / "reopen_ok.pdf")
+    canvas = _SelectCanvas()
+    qtbot.addWidget(canvas)
+    canvas.load(fitz.open(str(pdf)), path=str(pdf))
+    _pump(qtbot)
 
-    the failed-saveIncr except block must reopen the Document AND emit
-    doc_replaced with the fresh handle, so the panel (shared owner) is
-    repointed off the closed one.
-    """
+    emitted: list = []
+    canvas.doc_replaced.connect(lambda d: emitted.append(d))
+    old_doc = canvas._doc
+
+    new_doc = canvas._reopen_document()
+
+    assert new_doc is not None, "reopen should have produced a live handle"
+    assert canvas._doc is new_doc, "canvas did not publish the reopened handle"
+    assert not new_doc.is_closed
+    assert new_doc is not old_doc
+    assert old_doc.is_closed, "the stale (pre-reopen) handle must be closed"
+    assert emitted == [new_doc], "doc_replaced must carry the fresh handle"
+
+
+def test_reopen_failure_leaves_doc_none_not_closed(qtbot, tmp_path, monkeypatch):
+    """MINOR 3 root cause: a DOUBLE failure — the reopen fitz.open() also
+    raises — must leave self._doc == None (every accessor guards for that),
+    NEVER a closed Document (latent use-after-close). The panel is told via
+    doc_replaced(None) so it drops the shared reference too."""
+    pdf = _make_pdf(tmp_path / "reopen_fail.pdf")
+    canvas = _SelectCanvas()
+    qtbot.addWidget(canvas)
+    canvas.load(fitz.open(str(pdf)), path=str(pdf))
+    _pump(qtbot)
+
+    emitted: list = []
+    canvas.doc_replaced.connect(lambda d: emitted.append(d))
+    old_doc = canvas._doc
+
+    def _boom_open(*a, **k):
+        raise RuntimeError("reopen boom")
+
+    monkeypatch.setattr(fitz, "open", _boom_open)
+
+    new_doc = canvas._reopen_document()
+
+    assert new_doc is None
+    assert canvas._doc is None, "doc left pointing at a closed Document (use-after-close)"
+    assert emitted == [None], "panel not told to drop the shared reference on double failure"
+    assert old_doc.is_closed, "the stale handle must have been closed"
+    # A subsequent layout/schedule must not crash on the None doc.
+    canvas._layout_and_schedule()  # guarded no-op, must not raise
+
+
+def test_reopen_document_wired_into_failed_save_path():
+    """The failed-saveIncr except block must delegate to _reopen_document
+    (which owns the None-before-open ordering) rather than reopening
+    inline — a regression to inline reopen could drop the guard."""
     idx = CANVAS_SRC.index("self._doc.saveIncr()")
-    after = CANVAS_SRC[idx: idx + 2600]
-    assert "self._doc = new_doc" in after, "reopen path missing"
-    # The emit must come after the reopen and carry the new handle.
-    reopen_at = after.index("self._doc = new_doc")
-    assert "self.doc_replaced.emit(new_doc)" in after[reopen_at:], \
-        "canvas no longer notifies the panel of the reopened Document (M2)"
+    after = CANVAS_SRC[idx: idx + 1600]
+    assert "self._reopen_document()" in after, \
+        "failed-save path no longer routes through _reopen_document (MINOR 3)"
 
 
 def test_canvas_signal_declared_and_panel_wired():
@@ -164,18 +211,61 @@ def test_canvas_signal_declared_and_panel_wired():
 # ── race: render workers cancelled before saveIncr ──────────────────────
 
 
-def test_race_guard_cancels_renders_before_saveincr():
-    """The delete-comment path must cancel/join in-flight render workers
-    (bump _gen, clear _pending, waitForDone) BEFORE saveIncr() appends to
-    the same file — otherwise a worker mid-fitz.open() reads a
-    half-written incremental update. Guarded at source level because the
-    QMenu popup loop can't be driven headless."""
-    save_idx = CANVAS_SRC.index("self._doc.saveIncr()")
-    # Window between the `if self._path:` guard and the saveIncr call.
-    before = CANVAS_SRC[max(0, save_idx - 700): save_idx]
-    assert "self._gen += 1" in before, "renders not invalidated before saveIncr"
-    assert "self._pending.clear()" in before, "_pending not cleared before saveIncr"
-    assert "waitForDone()" in before, "in-flight workers not joined before saveIncr"
+def test_prepare_for_save_bumps_gen_and_clears_pending(qtbot):
+    """Behavioural race guard: _prepare_for_save must invalidate the epoch
+    (_gen++) and clear _pending so any render that lands after a saveIncr
+    is discarded by _on_page_ready. An idle pool drains immediately, so it
+    reports success."""
+    canvas = _SelectCanvas()
+    qtbot.addWidget(canvas)
+    canvas._gen = 3
+    canvas._pending = {0, 1, 2}
+
+    drained = canvas._prepare_for_save()
+
+    assert canvas._gen == 4, "generation not bumped — late renders not invalidated"
+    assert canvas._pending == set(), "_pending not cleared before save"
+    assert drained is True, "idle render pool should drain within the timeout"
+
+
+def test_prepare_for_save_uses_bounded_wait_and_survives_timeout(qtbot):
+    """MINOR 1: the join must be BOUNDED (a real timeout in ms), never the
+    unbounded waitForDone() (-1) that could pin the UI thread forever. Even
+    when the wait times out, the epoch guard must already be advanced so a
+    late render is dropped — i.e. proceeding past the timeout is safe."""
+    canvas = _SelectCanvas()
+    qtbot.addWidget(canvas)
+    canvas._gen = 0
+    canvas._pending = {5}
+
+    recorded: dict = {}
+
+    class _StuckPool:
+        def waitForDone(self, msecs=-1):
+            recorded["msecs"] = msecs
+            return False  # simulate a render that outlives the wait
+
+    canvas._pool = _StuckPool()
+
+    drained = canvas._prepare_for_save()
+
+    assert recorded["msecs"] == 5000, \
+        "waitForDone must be called with a finite timeout, not the default -1"
+    assert drained is False, "a timed-out join must be reported as such"
+    # Safe to proceed anyway: the epoch/pending were already invalidated.
+    assert canvas._gen == 1
+    assert canvas._pending == set()
+
+
+def test_render_pool_is_dedicated_not_global(qtbot):
+    """MINOR 1 root cause: the viewer must use its OWN QThreadPool so the
+    pre-save join can never block on unrelated jobs (e.g. an editor tab)
+    sitting on the process-wide global pool."""
+    from PySide6.QtCore import QThreadPool
+    canvas = _SelectCanvas()
+    qtbot.addWidget(canvas)
+    assert canvas._pool is not QThreadPool.globalInstance(), \
+        "viewer render pool must be dedicated, not the global instance"
 
 
 # ── debounce: rapid keystrokes coalesce ─────────────────────────────────
@@ -225,6 +315,41 @@ def test_empty_query_clears_without_debounce(qtbot, tmp_path):
     panel._search_input.setText("")
     assert not panel._search_debounce.isActive()
     assert panel._search_results == []
+
+
+def test_loading_new_doc_cancels_pending_search(qtbot, tmp_path):
+    """MINOR 2: a debounced search armed against the previous document
+    must be cancelled when a new document loads — otherwise the pending
+    timer fires _do_search against the freshly loaded file (benign today
+    thanks to the closed-doc guard, but incoherent: it would flash the old
+    query's hits on the new doc)."""
+    pdf1 = _make_pdf(tmp_path / "d1.pdf", text="Alpha")
+    pdf2 = _make_pdf(tmp_path / "d2.pdf", text="Beta")
+    panel = PdfViewerPanel()
+    qtbot.addWidget(panel)
+    panel.load(str(pdf1))
+    _pump(qtbot)
+
+    # Arm a debounced search against doc 1.
+    panel._search_input.setText("Alpha")
+    assert panel._search_debounce.isActive()
+    assert panel._pending_search_query == "Alpha"
+
+    # Spy AFTER arming so we can prove the stale search never fires.
+    fired: list[str] = []
+    orig = panel._do_search
+    panel._do_search = lambda q: fired.append(q) or orig(q)
+
+    # Swap in a new document.
+    panel.load(str(pdf2))
+    _pump(qtbot)
+
+    assert not panel._search_debounce.isActive(), \
+        "stale search still armed after loading a new document"
+    assert panel._pending_search_query == "", "pending query not cleared on load"
+    # Firing the (now-cleared) debounce must be a no-op — nothing scans doc 2.
+    panel._run_pending_search()
+    assert fired == [], f"stale search fired against the new document: {fired}"
 
 
 # ── cancel password: coherent placeholder state ─────────────────────────

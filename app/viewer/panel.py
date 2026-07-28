@@ -556,6 +556,20 @@ class PdfViewerPanel(QWidget):
         fresh handle so search/print never touch the closed one (M2)."""
         self._fitz_doc = new_doc
 
+    def _reset_search_state(self):
+        """Cancel any pending debounced search and clear its results.
+
+        Shared by ``load`` (opening a new document) and
+        ``_reset_to_placeholder`` (teardown). A search scheduled against
+        the previous document must never fire against the new one: the
+        _do_search guard keeps a stale fire from crashing, but leaving the
+        timer armed is incoherent — the highlights/label would flash the
+        old query's hits on the freshly loaded file.
+        """
+        self._search_debounce.stop()
+        self._pending_search_query = ""
+        self._close_search()
+
     def _reset_to_placeholder(self):
         """Return the viewer to its initial empty state.
 
@@ -567,10 +581,9 @@ class PdfViewerPanel(QWidget):
         """
         self._current_path = ""
         self._fitz_doc = None
-        # Close the search bar / drop stale highlights.
-        self._close_search()
-        self._search_debounce.stop()
-        self._pending_search_query = ""
+        # Cancel any pending debounced search, drop stale highlights and
+        # close the search bar.
+        self._reset_search_state()
         self._placeholder.setVisible(True)
         self._viewer_splitter.setVisible(False)
         self._sidebar_tabs.setVisible(False)
@@ -607,6 +620,10 @@ class PdfViewerPanel(QWidget):
         if self._fitz_doc:
             self._canvas.close_doc()
             self._fitz_doc = None
+            # A search scheduled (debounced) against the outgoing document
+            # must not fire against the new one — stop the timer, drop the
+            # pending query and close the search bar before the swap.
+            self._reset_search_state()
             # Stop the thumbnail worker and drop cached pixmaps of the
             # previous doc before we point the panel at a new file.
             self._thumbnails.clear()
