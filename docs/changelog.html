@@ -67,9 +67,24 @@
     <div class="container" style="max-width: 880px;">
         <div class="release">
             <div class="release-header">
+                <span class="version-tag">v1.14.3</span>
+                <span class="release-date">July 28, 2026</span>
+                <span class="release-badge">Latest</span>
+            </div>
+            <h3>Viewer stability, legacy-encoding imports, and security updates</h3>
+            <ul class="docs-list">
+                <li><strong>Viewer reliability</strong>: the shared document handle now stays valid after a failed note deletion, and saving no longer races with rendering — a dedicated worker pool with a timeout keeps the two apart. Cancelling the password prompt also leaves the viewer in a consistent state.</li>
+                <li><strong>Faster search</strong>: in-document search is now debounced, so typing a query no longer blocks the interface.</li>
+                <li><strong>Import</strong>: text files saved in legacy encodings (Windows-1252 / Latin-1) now import without errors, and you get a clear message when a file has no convertible content.</li>
+                <li><strong>Editor</strong>: opening a corrupted PDF no longer touches an already-closed document.</li>
+                <li><strong>Security &amp; dependencies</strong>: pillow 12.3.0, pymupdf 1.28.0, pypdf 6.14.2, and qtawesome 1.4.2, closing CVEs in the PDF and image parsers, with the Flatpak pins kept in lock-step.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
                 <span class="version-tag">v1.14.2</span>
                 <span class="release-date">July 18, 2026</span>
-                <span class="release-badge">Latest</span>
             </div>
             <h3>No update prompts on Microsoft Store installs</h3>
             <ul class="docs-list">
