@@ -491,7 +491,7 @@ def _is_valid_pdf(path: str) -> bool:
         finally:
             doc.close()
     except Exception:
-        pass
+        pass  # fitz probe failed/unavailable — fall through to the pypdf fallback below.
     # fitz unavailable — fall back to pypdf (a guaranteed dependency).
     try:
         from pypdf import PdfReader

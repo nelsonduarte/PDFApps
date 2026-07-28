@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # tool pages we instantiate. Offscreen keeps headless CI display-free.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication  # noqa: E402
-_app = QApplication.instance() or QApplication([])
+_unused_app = QApplication.instance() or QApplication([])
 
 import fitz  # noqa: E402
 
