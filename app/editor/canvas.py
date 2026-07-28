@@ -235,10 +235,16 @@ class PdfEditCanvas(QWidget):
 
     def load(self, path: str, password: str = ""):
         import fitz
-        if self._doc: self._doc.close()
-        self._doc = fitz.open(path)
-        if self._doc.needs_pass and password:
-            self._doc.authenticate(password)
+        if self._doc:
+            self._doc.close()
+        # Clear the reference *before* fitz.open so a corrupt PDF that
+        # raises never leaves ``self._doc`` pointing at an already-closed
+        # Document (use-after-close). Only publish on success.
+        self._doc = None
+        doc = fitz.open(path)
+        if doc.needs_pass and password:
+            doc.authenticate(password)
+        self._doc = doc
         self._path = path
         self._password = password
         self._page_idx = 0
