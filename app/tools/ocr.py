@@ -49,18 +49,28 @@ def _find_tesseract() -> str | None:
 def _find_tessdata(tess_exe: str | None) -> str | None:
     """Locate the tessdata directory across platforms.
 
-    Windows / macOS Homebrew put tessdata next to the binary. Debian /
-    Ubuntu put it under /usr/share/tesseract-ocr/<version>/tessdata,
-    and the binary itself often has a default path baked in that
-    points at the wrong version (Ubuntu 24.04 ships v5 but the
-    default still points at .../4.00/tessdata, see issue #27).
-    Without TESSDATA_PREFIX set explicitly, OCR fails with
-    'Error opening data file .../4.00/tessdata/eng.traineddata'."""
+    Windows puts tessdata next to the binary. Homebrew keeps the binary
+    under ``<prefix>/bin`` but the data under ``<prefix>/share/tessdata``
+    (``/usr/local`` on Intel, ``/opt/homebrew`` on Apple Silicon), so we
+    derive ``<prefix>/share/tessdata`` relative to the binary — this also
+    covers non-standard install prefixes. Debian / Ubuntu put it under
+    /usr/share/tesseract-ocr/<version>/tessdata, and the binary itself
+    often has a default path baked in that points at the wrong version
+    (Ubuntu 24.04 ships v5 but the default still points at
+    .../4.00/tessdata, see issue #27). Without TESSDATA_PREFIX set
+    explicitly, OCR fails with 'Error opening data file
+    .../4.00/tessdata/eng.traineddata'."""
     import sys
     if tess_exe:
         adjacent = os.path.join(os.path.dirname(tess_exe), "tessdata")
         if os.path.isdir(adjacent):
             return adjacent
+        # Homebrew (Intel /usr/local, Apple Silicon /opt/homebrew) and
+        # custom prefixes: <prefix>/bin/tesseract -> <prefix>/share/tessdata.
+        prefixed = os.path.join(os.path.dirname(os.path.dirname(tess_exe)),
+                                "share", "tessdata")
+        if os.path.isdir(prefixed):
+            return prefixed
     if sys.platform.startswith(("linux", "darwin")):
         import glob
         # Sort descending so the latest version wins (5 over 4.00 on
@@ -69,9 +79,11 @@ def _find_tessdata(tess_exe: str | None) -> str | None:
                         reverse=True):
             if os.path.isdir(p):
                 return p
-        # Older Debian, manual installs, snap fallbacks.
+        # Older Debian, manual installs, Homebrew (Intel + Apple
+        # Silicon), snap fallbacks.
         for p in ("/usr/share/tessdata",
                   "/usr/local/share/tessdata",
+                  "/opt/homebrew/share/tessdata",
                   "/snap/tesseract/current/usr/share/tesseract-ocr/tessdata"):
             if os.path.isdir(p):
                 return p
