@@ -15,14 +15,25 @@ The fix is additive:
 1. Derive ``<prefix>/share/tessdata`` relative to the binary
    (``<prefix>/bin/tesseract`` -> ``<prefix>/share/tessdata``). This
    covers Intel, Apple Silicon *and* non-standard install prefixes in
-   one generic step, checked right after the adjacent ``bin/tessdata``
-   probe.
+   one generic step.
 2. Add ``/opt/homebrew/share/tessdata`` to the fixed
    ``linux``/``darwin`` fallback list, for the case where the binary is
    resolved via ``PATH`` and the derived prefix does not match.
 
-Nothing about the existing Windows-adjacent or Linux
-``/usr/share/tesseract-ocr/<version>/tessdata`` (reverse-sorted)
+The precedence enforced by ``_find_tessdata`` (first match wins) is:
+
+1. ``<bindir>/tessdata`` adjacent to the binary (Windows / bundled).
+2. Versioned Linux ``/usr/share/tesseract-ocr/<version>/tessdata``,
+   reverse-sorted so the newest version wins.
+3. The relative ``<prefix>/share/tessdata`` derivation from step (1)
+   above — deliberately *after* the versioned lookup so a stale flat
+   ``/usr/share/tessdata`` (which is what the derivation yields for
+   ``/usr/bin/tesseract``) never shadows a newer versioned directory
+   (issue #27, PR #146 review).
+4. Fixed ``/usr/share``, ``/usr/local/share``, ``/opt/homebrew/share``
+   and snap fallbacks.
+
+Nothing about the existing Windows-adjacent or Linux versioned
 behaviour changes.
 
 These tests never touch the real filesystem or the real ``sys.platform``
@@ -81,27 +92,44 @@ def _patch_fs(monkeypatch, existing, *, platform=None, glob_results=None):
 
 
 # ---------------------------------------------------------------------------
-# prefix-relative derivation (platform independent — runs in the tess_exe
-# block before any sys.platform check)
+# prefix-relative derivation (step 3: runs after the adjacent probe AND the
+# versioned Linux glob, so the versioned glob is patched empty to prove we
+# fall through to the derivation, not to a real CI-runner tessdata dir)
 # ---------------------------------------------------------------------------
 def test_apple_silicon_homebrew(monkeypatch):
     # <prefix>/bin/tesseract -> <prefix>/share/tessdata on /opt/homebrew.
-    # Only the share/tessdata dir exists; the adjacent bin/tessdata does not.
-    _patch_fs(monkeypatch, {"/opt/homebrew/share/tessdata"})
+    # Only the share/tessdata dir exists; the adjacent bin/tessdata does not
+    # and macOS has no versioned /usr/share/tesseract-ocr layout.
+    _patch_fs(
+        monkeypatch,
+        {"/opt/homebrew/share/tessdata"},
+        platform="darwin",
+        glob_results=[],
+    )
     result = _find_tessdata("/opt/homebrew/bin/tesseract")
     assert _norm(result) == "/opt/homebrew/share/tessdata"
 
 
 def test_intel_homebrew_regression(monkeypatch):
     # /usr/local (Intel Homebrew) must keep working via the same derivation.
-    _patch_fs(monkeypatch, {"/usr/local/share/tessdata"})
+    _patch_fs(
+        monkeypatch,
+        {"/usr/local/share/tessdata"},
+        platform="darwin",
+        glob_results=[],
+    )
     result = _find_tessdata("/usr/local/bin/tesseract")
     assert _norm(result) == "/usr/local/share/tessdata"
 
 
 def test_custom_prefix(monkeypatch):
     # A non-standard prefix proves the derivation is generic, not hard-coded.
-    _patch_fs(monkeypatch, {"/opt/custom/share/tessdata"})
+    _patch_fs(
+        monkeypatch,
+        {"/opt/custom/share/tessdata"},
+        platform="linux",
+        glob_results=[],
+    )
     result = _find_tessdata("/opt/custom/bin/tesseract")
     assert _norm(result) == "/opt/custom/share/tessdata"
 
@@ -177,6 +205,29 @@ def test_linux_reverse_sort_prefers_latest(monkeypatch):
             "/usr/share/tesseract-ocr/4.00/tessdata",
             "/usr/share/tesseract-ocr/5/tessdata",
         ],
+    )
+    result = _find_tessdata("/usr/bin/tesseract")
+    assert _norm(result) == "/usr/share/tesseract-ocr/5/tessdata"
+
+
+def test_linux_versioned_wins_over_flat_usr_share(monkeypatch):
+    # PR #146 review regression: for /usr/bin/tesseract the relative prefix
+    # derivation yields the flat /usr/share/tessdata. If that derivation ran
+    # before the versioned lookup (the bug), a stale /usr/share/tessdata
+    # would shadow a newer /usr/share/tesseract-ocr/5/tessdata. Both dirs
+    # exist here; the versioned lookup runs first, so 5 must win (issue #27).
+    #
+    # This test FAILS against the pre-fix ordering (which returned
+    # /usr/share/tessdata) and PASSES once the versioned glob is checked
+    # before the relative derivation.
+    _patch_fs(
+        monkeypatch,
+        {
+            "/usr/share/tessdata",
+            "/usr/share/tesseract-ocr/5/tessdata",
+        },
+        platform="linux",
+        glob_results=["/usr/share/tesseract-ocr/5/tessdata"],
     )
     result = _find_tessdata("/usr/bin/tesseract")
     assert _norm(result) == "/usr/share/tesseract-ocr/5/tessdata"

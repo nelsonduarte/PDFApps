@@ -49,38 +49,53 @@ def _find_tesseract() -> str | None:
 def _find_tessdata(tess_exe: str | None) -> str | None:
     """Locate the tessdata directory across platforms.
 
-    Windows puts tessdata next to the binary. Homebrew keeps the binary
-    under ``<prefix>/bin`` but the data under ``<prefix>/share/tessdata``
-    (``/usr/local`` on Intel, ``/opt/homebrew`` on Apple Silicon), so we
-    derive ``<prefix>/share/tessdata`` relative to the binary — this also
-    covers non-standard install prefixes. Debian / Ubuntu put it under
-    /usr/share/tesseract-ocr/<version>/tessdata, and the binary itself
-    often has a default path baked in that points at the wrong version
-    (Ubuntu 24.04 ships v5 but the default still points at
-    .../4.00/tessdata, see issue #27). Without TESSDATA_PREFIX set
-    explicitly, OCR fails with 'Error opening data file
-    .../4.00/tessdata/eng.traineddata'."""
+    Precedence (first match wins):
+
+    1. ``<bindir>/tessdata`` adjacent to the binary — Windows and any
+       install that bundles the data next to the executable.
+    2. The versioned Linux layout
+       ``/usr/share/tesseract-ocr/<version>/tessdata``, reverse-sorted so
+       the newest version wins. Checked *before* the relative prefix
+       derivation (step 3) on purpose: the binary often has a stale
+       default baked in (Ubuntu 24.04 ships v5 but still points at
+       .../4.00/tessdata, see issue #27), and a flat ``/usr/share/tessdata``
+       — which step 3 would derive from ``/usr/bin/tesseract`` — must never
+       shadow a newer versioned directory.
+    3. ``<prefix>/share/tessdata`` derived relative to the binary
+       (``<prefix>/bin/tesseract`` -> ``<prefix>/share/tessdata``). This
+       covers Homebrew (Intel ``/usr/local``, Apple Silicon
+       ``/opt/homebrew``) and non-standard install prefixes; on those
+       systems the versioned glob in step 2 finds nothing so we land here.
+    4. Fixed fallbacks for older Debian, manual installs, Homebrew and
+       snap layouts.
+
+    Without TESSDATA_PREFIX set explicitly, OCR would otherwise fail with
+    'Error opening data file .../4.00/tessdata/eng.traineddata'."""
     import sys
+    # 1. tessdata adjacent to the binary (Windows and bundled installs).
     if tess_exe:
         adjacent = os.path.join(os.path.dirname(tess_exe), "tessdata")
         if os.path.isdir(adjacent):
             return adjacent
-        # Homebrew (Intel /usr/local, Apple Silicon /opt/homebrew) and
-        # custom prefixes: <prefix>/bin/tesseract -> <prefix>/share/tessdata.
-        prefixed = os.path.join(os.path.dirname(os.path.dirname(tess_exe)),
-                                "share", "tessdata")
-        if os.path.isdir(prefixed):
-            return prefixed
+    # 2. Versioned Linux layout, newest first. Kept ahead of the relative
+    #    prefix derivation so a stale /usr/share/tessdata never shadows a
+    #    newer /usr/share/tesseract-ocr/<version>/tessdata (issue #27).
     if sys.platform.startswith(("linux", "darwin")):
         import glob
-        # Sort descending so the latest version wins (5 over 4.00 on
-        # Ubuntu 24.04 where both folders may coexist).
         for p in sorted(glob.glob("/usr/share/tesseract-ocr/*/tessdata"),
                         reverse=True):
             if os.path.isdir(p):
                 return p
-        # Older Debian, manual installs, Homebrew (Intel + Apple
-        # Silicon), snap fallbacks.
+    # 3. Homebrew (Intel /usr/local, Apple Silicon /opt/homebrew) and
+    #    custom prefixes: <prefix>/bin/tesseract -> <prefix>/share/tessdata.
+    if tess_exe:
+        prefixed = os.path.join(os.path.dirname(os.path.dirname(tess_exe)),
+                                "share", "tessdata")
+        if os.path.isdir(prefixed):
+            return prefixed
+    # 4. Older Debian, manual installs, Homebrew (Intel + Apple Silicon),
+    #    snap fallbacks.
+    if sys.platform.startswith(("linux", "darwin")):
         for p in ("/usr/share/tessdata",
                   "/usr/local/share/tessdata",
                   "/opt/homebrew/share/tessdata",
