@@ -42,6 +42,13 @@ _log = logging.getLogger(__name__)
 # of corrupting the page. See issue #147.
 
 _EMBED_FAMILY = "PDFAppsEmbeddedFont"
+# Legibility floor for the reinserted text. ``insert_htmlbox`` may scale text
+# down to make it fit; below this fraction of the original point size the result
+# is effectively illegible, so we surface a non-blocking warning instead of
+# shrinking silently (issue S1). We keep PyMuPDF's default ``scale_low=0`` (see
+# ``_warn_if_downscaled``) because a positive ``scale_low`` makes insert_htmlbox
+# draw NOTHING on overflow — total text loss, worse than an over-shrunk line.
+_MIN_LEGIBLE_SCALE = 0.6
 # Style tokens stripped (as suffixes) when reducing a PostScript/BaseFont name
 # to a comparable "core" family, so e.g. ``ArialMT`` and ``Arial Regular`` and
 # ``Arial-BoldMT`` all reduce to ``arial``. Matching is only a HINT — the
@@ -206,14 +213,50 @@ def _build_embed_archive(fitz, doc, page, edit, new_txt):
     return arch, ref
 
 
+def _text_edit_redaction_rect(fitz, edit, size):
+    """Vertically TIGHT redaction rectangle for removing the original span.
+
+    PyMuPDF's span ``bbox`` is inflated by the font's ascender/descender —
+    often ~1.35x the point size — so redacting the raw bbox of a single line at
+    normal (~1.2x) leading reaches into, and erases glyphs of, the lines
+    directly above and below (the adjacent-line clipping bug, A1). We instead
+    rebuild the band from the baseline with the documented PyMuPDF recipe::
+
+        y1 = origin.y - size * descender / (ascender - descender)   # descenders
+        y0 = y1 - size                                              # ~body top
+
+    The band is only ~one point size tall (not the inflated line height) yet it
+    still straddles the baseline, so ``apply_redactions`` — which removes a
+    glyph whose bbox merely INTERSECTS the rectangle — still deletes every
+    target glyph, while neighbours a full line-height away are left untouched.
+    Missing/degenerate metrics (or a band that would fall outside the original
+    bbox) fall back to the raw bbox, which is always safe for removal."""
+    bbox = fitz.Rect(edit["bbox"])
+    origin = edit.get("origin") or (bbox.x0, bbox.y1)
+    asc = float(edit.get("ascender") or 0)
+    desc = float(edit.get("descender") or 0)
+    span = asc - desc
+    if size > 0 and asc > 0 and desc < 0 and span > 1e-3:
+        y1 = float(origin[1]) - size * desc / span
+        y0 = y1 - size
+        # Adopt the tight band only when it is well-formed AND contained within
+        # the inflated bbox (with a hair of slack): this guarantees we never
+        # *expand* the deleted area and guards against odd origin/metrics.
+        if (y1 - y0) >= size * 0.5 and y0 >= bbox.y0 - 0.5 and y1 <= bbox.y1 + 0.5:
+            return fitz.Rect(bbox.x0, y0, bbox.x1, y1)
+    return bbox
+
+
 def _text_edit_layout_rect(fitz, page, edit, size):
     """Layout rectangle for insert_htmlbox. insert_htmlbox lays text from the
     TOP of the rect, so we anchor the top at ``origin_y - ascender*size`` (the
     original ascent line) which lands the new baseline within ~1pt of the
     original for the exact font and within a couple of points for a substitute.
     The rect runs to the right page margin (widest single line, avoiding
-    scale-down) and is generously tall — htmlbox draws only glyphs, never a
-    filled box, so extra height is visually free."""
+    scale-down) and extends DOWN to the bottom page margin so longer edited text
+    WRAPS at its original size across several lines instead of being silently
+    scaled to an illegible size (S1). htmlbox draws only glyphs, never a filled
+    box, so the extra height is visually free."""
     bbox = fitz.Rect(edit["bbox"])
     origin = edit.get("origin") or (bbox.x0, bbox.y1)
     asc = float(edit.get("ascender") or 0) or 0.9
@@ -222,53 +265,91 @@ def _text_edit_layout_rect(fitz, page, edit, size):
     right = page.rect.x1 - 2.0
     if right <= x0 + size:
         right = min(page.rect.x1, x0 + size * 8)
-    return fitz.Rect(x0, top, right, top + 3.0 * size)
+    bottom = max(top + 3.0 * size, page.rect.y1 - 2.0)
+    return fitz.Rect(x0, top, right, bottom)
 
 
-def _reinsert_edited_text(fitz, doc, page, edit):
+def _warn_if_downscaled(htmlbox_result, edit, warn_fn):
+    """Inspect ``Page.insert_htmlbox``'s ``(spare_height, scale)`` return value.
+
+    We keep the default ``scale_low=0`` so text is never dropped, but a scale
+    below ``_MIN_LEGIBLE_SCALE`` (or a reported fit failure) means the edit had
+    to shrink to an illegible size. Rather than let that happen silently we log
+    it and notify ``warn_fn`` (if given) so the caller can raise a non-blocking
+    heads-up. Any unexpected return shape is ignored defensively."""
+    try:
+        spare_height, scale = htmlbox_result
+        scale = float(scale)
+    except Exception:
+        return
+    if scale < _MIN_LEGIBLE_SCALE or (spare_height is not None and spare_height < 0):
+        _log.warning(
+            "edited text did not fit its box at the original size "
+            "(scale=%.2f); it was reduced to fit. old=%r",
+            scale, (edit.get("old_text") or "")[:40])
+        if warn_fn is not None:
+            try:
+                warn_fn(edit)
+            except Exception:
+                _log.exception("text-fit warn_fn raised")
+
+
+def _reinsert_edited_text(fitz, doc, page, edit, warn_fn=None):
     """Redact the original span transparently and reinsert the edited text with
     the original size/weight/colour and — when possible — the exact font.
     Returns True if the original embedded font was reused (so the caller may run
-    ``subset_fonts`` afterwards)."""
+    ``subset_fonts`` afterwards).
+
+    ``warn_fn`` (optional): called with ``edit`` when the reinserted text did
+    not fit at its original size and had to be scaled below the legibility floor
+    — lets the caller surface a non-blocking heads-up instead of an unexplained
+    tiny line (S1)."""
     bbox = fitz.Rect(edit["bbox"])
     new_txt = (edit.get("new_text") or "").strip()
+    size = _text_edit_size(edit)
     # Capture the source font BEFORE redaction removes the glyphs (and the font).
     arch = ref = None
     if new_txt:
         arch, ref = _build_embed_archive(fitz, doc, page, edit, new_txt)
     # 1) Remove the original glyphs WITHOUT the white-rectangle artifact:
     #    a transparent redaction (no fill, no cross-out) that only deletes text
-    #    (images=0, graphics=0) so a coloured background/line-art survives.
+    #    (images=0, graphics=0) so a coloured background/line-art survives. The
+    #    rectangle is a vertically TIGHT body band (not the inflated line-height
+    #    bbox) so adjacent lines are not clipped — see _text_edit_redaction_rect.
+    redact_rect = _text_edit_redaction_rect(fitz, edit, size)
     try:
-        page.add_redact_annot(bbox, fill=False, cross_out=False)
+        page.add_redact_annot(redact_rect, fill=False, cross_out=False)
         page.apply_redactions(images=0, graphics=0, text=0)
     except Exception:
         # Last-resort removal guarantee (previous behaviour): opaque white box.
-        page.add_redact_annot(bbox, fill=(1, 1, 1))
+        page.add_redact_annot(redact_rect, fill=(1, 1, 1))
         page.apply_redactions()
     if not new_txt:
         return False
-    size = _text_edit_size(edit)
     color_hex = _text_edit_color_hex(edit)
     rect = _text_edit_layout_rect(fitz, page, edit, size)
     body = "<div>%s</div>" % html.escape(new_txt)
-    # 2) Reinsert with fidelity. Any failure degrades to a base-14 insert_text
-    #    at the original baseline (already correct size/weight/colour), never
-    #    leaving the page corrupted.
+    # 2) Reinsert with fidelity. ``white-space:pre-wrap`` preserves the original
+    #    spacing yet lets long edited text WRAP into the tall box (S1) instead of
+    #    being scaled down to fit on one line. Any failure degrades to a base-14
+    #    insert_text at the original baseline (already correct size/weight/
+    #    colour), never leaving the page corrupted.
     try:
         if arch is not None:
             css = ("@font-face {{ font-family: {fam}; src: url({ref}); }}\n"
-                   "* {{ margin:0; padding:0; white-space:pre;"
+                   "* {{ margin:0; padding:0; white-space:pre-wrap;"
                    " font-family:{fam}; font-size:{sz}pt; color:{col}; }}"
                    ).format(fam=_EMBED_FAMILY, ref=ref, sz=size, col=color_hex)
-            page.insert_htmlbox(rect, body, css=css, archive=arch)
+            _warn_if_downscaled(
+                page.insert_htmlbox(rect, body, css=css, archive=arch),
+                edit, warn_fn)
             return True
         family, weight, style = _generic_font_style(edit)
-        css = ("* {{ margin:0; padding:0; white-space:pre;"
+        css = ("* {{ margin:0; padding:0; white-space:pre-wrap;"
                " font-family:{fam}; font-size:{sz}pt; color:{col};"
                " font-weight:{w}; font-style:{s}; }}"
                ).format(fam=family, sz=size, col=color_hex, w=weight, s=style)
-        page.insert_htmlbox(rect, body, css=css)
+        _warn_if_downscaled(page.insert_htmlbox(rect, body, css=css), edit, warn_fn)
         return False
     except Exception:
         _log.exception("htmlbox reinsertion failed; using base-14 insert_text")
@@ -1492,6 +1573,11 @@ class TabEditar(QWidget):
             if _non_latin:
                 self._status(t("tool.warn.font_latin_only"))
             embedded_font = False  # any text_edit that re-embedded its font
+            # Edits whose new text could not keep its original size (S1). Each
+            # entry is the edit dict; a non-empty list raises a non-blocking
+            # heads-up after the save so the user is never left with an
+            # unexplained illegibly-shrunk line.
+            text_fit_warnings = []
             for e in self._pending:
                 if e.get("_existing") and e.get("type") != "delete_annot":
                     continue  # already saved in the PDF
@@ -1544,7 +1630,8 @@ class TabEditar(QWidget):
                     # box) + insert_htmlbox preserving the original size, weight,
                     # colour and — when the source font is embeddable — the exact
                     # typeface, with a defensive base-14 fallback. See #147.
-                    if _reinsert_edited_text(fitz, doc, pg, e):
+                    if _reinsert_edited_text(fitz, doc, pg, e,
+                                             warn_fn=text_fit_warnings.append):
                         embedded_font = True
             if embedded_font:
                 # Subset the freshly embedded fonts to keep the file small.
@@ -1586,7 +1673,16 @@ class TabEditar(QWidget):
                 raise
             self._pending.clear(); self._pending_list.clear()
             self._status(t("edit.status.saved", path=out))
-            QMessageBox.information(self, t("msg.done"), t("msg.pdf_saved", path=out))
+            if text_fit_warnings:
+                # Some edited text could not keep its original size (it was
+                # reduced to fit its line). The save still succeeded — flag it
+                # with a warning-styled dialog (reusing existing translated
+                # strings) so the user knows to review those lines.
+                QMessageBox.warning(self, t("msg.warning"),
+                                    t("msg.pdf_saved", path=out))
+            else:
+                QMessageBox.information(self, t("msg.done"),
+                                        t("msg.pdf_saved", path=out))
             # Reload the saved file
             self._load_pdf(out)
         except Exception as e:
