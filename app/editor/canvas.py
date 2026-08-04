@@ -470,13 +470,23 @@ class PdfEditCanvas(QWidget):
             if new_text == original:
                 return
             bb = span["bbox"]
+            # ``visual_size`` (inflated to the bbox height) styles the inline
+            # QLineEdit only. ``font_size`` is the TRUE span size the save path
+            # must reinsert at — using the inflated size was the #147 size bug.
             visual_size = max(float(span.get("size") or 0), float(bb[3] - bb[1]))
             edit = {
                 "type": "text_edit", "page": page_idx,
                 "bbox": list(bb), "old_text": span.get("text", ""),
                 "new_text": new_text, "size": visual_size,
+                "font_size": float(span.get("size") or 0),
                 "color": span.get("color", 0),
                 "font": span.get("font", ""),
+                # PyMuPDF span flags (bold=16, italic=2, serif=4, mono=8) and
+                # font metrics let the save path reproduce weight/style and
+                # place the new baseline near the original. See #147.
+                "flags": int(span.get("flags", 0) or 0),
+                "ascender": float(span.get("ascender") or 0),
+                "descender": float(span.get("descender") or 0),
                 "origin": list(span.get("origin", (bb[0], bb[3]))),
             }
             self.text_edit_committed.emit(page_idx, edit)
