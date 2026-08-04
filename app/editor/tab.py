@@ -367,6 +367,7 @@ def _reinsert_edited_text(fitz, doc, page, edit, warn_fn=None):
 # Mode indices in `_mode_btns` — kept as constants for readability so
 # call-sites like `if self._mode_idx == _MODE_FORMS:` document intent
 # without forcing a refactor of the existing numeric layout.
+_MODE_TEXT = 1
 _MODE_IMAGE = 2
 _MODE_FORMS = 5
 _MODE_SIGNATURE = 6
@@ -450,7 +451,7 @@ class TabEditar(QWidget):
         self._redo_stack = []
         self._doc_path = None
         self._pdf_password = ""
-        self._mode_idx = 0
+        self._mode_idx = _MODE_TEXT
         self._dark_mode = True
         self.setObjectName("content_area")
 
@@ -538,11 +539,10 @@ class TabEditar(QWidget):
             btn.clicked.connect(lambda checked, b=btn: self._on_mode_btn(b))
             self._mode_btns.append(btn)
             gm.addWidget(btn, i // cols, i % cols)
-        self._mode_btns[0].setChecked(True)
-        self._mode_btns[0].setIcon(qta.icon(self._MODE_DEFS[0][1], color=ACCENT))
-        self._mode_btns[0].setStyleSheet(
-            f"background:#0D3D38; border:1px solid {ACCENT}; "
-            f"border-radius:6px;")
+        # The initial active mode (Text — see the __init__ tail) is applied
+        # once every widget exists, by calling _on_mode_btn(), so the button
+        # styling, options page, canvas mode/cursor and hint all match a real
+        # user click instead of being hand-rolled here.
         cv.addWidget(grp_mode)
 
         # -- Options per mode --
@@ -578,10 +578,16 @@ class TabEditar(QWidget):
         self._text_color = ColorPickerButton((0, 0, 0))
         row1.addWidget(self._text_color); row1.addStretch()
         v1.addLayout(row1)
-        hint1 = QLabel(t("edit.hint.text"))
-        hint1.setStyleSheet(f"color:{TEXT_SEC}; font-size:11px;")
-        self._hint_labels.append(hint1)
-        v1.addWidget(hint1); v1.addStretch()
+        # Text is the default mode (#147); make its discovery hint stand out
+        # (accent colour, bold, wrapped) so users immediately learn a single
+        # click on any text starts editing it. ACCENT is theme-independent, so
+        # this label is deliberately kept OUT of self._hint_labels — whose grey
+        # gets re-flattened on every theme toggle by update_theme().
+        self._text_hint = QLabel(t("edit.hint.text"))
+        self._text_hint.setWordWrap(True)
+        self._text_hint.setStyleSheet(
+            f"color:{ACCENT}; font-size:12px; font-weight:bold;")
+        v1.addWidget(self._text_hint); v1.addStretch()
         self._opt_stack.addWidget(w1)
 
         # 2 - Image
@@ -763,6 +769,13 @@ class TabEditar(QWidget):
         QShortcut(QKeySequence("Ctrl+Y"), self, self._redo)
         QShortcut(QKeySequence("Ctrl+Shift+Z"), self, self._redo)
 
+        # Start in Text mode (#147): the most useful and least destructive
+        # default (Redact used to be the default only because it was the first
+        # button). Routing through _on_mode_btn keeps the button styling, the
+        # options page, the canvas text-mode/IBeam cursor and the prominent
+        # hint fully in sync with a real user click.
+        self._on_mode_btn(self._mode_btns[_MODE_TEXT])
+
         self._update_nav()
 
     def paintEvent(self, event):
@@ -895,10 +908,15 @@ class TabEditar(QWidget):
         else:
             self._btn_undo.setToolTip(t("edit.undo_tip"))
             self._btn_redo.setToolTip(t("edit.redo_tip"))
-        # Commit/cancel any inline-edit-in-progress before changing
-        # modes — otherwise the text the user typed lands in limbo.
+        # Commit any inline-edit-in-progress before changing modes —
+        # consistent with "clicking outside confirms" (#147). In the real GUI
+        # the mode button steals focus first, so the focus-out already commits
+        # and this call is a no-op (early-returns on the hidden editor); when
+        # _on_mode_btn is invoked without a focus change it commits here. Either
+        # way _commit_inline resets its own state before emitting, so the edit
+        # is committed exactly once (never commit+cancel nor double commit).
         if hasattr(self, "_canvas") and self._canvas._inline_edit.isVisible():
-            self._canvas._cancel_inline()
+            self._canvas._commit_inline()
         self._canvas.set_select_mode(idx == 8)
         is_draw = (idx == 7)
         self._canvas.set_draw_mode(

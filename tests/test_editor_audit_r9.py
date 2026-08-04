@@ -219,14 +219,20 @@ def test_forms_undo_message_in_run():
     assert "self._btn_undo.setToolTip(tip)" in src
 
 
-# ── #9 — Mode change cancels inline edit ─────────────────────────────────
+# ── #9 — Mode change commits the inline edit (#147) ──────────────────────
 
 
-def test_mode_change_cancels_inline_edit():
+def test_mode_change_commits_inline_edit():
+    """Switching modes mid-edit must COMMIT the in-progress inline edit
+    (Word-style, #147) rather than discard it — the guarded call keeps the
+    text the user typed from landing in limbo when a different tool is
+    picked. Originally this cancelled; it now commits for consistency with
+    "clicking outside confirms"."""
     src = _read("app/editor/tab.py")
     block = src[src.find("def _on_mode_btn"):
                 src.find("def _pick_pdf")]
-    assert "self._canvas._cancel_inline()" in block
+    assert "self._canvas._commit_inline()" in block
+    assert "self._canvas._cancel_inline()" not in block
     assert "_inline_edit.isVisible()" in block
 
 

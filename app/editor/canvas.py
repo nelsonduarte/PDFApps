@@ -523,9 +523,16 @@ class PdfEditCanvas(QWidget):
                     self._commit_inline()
                     return True
             elif event.type() == QEvent.Type.FocusOut:
-                # Clicking outside cancels the edit (matches VSCode/most
-                # editors). Enter/Tab still commit; Escape still cancels.
-                self._cancel_inline()
+                # Clicking outside (or Alt-Tab / opening a dialog) COMMITS
+                # the edit, Word-style — see #147. Enter/Tab already commit;
+                # Escape still discards. _commit_inline's guards keep this
+                # safe: it resets its own state and early-returns once
+                # ``_inline_mode is None`` (so the focus-out that ``hide()``
+                # itself may trigger cannot double-commit), and it skips
+                # unchanged edits (``new_text == original``) and empty
+                # inserts (``not new_text.strip()``), so no spurious pending
+                # edit is ever created.
+                self._commit_inline()
                 return False
         return super().eventFilter(obj, event)
 
