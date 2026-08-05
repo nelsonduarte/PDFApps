@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 pymupdf = pytest.importorskip("pymupdf")
 fitz = pymupdf
 
-from app.editor.tab import (  # noqa: E402
+from app.editor.text_reinsert import (  # noqa: E402
     _font_core, _font_matches, _text_edit_size, _text_edit_color_hex,
     _text_edit_color_rgb, _base14_fontname, _reinsert_edited_text,
     _text_edit_redaction_rect, _MIN_LEGIBLE_SCALE,
