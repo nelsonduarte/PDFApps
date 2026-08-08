@@ -114,19 +114,24 @@ def test_canvas_late_discovered_notes_also_tag_match_fields():
 
 
 def test_run_loop_applies_delete_annot_edits():
-    src = _read("app/editor/tab.py")
-    run_block = src[src.find("def _run("):
-                    src.find("def _apply_forms")]
-    assert 'e["type"] == "delete_annot"' in run_block
-    assert "page.delete_annot" in run_block or "pg.delete_annot" in run_block
+    # R1 refactor: the edit-application loop moved from ``TabEditar._run`` to
+    # the pure ``app.editor.apply_edits.apply_pending_edits`` dispatcher. The
+    # delete_annot wiring must still be present there.
+    src = _read("app/editor/apply_edits.py")
+    loop_block = src[src.find("def apply_pending_edits("):]
+    assert 'e["type"] == "delete_annot"' in loop_block
+    assert "page.delete_annot" in loop_block or "pg.delete_annot" in loop_block
 
 
 def test_existing_filter_does_not_drop_delete_annot():
     """The pre-existing ``if e.get("_existing"): continue`` guard skipped
     every entry already saved in the PDF. delete_annot edits are
     flagged ``_existing=True`` but MUST be processed, so the guard now
-    excludes them explicitly."""
-    src = _read("app/editor/tab.py")
+    excludes them explicitly.
+
+    R1 refactor: the guard moved with the loop into
+    ``app.editor.apply_edits.apply_pending_edits``."""
+    src = _read("app/editor/apply_edits.py")
     assert 'e.get("_existing") and e.get("type") != "delete_annot"' in src
 
 

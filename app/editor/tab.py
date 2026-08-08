@@ -24,7 +24,7 @@ from app.i18n import t
 from app.widgets import DropFileEdit, ColorPickerButton
 from app.editor.canvas import PdfEditCanvas, _get_icon_cursor
 from app.editor.dialogs import _NoteDialog
-from app.editor.text_reinsert import _reinsert_edited_text
+from app.editor.apply_edits import apply_pending_edits
 
 
 _log = logging.getLogger(__name__)
@@ -1256,74 +1256,16 @@ class TabEditar(QWidget):
             )
             if _non_latin:
                 self._status(t("tool.warn.font_latin_only"))
-            embedded_font = False  # any text_edit that re-embedded its font
-            # Edits whose new text could not keep its original size (S1). Each
-            # entry is the edit dict; a non-empty list raises a non-blocking
+            # Apply every pending edit to the open doc via the pure dispatcher
+            # (redact / text / image / signature / highlight / note / draw /
+            # delete_annot / text_edit) and run subset_fonts when a text edit
+            # re-embedded its font — all PDF-only work, no Qt. The returned
+            # ``text_fit_warnings`` are edits whose new text could not keep its
+            # original size (S1); a non-empty list raises a non-blocking
             # heads-up after the save so the user is never left with an
             # unexplained illegibly-shrunk line.
-            text_fit_warnings = []
-            for e in self._pending:
-                if e.get("_existing") and e.get("type") != "delete_annot":
-                    continue  # already saved in the PDF
-                pg = doc[e["page"]]
-                if e["type"] == "redact":
-                    pg.add_redact_annot(e["rect"], fill=e["fill"]); pg.apply_redactions()
-                elif e["type"] == "text":
-                    fname = (e.get("font", "") or "").lower()
-                    if "times" in fname or "serif" in fname or "roman" in fname:
-                        fontname = "tiro"
-                    elif "mono" in fname or "courier" in fname or "consol" in fname:
-                        fontname = "cour"
-                    else:
-                        fontname = "helv"
-                    pg.insert_text(e["point"], e["text"], fontsize=e["size"],
-                                   color=e["color"], fontname=fontname)
-                elif e["type"] in ("image", "signature"):
-                    pg.insert_image(e["rect"], filename=e["path"])
-                elif e["type"] == "highlight":
-                    a = pg.add_highlight_annot(e["rect"]); a.set_colors(stroke=e["color"]); a.update()
-                elif e["type"] == "note":
-                    pg.add_text_annot(e["point"], e["text"])
-                elif e["type"] == "draw":
-                    # PyMuPDF's add_ink_annot expects a list of strokes, where
-                    # each stroke is a list of (x, y) float pairs — NOT a list
-                    # of fitz.Point. Passing Points raises
-                    # `ValueError: arg must be seq of seq of float pairs`.
-                    stroke = [(float(x), float(y))
-                              for x, y in e.get("points", [])]
-                    if len(stroke) >= 2:
-                        annot = pg.add_ink_annot([stroke])
-                        annot.set_colors(stroke=e.get("color", (1, 0, 0)))
-                        annot.set_border(width=max(1, int(e.get("width", 2))))
-                        annot.update()
-                elif e["type"] == "delete_annot":
-                    # Match by annot type + bbox (xref isn't stable across
-                    # the canvas-release / fitz.open round-trip used here).
-                    target_type = e.get("annot_type")
-                    target_bbox = e.get("bbox")
-                    if target_bbox is not None:
-                        target_rect = fitz.Rect(target_bbox)
-                        for annot in list(pg.annots() or []):
-                            if (annot.type[0] == target_type
-                                    and abs(annot.rect.x0 - target_rect.x0) < 1
-                                    and abs(annot.rect.y0 - target_rect.y0) < 1):
-                                pg.delete_annot(annot)
-                                break
-                elif e["type"] == "text_edit":
-                    # High-fidelity reinsertion: transparent redaction (no white
-                    # box) + insert_htmlbox preserving the original size, weight,
-                    # colour and — when the source font is embeddable — the exact
-                    # typeface, with a defensive base-14 fallback. See #147.
-                    if _reinsert_edited_text(fitz, doc, pg, e,
-                                             warn_fn=text_fit_warnings.append):
-                        embedded_font = True
-            if embedded_font:
-                # Subset the freshly embedded fonts to keep the file small.
-                # Best-effort: never let optimisation abort a valid save.
-                try:
-                    doc.subset_fonts()
-                except Exception:
-                    _log.exception("subset_fonts after text edit failed")
+            _apply_result = apply_pending_edits(doc, self._pending)
+            text_fit_warnings = _apply_result.text_fit_warnings
             fd, tmp = tempfile.mkstemp(prefix=".pdfapps_save_", suffix=".pdf",
                                        dir=os.path.dirname(out) or ".")
             os.close(fd)

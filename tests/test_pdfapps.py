@@ -759,12 +759,15 @@ class TestAuditRegressions:
     def test_draw_ink_annot_uses_tuple_points(self):
         # PyMuPDF 1.27+ rejects fitz.Point as ink-annot input with
         # ValueError: arg must be seq of seq of float pairs.
-        # tab.py builds the stroke as plain (float, float) tuples now;
+        # The draw branch builds the stroke as plain (float, float) tuples;
         # this test fails if anyone reintroduces fitz.Point wrapping.
-        src = open(_REPO_ROOT / "app" / "editor" / "tab.py", encoding="utf-8").read()
+        # R1 refactor: the edit-application loop moved from TabEditar._run to
+        # the pure app/editor/apply_edits.py dispatcher.
+        src = open(_REPO_ROOT / "app" / "editor" / "apply_edits.py",
+                   encoding="utf-8").read()
         # Locate the draw branch
         i = src.find('elif e["type"] == "draw":')
-        assert i > 0, "draw branch missing in tab.py"
+        assert i > 0, "draw branch missing in apply_edits.py"
         block = src[i:i + 600]
         assert "[fitz.Point(x, y) for x, y in" not in block, \
             "ink-annot strokes must be (x,y) tuples, not fitz.Point"
