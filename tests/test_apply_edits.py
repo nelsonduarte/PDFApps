@@ -249,6 +249,66 @@ def test_fitting_text_edit_produces_no_warnings():
     doc.close()
 
 
+# ── image / signature: embeds a raster into the page ─────────────────────
+
+def _write_png(dir_path, name="stamp.png", size=12, value=90):
+    """Write a tiny valid PNG to ``dir_path`` and return its path string.
+
+    Uses only ``fitz`` (no PIL dependency): a solid-grey RGB pixmap saved as
+    PNG. Small but real, so ``insert_image`` genuinely embeds a raster.
+    """
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, size, size))
+    pix.clear_with(value)
+    path = dir_path / name
+    pix.save(str(path))
+    return str(path)
+
+
+@pytest.mark.parametrize("edit_type", ["image", "signature"])
+def test_image_and_signature_embed_raster(tmp_path, edit_type):
+    """Both ``image`` and ``signature`` route through the same branch and must
+    embed the on-disk raster into the target page. Parametrising over the two
+    type strings makes this discriminative: dropping either from the branch's
+    ``in ("image", "signature")`` tuple would fail here."""
+    doc, page = _page_with_text("Backdrop", width=300, height=200)
+    assert page.get_images() == [], "page unexpectedly had an image to start"
+    img_path = _write_png(tmp_path, name=f"{edit_type}.png")
+    edit = {"type": edit_type, "page": 0,
+            "rect": fitz.Rect(40, 40, 140, 140), "path": img_path}
+    result = apply_pending_edits(doc, [edit])
+    assert isinstance(result, ApplyResult)
+    reopened = _reopen(doc)               # persist + reload through bytes
+    images = reopened[0].get_images()
+    reopened.close()
+    assert len(images) == 1, (
+        f"{edit_type} edit did not embed exactly one raster: {images}")
+
+
+# ── highlight: creates a coloured highlight annotation ───────────────────
+
+def test_highlight_creates_coloured_highlight_annot():
+    """A ``highlight`` edit must add exactly one Highlight annotation over the
+    target rect and stamp it with the requested stroke colour (proving both
+    ``add_highlight_annot`` and the ``set_colors(stroke=...)`` call run)."""
+    doc, page = _page_with_text("HighlightMe", size=16, at=(30, 60))
+    span = _first_span(page)
+    before = len(list(page.annots() or []))
+    colour = (0.1, 0.7, 0.3)             # distinct from the default yellow
+    edit = {"type": "highlight", "page": 0,
+            "rect": fitz.Rect(span["bbox"]), "color": colour}
+    apply_pending_edits(doc, [edit])
+    annots = list(page.annots() or [])
+    count = len(annots)
+    kind = annots[-1].type[1] if annots else None
+    stroke = annots[-1].colors.get("stroke") if annots else None
+    doc.close()
+    assert count == before + 1
+    assert kind == "Highlight"
+    assert stroke is not None
+    assert all(abs(a - b) < 0.05 for a, b in zip(stroke, colour, strict=True)), (
+        f"highlight stroke colour {stroke} != requested {colour}")
+
+
 # ── batch: several edit types in one call ────────────────────────────────
 
 def test_mixed_batch_applies_all_edits():
