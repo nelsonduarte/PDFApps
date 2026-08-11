@@ -53,8 +53,12 @@ def _find_gs():
                 if os.path.isfile(p):
                     _GS_CACHE = (True, os.path.abspath(p))
                     return _GS_CACHE[1]
+    # Cache the negative result as well, so a machine without Ghostscript
+    # does not re-run the slow glob on every compress. Return through the
+    # cache tuple — identical to `return None`, since we just stored None —
+    # which also makes this store a read for the liveness analyser.
     _GS_CACHE = (True, None)
-    return None
+    return _GS_CACHE[1]
 
 
 def _win_short_path(path: str) -> str:
@@ -82,6 +86,9 @@ def _win_short_path(path: str) -> str:
         if n and buf.value:
             return buf.value
     except Exception:
+        # Best-effort 8.3 conversion; if it fails (short names disabled on
+        # the volume, or ctypes/kernel32 unavailable) fall through and
+        # return the original path unchanged.
         pass
     return path
 
@@ -176,7 +183,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             # still has it open).
             for _p in temps:
                 try: os.unlink(_p)
-                except Exception: pass
+                except Exception: pass  # already gone or still locked by fitz/pikepdf; retried in each pass's finally
             raise CancelledError()
 
     # ── Pass A : Ghostscript — full re-render ────────────────────────────
@@ -248,22 +255,22 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                     except subprocess.TimeoutExpired:
                         proc.kill()
                         try: proc.wait(timeout=2)
-                        except subprocess.TimeoutExpired: pass
+                        except subprocess.TimeoutExpired: pass  # already SIGKILLed; leave the reap to the OS rather than block the worker
             if cancelled:
                 try: os.unlink(p)
-                except Exception: pass
+                except Exception: pass  # partial gs output; ignore if it is missing or still locked
                 raise CancelledError()
             if proc.returncode == 0 and _is_valid_pdf(p):
                 temps.append(p)
             else:
                 try: os.unlink(p)
-                except Exception: pass
+                except Exception: pass  # gs produced no usable PDF; drop the temp, ignore if never created
         except CancelledError:
             raise
         except Exception:
             if p:
                 try: os.unlink(p)
-                except Exception: pass
+                except Exception: pass  # Pass A is optional; discard its temp and fall through to Pass B/C
 
     # ── Pass B : PyMuPDF — scrub + rewrite_images ────────────────────────
     _prog("passB_setup")
@@ -285,6 +292,8 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             doc.scrub(metadata=True, xml_metadata=True,
                       thumbnails=True, attached_files=True)
         except Exception:
+            # scrub is a best-effort size optimization; if fitz cannot scrub
+            # this structure, skip it and continue — the pass still saves.
             pass
 
         # Cancel checkpoint between scrub (slow on heavy XMP /
@@ -295,6 +304,8 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         try:
             doc.subset_fonts()
         except Exception:
+            # Font subsetting is best-effort; broken/unsupported font tables
+            # must not abort the pass — keep the full fonts and continue.
             pass
 
         # 3. Rewrite all images (replaces the old manual loop)
@@ -312,6 +323,8 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 set_to_gray=gray,
             )
         except Exception:
+            # Image rewriting is best-effort; on any fitz failure keep the
+            # original images and still save a valid (if larger) output.
             pass
         _prog("passB_images", 1, 1)
 
@@ -337,14 +350,18 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         # being swallowed by `except Exception` below.
         raise
     except Exception:
+        # Pass B is optional (fitz may be missing or choke on the file);
+        # swallow so the pipeline still tries Pass C. CancelledError and
+        # WrongPasswordError are re-raised above, so only genuine
+        # best-effort failures reach here.
         pass
     finally:
         if doc is not None:
             try: doc.close()
-            except Exception: pass
+            except Exception: pass  # best-effort close; an already-closed handle is harmless
         if p:
             try: os.unlink(p)
-            except Exception: pass
+            except Exception: pass  # orphan temp (save failed/invalid); ignore if missing or locked
 
     # ── Pass C : pikepdf — structural optimization ───────────────────────
     _prog("passC")
@@ -382,13 +399,16 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         # but Windows refused while the handle was live.
         if pdf is not None:
             try: pdf.close()
-            except Exception: pass
+            except Exception: pass  # eager close to release the temp handle; a failing close is non-fatal here
             pdf = None
         for _p in temps:
             try: os.unlink(_p)
-            except Exception: pass
+            except Exception: pass  # handle now released; ignore temps already gone or still locked
         raise
     except Exception:
+        # Pass C is optional (pikepdf may be missing or fail on the file);
+        # swallow so we still pick the best of Pass A/B. A truly empty
+        # `temps` is surfaced by the deps_missing guard below.
         pass
     finally:
         if pdf is not None:
@@ -408,7 +428,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     for _p in temps:
         if _p != best:
             try: os.unlink(_p)
-            except Exception: pass
+            except Exception: pass  # non-winning temp; a leftover in %TEMP% is harmless
 
     if best_size >= before:
         with contextlib.suppress(Exception):
