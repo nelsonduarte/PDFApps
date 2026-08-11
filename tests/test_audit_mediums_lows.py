@@ -37,7 +37,7 @@ def _read(rel: str) -> str:
 
 
 def test_compress_deps_missing_translated():
-    src = _read("app/utils.py")
+    src = _read("app/pdf_compress.py")
     assert 'RuntimeError("Install pypdf and/or PyMuPDF' not in src, (
         "Raw English RuntimeError should be replaced by t() lookup."
     )
@@ -45,7 +45,7 @@ def test_compress_deps_missing_translated():
 
 
 def test_compress_no_gain_uses_translated_key():
-    src = _read("app/utils.py")
+    src = _read("app/pdf_compress.py")
     assert 'raise ValueError(f"No gain:' not in src, (
         "Raw English ValueError should be replaced by t() lookup."
     )
