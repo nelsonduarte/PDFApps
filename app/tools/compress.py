@@ -9,9 +9,10 @@ from PySide6.QtWidgets import (
 )
 from app.base import BasePage
 from app.i18n import t
-from app.utils import (section, info_lbl, _compress_pdf, _find_gs,
+from app.utils import (section, info_lbl,
                         show_error, result_label_style,
                         format_size_localized)
+from app.pdf_compress import _compress_pdf, _find_gs
 from app.worker import TaskRunner, run_task
 from app.constants import DESKTOP, TEXT_SEC
 from app.widgets import DropFileEdit

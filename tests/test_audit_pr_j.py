@@ -160,7 +160,7 @@ def test_convert_call_sites_use_atomic_save():
 
 def test_win_short_path_noop_on_posix():
     """On non-Windows hosts the helper must return the path unchanged."""
-    from app.utils import _win_short_path
+    from app.pdf_compress import _win_short_path
     if sys.platform == "win32":
         pytest.skip("Windows-specific behaviour exercised in next test")
     assert _win_short_path("/tmp/x.pdf") == "/tmp/x.pdf"
@@ -173,7 +173,7 @@ def test_win_short_path_returns_string_on_windows(tmp_path):
     """
     if sys.platform != "win32":
         pytest.skip("Windows-only")
-    from app.utils import _win_short_path
+    from app.pdf_compress import _win_short_path
     p = tmp_path / "test.pdf"
     p.write_bytes(b"%PDF-1.4\n")
     out = _win_short_path(str(p))
@@ -182,7 +182,7 @@ def test_win_short_path_returns_string_on_windows(tmp_path):
 
 
 def test_compress_gs_cmd_uses_short_path_helper():
-    src = (_REPO_ROOT / "app" / "utils.py").read_text(encoding="utf-8")
+    src = (_REPO_ROOT / "app" / "pdf_compress.py").read_text(encoding="utf-8")
     # The gs call site must apply _win_short_path to both input and
     # output before assembling the command.
     assert "_win_short_path(src)" in src

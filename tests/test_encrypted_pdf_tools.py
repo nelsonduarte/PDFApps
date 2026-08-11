@@ -38,7 +38,8 @@ _unused_app = QApplication.instance() or QApplication([])
 import fitz  # noqa: E402
 
 from app.i18n import t  # noqa: E402
-from app.utils import _compress_pdf, WrongPasswordError, _is_valid_pdf  # noqa: E402
+from app.utils import WrongPasswordError, _is_valid_pdf  # noqa: E402
+from app.pdf_compress import _compress_pdf  # noqa: E402
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
