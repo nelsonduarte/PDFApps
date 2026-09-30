@@ -23,6 +23,11 @@ artifacts-*/
 artefacts-*/
 
 # Testes / temporários
+# coverage>=7.16.1 is declared in requirements-dev.txt, so `coverage run
+# -m pytest` / `--cov` leave these behind in the repo root.
+.coverage
+.coverage.*
+htmlcov/
 test_ctrl_scroll.py
 test_*.pdf
 test_*.xlsx

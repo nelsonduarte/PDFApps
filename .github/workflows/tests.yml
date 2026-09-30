@@ -1,0 +1,68 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (Ubuntu, Python 3.14)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.14'
+
+      - name: Install Qt system deps
+        # Deliberately two packages, not the three that build.yml:101
+        # installs: that leg runs the real GUI app, this one never leaves
+        # the offscreen platform. `ldd libqoffscreen.so` needs exactly
+        # libEGL.so.1 (libegl1), libxkbcommon.so.0 (libxkbcommon0) and
+        # libxcb.so.1 (libxcb1). libxcb-cursor.so.0 is linked only by
+        # libqxcb.so, which QT_QPA_PLATFORM=offscreen never loads, so
+        # libxcb-cursor0 is omitted here.
+        #
+        # libxcb1 is not listed because it is already present on
+        # ubuntu-latest via libegl1's own dependency chain (libegl-mesa0
+        # -> libxcb1, among many other holders); apt-get would no-op on
+        # it. If a future runner image ever drops it, the failure mode is
+        # a loud "could not load the Qt platform plugin", so add it here
+        # rather than re-adding libxcb-cursor0.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # requirements-dev.txt carries the test runners (pytest,
+          # pytest-qt) plus ruff and PyYAML, which parts of the suite
+          # invoke as subprocesses / import directly rather than
+          # skipping when absent.
+          pip install -r requirements-dev.txt
+
+      - name: Run test suite
+        env:
+          # Mandatory: the suite instantiates real QWidgets, and the
+          # default xcb plugin aborts with "could not connect to
+          # display" on a headless runner.
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m pytest -q -rs
