@@ -38,7 +38,7 @@ ebooklib>=0.20
 # Pin to >=6.1.0 to fix PYSEC-2026-87 (XXE — lxml < 6.1.0 resolves
 # external entities by default, allowing crafted DOCX/PPTX/EPUB/PDF-XMP
 # files to read arbitrary local files).
-lxml>=6.1.1
+lxml>=6.1.3
 # No package in this file requires urllib3 and app/ does not import it;
 # only requests, pulled in by pip-audit from requirements-dev.txt,
 # depends on it. Floor for advisories
