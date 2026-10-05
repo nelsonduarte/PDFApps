@@ -192,10 +192,12 @@ def test_check_for_update_returns_release_for_nsis_when_newer():
          patch.object(updater, "is_msix_install", return_value=False), \
          patch.object(updater.urllib.request, "urlopen", return_value=cm):
         result = check_for_update()
-    assert result is not None, "NSIS installs must still receive updates"
-    assert result["tag_name"] == "v999.0.0"
-    # The asset the NSIS updater downloads is still resolvable.
-    assert updater._find_asset(result)["name"] == "PDFAppsSetup.exe"
+        assert result is not None, "NSIS installs must still receive updates"
+        assert result["tag_name"] == "v999.0.0"
+        # The asset the NSIS updater downloads is still resolvable.
+        # Inside the platform patch: _find_asset picks the asset name from
+        # sys.platform, so outside it a Linux runner looks for the tar.gz.
+        assert updater._find_asset(result)["name"] == "PDFAppsSetup.exe"
 
 
 def test_check_for_update_returns_none_for_nsis_when_not_newer():
