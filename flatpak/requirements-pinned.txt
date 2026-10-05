@@ -1,6 +1,6 @@
 PySide6==6.11.1
 shiboken6==6.11.1
-pypdf==6.16.2
+pypdf==6.19.0
 cryptography==50.0.1
 qtawesome==1.4.2
 pillow==12.3.0

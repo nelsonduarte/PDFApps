@@ -1,10 +1,21 @@
 PySide6>=6.11.1
 # PYSEC-2026-3655 / PYSEC-2026-3656 (fixed in 6.15.0), CVE-2026-82398
 # (6.15.0), CVE-2026-84309 (6.16.0) and CVE-2026-84310 / CVE-2026-84311
-# (6.16.1). 6.16.1 is the first release clear of all six, so the floor
-# is the current 6.16.2 rather than the 6.15.0 the earliest advisory
-# alone would suggest.
-pypdf>=6.16.2
+# (6.16.1). Then PYSEC-2026-4158 (6.17.0), PYSEC-2026-4153 (6.18.0),
+# PYSEC-2026-4154 / PYSEC-2026-4155 / PYSEC-2026-4156 (6.18.1) and
+# PYSEC-2026-4157 / PYSEC-2026-4159 / PYSEC-2026-4160 (6.19.0), all
+# memory or runtime exhaustion on crafted PDFs. 6.19.0 is the first
+# release clear of all fourteen; 6.18.1, which build.yml installed for
+# every v1.15.0 binary it built (run 34720950897), still carries three.
+# "pip-audit -r" audits the newest release that satisfies ">=", not the
+# floor, so a floor that admits vulnerable releases audits clean for as
+# long as a fixed release exists.
+# tests/test_dependency_security_floors.py fails if the floor drops
+# below 6.19.0, but only where pytest runs (as of 2026-10-05 no
+# workflow on main runs pytest). An advisory published later against
+# the floor turns nothing that audits this file red once a fixed
+# release exists. Do not lower it.
+pypdf>=6.19.0
 # GHSA-537c-gmf6-5ccf: signature verification bypass in legacy OpenSSL
 # providers fixed in 48.0.1, and PYSEC-2026-3552 / CVE-2026-69247
 # (Bleichenbacher oracle in PKCS#7 EnvelopedData decryption, introduced
@@ -28,9 +39,15 @@ ebooklib>=0.20
 # external entities by default, allowing crafted DOCX/PPTX/EPUB/PDF-XMP
 # files to read arbitrary local files).
 lxml>=6.1.1
-# Transitive of cryptography/requests; pinned to address advisories
-# PYSEC-2026-141 / 142 / GHSA series for urllib3 < 2.7.0.
-urllib3>=2.7.0
-# Transitive of urllib3/requests; PYSEC-2026-215 for idna < 3.15.
+# No package in this file requires urllib3 and app/ does not import it;
+# only requests, pulled in by pip-audit from requirements-dev.txt,
+# depends on it. Floor for advisories
+# PYSEC-2026-141 / 142 / GHSA series for urllib3 < 2.7.0, then
+# PYSEC-2026-4175 / PYSEC-2026-4176 / PYSEC-2026-4177 (published
+# 2026-10-01, all affecting 2.7.0), fixed in 2.8.0.
+urllib3>=2.8.0
+# Same as urllib3: no package in this file requires idna (urllib3 does
+# not either) and app/ does not import it; only requests depends on it.
+# Floor for PYSEC-2026-215, idna < 3.15.
 idna>=3.18
 pyinstaller>=6.21.0
