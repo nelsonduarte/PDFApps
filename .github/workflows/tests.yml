@@ -30,20 +30,30 @@ jobs:
           python-version: '3.14'
 
       - name: Install Qt system deps
-        # Deliberately two packages, not the three that build.yml:101
-        # installs: that leg runs the real GUI app, this one never leaves
-        # the offscreen platform. `ldd libqoffscreen.so` needs exactly
-        # libEGL.so.1 (libegl1), libxkbcommon.so.0 (libxkbcommon0) and
-        # libxcb.so.1 (libxcb1). libxcb-cursor.so.0 is linked only by
-        # libqxcb.so, which QT_QPA_PLATFORM=offscreen never loads, so
-        # libxcb-cursor0 is omitted here.
+        # Two packages where build.yml's "Install Linux system deps" has
+        # three: that job freezes the app with PyInstaller, this one only
+        # runs the suite, with QT_QPA_PLATFORM=offscreen set on the "Run
+        # test suite" step. PySide6 facts below are for 6.11.2.
         #
-        # libxcb1 is not listed because it is already present on
-        # ubuntu-latest via libegl1's own dependency chain (libegl-mesa0
-        # -> libxcb1, among many other holders); apt-get would no-op on
-        # it. If a future runner image ever drops it, the failure mode is
-        # a loud "could not load the Qt platform plugin", so add it here
-        # rather than re-adding libxcb-cursor0.
+        # libxcb-cursor0 is left out: libxcb-cursor.so.0 is DT_NEEDED
+        # only by libqxcb.so, libQt6XcbQpa.so.6 and the two
+        # xcbglintegrations plugins, and a full offscreen run of this
+        # suite under LD_DEBUG=files (Ubuntu 26.04) loaded none of them.
+        #
+        # libQt6Gui.so.6 has libEGL.so.1 and libxkbcommon.so.0 as
+        # DT_NEEDED entries; with either one absent, `from PySide6 import
+        # QtGui` raises ImportError. On image ubuntu-24.04
+        # 20260927.320.1, apt-get installed libegl1 as a new package and
+        # found libxkbcommon0 already installed.
+        #
+        # libqoffscreen.so and libQt6Gui.so.6 also need libX11.so.6 and
+        # libGL.so.1, and libX11.so.6 needs libxcb.so.1. None of the
+        # packages apt-get installed or upgraded there ships any of the
+        # three, so the image already had them. Of these three, only
+        # libGL.so.1 depends on the image alone: libx11-6 and libxcb1
+        # would also come in with libegl1 (via libegl-mesa0 on Ubuntu
+        # 24.04 and 26.04), libgl1 would not. A missing one fails the
+        # same way, with an ImportError naming it.
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libxkbcommon0
