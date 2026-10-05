@@ -26,7 +26,7 @@ from app.editor.canvas import PdfEditCanvas, _get_icon_cursor
 from app.editor.dialogs import _NoteDialog
 from app.editor.apply_edits import apply_pending_edits
 from app.pdf_io import atomic_pdf_write
-from app.pdf_password import authenticate_fitz, decrypt_pypdf
+from app.pdf_password import authenticate_pymupdf, decrypt_pypdf
 
 
 _log = logging.getLogger(__name__)
@@ -631,8 +631,8 @@ class TabEditar(QWidget):
         # Prompt for password if encrypted (reuses any password already
         # stored, e.g. propagated from the viewer).
         try:
-            import fitz
-            probe = fitz.open(p)
+            import pymupdf
+            probe = pymupdf.open(p)
             needs_pass = bool(probe.needs_pass)
             if needs_pass and self._pdf_password:
                 # Re-anchor on the candidate spelling that actually
@@ -640,7 +640,7 @@ class TabEditar(QWidget):
                 # have been propagated from the viewer, which caches the
                 # form the user typed, and pypdf/MuPDF only agree when
                 # both are handed those exact bytes.
-                winner = authenticate_fitz(probe, self._pdf_password)
+                winner = authenticate_pymupdf(probe, self._pdf_password)
                 self._pdf_password = winner or ""
             probe.close()
         except Exception:
@@ -695,27 +695,27 @@ class TabEditar(QWidget):
             if not doc:
                 self._status(t("edit.status.no_doc"))
                 return
-            import fitz
+            import pymupdf
             count = 0
             total_annots = 0
             for page_idx in range(doc.page_count):
                 page = doc[page_idx]
                 for annot in page.annots():
                     total_annots += 1
-                    if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                    if annot.type[0] == pymupdf.PDF_ANNOT_TEXT:
                         r = annot.rect
                         txt = annot.info.get("content", "")
                         if txt:
                             self._pending.append({
                                 "type": "note", "page": page_idx,
-                                "point": fitz.Point(r.x0, r.y0 + r.height),
+                                "point": pymupdf.Point(r.x0, r.y0 + r.height),
                                 "text": txt,
                                 "_existing": True,
                                 # Carried so a later delete from the canvas
                                 # context menu can register a stable
                                 # `delete_annot` pending edit (matched by
                                 # annot type + bbox, since xref is not
-                                # preserved across release_doc/fitz.open).
+                                # preserved across release_doc/pymupdf.open).
                                 "_annot_type": annot.type[0],
                                 "_annot_bbox": [r.x0, r.y0, r.x1, r.y1],
                             })
@@ -762,7 +762,7 @@ class TabEditar(QWidget):
                                            t("file_filter.images"))
         if p:
             # Reject gigapixel images before any downstream consumer
-            # (QPixmap preview, fitz.Pixmap on save) allocates a huge
+            # (QPixmap preview, pymupdf.Pixmap on save) allocates a huge
             # buffer. Mirrors the guard in _SignatureDialog._pick_image.
             from app.utils import check_image_size
             ok, w, h = check_image_size(p)
@@ -881,9 +881,9 @@ class TabEditar(QWidget):
                 self._status(t("edit.status.no_text_in_selection"))
             return
         if mode in (1, 4):
-            import fitz
-            center = fitz.Point((pdf_rect.x0 + pdf_rect.x1) / 2,
-                                (pdf_rect.y0 + pdf_rect.y1) / 2)
+            import pymupdf
+            center = pymupdf.Point((pdf_rect.x0 + pdf_rect.x1) / 2,
+                                   (pdf_rect.y0 + pdf_rect.y1) / 2)
             self._on_point(page_idx, center); return
         if mode == 0:
             self._add({"type": "redact", "page": self._page_idx, "rect": pdf_rect,
@@ -911,12 +911,12 @@ class TabEditar(QWidget):
         self._update_nav()
         doc = self._canvas._doc
         if doc:
-            import fitz
+            import pymupdf
             page = doc[page_idx]
             for annot in page.annots():
-                if annot.type[0] == fitz.PDF_ANNOT_TEXT:
-                    expanded = annot.rect + fitz.Rect(-10, -10, 10, 10)
-                    if expanded.contains(fitz.Point(pdf_pt.x, pdf_pt.y)):
+                if annot.type[0] == pymupdf.PDF_ANNOT_TEXT:
+                    expanded = annot.rect + pymupdf.Rect(-10, -10, 10, 10)
+                    if expanded.contains(pymupdf.Point(pdf_pt.x, pdf_pt.y)):
                         txt = annot.info.get("content", "")
                         if txt:
                             QMessageBox.information(self, t("edit.note_popup"), txt)
@@ -925,7 +925,7 @@ class TabEditar(QWidget):
         if mode == 1:
             # Unified text mode: click on a span → edit that span; click in empty
             # space → insert new text, inheriting style from the nearest span.
-            import fitz
+            import pymupdf
             # Small PDF-point tolerance so thin glyphs / bbox edges are
             # still considered a "hit". Too large and clicks between
             # paragraphs would hijack the edit flow.
@@ -947,7 +947,7 @@ class TabEditar(QWidget):
                 font = near.get("font", "")
                 origin = near.get("origin")
                 baseline_y = float(origin[1]) if origin else float(bb[3])
-                insert_pt = fitz.Point(pdf_pt.x, baseline_y)
+                insert_pt = pymupdf.Point(pdf_pt.x, baseline_y)
             else:
                 size = self._text_size.value()
                 color = self._text_color.color_tuple()
@@ -1110,7 +1110,7 @@ class TabEditar(QWidget):
           here because the user is removing an edit, not adding one.
         * the overlay was an *existing* annotation already present in the
           source PDF — register a ``delete_annot`` pending edit so the
-          deletion survives the ``release_doc()/fitz.open`` round-trip
+          deletion survives the ``release_doc()/pymupdf.open`` round-trip
           performed inside ``_run``. Existing notes loaded by
           ``_load_existing_annotations`` already live in ``_pending`` with
           ``_existing=True``, so we both drop the note entry AND append a
@@ -1217,7 +1217,7 @@ class TabEditar(QWidget):
         if not self._user_pending:
             QMessageBox.warning(self, t("msg.warning"), t("msg.no_pending")); return
         try:
-            import fitz
+            import pymupdf
             # CRIT-2 (R10): peek the encryption status BEFORE releasing
             # the canvas. PR-D moved release_doc() ahead of the prompt
             # so the canvas dropped its _doc reference even when the
@@ -1226,7 +1226,7 @@ class TabEditar(QWidget):
             # reloaded the file. Now we open a short-lived peek doc,
             # ask the user how to save, and only release the canvas
             # once we know we will proceed.
-            peek = fitz.open(self._doc_path)
+            peek = pymupdf.open(self._doc_path)
             was_encrypted = bool(peek.needs_pass)
             if was_encrypted and self._pdf_password:
                 peek.authenticate(self._pdf_password)
@@ -1244,7 +1244,7 @@ class TabEditar(QWidget):
             # now safe to release the canvas's file lock so the
             # real save reopen can take exclusive access.
             self._canvas.release_doc()
-            doc = fitz.open(self._doc_path)
+            doc = pymupdf.open(self._doc_path)
             if doc.needs_pass and self._pdf_password:
                 doc.authenticate(self._pdf_password)
             # R11-L4: warn once if any text/note edit uses chars that the
@@ -1290,13 +1290,13 @@ class TabEditar(QWidget):
                 # — the original owner password is not recoverable from
                 # the input file. Future enhancement: ask the user for
                 # a separate owner password.
-                # ``_fitz_permissions_of`` already returns -1 on any
+                # ``_pymupdf_permissions_of`` already returns -1 on any
                 # internal failure (PyMuPDF sentinel for "all perms"),
                 # so a wrapping try/except here would be dead code.
-                perms = self._fitz_permissions_of(doc)
+                perms = self._pymupdf_permissions_of(doc)
                 save_opts = dict(
                     garbage=4, deflate=True,
-                    encryption=fitz.PDF_ENCRYPT_AES_256,
+                    encryption=pymupdf.PDF_ENCRYPT_AES_256,
                     user_pw=self._pdf_password,
                     owner_pw=self._pdf_password,
                     permissions=perms,
@@ -1324,7 +1324,7 @@ class TabEditar(QWidget):
             show_error(self, e)
 
     @staticmethod
-    def _fitz_permissions_of(doc) -> int:
+    def _pymupdf_permissions_of(doc) -> int:
         """Best-effort read of the input PDF's permissions flag. Returns
         ``-1`` (PyMuPDF sentinel for "all permissions") when the
         attribute is unavailable or unreadable."""
@@ -1382,7 +1382,7 @@ class TabEditar(QWidget):
                 # the same no_fields status so the result matches the
                 # 'plain PDF' case above. Use the get_fields() count
                 # since pypdf already exposes it cheaply via the cached
-                # AcroForm tree — avoids importing fitz just for a
+                # AcroForm tree — avoids importing PyMuPDF just for a
                 # widget count.
                 try:
                     _w_fields = _r.get_fields() or {}

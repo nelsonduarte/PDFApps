@@ -10,7 +10,7 @@ redaction (no white box) plus ``Page.insert_htmlbox`` (HarfBuzz shaping + Noto
 glyph fallback). Everything is wrapped so a failure degrades gracefully to a
 base-14 ``insert_text`` instead of corrupting the page. See issue #147.
 
-These functions are pure (no Qt/UI/``self`` state): PyMuPDF (``fitz``) and the
+These functions are pure (no Qt/UI/``self`` state): PyMuPDF (``pymupdf``) and the
 document/page objects are passed in as arguments, so they can be unit-tested
 headless. Kept in a dedicated module (extracted from ``app.editor.tab``) to keep
 the UI tab lean; ``app.editor.tab`` re-uses ``_reinsert_edited_text`` from here.
@@ -142,7 +142,7 @@ def _generic_font_style(edit):
     return family, ("bold" if bold else "normal"), ("italic" if italic else "normal")
 
 
-def _build_embed_archive(fitz, doc, page, edit, new_txt):
+def _build_embed_archive(pymupdf, doc, page, edit, new_txt):
     """Return ``(archive, ref)`` embedding the span's ORIGINAL font, or
     ``(None, None)``. Only fully embedded (non-subset) fonts whose glyph set
     covers the new text are used; subset fonts (``ABCDEF+`` prefix) are skipped
@@ -178,7 +178,7 @@ def _build_embed_archive(fitz, doc, page, edit, new_txt):
     # Verify the extracted font actually covers every non-space glyph of the
     # new text; otherwise fall through so htmlbox's Noto fallback can kick in.
     try:
-        probe = fitz.Font(fontbuffer=content)
+        probe = pymupdf.Font(fontbuffer=content)
         for ch in new_txt:
             if ch.isspace():
                 continue
@@ -188,14 +188,14 @@ def _build_embed_archive(fitz, doc, page, edit, new_txt):
         return None, None
     ref = "pdfapps_embed." + ((ext_ or "ttf").lstrip(".") or "ttf")
     try:
-        arch = fitz.Archive()
+        arch = pymupdf.Archive()
         arch.add(content, ref)
     except Exception:
         return None, None
     return arch, ref
 
 
-def _text_edit_redaction_rect(fitz, edit, size):
+def _text_edit_redaction_rect(pymupdf, edit, size):
     """Vertically TIGHT redaction rectangle for removing the original span.
 
     PyMuPDF's span ``bbox`` is inflated by the font's ascender/descender —
@@ -213,7 +213,7 @@ def _text_edit_redaction_rect(fitz, edit, size):
     target glyph, while neighbours a full line-height away are left untouched.
     Missing/degenerate metrics (or a band that would fall outside the original
     bbox) fall back to the raw bbox, which is always safe for removal."""
-    bbox = fitz.Rect(edit["bbox"])
+    bbox = pymupdf.Rect(edit["bbox"])
     origin = edit.get("origin") or (bbox.x0, bbox.y1)
     asc = float(edit.get("ascender") or 0)
     desc = float(edit.get("descender") or 0)
@@ -225,11 +225,11 @@ def _text_edit_redaction_rect(fitz, edit, size):
         # the inflated bbox (with a hair of slack): this guarantees we never
         # *expand* the deleted area and guards against odd origin/metrics.
         if (y1 - y0) >= size * 0.5 and y0 >= bbox.y0 - 0.5 and y1 <= bbox.y1 + 0.5:
-            return fitz.Rect(bbox.x0, y0, bbox.x1, y1)
+            return pymupdf.Rect(bbox.x0, y0, bbox.x1, y1)
     return bbox
 
 
-def _text_edit_layout_rect(fitz, page, edit, size):
+def _text_edit_layout_rect(pymupdf, page, edit, size):
     """Layout rectangle for insert_htmlbox. insert_htmlbox lays text from the
     TOP of the rect, so we anchor the top at ``origin_y - ascender*size`` (the
     original ascent line) which lands the new baseline within ~1pt of the
@@ -239,7 +239,7 @@ def _text_edit_layout_rect(fitz, page, edit, size):
     WRAPS at its original size across several lines instead of being silently
     scaled to an illegible size (S1). htmlbox draws only glyphs, never a filled
     box, so the extra height is visually free."""
-    bbox = fitz.Rect(edit["bbox"])
+    bbox = pymupdf.Rect(edit["bbox"])
     origin = edit.get("origin") or (bbox.x0, bbox.y1)
     asc = float(edit.get("ascender") or 0) or 0.9
     x0 = float(origin[0])
@@ -248,7 +248,7 @@ def _text_edit_layout_rect(fitz, page, edit, size):
     if right <= x0 + size:
         right = min(page.rect.x1, x0 + size * 8)
     bottom = max(top + 3.0 * size, page.rect.y1 - 2.0)
-    return fitz.Rect(x0, top, right, bottom)
+    return pymupdf.Rect(x0, top, right, bottom)
 
 
 def _warn_if_downscaled(htmlbox_result, edit, warn_fn):
@@ -276,7 +276,7 @@ def _warn_if_downscaled(htmlbox_result, edit, warn_fn):
                 _log.exception("text-fit warn_fn raised")
 
 
-def _reinsert_edited_text(fitz, doc, page, edit, warn_fn=None):
+def _reinsert_edited_text(pymupdf, doc, page, edit, warn_fn=None):
     """Redact the original span transparently and reinsert the edited text with
     the original size/weight/colour and — when possible — the exact font.
     Returns True if the original embedded font was reused (so the caller may run
@@ -286,19 +286,19 @@ def _reinsert_edited_text(fitz, doc, page, edit, warn_fn=None):
     not fit at its original size and had to be scaled below the legibility floor
     — lets the caller surface a non-blocking heads-up instead of an unexplained
     tiny line (S1)."""
-    bbox = fitz.Rect(edit["bbox"])
+    bbox = pymupdf.Rect(edit["bbox"])
     new_txt = (edit.get("new_text") or "").strip()
     size = _text_edit_size(edit)
     # Capture the source font BEFORE redaction removes the glyphs (and the font).
     arch = ref = None
     if new_txt:
-        arch, ref = _build_embed_archive(fitz, doc, page, edit, new_txt)
+        arch, ref = _build_embed_archive(pymupdf, doc, page, edit, new_txt)
     # 1) Remove the original glyphs WITHOUT the white-rectangle artifact:
     #    a transparent redaction (no fill, no cross-out) that only deletes text
     #    (images=0, graphics=0) so a coloured background/line-art survives. The
     #    rectangle is a vertically TIGHT body band (not the inflated line-height
     #    bbox) so adjacent lines are not clipped — see _text_edit_redaction_rect.
-    redact_rect = _text_edit_redaction_rect(fitz, edit, size)
+    redact_rect = _text_edit_redaction_rect(pymupdf, edit, size)
     try:
         page.add_redact_annot(redact_rect, fill=False, cross_out=False)
         page.apply_redactions(images=0, graphics=0, text=0)
@@ -309,7 +309,7 @@ def _reinsert_edited_text(fitz, doc, page, edit, warn_fn=None):
     if not new_txt:
         return False
     color_hex = _text_edit_color_hex(edit)
-    rect = _text_edit_layout_rect(fitz, page, edit, size)
+    rect = _text_edit_layout_rect(pymupdf, page, edit, size)
     body = "<div>%s</div>" % html.escape(new_txt)
     # 2) Reinsert with fidelity. ``white-space:pre-wrap`` preserves the original
     #    spacing yet lets long edited text WRAP into the tall box (S1) instead of
@@ -337,7 +337,7 @@ def _reinsert_edited_text(fitz, doc, page, edit, warn_fn=None):
         _log.exception("htmlbox reinsertion failed; using base-14 insert_text")
         try:
             origin = edit.get("origin") or (bbox.x0, bbox.y1)
-            page.insert_text(fitz.Point(float(origin[0]), float(origin[1])),
+            page.insert_text(pymupdf.Point(float(origin[0]), float(origin[1])),
                              new_txt, fontsize=size,
                              fontname=_base14_fontname(edit),
                              color=_text_edit_color_rgb(edit))

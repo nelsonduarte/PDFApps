@@ -2,7 +2,7 @@
 
 A lightweight ``QListView`` that shows one clickable thumbnail per
 page. Thumbnails are rendered off the UI thread by a ``QThread`` worker
-(pymupdf's ``fitz.open`` is not thread-safe across the same
+(``pymupdf.open`` is not thread-safe across the same
 ``Document`` handle, so the worker opens its own copy) and cached in an
 insertion-ordered dict capped at ``CACHE_MAX`` entries — long documents
 never blow up memory.
@@ -148,7 +148,7 @@ HIDDEN_WINDOW = 12
 class ThumbnailWorker(QThread):
     """Render a batch of page thumbnails in a background thread.
 
-    The worker opens its own ``fitz.Document`` copy — pymupdf documents
+    The worker opens its own ``pymupdf.Document`` copy — pymupdf documents
     are NOT thread-safe across the main-thread handle used by the
     canvas. Password is applied when set. ``cancel()`` sets a flag the
     render loop polls between pages; wait 2 s in the caller for a
@@ -190,7 +190,7 @@ class ThumbnailWorker(QThread):
         self._cancelled = True
 
     def run(self) -> None:
-        # ``import fitz`` lives INSIDE the try: a failed import (missing
+        # ``import pymupdf`` lives INSIDE the try: a failed import (missing
         # binary wheel, broken install) must surface as a warning + a
         # render_failed signal, NOT silently kill the QThread with an
         # unhandled ImportError that leaves the sidebar stuck on
@@ -199,9 +199,9 @@ class ThumbnailWorker(QThread):
         rendered = 0
         doc = None
         try:
-            import fitz  # local — keeps import cost off UI startup path
+            import pymupdf  # local — keeps import cost off UI startup path
             try:
-                doc = fitz.open(self._doc_path)
+                doc = pymupdf.open(self._doc_path)
             except Exception as exc:
                 _log.warning(
                     "ThumbnailWorker: failed to open %r: %s",
@@ -240,11 +240,11 @@ class ThumbnailWorker(QThread):
                         zoom = min(tw / rect.width, th / rect.height)
                     else:
                         zoom = self._dpr
-                    mat = fitz.Matrix(zoom, zoom)
+                    mat = pymupdf.Matrix(zoom, zoom)
                     pix = page.get_pixmap(matrix=mat, alpha=False,
                                           annots=False)
                     if pix.n != 3:
-                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                        pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
                     # ``QImage`` views ``pix.samples`` directly; the
                     # Pixmap is freed on the next loop iteration, so
                     # ``.copy()`` an eager copy of the pixels BEFORE
@@ -277,7 +277,7 @@ class ThumbnailWorker(QThread):
                     )
                     continue
         except Exception as exc:
-            # import fitz / unexpected fatal — don't let the thread die
+            # import pymupdf / unexpected fatal — don't let the thread die
             # mute; the panel needs to know rendering never happened.
             _log.error(
                 "ThumbnailWorker: fatal error, no thumbnails produced: %s",

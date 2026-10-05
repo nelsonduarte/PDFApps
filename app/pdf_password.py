@@ -1,7 +1,7 @@
 """Unicode-safe PDF password handling.
 
 Pure module: no ``PySide6`` import, no ``app.*`` import. Everything
-except :func:`resolve_file_password` talks to a ``fitz.Document`` /
+except :func:`resolve_file_password` talks to a ``pymupdf.Document`` /
 ``pypdf.PdfReader`` through duck typing (``.authenticate(...)`` /
 ``.decrypt(...)``) and touches no filesystem; that one function opens a
 path because probing bytes on disk is the whole point of it. All of it
@@ -11,7 +11,7 @@ Why this exists
 ---------------
 The two PDF engines we ship disagree about what a password *is*:
 
-* **MuPDF (PyMuPDF/fitz) does not normalise at all.** ``pdf_crypt.c``'s
+* **MuPDF (PyMuPDF) does not normalise at all.** ``pdf_crypt.c``'s
   ``pdf_saslprep_from_utf8`` is a stub (``/* TODO: stringprep with
   SASLprep profile */``) that copies the UTF-8 bytes verbatim for R>=5,
   and converts UTF-8 to PDFDocEncoding for R<=4.
@@ -31,7 +31,7 @@ So on the READ side we do not pick a winner: we try a small, ordered,
 de-duplicated list of candidate spellings and remember the one that
 actually authenticated. On the CONSUME side both engines are handed the
 *same UTF-8 byte sequence* (``pypdf`` gets ``bytes`` directly, which
-skips its SASLprep branch; ``fitz`` gets the ``str``, which MuPDF
+skips its SASLprep branch; ``pymupdf`` gets the ``str``, which MuPDF
 encodes to the same UTF-8 bytes), so they can no longer diverge by
 construction for R>=5.
 
@@ -65,7 +65,7 @@ __all__ = [
     "saslprep",
     "password_candidates",
     "pypdf_password_forms",
-    "authenticate_fitz",
+    "authenticate_pymupdf",
     "decrypt_pypdf",
     "resolve_file_password",
 ]
@@ -222,8 +222,8 @@ def pypdf_password_forms(pwd: str) -> list[tuple[str, str | bytes]]:
     return forms
 
 
-def authenticate_fitz(doc, pwd: str) -> str | None:
-    """Authenticate ``doc`` (a ``fitz.Document``) against every candidate.
+def authenticate_pymupdf(doc, pwd: str) -> str | None:
+    """Authenticate ``doc`` (a ``pymupdf.Document``) against every candidate.
 
     Returns the candidate spelling that worked -- the caller should
     cache *that* string, not the one the user typed and not a normalised
@@ -288,22 +288,22 @@ def resolve_file_password(path: str, pwd: str) -> "str | None":
     here with the rest of the spelling logic rather than growing a
     second home.
     """
-    fitz_answer = None
+    pymupdf_answer = None
     try:
-        import fitz
-        doc = fitz.open(path)
+        import pymupdf
+        doc = pymupdf.open(path)
         try:
             if not doc.needs_pass:
                 return ""
-            fitz_answer = authenticate_fitz(doc, pwd)
+            pymupdf_answer = authenticate_pymupdf(doc, pwd)
         finally:
             doc.close()
     except Exception:
         # Missing binary wheel, unreadable path, or a flavour MuPDF
         # refuses: fall through to pypdf rather than reporting "locked".
-        fitz_answer = None
-    if fitz_answer is not None:
-        return fitz_answer
+        pymupdf_answer = None
+    if pymupdf_answer is not None:
+        return pymupdf_answer
     try:
         from pypdf import PdfReader
         reader = PdfReader(path)

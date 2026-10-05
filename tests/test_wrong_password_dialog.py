@@ -40,7 +40,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
 _unused_app = QApplication.instance() or QApplication([])
 
-import fitz  # noqa: E402
+import pymupdf  # noqa: E402
 from pypdf import PdfReader, PdfWriter  # noqa: E402
 
 from app.i18n import t  # noqa: E402
@@ -91,7 +91,7 @@ def _capture_message_box(monkeypatch) -> _Shown:
 
 
 def _plain_pdf(tmp_path: Path, name: str = "plain.pdf", pages: int = 2) -> str:
-    doc = fitz.open()
+    doc = pymupdf.open()
     for _ in range(pages):
         doc.new_page()
     out = str(tmp_path / name)

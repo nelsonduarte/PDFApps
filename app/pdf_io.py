@@ -4,7 +4,7 @@ Extracted from :class:`app.base.BasePage` (R3) so the same safe-write
 logic is shared by BOTH the tool pages (via
 ``BasePage._atomic_pdf_write``) and the visual editor
 (``TabEditar._run``) WITHOUT either side re-implementing the tempfile +
-``os.replace`` dance, the same-source guard, or the fitz/pypdf writer
+``os.replace`` dance, the same-source guard, or the PyMuPDF/pypdf writer
 dispatch.
 
 This module is deliberately pure and low-level: it imports only stdlib
@@ -52,12 +52,12 @@ def atomic_pdf_write(writer, dst: str, *,
                      sources: "Iterable[str] | None" = None,
                      save_opts: "dict | None" = None,
                      close_writer: bool = False) -> None:
-    """Write a PdfWriter (pypdf) or fitz.Document to ``dst`` atomically.
+    """Write a PdfWriter (pypdf) or pymupdf.Document to ``dst`` atomically.
 
     Two defensive layers fix the silent dataloss bug where opening
     ``open(dst, "wb")`` truncates the input file BEFORE the writer's
     lazy stream reads complete (PdfWriter holds references into
-    the PdfReader; same applies to fitz.Document.save() with
+    the PdfReader; same applies to pymupdf.Document.save() with
     incremental flags).
 
     1. Reject up-front if ``dst`` resolves to any path in
@@ -69,7 +69,7 @@ def atomic_pdf_write(writer, dst: str, *,
        ``dst`` via :func:`os.replace` (works on POSIX and Windows).
 
     ``writer`` may be a pypdf ``PdfWriter`` (uses ``writer.write(fh)``)
-    or a PyMuPDF ``fitz.Document`` (uses ``writer.save(tmp)``).
+    or a PyMuPDF ``pymupdf.Document`` (uses ``writer.save(tmp)``).
     Anything else with a ``.write(fh)`` method is accepted.
 
     ``close_writer`` closes the writer AFTER a successful save but
@@ -91,16 +91,19 @@ def atomic_pdf_write(writer, dst: str, *,
     # writer can stream into it. Same-volume placement guarantees
     # os.replace() stays atomic.
     fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=dst_dir)
-    # Detect fitz.Document via its module to avoid importing fitz
+    # Detect pymupdf.Document via its module to avoid importing PyMuPDF
     # here (this module is imported by every page through BasePage).
-    # Modern PyMuPDF reports module="pymupdf"; legacy versions used
-    # "fitz". Both expose Document.save(path, ...).
+    # Document reports module="pymupdf" on every PyMuPDF from 1.24.3,
+    # the first release where ``import pymupdf`` exists, even when
+    # reached through the deprecated ``fitz`` alias, which re-exports the
+    # same class; only releases from before the package rename said
+    # "fitz". The floor in requirements.txt is not a guarantee here:
+    # distribution channels ship older builds (Fedora 44 shipped 1.27.1).
     writer_mod = type(writer).__module__
-    is_fitz_doc = (writer_mod.startswith("pymupdf")
-                   or writer_mod.startswith("fitz")) and hasattr(writer, "save")
+    is_pymupdf_doc = writer_mod.startswith("pymupdf") and hasattr(writer, "save")
     try:
-        if is_fitz_doc:
-            # fitz.Document.save(path, ...) accepts a filesystem
+        if is_pymupdf_doc:
+            # pymupdf.Document.save(path, ...) accepts a filesystem
             # path and writes through cleanly. We close the fd
             # we opened first so save() can take exclusive access.
             os.close(fd)

@@ -39,8 +39,8 @@ from pypdf import PdfReader, PdfWriter  # noqa: E402
 
 
 def _make_pdf(path: Path, pages: int = 2) -> Path:
-    import fitz
-    doc = fitz.open()
+    import pymupdf
+    doc = pymupdf.open()
     for _ in range(pages):
         doc.new_page(width=595, height=842)
     doc.save(str(path))
@@ -155,14 +155,14 @@ def test_atomic_write_cleans_tempfile_on_writer_error(tmp_path: Path):
     assert leftover == []
 
 
-# ── _atomic_pdf_write (fitz.Document branch) ────────────────────────────
+# ── _atomic_pdf_write (pymupdf.Document branch) ────────────────────────────
 
 
-def test_atomic_write_accepts_fitz_document(tmp_path: Path):
-    import fitz
+def test_atomic_write_accepts_pymupdf_document(tmp_path: Path):
+    import pymupdf
     src = _make_pdf(tmp_path / "in.pdf", pages=2)
     dst = tmp_path / "out.pdf"
-    doc = fitz.open(str(src))
+    doc = pymupdf.open(str(src))
     try:
         BasePage._atomic_pdf_write(doc, str(dst),
                                    sources=[str(src)],
@@ -170,14 +170,14 @@ def test_atomic_write_accepts_fitz_document(tmp_path: Path):
     finally:
         doc.close()
     assert dst.exists()
-    assert len(fitz.open(str(dst))) == 2
+    assert len(pymupdf.open(str(dst))) == 2
 
 
-def test_atomic_write_fitz_rejects_same_source(tmp_path: Path):
-    import fitz
+def test_atomic_write_pymupdf_rejects_same_source(tmp_path: Path):
+    import pymupdf
     src = _make_pdf(tmp_path / "in.pdf")
     src_bytes_before = src.read_bytes()
-    doc = fitz.open(str(src))
+    doc = pymupdf.open(str(src))
     try:
         with pytest.raises(RuntimeError):
             BasePage._atomic_pdf_write(doc, str(src), sources=[str(src)])

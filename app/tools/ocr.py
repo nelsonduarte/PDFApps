@@ -187,7 +187,7 @@ class TabOCR(BasePage):
             ext = ".pdf" if self.cmb_fmt.currentIndex() == 0 else ".txt"
             self.drop_out.set_path(base + "_ocr" + ext)
         try:
-            doc = self._open_fitz(p)
+            doc = self._open_pymupdf(p)
             self.lbl_info.setText(t("edit.status.pages", n=doc.page_count))
             doc.close()
         except Exception as e:
@@ -259,7 +259,7 @@ class TabOCR(BasePage):
         tess = self._ensure_tesseract()
         if tess is None: return
         try:
-            import fitz  # noqa: F401 — surface ImportError before launching thread
+            import pymupdf  # noqa: F401 — surface ImportError before launching thread
         except ImportError:
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pymupdf"))
             return
@@ -280,7 +280,7 @@ class TabOCR(BasePage):
 
         # Quickly count pages so the progress dialog has the correct max.
         try:
-            with self._open_fitz(pdf_path) as _doc:
+            with self._open_pymupdf(pdf_path) as _doc:
                 n_pages = _doc.page_count
         except Exception as e:
             show_error(self, e); return
@@ -295,15 +295,15 @@ class TabOCR(BasePage):
         class _OcrRunner(TaskRunner):
             def do_work(_self):
                 import io as _io
-                import fitz
+                import pymupdf
                 from PIL import Image
                 import pytesseract
-                doc = fitz.open(pdf_path)
+                doc = pymupdf.open(pdf_path)
                 if doc.needs_pass:
                     # Verify authenticate() succeeded: an unchecked call
                     # on a doc whose password changed since _load_input
                     # would leave it locked and OCR empty pages. Mirror
-                    # _open_fitz and raise a clear password error.
+                    # _open_pymupdf and raise a clear password error.
                     if not (pwd and doc.authenticate(pwd)):
                         raise WrongPasswordError(t("tool.err.wrong_password"))
                 try:
@@ -323,13 +323,13 @@ class TabOCR(BasePage):
                             # an image with shifted colour channels and
                             # produce gibberish text.
                             if pix.alpha:
-                                pix = fitz.Pixmap(pix, 0)
+                                pix = pymupdf.Pixmap(pix, 0)
                             # Convert non-RGB colourspaces (CMYK n=4 without
                             # alpha from press-ready scans, greyscale n=1)
                             # to RGB so PIL.frombytes("RGB", ...) gets the
                             # 3-bytes-per-pixel layout it expects.
                             if pix.n != 3:
-                                pix = fitz.Pixmap(fitz.csRGB, pix)
+                                pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
                             img = Image.frombytes(
                                 "RGB", (pix.width, pix.height), pix.samples)
                             texts.append(
@@ -370,9 +370,9 @@ class TabOCR(BasePage):
                             # expected 3-bytes-per-pixel layout (see comment
                             # in the .txt branch above).
                             if pix.alpha:
-                                pix = fitz.Pixmap(pix, 0)
+                                pix = pymupdf.Pixmap(pix, 0)
                             if pix.n != 3:
-                                pix = fitz.Pixmap(fitz.csRGB, pix)
+                                pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
                             img = Image.frombytes(
                                 "RGB", (pix.width, pix.height), pix.samples)
                             page_bytes = pytesseract.image_to_pdf_or_hocr(

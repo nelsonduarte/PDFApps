@@ -652,7 +652,7 @@ class MainWindow(QMainWindow):
             # rest of the session, reachable by the next document loaded
             # into the same tab.
             self._wipe_password_holder(viewer)
-            viewer._fitz_doc = None
+            viewer._pymupdf_doc = None
             viewer._current_path = ""
             viewer._viewer_splitter.setVisible(False)
             viewer._toc_tree.clear()

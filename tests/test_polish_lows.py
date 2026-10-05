@@ -85,10 +85,10 @@ def _encrypt(tmp_path, pwd: str, algorithm: str = "AES-256") -> str:
     (SASLprep/NFKC), so the on-disk password is not necessarily ``pwd``.
     That asymmetry is the point of these tests.
     """
-    import fitz
+    import pymupdf
     from pypdf import PdfReader, PdfWriter
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page()
     doc.new_page()
     plain = str(tmp_path / "plain.pdf")
@@ -111,7 +111,7 @@ def _stub(pwd: str):
     class _Stub:
         _pdf_password = pwd
         _open_reader = BasePage._open_reader
-        _open_fitz = BasePage._open_fitz
+        _open_pymupdf = BasePage._open_pymupdf
 
     return _Stub()
 
@@ -142,17 +142,17 @@ def test_cached_password_is_the_spelling_that_authenticated(tmp_path):
     """
     import unicodedata
 
-    import fitz
+    import pymupdf
 
-    from app.pdf_password import authenticate_fitz
+    from app.pdf_password import authenticate_pymupdf
 
     nfd = "café"
     assert not unicodedata.is_normalized("NFC", nfd)
     path = _encrypt(tmp_path, nfd)
 
-    doc = fitz.open(path)
+    doc = pymupdf.open(path)
     try:
-        winner = authenticate_fitz(doc, nfd)
+        winner = authenticate_pymupdf(doc, nfd)
     finally:
         doc.close()
     assert winner is not None, "typed NFD form must resolve to a candidate"
@@ -160,7 +160,7 @@ def test_cached_password_is_the_spelling_that_authenticated(tmp_path):
     # And the winner is directly usable by both engines with no further
     # massaging — which is what the cache write sites now rely on.
     stub = _stub(winner)
-    assert stub._open_fitz(path).page_count == 2
+    assert stub._open_pymupdf(path).page_count == 2
     assert len(stub._open_reader(path).pages) == 2
 
 
@@ -172,7 +172,7 @@ def test_open_helpers_agree_on_the_same_cached_password(tmp_path):
     """
     path = _encrypt(tmp_path, "café")
     stub = _stub("café")
-    doc = stub._open_fitz(path)
+    doc = stub._open_pymupdf(path)
     try:
         assert doc.page_count == 2
     finally:

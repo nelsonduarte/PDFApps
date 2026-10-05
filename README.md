@@ -177,7 +177,7 @@ python -m PyInstaller --clean installer.spec
 | Component        | Technology                                                                                                      | Version |
 | ---------------- | --------------------------------------------------------------------------------------------------------------- | ------- |
 | GUI              | [PySide6](https://doc.qt.io/qtforpython/) (Qt 6)                                                                | 6.10.2  |
-| PDF rendering    | [PyMuPDF](https://pymupdf.readthedocs.io/) (fitz)                                                               | 1.27.2  |
+| PDF rendering    | [PyMuPDF](https://pymupdf.readthedocs.io/)                                                                      | 1.27.2  |
 | PDF manipulation | [pypdf](https://pypdf.readthedocs.io/)                                                                          | 6.8.0   |
 | OCR              | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13  |
 | DOCX export      | [python-docx](https://python-docx.readthedocs.io/)                                                              | 1.2.0   |
@@ -241,7 +241,7 @@ PDFApps/
 │   │   ├── info.py
 │   │   └── ocr.py
 │   ├── viewer/             # Integrated PDF viewer
-│   │   ├── canvas.py       # Lazy page rendering in background threads (fitz)
+│   │   ├── canvas.py       # Lazy page rendering in background threads (PyMuPDF)
 │   │   ├── panel.py        # Viewer panel with controls
 │   │   └── presentation.py # Fullscreen presentation mode (F5)
 │   └── editor/             # Visual PDF editor

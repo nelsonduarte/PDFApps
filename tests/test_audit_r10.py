@@ -58,7 +58,7 @@ def test_editor_run_releases_canvas_after_prompt():
     canvas with _doc=None."""
     src = _read("app/editor/tab.py")
     run_body_start = src.find("def _run(self)")
-    run_body_end = src.find("def _fitz_permissions_of", run_body_start)
+    run_body_end = src.find("def _pymupdf_permissions_of", run_body_start)
     body = src[run_body_start:run_body_end]
     prompt_pos = body.find("_prompt_encryption_choice")
     release_pos = body.find("self._canvas.release_doc()")
@@ -73,7 +73,7 @@ def test_editor_run_uses_peek_for_encryption_check():
     """The peek doc pattern is the marker that we read needs_pass
     without releasing the canvas-held doc."""
     src = _read("app/editor/tab.py")
-    assert "peek = fitz.open(self._doc_path)" in src
+    assert "peek = pymupdf.open(self._doc_path)" in src
     assert "peek.close()" in src
 
 
@@ -116,9 +116,9 @@ def test_viewer_reloads_doc_on_save_failure():
     """When saveIncr() raises, the in-memory delete is discarded by
     reopening the file so the next paintEvent reflects on-disk state."""
     src = _read("app/viewer/canvas.py")
-    # Reload-on-error markers: re-open via fitz.open + re-auth.
+    # Reload-on-error markers: re-open via pymupdf.open + re-auth.
     assert "self._doc.close()" in src
-    assert "new_doc = fitz.open(saved_path)" in src
+    assert "new_doc = pymupdf.open(saved_path)" in src
     assert "saved_password" in src
 
 

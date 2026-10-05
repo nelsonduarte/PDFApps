@@ -239,7 +239,7 @@ class TabConverter(BasePage):
                        format=ext.upper(), dpi=dpi))
 
         try:
-            with self._open_fitz(pdf_path) as _probe:
+            with self._open_pymupdf(pdf_path) as _probe:
                 total = _probe.page_count
         except Exception as e:
             show_error(self, e); return
@@ -247,26 +247,26 @@ class TabConverter(BasePage):
         pwd = self._pdf_password
 
         def do_work(worker):
-            import fitz
-            doc = fitz.open(pdf_path)
+            import pymupdf
+            doc = pymupdf.open(pdf_path)
             if doc.needs_pass:
                 # Verify authenticate() succeeded: an unchecked call on a
                 # doc whose password changed since _load_input would leave
                 # it locked and produce empty/garbled output. Mirror
-                # _open_fitz and raise a clear password error.
+                # _open_pymupdf and raise a clear password error.
                 if not (pwd and doc.authenticate(pwd)):
                     raise WrongPasswordError(t("tool.err.wrong_password"))
             try:
-                matrix = fitz.Matrix(dpi / 72, dpi / 72)
+                matrix = pymupdf.Matrix(dpi / 72, dpi / 72)
                 for i, page in enumerate(doc):
                     if worker.is_cancelled():
                         return None
                     worker.progress.emit(i, f"{i + 1}/{total}…")
                     pix = page.get_pixmap(matrix=matrix)
                     if pix.alpha:
-                        pix = fitz.Pixmap(pix, 0)
+                        pix = pymupdf.Pixmap(pix, 0)
                     if pix.n == 4:
-                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                        pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
                     out_file = os.path.join(out_dir, f"page_{i + 1:03d}.{ext}")
                     if ext == "png":
                         pix.save(out_file)
@@ -299,7 +299,7 @@ class TabConverter(BasePage):
             return
         # Pre-flight on main thread: dep checks + page count + capture pwd.
         try:
-            import fitz  # noqa: F401
+            import pymupdf  # noqa: F401
         except ImportError:
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.ocr.dep_pymupdf"))
             return
@@ -309,7 +309,7 @@ class TabConverter(BasePage):
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_docx"))
             return
         try:
-            with self._open_fitz(pdf_path) as _probe:
+            with self._open_pymupdf(pdf_path) as _probe:
                 total = _probe.page_count
         except Exception as e:
             show_error(self, e)
@@ -320,7 +320,7 @@ class TabConverter(BasePage):
         pwd = self._pdf_password
 
         def do_work(worker):
-            import fitz
+            import pymupdf
             from docx import Document
             from docx.shared import Pt, RGBColor, Inches
             import io, re as _re
@@ -330,12 +330,12 @@ class TabConverter(BasePage):
                 detect_card_regions,
                 detect_table_regions,
             )
-            doc = fitz.open(pdf_path)
+            doc = pymupdf.open(pdf_path)
             if doc.needs_pass:
                 # Verify authenticate() succeeded: an unchecked call on a
                 # doc whose password changed since _load_input would leave
                 # it locked and produce empty/garbled output. Mirror
-                # _open_fitz and raise a clear password error.
+                # _open_pymupdf and raise a clear password error.
                 if not (pwd and doc.authenticate(pwd)):
                     raise WrongPasswordError(t("tool.err.wrong_password"))
             try:
@@ -467,11 +467,11 @@ class TabConverter(BasePage):
                                     "need derotation",
                                     pa.page_index, page.rotation,
                                 )
-                            clip = fitz.Rect(*cr.bbox)
+                            clip = pymupdf.Rect(*cr.bbox)
                             pix = page.get_pixmap(
                                 clip=clip,
                                 dpi=200,
-                                colorspace=fitz.csRGB,
+                                colorspace=pymupdf.csRGB,
                             )
                             data = pix.tobytes("png")
                             pix = None  # release native buffer
@@ -674,7 +674,7 @@ class TabConverter(BasePage):
         if not out_path:
             return
         try:
-            with self._open_fitz(pdf_path) as _probe:
+            with self._open_pymupdf(pdf_path) as _probe:
                 total = _probe.page_count
         except Exception as e:
             show_error(self, e)
@@ -685,13 +685,13 @@ class TabConverter(BasePage):
         pwd = self._pdf_password
 
         def do_work(worker):
-            import fitz
-            doc = fitz.open(pdf_path)
+            import pymupdf
+            doc = pymupdf.open(pdf_path)
             if doc.needs_pass:
                 # Verify authenticate() succeeded: an unchecked call on a
                 # doc whose password changed since _load_input would leave
                 # it locked and produce empty/garbled output. Mirror
-                # _open_fitz and raise a clear password error.
+                # _open_pymupdf and raise a clear password error.
                 if not (pwd and doc.authenticate(pwd)):
                     raise WrongPasswordError(t("tool.err.wrong_password"))
             cancelled = False
@@ -743,7 +743,7 @@ class TabConverter(BasePage):
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_pptx"))
             return
         try:
-            with self._open_fitz(pdf_path) as _probe:
+            with self._open_pymupdf(pdf_path) as _probe:
                 total = _probe.page_count
                 first = _probe[0].rect if total else None
         except Exception as e:
@@ -757,23 +757,23 @@ class TabConverter(BasePage):
         pwd = self._pdf_password
 
         def do_work(worker):
-            import fitz, io
+            import pymupdf, io
             from pptx import Presentation
             from pptx.util import Emu, Pt
             from pptx.dml.color import RGBColor
             from pptx.enum.shapes import MSO_SHAPE
             from pptx.oxml.ns import qn
-            doc = fitz.open(pdf_path)
+            doc = pymupdf.open(pdf_path)
             if doc.needs_pass:
                 # Verify authenticate() succeeded: an unchecked call on a
                 # doc whose password changed since _load_input would leave
                 # it locked and produce empty/garbled output. Mirror
-                # _open_fitz and raise a clear password error.
+                # _open_pymupdf and raise a clear password error.
                 if not (pwd and doc.authenticate(pwd)):
                     raise WrongPasswordError(t("tool.err.wrong_password"))
 
             def _rgb(c):
-                """fitz colors are 0..1 floats; PPTX wants 0..255 ints."""
+                """PyMuPDF colors are 0..1 floats; PPTX wants 0..255 ints."""
                 if c is None:
                     return None
                 try:
@@ -1034,7 +1034,7 @@ class TabConverter(BasePage):
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_xlsx"))
             return
         try:
-            with self._open_fitz(pdf_path) as _probe:
+            with self._open_pymupdf(pdf_path) as _probe:
                 total = _probe.page_count
         except Exception as e:
             show_error(self, e)
@@ -1045,14 +1045,14 @@ class TabConverter(BasePage):
         pwd = self._pdf_password
 
         def do_work(worker):
-            import fitz
+            import pymupdf
             from openpyxl import Workbook
-            doc = fitz.open(pdf_path)
+            doc = pymupdf.open(pdf_path)
             if doc.needs_pass:
                 # Verify authenticate() succeeded: an unchecked call on a
                 # doc whose password changed since _load_input would leave
                 # it locked and produce empty/garbled output. Mirror
-                # _open_fitz and raise a clear password error.
+                # _open_pymupdf and raise a clear password error.
                 if not (pwd and doc.authenticate(pwd)):
                     raise WrongPasswordError(t("tool.err.wrong_password"))
             try:
@@ -1099,7 +1099,7 @@ class TabConverter(BasePage):
         if not out_path:
             return
         try:
-            with self._open_fitz(pdf_path) as _probe:
+            with self._open_pymupdf(pdf_path) as _probe:
                 total = _probe.page_count
         except Exception as e:
             show_error(self, e)
@@ -1110,13 +1110,13 @@ class TabConverter(BasePage):
         pwd = self._pdf_password
 
         def do_work(worker):
-            import fitz
-            doc = fitz.open(pdf_path)
+            import pymupdf
+            doc = pymupdf.open(pdf_path)
             if doc.needs_pass:
                 # Verify authenticate() succeeded: an unchecked call on a
                 # doc whose password changed since _load_input would leave
                 # it locked and produce empty/garbled output. Mirror
-                # _open_fitz and raise a clear password error.
+                # _open_pymupdf and raise a clear password error.
                 if not (pwd and doc.authenticate(pwd)):
                     raise WrongPasswordError(t("tool.err.wrong_password"))
             try:
@@ -1198,7 +1198,7 @@ class TabConverter(BasePage):
             QMessageBox.critical(self, t("msg.missing_dep"), t("tool.convert.dep_epub"))
             return
         try:
-            with self._open_fitz(pdf_path) as _probe:
+            with self._open_pymupdf(pdf_path) as _probe:
                 total = _probe.page_count
         except Exception as e:
             show_error(self, e)
@@ -1209,14 +1209,14 @@ class TabConverter(BasePage):
         pwd = self._pdf_password
 
         def do_work(worker):
-            import fitz
+            import pymupdf
             from ebooklib import epub
-            doc = fitz.open(pdf_path)
+            doc = pymupdf.open(pdf_path)
             if doc.needs_pass:
                 # Verify authenticate() succeeded: an unchecked call on a
                 # doc whose password changed since _load_input would leave
                 # it locked and produce empty/garbled output. Mirror
-                # _open_fitz and raise a clear password error.
+                # _open_pymupdf and raise a clear password error.
                 if not (pwd and doc.authenticate(pwd)):
                     raise WrongPasswordError(t("tool.err.wrong_password"))
             try:

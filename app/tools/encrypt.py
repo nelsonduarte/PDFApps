@@ -169,7 +169,7 @@ class TabEncriptar(BasePage):
         not normalise at all, so reopening the file we just wrote with
         the *typed* password fails whenever SASLprep changed it: a
         password containing U+FB01 (LATIN SMALL LIGATURE FI) is written
-        as "fi" but handed back to fitz as U+FB01. The app produced files
+        as "fi" but handed back to PyMuPDF as U+FB01. The app produced files
         it could not reopen.
 
         We do not *predict* what pypdf did — we read it back. pypdf

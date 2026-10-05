@@ -141,7 +141,7 @@ class TabNUp(BasePage):
         # Pre-flight on the main thread: read page count + validate cell
         # geometry so the worker can be a tight image loop.
         try:
-            src = self._open_fitz(pdf_path)
+            src = self._open_pymupdf(pdf_path)
         except Exception as e:
             show_error(self, e)
             return
@@ -184,17 +184,17 @@ class TabNUp(BasePage):
         pwd = self._pdf_password
 
         def do_work(worker):
-            import fitz
-            sd = fitz.open(pdf_path)
+            import pymupdf
+            sd = pymupdf.open(pdf_path)
             if sd.needs_pass:
                 # Verify authenticate() succeeded: if the password
                 # changed between _load_input validation and now, an
                 # unchecked call would leave the doc locked and produce
-                # empty/garbled output. Mirror _open_fitz and raise.
+                # empty/garbled output. Mirror _open_pymupdf and raise.
                 if not (pwd and sd.authenticate(pwd)):
                     raise WrongPasswordError(t("tool.err.wrong_password"))
             try:
-                out = fitz.open()
+                out = pymupdf.open()
                 try:
                     for sheet_idx in range((total + n_per_sheet - 1) // n_per_sheet):
                         if worker.is_cancelled():
@@ -218,7 +218,7 @@ class TabNUp(BasePage):
                             fw, fh = sw * scale, sh * scale
                             fx = x + (cell_w - fw) / 2
                             fy = y + (cell_h - fh) / 2
-                            target = fitz.Rect(fx, fy, fx + fw, fy + fh)
+                            target = pymupdf.Rect(fx, fy, fx + fw, fy + fh)
                             sheet.show_pdf_page(target, sd, src_idx)
                             worker.progress.emit(
                                 int((src_idx + 1) / total * 100),

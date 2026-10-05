@@ -28,7 +28,7 @@ class _RenderSignals(QObject):
 
 
 class _PageJob(QRunnable):
-    """Renders a fitz page in a background thread."""
+    """Renders a PyMuPDF page in a background thread."""
 
     def __init__(self, path: str, password: str, idx: int,
                  zoom: float, dpr: float, gen: int, signals: _RenderSignals,
@@ -47,21 +47,21 @@ class _PageJob(QRunnable):
     def run(self):
         doc = None
         try:
-            import fitz
+            import pymupdf
             from PySide6.QtGui import QPixmap as QP, QImage
-            doc = fitz.open(self._path)
+            doc = pymupdf.open(self._path)
             if self._password:
                 doc.authenticate(self._password)
             page  = doc[self._idx]
             rz    = self._zoom * self._dpr
-            pix   = page.get_pixmap(matrix=fitz.Matrix(rz, rz), annots=False)
+            pix   = page.get_pixmap(matrix=pymupdf.Matrix(rz, rz), annots=False)
             if self._night_mode:
                 pix.invert_irect()
             words = page.get_text("words")
             img   = pix.tobytes("png")
             qp = QP()
             if not qp.loadFromData(img):
-                # samples_mv is a memoryview backed by the fitz Pixmap,
+                # samples_mv is a memoryview backed by the PyMuPDF Pixmap,
                 # which in turn is backed by the open Document. Closing
                 # the doc before QImage finishes copying the buffer
                 # frees the underlying allocation under PySide's feet
@@ -103,11 +103,11 @@ class _SelectCanvas(QWidget):
 
     zoom_changed = Signal(int)   # current zoom percentage
     text_copied  = Signal(str)   # copied text (empty = no text layer)
-    doc_replaced = Signal(object)  # new fitz.Document after a close/reopen
+    doc_replaced = Signal(object)  # new pymupdf.Document after a close/reopen
 
     def __init__(self):
         super().__init__()
-        self._doc         = None    # fitz.Document (main thread only)
+        self._doc         = None    # pymupdf.Document (main thread only)
         self._path        = ""
         self._password    = ""
         self._zoom        = 1.0
@@ -131,7 +131,7 @@ class _SelectCanvas(QWidget):
         self._sel_rects: list[QRect] = []
         self._sel_text    = ""
         self._open_note   = None   # (page_idx, annot_idx) of open balloon
-        self._search_highlights: list[tuple[int, object]] = []  # [(page_idx, fitz_rect), ...]
+        self._search_highlights: list[tuple[int, object]] = []  # [(page_idx, pymupdf_rect), ...]
         self._search_current = -1   # index of current match in _search_highlights
         # Tracks the QWindow whose screenChanged signal we're currently
         # connected to (see showEvent). Avoids calling disconnect() on
@@ -308,14 +308,14 @@ class _SelectCanvas(QWidget):
         """Load text annotations for all pages."""
         if not self._doc:
             return
-        import fitz
+        import pymupdf
         for page_idx in range(self._doc.page_count):
             if page_idx >= len(self._entries):
                 break
             page = self._doc[page_idx]
             notes = []
             for annot in page.annots():
-                if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                if annot.type[0] == pymupdf.PDF_ANNOT_TEXT:
                     txt = annot.info.get("content", "")
                     if txt:
                         notes.append((annot.rect, txt))
@@ -373,7 +373,7 @@ class _SelectCanvas(QWidget):
         """Cancel/join in-flight render workers before an on-disk write.
 
         saveIncr() appends an incremental update to the SAME file the
-        background _PageJob workers open via ``fitz.open(self._path)``. A
+        background _PageJob workers open via ``pymupdf.open(self._path)``. A
         worker mid-open would read a half-written trailer (parse failure)
         or hit a Windows sharing violation. So we:
 
@@ -394,13 +394,13 @@ class _SelectCanvas(QWidget):
         return self._pool.waitForDone(timeout_ms)
 
     def _reopen_document(self):
-        """Reopen ``self._path`` into a fresh fitz.Document after an
+        """Reopen ``self._path`` into a fresh pymupdf.Document after an
         in-place write (saveIncr) failed, discarding the in-memory
         mutation so the canvas reflects the on-disk state.
 
         Ordering is deliberate (MINOR 3): publish ``self._doc = None``
         BEFORE closing the old handle and only swap in the fresh Document
-        AFTER ``fitz.open`` succeeds. So if the reopen itself fails (a
+        AFTER ``pymupdf.open`` succeeds. So if the reopen itself fails (a
         double failure: write AND reopen), ``self._doc`` stays ``None`` —
         which every accessor already guards for — rather than a closed
         Document that would fault on the next paint/search (latent
@@ -411,7 +411,7 @@ class _SelectCanvas(QWidget):
         double failure so it drops the shared reference too. Returns the
         new Document, or ``None``.
         """
-        import fitz
+        import pymupdf
         saved_path = self._path
         saved_password = self._password
         old_doc = self._doc
@@ -421,7 +421,7 @@ class _SelectCanvas(QWidget):
                 old_doc.close()
         new_doc = None
         try:
-            new_doc = fitz.open(saved_path)
+            new_doc = pymupdf.open(saved_path)
             if new_doc.needs_pass and saved_password:
                 new_doc.authenticate(saved_password)
         except Exception:
@@ -700,9 +700,9 @@ class _SelectCanvas(QWidget):
                     )
                     if reply != QMessageBox.StandardButton.Yes:
                         return
-                    # Remove annotation from fitz doc
+                    # Remove annotation from PyMuPDF doc
                     if self._doc:
-                        import fitz
+                        import pymupdf
                         from app.utils import show_error
                         # CRIT-1: backup the file before saveIncr so a
                         # power loss / write failure leaves the original
@@ -733,7 +733,7 @@ class _SelectCanvas(QWidget):
                         try:
                             page = self._doc[page_idx]
                             for annot in page.annots() or []:
-                                if annot.type[0] != fitz.PDF_ANNOT_TEXT:
+                                if annot.type[0] != pymupdf.PDF_ANNOT_TEXT:
                                     continue
                                 content = annot.info.get("content", "") or ""
                                 if content.strip() != txt.strip():
@@ -752,7 +752,7 @@ class _SelectCanvas(QWidget):
                                 # rect was synthesised). Preserves the
                                 # old behaviour rather than no-op'ing.
                                 for annot in page.annots() or []:
-                                    if annot.type[0] != fitz.PDF_ANNOT_TEXT:
+                                    if annot.type[0] != pymupdf.PDF_ANNOT_TEXT:
                                         continue
                                     content = annot.info.get(
                                         "content", "") or ""
@@ -790,7 +790,7 @@ class _SelectCanvas(QWidget):
                         if self._path:
                             # Race guard: saveIncr() appends an incremental
                             # update to the SAME file the background
-                            # _PageJob workers open via fitz.open(self._path).
+                            # _PageJob workers open via pymupdf.open(self._path).
                             # A worker mid-open would read a half-written
                             # trailer (parse failure) or hit a Windows
                             # sharing violation. _prepare_for_save bumps
@@ -813,7 +813,7 @@ class _SelectCanvas(QWidget):
                                 # HIGH A2 + MINOR 3: discard the in-memory
                                 # delete by reopening the file. _reopen_document
                                 # publishes self._doc = None first and only
-                                # swaps in the fresh handle after fitz.open
+                                # swaps in the fresh handle after pymupdf.open
                                 # succeeds, so a failed reopen can never leave
                                 # a closed Document behind. It also emits
                                 # doc_replaced so the panel (shared owner) is

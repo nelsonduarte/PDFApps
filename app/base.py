@@ -68,7 +68,7 @@ class BasePage(QWidget):
         self._pipeline_tmp_dir: str | None = None
         # Password captured by _maybe_prompt_password for the loaded PDF.
         # Persists for the lifetime of one input file so _run can re-open
-        # the same PDF (or fitz.Document) without re-prompting.
+        # the same PDF (or pymupdf.Document) without re-prompting.
         self._pdf_password: str = ""
 
         page_layout = QVBoxLayout(self)
@@ -330,10 +330,10 @@ class BasePage(QWidget):
         stores a raw typed password without re-anchoring silently
         reintroduces the original bug at every one of those sites.
         """
-        from app.pdf_password import authenticate_fitz
+        from app.pdf_password import authenticate_pymupdf
         try:
-            import fitz
-            doc = fitz.open(path)
+            import pymupdf
+            doc = pymupdf.open(path)
         except Exception:
             return True  # let downstream surface its own error
         try:
@@ -341,7 +341,7 @@ class BasePage(QWidget):
                 self._pdf_password = ""
                 return True
             if self._pdf_password:
-                winner = authenticate_fitz(doc, self._pdf_password)
+                winner = authenticate_pymupdf(doc, self._pdf_password)
                 if winner is not None:
                     # Re-anchor the cache on the spelling that worked so
                     # the ~30 raw ``self._pdf_password`` reads under
@@ -365,7 +365,7 @@ class BasePage(QWidget):
         one is offered to :meth:`pypdf.PdfReader.decrypt` as raw UTF-8
         ``bytes`` first — pypdf's ``bytes`` branch skips its SASLprep /
         Latin-1 encoding, which is what makes this agree byte-for-byte
-        with :meth:`_open_fitz`. See :mod:`app.pdf_password`.
+        with :meth:`_open_pymupdf`. See :mod:`app.pdf_password`.
 
         Deliberately does *not* write the winning candidate back to
         ``self._pdf_password``: this runs inside ``_run_background``
@@ -383,7 +383,7 @@ class BasePage(QWidget):
                 raise WrongPasswordError(t("tool.err.wrong_password"))
         return r
 
-    def _open_fitz(self, path: str):
+    def _open_pymupdf(self, path: str):
         """Open a PyMuPDF Document, authenticating with the stored
         password if needed.
 
@@ -392,15 +392,15 @@ class BasePage(QWidget):
         for R>=5, so passing the candidate ``str`` here and its
         ``.encode("utf-8")`` there feeds both engines identical bytes.
         """
-        from app.pdf_password import authenticate_fitz
-        import fitz
-        doc = fitz.open(path)
+        from app.pdf_password import authenticate_pymupdf
+        import pymupdf
+        doc = pymupdf.open(path)
         if doc.needs_pass and self._pdf_password:
             # PyMuPDF's authenticate() returns a falsy value (0) on a
             # wrong password and leaves the document locked — mirror
             # _open_reader and raise instead of handing back a Document
             # whose pages can't be read.
-            if authenticate_fitz(doc, self._pdf_password) is None:
+            if authenticate_pymupdf(doc, self._pdf_password) is None:
                 raise WrongPasswordError(t("tool.err.wrong_password"))
         return doc
 
@@ -441,7 +441,7 @@ class BasePage(QWidget):
     def _atomic_pdf_write(writer, dst: str, *,
                           sources: "Iterable[str] | None" = None,
                           save_opts: "dict | None" = None) -> None:
-        """Write a PdfWriter (pypdf) or fitz.Document to ``dst`` atomically.
+        """Write a PdfWriter (pypdf) or pymupdf.Document to ``dst`` atomically.
 
         Thin wrapper around :func:`app.pdf_io.atomic_pdf_write` (R3):
         the tempfile + ``os.replace`` + same-source-guard logic now
@@ -462,7 +462,7 @@ class BasePage(QWidget):
            ``dst`` via :func:`os.replace` (works on POSIX and Windows).
 
         ``writer`` may be a pypdf ``PdfWriter`` (uses ``writer.write(fh)``)
-        or a PyMuPDF ``fitz.Document`` (uses ``writer.save(tmp)``).
+        or a PyMuPDF ``pymupdf.Document`` (uses ``writer.save(tmp)``).
         Anything else with a ``.write(fh)`` method is accepted. The
         writer is left OPEN (BasePage tools never save back onto the
         input handle); the editor opts into ``close_writer`` directly

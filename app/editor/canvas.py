@@ -111,18 +111,18 @@ class _EditPageJob(QRunnable):
     def run(self):
         doc = None
         try:
-            import fitz
+            import pymupdf
             from PySide6.QtGui import QPixmap as QP, QImage
-            doc = fitz.open(self._path)
+            doc = pymupdf.open(self._path)
             if doc.needs_pass and self._password:
                 doc.authenticate(self._password)
             page = doc[self._idx]
             rz = self._zoom * self._dpr
-            pix = page.get_pixmap(matrix=fitz.Matrix(rz, rz), annots=False)
+            pix = page.get_pixmap(matrix=pymupdf.Matrix(rz, rz), annots=False)
             img = pix.tobytes("png")
             qp = QP()
             if not qp.loadFromData(img):
-                # samples_mv is a memoryview backed by the fitz Pixmap,
+                # samples_mv is a memoryview backed by the PyMuPDF Pixmap,
                 # which is backed by the open Document. Force an eager
                 # copy via QImage.copy() before letting the doc fall
                 # out of scope in the finally clause — otherwise the
@@ -143,9 +143,9 @@ class _EditPageJob(QRunnable):
 
 
 class PdfEditCanvas(QWidget):
-    rect_selected   = Signal(int, object)        # (page_idx, fitz.Rect)
-    point_clicked   = Signal(int, object)        # (page_idx, fitz.Point)
-    stroke_finished = Signal(int, object)        # (page_idx, list[fitz.Point])
+    rect_selected   = Signal(int, object)        # (page_idx, pymupdf.Rect)
+    point_clicked   = Signal(int, object)        # (page_idx, pymupdf.Point)
+    stroke_finished = Signal(int, object)        # (page_idx, list[pymupdf.Point])
     note_deleted    = Signal(dict)
     zoom_changed    = Signal(int)
     text_edit_committed = Signal(int, dict)      # (page_idx, edit_dict)
@@ -234,14 +234,14 @@ class PdfEditCanvas(QWidget):
         self.update()
 
     def load(self, path: str, password: str = ""):
-        import fitz
+        import pymupdf
         if self._doc:
             self._doc.close()
-        # Clear the reference *before* fitz.open so a corrupt PDF that
+        # Clear the reference *before* pymupdf.open so a corrupt PDF that
         # raises never leaves ``self._doc`` pointing at an already-closed
         # Document (use-after-close). Only publish on success.
         self._doc = None
-        doc = fitz.open(path)
+        doc = pymupdf.open(path)
         if doc.needs_pass and password:
             doc.authenticate(password)
         self._doc = doc
@@ -296,21 +296,21 @@ class PdfEditCanvas(QWidget):
         return max(0, len(self._page_offsets) - 1)
 
     def get_span_at(self, page_idx, pdf_pt, max_dist: float = 30.0):
-        """Returns the closest fitz span to pdf_pt on the given page.
+        """Returns the closest PyMuPDF span to pdf_pt on the given page.
 
         `max_dist` is in PDF points. A hit inside a bbox returns immediately;
         otherwise the closest span within `max_dist` (if any) is returned.
         """
         if not self._doc: return None
-        import fitz
+        import pymupdf
         page = self._doc[page_idx]
-        click = fitz.Point(pdf_pt.x, pdf_pt.y)
+        click = pymupdf.Point(pdf_pt.x, pdf_pt.y)
         found, best_dist = None, float(max_dist)
         for block in page.get_text("dict")["blocks"]:
             if block.get("type") != 0: continue
             for line in block.get("lines", []):
                 for span in line.get("spans", []):
-                    bbox = fitz.Rect(span["bbox"])
+                    bbox = pymupdf.Rect(span["bbox"])
                     if bbox.contains(click):
                         return span
                     cx = max(bbox.x0, min(click.x, bbox.x1))
@@ -493,10 +493,10 @@ class PdfEditCanvas(QWidget):
         elif mode == "insert" and ipoint is not None:
             if not new_text.strip():
                 return
-            import fitz
+            import pymupdf
             edit = {
                 "type": "text", "page": page_idx,
-                "point": fitz.Point(ipoint[0], ipoint[1]),
+                "point": pymupdf.Point(ipoint[0], ipoint[1]),
                 "text": new_text, "size": isize, "color": icolor,
                 "font": ifont,
             }
@@ -684,14 +684,14 @@ class PdfEditCanvas(QWidget):
         return 0, sx, sy
 
     def _to_pdf(self, page_idx, sx, sy):
-        import fitz
-        return fitz.Point(sx / self._zoom, sy / self._zoom)
+        import pymupdf
+        return pymupdf.Point(sx / self._zoom, sy / self._zoom)
 
     def _rect_to_pdf(self, page_idx, local_rect):
-        import fitz
+        import pymupdf
         z = self._zoom
-        r = fitz.Rect(local_rect.left()/z, local_rect.top()/z,
-                      local_rect.right()/z, local_rect.bottom()/z)
+        r = pymupdf.Rect(local_rect.left()/z, local_rect.top()/z,
+                         local_rect.right()/z, local_rect.bottom()/z)
         # Clamp to the page bbox: cross-page drags previously mapped the
         # rect to the start page only and PyMuPDF then silently truncated
         # the off-page portion. Returning ``None`` for a degenerate
@@ -906,20 +906,22 @@ class PdfEditCanvas(QWidget):
     def _annot_note_at(self, pos: QPoint):
         if not self._doc:
             return -1, None
-        import fitz
+        import pymupdf
         page_idx, lx, ly = self._page_and_local(pos.x(), pos.y())
         pdf_pt = self._to_pdf(page_idx, lx, ly)
         page = self._doc[page_idx]
         for annot in page.annots() or []:
-            if annot.type[0] == fitz.PDF_ANNOT_TEXT:
-                expanded = annot.rect + fitz.Rect(-10, -10, 10, 10)
+            # PDF_* constants are bound dynamically by pymupdf/__init__.py,
+            # so mypy (pymupdf ships py.typed) cannot see this one.
+            if annot.type[0] == pymupdf.PDF_ANNOT_TEXT:  # type: ignore[attr-defined]
+                expanded = annot.rect + pymupdf.Rect(-10, -10, 10, 10)
                 if expanded.contains(pdf_pt):
                     txt = annot.info.get("content", "") or annot.get_text() or ""
                     for i, e in enumerate(self._overlays):
                         if e.get("type") == "note" and e.get("text", "").strip() == txt.strip():
                             return i, txt.strip()
                     if txt.strip():
-                        pt = fitz.Point(annot.rect.x0, annot.rect.y0 + annot.rect.height)
+                        pt = pymupdf.Point(annot.rect.x0, annot.rect.y0 + annot.rect.height)
                         self._overlays.append({
                             "type": "note", "page": page_idx,
                             "point": pt, "text": txt.strip(),
@@ -957,10 +959,10 @@ class PdfEditCanvas(QWidget):
                     return
                 overlay = self._overlays[hit]
                 if self._doc and overlay.get("_existing"):
-                    import fitz
+                    import pymupdf
                     page = self._doc[overlay.get("page", 0)]
                     for annot in page.annots() or []:
-                        if annot.type[0] == fitz.PDF_ANNOT_TEXT:
+                        if annot.type[0] == pymupdf.PDF_ANNOT_TEXT:
                             txt = annot.info.get("content", "") or ""
                             if txt.strip() == overlay.get("text", "").strip():
                                 page.delete_annot(annot)
