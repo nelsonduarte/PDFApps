@@ -170,7 +170,8 @@ def test_atomic_write_accepts_pymupdf_document(tmp_path: Path):
     finally:
         doc.close()
     assert dst.exists()
-    assert len(pymupdf.open(str(dst))) == 2
+    with pymupdf.open(str(dst)) as out:
+        assert len(out) == 2
 
 
 def test_atomic_write_pymupdf_rejects_same_source(tmp_path: Path):

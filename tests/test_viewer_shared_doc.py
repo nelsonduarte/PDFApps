@@ -406,13 +406,12 @@ def test_closing_last_tab_then_opening_another_pdf_loads_it(
     """
     from PySide6.QtTest import QTest
 
-    import app.i18n
     from app.update_controller import UpdateController
     from app.window import MainWindow
 
     # _load_and_track records recents and closeEvent persists the
     # layout: both must land in a throwaway config, not the user's.
-    monkeypatch.setattr(app.i18n, "_CONFIG_PATH",
+    monkeypatch.setattr("app.i18n._CONFIG_PATH",
                         str(tmp_path / "config.json"))
     monkeypatch.setattr(UpdateController, "check_async", lambda self: None)
 
