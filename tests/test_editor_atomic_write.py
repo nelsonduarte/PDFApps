@@ -25,7 +25,6 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 _unused_app = QApplication.instance() or QApplication([])
 
 pymupdf = pytest.importorskip("pymupdf")
-fitz = pymupdf
 
 from app.pdf_io import atomic_pdf_write  # noqa: E402
 
@@ -35,7 +34,7 @@ from app.pdf_io import atomic_pdf_write  # noqa: E402
 
 def _make_doc(marker: str = "Hello editor", pages: int = 2):
     """A small text-bearing document, unsaved (in memory)."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     for i in range(pages):
         page = doc.new_page(width=595, height=842)
         page.insert_text((72, 72), f"{marker} {i}", fontsize=14)
@@ -52,7 +51,7 @@ def _encrypted_opts(password: str, perms: int = -1) -> dict:
     (owner_pw == user_pw, permissions read from the source doc)."""
     return dict(
         garbage=4, deflate=True,
-        encryption=fitz.PDF_ENCRYPT_AES_256,
+        encryption=pymupdf.PDF_ENCRYPT_AES_256,
         user_pw=password,
         owner_pw=password,
         permissions=perms,
@@ -68,7 +67,7 @@ def test_editor_plain_save_produces_valid_pdf(tmp_path: Path):
     atomic_pdf_write(doc, str(out), save_opts=_plain_opts(), close_writer=True)
 
     assert out.exists()
-    reopened = fitz.open(str(out))
+    reopened = pymupdf.open(str(out))
     try:
         assert reopened.page_count == 3
         # PyMuPDF reports needs_pass as an int (0/1), so compare
@@ -81,7 +80,7 @@ def test_editor_plain_save_produces_valid_pdf(tmp_path: Path):
 
 
 def test_editor_close_writer_closes_doc_before_return(tmp_path: Path):
-    """close_writer=True must leave the fitz doc closed once the helper
+    """close_writer=True must leave the PyMuPDF doc closed once the helper
     returns — this is what let the editor overwrite the same file it had
     open (the handle is released before os.replace)."""
     out = tmp_path / "out.pdf"
@@ -120,7 +119,7 @@ def test_default_leaves_writer_open_for_base_tools(tmp_path: Path):
 
 def test_close_writer_true_closes_doc_before_os_replace(tmp_path: Path,
                                                         monkeypatch):
-    """close_writer=True: the fitz handle is already released at the exact
+    """close_writer=True: the PyMuPDF handle is already released at the exact
     moment os.replace is invoked. Falsifies a save→replace→close reorder,
     which would observe an OPEN doc here and fail the assertion (while the
     weaker 'closed on return' test would still pass)."""
@@ -180,7 +179,7 @@ def test_editor_aes256_save_round_trips_with_password(tmp_path: Path):
     # Output is genuinely encrypted: opening without the password locks it.
     # needs_pass / authenticate return ints (1/0) in PyMuPDF — compare
     # truthiness, not the bool singletons.
-    locked = fitz.open(str(out))
+    locked = pymupdf.open(str(out))
     try:
         assert locked.needs_pass
         assert locked.authenticate(pw)  # correct password unlocks (non-zero)
@@ -197,7 +196,7 @@ def test_editor_aes256_rejects_wrong_password(tmp_path: Path):
     atomic_pdf_write(doc, str(out),
                      save_opts=_encrypted_opts("right-pw"), close_writer=True)
 
-    locked = fitz.open(str(out))
+    locked = pymupdf.open(str(out))
     try:
         assert locked.needs_pass
         assert locked.authenticate("wrong-pw") == 0  # wrong password fails
@@ -205,9 +204,9 @@ def test_editor_aes256_rejects_wrong_password(tmp_path: Path):
         locked.close()
 
 
-def test_save_opts_forwarded_verbatim_to_fitz_writer(tmp_path: Path):
+def test_save_opts_forwarded_verbatim_to_pymupdf_writer(tmp_path: Path):
     """The helper must forward ``save_opts`` VERBATIM as kwargs to a
-    fitz-style writer's ``save()`` — that is precisely what carries the
+    PyMuPDF-style writer's ``save()`` — that is precisely what carries the
     editor's encryption / user_pw / owner_pw / permissions options
     through untouched. Asserted deterministically with a recording
     stand-in (real PyMuPDF's signed permissions int makes an on-disk
@@ -229,9 +228,9 @@ def test_save_opts_forwarded_verbatim_to_fitz_writer(tmp_path: Path):
         def close(self):
             self.closed = True
 
-    # The helper detects a fitz.Document by its class module — spoof it so
+    # The helper detects a pymupdf.Document by its class module — spoof it so
     # this pure stand-in takes the same ``writer.save(tmp, **save_opts)``
-    # branch the editor's real fitz doc does.
+    # branch the editor's real PyMuPDF doc does.
     _RecordingDoc.__module__ = "pymupdf"
 
     doc = _RecordingDoc()
@@ -244,7 +243,7 @@ def test_save_opts_forwarded_verbatim_to_fitz_writer(tmp_path: Path):
     assert out.exists()
 
 
-# ── same-source guard still active on the fitz + close_writer path ───────
+# ── same-source guard still active on the PyMuPDF + close_writer path ───────
 
 
 def test_editor_save_rejects_same_source_and_preserves_input(tmp_path: Path):
@@ -254,7 +253,7 @@ def test_editor_save_rejects_same_source_and_preserves_input(tmp_path: Path):
     _make_doc("Original", pages=2).save(str(src))
     before = src.read_bytes()
 
-    doc = fitz.open(str(src))
+    doc = pymupdf.open(str(src))
     try:
         with pytest.raises(RuntimeError):
             atomic_pdf_write(doc, str(src), sources=[str(src)],

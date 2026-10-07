@@ -1,6 +1,6 @@
 """
 Tests for the main PDFApps features.
-Tests the PDF logic directly (without UI) using pypdf and fitz.
+Tests the PDF logic directly (without UI) using pypdf and PyMuPDF.
 """
 import os
 import sys
@@ -28,9 +28,9 @@ from app.utils import parse_pages
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def make_pdf(path: str, num_pages: int = 3) -> str:
-    """Create a simple PDF with N pages using fitz."""
-    import fitz
-    doc = fitz.open()
+    """Create a simple PDF with N pages using PyMuPDF."""
+    import pymupdf
+    doc = pymupdf.open()
     for i in range(num_pages):
         page = doc.new_page(width=595, height=842)  # A4
         page.insert_text((72, 72), f"Page {i + 1}", fontsize=24)
@@ -475,8 +475,8 @@ class TestEncriptar:
 
 class TestMarcaDagua:
     def _make_watermark(self, path: str) -> str:
-        import fitz
-        doc = fitz.open()
+        import pymupdf
+        doc = pymupdf.open()
         page = doc.new_page(width=595, height=842)
         page.insert_text((200, 400), "CONFIDENTIAL", fontsize=36, color=(0.8, 0.8, 0.8))
         doc.save(path)
@@ -646,7 +646,7 @@ class TestAuditRegressions:
         assert "expected_sha256" in src
 
     def test_encrypted_pdf_helpers_unlock_with_stored_password(self, tmp):
-        # Functional check: BasePage._open_reader / _open_fitz must
+        # Functional check: BasePage._open_reader / _open_pymupdf must
         # transparently decrypt when self._pdf_password is set.
         from app.base import BasePage
 
@@ -658,7 +658,7 @@ class TestAuditRegressions:
         with open(enc, "wb") as f: w.write(f)
 
         # Stand-alone object that mimics a tool with a stored password.
-        # The stub must mirror exactly what _open_reader / _open_fitz
+        # The stub must mirror exactly what _open_reader / _open_pymupdf
         # touch on ``self``; anything missing fails with AttributeError
         # instead of exercising the decrypt code path. The former
         # ``_nfc`` NFC-normaliser is deliberately absent: candidate
@@ -667,14 +667,14 @@ class TestAuditRegressions:
         class _Stub:
             _pdf_password = "topsecret"
             _open_reader  = BasePage._open_reader
-            _open_fitz    = BasePage._open_fitz
+            _open_pymupdf = BasePage._open_pymupdf
         stub = _Stub()
 
         r = stub._open_reader(enc)
         assert len(r.pages) == 2, "pypdf reader must decrypt with stored pwd"
 
-        d = stub._open_fitz(enc)
-        assert d.page_count == 2, "fitz doc must authenticate with stored pwd"
+        d = stub._open_pymupdf(enc)
+        assert d.page_count == 2, "PyMuPDF doc must authenticate with stored pwd"
         d.close()
 
     def test_password_helpers_present_on_basepage(self):
@@ -683,7 +683,7 @@ class TestAuditRegressions:
         from app.base import BasePage
         assert callable(getattr(BasePage, "_maybe_prompt_password", None))
         assert callable(getattr(BasePage, "_open_reader", None))
-        assert callable(getattr(BasePage, "_open_fitz", None))
+        assert callable(getattr(BasePage, "_open_pymupdf", None))
 
     def test_tools_use_password_helper_on_load(self):
         # Each tool that opens user PDFs must call _maybe_prompt_password
@@ -705,7 +705,7 @@ class TestAuditRegressions:
     def test_editor_handles_encrypted_pdfs(self):
         # The editor's _load_pdf must prompt for a password and pass it
         # through to the canvas. The audit flagged this as broken — the
-        # job opened with fitz.open without authenticate().
+        # job opened with pymupdf.open without authenticate().
         with open(_REPO_ROOT / "app" / "editor" / "tab.py", encoding="utf-8") as f:
             src = f.read()
         # _load_pdf integrates the password prompt. PR-H/PR-I inflated
@@ -765,10 +765,10 @@ class TestAuditRegressions:
         assert "_run_background" in images_src
 
     def test_draw_ink_annot_uses_tuple_points(self):
-        # PyMuPDF 1.27+ rejects fitz.Point as ink-annot input with
+        # PyMuPDF 1.27+ rejects pymupdf.Point as ink-annot input with
         # ValueError: arg must be seq of seq of float pairs.
         # The draw branch builds the stroke as plain (float, float) tuples;
-        # this test fails if anyone reintroduces fitz.Point wrapping.
+        # this test fails if anyone reintroduces pymupdf.Point wrapping.
         # R1 refactor: the edit-application loop moved from TabEditar._run to
         # the pure app/editor/apply_edits.py dispatcher.
         with open(_REPO_ROOT / "app" / "editor" / "apply_edits.py",
@@ -778,8 +778,8 @@ class TestAuditRegressions:
         i = src.find('elif e["type"] == "draw":')
         assert i > 0, "draw branch missing in apply_edits.py"
         block = src[i:i + 600]
-        assert "[fitz.Point(x, y) for x, y in" not in block, \
-            "ink-annot strokes must be (x,y) tuples, not fitz.Point"
+        assert "[pymupdf.Point(x, y) for x, y in" not in block, \
+            "ink-annot strokes must be (x,y) tuples, not pymupdf.Point"
         assert "(float(x), float(y))" in block, \
             "expected explicit float tuple conversion in draw branch"
 

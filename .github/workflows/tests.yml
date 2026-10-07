@@ -1,0 +1,78 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (Ubuntu, Python 3.14)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.14'
+
+      - name: Install Qt system deps
+        # Two packages where build.yml's "Install Linux system deps" has
+        # three: that job freezes the app with PyInstaller, this one only
+        # runs the suite, with QT_QPA_PLATFORM=offscreen set on the "Run
+        # test suite" step. PySide6 facts below are for 6.11.2.
+        #
+        # libxcb-cursor0 is left out: libxcb-cursor.so.0 is DT_NEEDED
+        # only by libqxcb.so, libQt6XcbQpa.so.6 and the two
+        # xcbglintegrations plugins, and a full offscreen run of this
+        # suite under LD_DEBUG=files (Ubuntu 26.04) loaded none of them.
+        #
+        # libQt6Gui.so.6 has libEGL.so.1 and libxkbcommon.so.0 as
+        # DT_NEEDED entries; with either one absent, `from PySide6 import
+        # QtGui` raises ImportError. On image ubuntu-24.04
+        # 20260927.320.1, apt-get installed libegl1 as a new package and
+        # found libxkbcommon0 already installed.
+        #
+        # libqoffscreen.so and libQt6Gui.so.6 also need libX11.so.6 and
+        # libGL.so.1, and libX11.so.6 needs libxcb.so.1. None of the
+        # packages apt-get installed or upgraded there ships any of the
+        # three, so the image already had them. Of these three, only
+        # libGL.so.1 depends on the image alone: libx11-6 and libxcb1
+        # would also come in with libegl1 (via libegl-mesa0 on Ubuntu
+        # 24.04 and 26.04), libgl1 would not. A missing one fails the
+        # same way, with an ImportError naming it.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # requirements-dev.txt carries the test runners (pytest,
+          # pytest-qt) plus ruff and PyYAML, which parts of the suite
+          # invoke as subprocesses / import directly rather than
+          # skipping when absent.
+          pip install -r requirements-dev.txt
+
+      - name: Run test suite
+        env:
+          # Mandatory: the suite instantiates real QWidgets, and the
+          # default xcb plugin aborts with "could not connect to
+          # display" on a headless runner.
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m pytest -q -rs

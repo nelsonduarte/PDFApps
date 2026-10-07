@@ -7,7 +7,7 @@ password" while the thumbnail strip stayed blank.
 Root cause: the cache write sites ran the accepted password through
 ``unicodedata.normalize("NFC", ...)``. NFC matches *neither* engine:
 
-* MuPDF (PyMuPDF/fitz) does not normalise at all -- it hashes the raw
+* MuPDF (PyMuPDF) does not normalise at all -- it hashes the raw
   UTF-8 bytes for R>=5 (``pdf_saslprep_from_utf8`` in ``pdf-crypt.c`` is
   a documented stub).
 * pypdf >= 6.12 implements SASLprep (RFC 4013) in full, whose
@@ -20,7 +20,7 @@ wanted the other two.
 Second, opposite bug: the encrypt tool writes AES-256 through pypdf,
 which SASLpreps the password on the way in. A password containing
 U+FB01 (LATIN SMALL LIGATURE FI) is stored as "fi" but handed back to
-fitz as U+FB01, so the app produced files it could not itself reopen.
+PyMuPDF as U+FB01, so the app produced files it could not itself reopen.
 NFC does not reveal this one -- U+FB01's decomposition is a
 *compatibility* decomposition, which NFC preserves and only NFKC folds.
 
@@ -46,13 +46,13 @@ from PySide6.QtWidgets import QApplication, QDialog  # noqa: E402
 
 _unused_app = QApplication.instance() or QApplication([])
 
-import fitz  # noqa: E402
+import pymupdf  # noqa: E402
 from pypdf import PdfReader, PdfWriter  # noqa: E402
 
 from app.base import BasePage  # noqa: E402
 from app.tools.encrypt import _pwd_cache_key  # noqa: E402
 from app.pdf_password import (  # noqa: E402
-    authenticate_fitz,
+    authenticate_pymupdf,
     decrypt_pypdf,
     password_candidates,
     pypdf_password_forms,
@@ -85,7 +85,7 @@ assert unicodedata.normalize("NFC", FI) == FI, (
 
 
 def _plain_pdf(tmp_path: Path, pages: int = 2) -> str:
-    doc = fitz.open()
+    doc = pymupdf.open()
     for _ in range(pages):
         doc.new_page()
     out = str(tmp_path / "plain.pdf")
@@ -140,7 +140,7 @@ def _cached(pwd: str):
     class _Stub:
         _pdf_password = pwd
         _open_reader = BasePage._open_reader
-        _open_fitz = BasePage._open_fitz
+        _open_pymupdf = BasePage._open_pymupdf
 
     return _Stub()
 
@@ -210,10 +210,10 @@ def test_pypdf_forms_do_not_duplicate_ascii_attempts():
 def test_nfd_locked_file_opens_in_both_engines(tmp_path):
     """A file locked with raw NFD bytes, unlocked with the typed NFD form.
 
-    Before the fix: the prompt accepted (fitz hashes raw bytes), the
+    Before the fix: the prompt accepted (PyMuPDF hashes raw bytes), the
     cache stored NFC, and ``_open_reader`` raised ``Incorrect password``
     because pypdf SASLpreps a ``str`` back to NFC-but-hashed-differently
-    -- while ``_open_fitz`` also failed, leaving thumbnails blank.
+    -- while ``_open_pymupdf`` also failed, leaving thumbnails blank.
     """
     path = _encrypt_raw(tmp_path, NFD, "nfd.pdf")
 
@@ -222,7 +222,7 @@ def test_nfd_locked_file_opens_in_both_engines(tmp_path):
     # that used to be written into the cache authenticates in NEITHER
     # engine. Whatever the helpers do internally, they cannot succeed by
     # canonicalising to NFC.
-    probe = fitz.open(path)
+    probe = pymupdf.open(path)
     try:
         assert probe.authenticate(NFC) == 0
     finally:
@@ -230,7 +230,7 @@ def test_nfd_locked_file_opens_in_both_engines(tmp_path):
     assert PdfReader(path).decrypt(NFC) == 0
 
     stub = _cached(NFD)
-    doc = stub._open_fitz(path)
+    doc = stub._open_pymupdf(path)
     try:
         assert doc.page_count == 2
     finally:
@@ -277,7 +277,7 @@ def test_nfc_locked_file_accepts_typed_nfd(tmp_path, monkeypatch):
     assert pwd == NFC, "prompt must return the spelling that authenticated"
 
     stub = _cached(pwd)
-    doc = stub._open_fitz(path)
+    doc = stub._open_pymupdf(path)
     try:
         assert doc.page_count == 2
     finally:
@@ -338,7 +338,7 @@ def test_encrypt_tool_can_reopen_what_it_just_wrote(tmp_path, monkeypatch,
     """The app must be able to reopen the file it just wrote.
 
     ``TabEncriptar`` encrypts with pypdf AES-256, which SASLpreps a
-    ``str`` password; reopening goes through fitz, which does not. So the
+    ``str`` password; reopening goes through PyMuPDF, which does not. So the
     recorded spelling must come from the bytes on disk, never from a
     prediction: pypdf silently falls back to raw UTF-8 whenever its own
     SASLprep raises, which is the case for every emoji-bearing password
@@ -353,7 +353,7 @@ def test_encrypt_tool_can_reopen_what_it_just_wrote(tmp_path, monkeypatch,
                                    "locked.pdf")
 
     recorded = page._written_pwd[_pwd_cache_key(out)]
-    probe = fitz.open(out)
+    probe = pymupdf.open(out)
     try:
         assert probe.needs_pass
         assert probe.authenticate(recorded) != 0, (
@@ -365,9 +365,9 @@ def test_encrypt_tool_can_reopen_what_it_just_wrote(tmp_path, monkeypatch,
 
     # Candidate expansion recovers the on-disk spelling from what the
     # user typed, so a user who re-opens the file by hand also gets in.
-    doc = fitz.open(out)
+    doc = pymupdf.open(out)
     try:
-        assert authenticate_fitz(doc, typed) == recorded
+        assert authenticate_pymupdf(doc, typed) == recorded
     finally:
         doc.close()
 
@@ -380,7 +380,7 @@ def test_encrypt_tool_can_reopen_what_it_just_wrote(tmp_path, monkeypatch,
     page._load_input(out)
     assert page._pdf_password == recorded
     assert len(page._open_reader(out).pages) == 2
-    reopened = page._open_fitz(out)
+    reopened = page._open_pymupdf(out)
     try:
         assert reopened.page_count == 2
     finally:
@@ -398,7 +398,7 @@ def test_encrypt_tool_records_probed_spelling_not_a_prediction(tmp_path,
     page, out = _encrypt_with_tool(tmp_path, monkeypatch, FI, "fi.pdf")
     recorded = page._written_pwd[_pwd_cache_key(out)]
 
-    probe = fitz.open(out)
+    probe = pymupdf.open(out)
     try:
         assert probe.authenticate(recorded) != 0
     finally:
@@ -407,7 +407,7 @@ def test_encrypt_tool_records_probed_spelling_not_a_prediction(tmp_path,
     if recorded == FI_FOLDED:
         # The interesting branch: the tool wrote a spelling the user
         # never typed, and knows it.
-        probe = fitz.open(out)
+        probe = pymupdf.open(out)
         try:
             assert probe.authenticate(FI) == 0
         finally:
@@ -490,7 +490,7 @@ def test_encrypt_tool_probes_the_output_instead_of_predicting(tmp_path,
         "is what locks the file -- a predicted saslprep() would record "
         f"{ascii(FI_FOLDED)} and lock the app out of its own output"
     )
-    probe = fitz.open(out)
+    probe = pymupdf.open(out)
     try:
         assert probe.authenticate(recorded) != 0
     finally:
@@ -582,16 +582,16 @@ def test_ascii_password_unchanged_at_every_layer(tmp_path, algorithm):
     path = _encrypt_via_pypdf_str(tmp_path, "topsecret",
                                   f"ascii_{algorithm}.pdf", algorithm)
     stub = _cached("topsecret")
-    doc = stub._open_fitz(path)
+    doc = stub._open_pymupdf(path)
     try:
         assert doc.page_count == 2
     finally:
         doc.close()
     assert len(stub._open_reader(path).pages) == 2
 
-    probe = fitz.open(path)
+    probe = pymupdf.open(path)
     try:
-        assert authenticate_fitz(probe, "topsecret") == "topsecret"
+        assert authenticate_pymupdf(probe, "topsecret") == "topsecret"
     finally:
         probe.close()
     assert decrypt_pypdf(PdfReader(path), "topsecret") == "topsecret"
@@ -613,7 +613,7 @@ def test_wrong_password_still_raises(tmp_path):
     with pytest.raises(WrongPasswordError):
         stub._open_reader(path)
     with pytest.raises(WrongPasswordError):
-        stub._open_fitz(path)
+        stub._open_pymupdf(path)
 
 
 # ── 5. Engine parity ─────────────────────────────────────────────────────
@@ -634,20 +634,20 @@ def test_open_helpers_agree_for_the_same_cached_password(tmp_path,
     path = _encrypt_raw(tmp_path, locked_with,
                         f"parity_{abs(hash((locked_with, typed)))}.pdf")
 
-    probe = fitz.open(path)
+    probe = pymupdf.open(path)
     try:
-        winner = authenticate_fitz(probe, typed)
+        winner = authenticate_pymupdf(probe, typed)
     finally:
         probe.close()
     assert winner is not None
 
     stub = _cached(winner)
-    doc = stub._open_fitz(path)
+    doc = stub._open_pymupdf(path)
     try:
-        fitz_pages = doc.page_count
+        pymupdf_pages = doc.page_count
     finally:
         doc.close()
-    assert fitz_pages == len(stub._open_reader(path).pages) == 2
+    assert pymupdf_pages == len(stub._open_reader(path).pages) == 2
 
 
 # ── R<=4 (no canonical form) best-effort guard ───────────────────────────
@@ -671,7 +671,7 @@ def test_legacy_revision_non_ascii_password_still_opens(tmp_path, algorithm):
 
     stub = _cached(NFC)
     assert len(stub._open_reader(path).pages) == 2
-    doc = stub._open_fitz(path)
+    doc = stub._open_pymupdf(path)
     try:
         assert doc.page_count == 2
     finally:
@@ -738,7 +738,7 @@ def test_nfc_candidate_recovers_an_unassigned_code_point_password(tmp_path):
     """
     path = _encrypt_raw(tmp_path, NFC + EMOJI, "emoji_nfc.pdf")
 
-    probe = fitz.open(path)
+    probe = pymupdf.open(path)
     try:
         assert probe.authenticate(NFD + EMOJI) == 0, (
             "fixture broken: the typed spelling must NOT open the file"
@@ -746,9 +746,9 @@ def test_nfc_candidate_recovers_an_unassigned_code_point_password(tmp_path):
     finally:
         probe.close()
 
-    doc = fitz.open(path)
+    doc = pymupdf.open(path)
     try:
-        assert authenticate_fitz(doc, NFD + EMOJI) == NFC + EMOJI
+        assert authenticate_pymupdf(doc, NFD + EMOJI) == NFC + EMOJI
     finally:
         doc.close()
 
@@ -805,7 +805,7 @@ def test_maybe_prompt_password_reanchors_the_cache_on_the_new_file(
         assert page._pdf_password == NFC, (
             "the cache must hold the spelling that unlocked THIS file"
         )
-        probe = fitz.open(file_b)
+        probe = pymupdf.open(file_b)
         try:
             assert probe.authenticate(page._pdf_password) != 0, (
                 "a raw read of self._pdf_password must authenticate file B"
@@ -880,8 +880,8 @@ def test_viewer_panel_caches_the_spelling_that_unlocked_the_document(
             "the panel must cache the spelling that authenticated, not a "
             "canonicalised one"
         )
-        assert panel._fitz_doc is not None
-        assert panel._fitz_doc.page_count == 2
+        assert panel._pymupdf_doc is not None
+        assert panel._pymupdf_doc.page_count == 2
 
         model = panel._thumbnails._model
         assert model.rowCount() == 2
@@ -904,7 +904,7 @@ def test_viewer_panel_caches_the_winning_candidate_not_the_typed_string(
     The test above only proves the panel does not mangle a spelling that
     already works: for a file locked with the typed bytes, a bare
     ``doc.authenticate(typed)`` caches the same string that
-    ``authenticate_fitz`` would return, so reverting the call site keeps
+    ``authenticate_pymupdf`` would return, so reverting the call site keeps
     it green. It does not discriminate.
 
     Here the two values are forced apart. The file is sealed by MuPDF
@@ -926,7 +926,7 @@ def test_viewer_panel_caches_the_winning_candidate_not_the_typed_string(
     # Guard the fixture: if the typed spelling ever opened this file
     # directly the test would be vacuous, because both call sites would
     # cache the same string.
-    probe = fitz.open(path)
+    probe = pymupdf.open(path)
     try:
         assert probe.needs_pass
         assert not probe.authenticate(FI), (
@@ -1647,11 +1647,11 @@ def _mupdf_sealed(tmp_path: Path, pwd: str, name: str, pages: int = 3) -> str:
     ``decrypt(str)`` reopens and thus a fixture that cannot tell the
     fixed code from the broken code.
     """
-    doc = fitz.open()
+    doc = pymupdf.open()
     for _ in range(pages):
         doc.new_page()
     out = str(tmp_path / name)
-    doc.save(out, encryption=fitz.PDF_ENCRYPT_AES_256,
+    doc.save(out, encryption=pymupdf.PDF_ENCRYPT_AES_256,
              owner_pw=pwd, user_pw=pwd)
     doc.close()
     return out
@@ -1991,7 +1991,7 @@ def test_watermark_worker_accepts_a_mupdf_sealed_source(
 
 
 def test_compress_gate_accepts_a_mupdf_sealed_pdf(tmp_path):
-    """``authenticate_fitz(probe, password)`` -- the fitz arm of the gate.
+    """``authenticate_pymupdf(probe, password)`` -- the PyMuPDF arm of the gate.
 
     The password here is deliberately **not** NFD: MuPDF hashes the raw
     UTF-8 bytes of whatever it is handed, so for an NFD-sealed file a
@@ -2010,7 +2010,7 @@ def test_compress_gate_accepts_a_mupdf_sealed_pdf(tmp_path):
     src = _mupdf_sealed(tmp_path, stored, "compress_src.pdf", pages=2)
     dst = str(tmp_path / "compress_out.pdf")
 
-    probe = fitz.open(src)
+    probe = pymupdf.open(src)
     try:
         assert probe.authenticate(typed) == 0, (
             "a bare authenticate() accepted the typed spelling -- this "
@@ -2050,7 +2050,7 @@ def test_compress_gate_pypdf_fallback_accepts_a_mupdf_sealed_pdf(
         tmp_path, monkeypatch):
     """The pypdf fallback arm of the same gate (``decrypt_pypdf``).
 
-    Only reachable when the fitz probe raises, so fitz is forced to fail
+    Only reachable when the PyMuPDF probe raises, so PyMuPDF is forced to fail
     here. Reverted to ``pr.decrypt(password)`` this arm returns 0 and the
     gate rejects a correct password.
     """
@@ -2063,12 +2063,17 @@ def test_compress_gate_pypdf_fallback_accepts_a_mupdf_sealed_pdf(
 
     real_import = builtins.__import__
 
-    def _no_fitz(name, *a, **k):
-        if name == "fitz":
-            raise ImportError("fitz disabled for this test")
+    def _no_pymupdf(name, *a, **k):
+        # Blocking ``pymupdf`` alone is enough: app/ never imports the
+        # deprecated alias (tests/test_no_legacy_fitz_import.py enforces
+        # it), so the probe in _compress_pdf can only reach PyMuPDF
+        # through this name, even when the alias is already cached in
+        # sys.modules.
+        if name == "pymupdf":
+            raise ImportError("PyMuPDF disabled for this test")
         return real_import(name, *a, **k)
 
-    monkeypatch.setattr(builtins, "__import__", _no_fitz)
+    monkeypatch.setattr(builtins, "__import__", _no_pymupdf)
     try:
         _compress_pdf(src, dst, level=1, password=NFD)
     except WrongPasswordError as exc:

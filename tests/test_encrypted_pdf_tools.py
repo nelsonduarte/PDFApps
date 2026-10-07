@@ -3,7 +3,7 @@
 Covers the adversarial-audit findings:
 
 * MAJOR M1 — ``_compress_pdf`` ignored the password of an encrypted
-  source. Every pass discarded its output (gs exit!=0, fitz locked doc
+  source. Every pass discarded its output (gs exit!=0, PyMuPDF locked doc
   swallowed, pikepdf PasswordError swallowed), leaving ``temps`` empty
   so the function raised the MISLEADING ``tool.compress.deps_missing``
   even with all dependencies installed. The fix threads a ``password``
@@ -35,7 +35,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication  # noqa: E402
 _unused_app = QApplication.instance() or QApplication([])
 
-import fitz  # noqa: E402
+import pymupdf  # noqa: E402
 
 from app.i18n import t  # noqa: E402
 from app.utils import _compress_pdf, WrongPasswordError, _is_valid_pdf  # noqa: E402
@@ -55,19 +55,19 @@ def _compressible_pixmap(side: int = 1000):
     fast (no Python per-pixel loop).
     """
     samples = os.urandom(side * side * 3)
-    return fitz.Pixmap(fitz.csRGB, side, side, samples, False)
+    return pymupdf.Pixmap(pymupdf.csRGB, side, side, samples, False)
 
 
 def _make_encrypted_pdf(path: Path, password: str, pages: int = 2) -> Path:
     """Create an AES-256 encrypted, genuinely-compressible PDF."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     pix = _compressible_pixmap()
     for _ in range(pages):
         page = doc.new_page(width=595, height=842)
-        page.insert_image(fitz.Rect(0, 0, 595, 842), pixmap=pix)
+        page.insert_image(pymupdf.Rect(0, 0, 595, 842), pixmap=pix)
     doc.save(
         str(path),
-        encryption=fitz.PDF_ENCRYPT_AES_256,
+        encryption=pymupdf.PDF_ENCRYPT_AES_256,
         owner_pw=password,
         user_pw=password,
     )
@@ -108,7 +108,7 @@ def test_compress_encrypted_correct_password(tmp_path: Path):
     assert after <= before
     # Output must be a valid, readable, *decrypted* PDF with pages.
     assert _is_valid_pdf(str(dst))
-    out = fitz.open(str(dst))
+    out = pymupdf.open(str(dst))
     try:
         assert not out.needs_pass
         assert out.page_count == 2
@@ -144,9 +144,9 @@ def test_compress_plain_pdf_still_works(tmp_path: Path):
     regression from the encryption gate)."""
     src = tmp_path / "plain.pdf"
     # Build a plain compressible PDF (same noise image, no encryption).
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)
-    page.insert_image(fitz.Rect(0, 0, 595, 842), pixmap=_compressible_pixmap())
+    page.insert_image(pymupdf.Rect(0, 0, 595, 842), pixmap=_compressible_pixmap())
     doc.save(str(src))
     doc.close()
 
@@ -177,7 +177,7 @@ def test_is_valid_pdf_rejects_empty(tmp_path: Path):
 
 def test_is_valid_pdf_accepts_normal(tmp_path: Path):
     p = tmp_path / "ok.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page(width=595, height=842)
     doc.save(str(p))
     doc.close()
@@ -225,7 +225,7 @@ def test_nup_worker_raises_on_auth_failure(tmp_path, monkeypatch):
         def close(self):
             pass
 
-    monkeypatch.setattr(fitz, "open", lambda *a, **k: _Locked())
+    monkeypatch.setattr(pymupdf, "open", lambda *a, **k: _Locked())
     # WrongPasswordError, not ValueError: the type is what routes the
     # failure to show_error's warning branch instead of the generic
     # "something went wrong + traceback in the log" crash dialog.
@@ -258,7 +258,7 @@ def test_convert_images_worker_raises_on_auth_failure(tmp_path, monkeypatch):
         def close(self):
             pass
 
-    monkeypatch.setattr(fitz, "open", lambda *a, **k: _Locked())
+    monkeypatch.setattr(pymupdf, "open", lambda *a, **k: _Locked())
     # WrongPasswordError, not ValueError: the type is what routes the
     # failure to show_error's warning branch instead of the generic
     # "something went wrong + traceback in the log" crash dialog.
@@ -295,7 +295,7 @@ def test_reorder_empty_list_aborts(tmp_path, monkeypatch):
     from app.tools.reorder import TabReordenar
 
     src = tmp_path / "in.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     for _ in range(3):
         doc.new_page(width=595, height=842)
     doc.save(str(src))
@@ -334,7 +334,7 @@ def test_reorder_normal_still_writes(tmp_path, monkeypatch):
     from app.tools.reorder import TabReordenar
 
     src = tmp_path / "in.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     for _ in range(3):
         doc.new_page(width=595, height=842)
     doc.save(str(src))

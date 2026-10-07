@@ -161,8 +161,8 @@ class TabPageNumbers(BasePage):
         # thread anyway, and re-entering the worker for a second phase
         # would add complexity without a perceived speedup.
         try:
-            import fitz, re
-            with self._open_fitz(pdf_path) as doc:
+            import pymupdf, re
+            with self._open_pymupdf(pdf_path) as doc:
                 total = doc.page_count
                 targets = set(parse_pages(txt, total)) if txt else set(range(total))
                 band_h = max(50, font_size * 4)
@@ -171,7 +171,7 @@ class TabPageNumbers(BasePage):
                     r"(?:page|página|pagina|seite|stránka)\s+\d+(?:\s+(?:of|de|sur|von|di|van)\s+\d+)?)\s*$",
                     re.IGNORECASE,
                 )
-                # Plain (x0, y0, x1, y1) tuples — no fitz.Rect objects
+                # Plain (x0, y0, x1, y1) tuples — no pymupdf.Rect objects
                 # leak past the `with` block; the worker reconstructs
                 # them after re-opening the doc.
                 existing: list = []
@@ -181,9 +181,9 @@ class TabPageNumbers(BasePage):
                     page = doc[i]
                     rect = page.rect
                     if pos_code[0] == "t":
-                        band = fitz.Rect(0, 0, rect.width, band_h)
+                        band = pymupdf.Rect(0, 0, rect.width, band_h)
                     else:
-                        band = fitz.Rect(0, rect.height - band_h, rect.width, rect.height)
+                        band = pymupdf.Rect(0, rect.height - band_h, rect.width, rect.height)
                     hits = []
                     for block in page.get_text("dict", clip=band).get("blocks", []):
                         if block.get("type") != 0:
@@ -230,13 +230,13 @@ class TabPageNumbers(BasePage):
         # This is the slow part — apply_redactions rasterises the
         # affected regions and insert_text touches every target page.
         def do_work(worker):
-            import fitz
-            doc = fitz.open(pdf_path)
+            import pymupdf
+            doc = pymupdf.open(pdf_path)
             if doc.needs_pass:
                 # Verify authenticate() succeeded: an unchecked call on a
                 # doc whose password changed since _load_input would leave
                 # it locked and write empty/garbled output. Mirror
-                # _open_fitz and raise a clear password error.
+                # _open_pymupdf and raise a clear password error.
                 if not (pwd and doc.authenticate(pwd)):
                     raise WrongPasswordError(t("tool.err.wrong_password"))
             try:
@@ -246,7 +246,7 @@ class TabPageNumbers(BasePage):
                             return None
                         pg = doc[pg_idx]
                         for bbox in rects:
-                            pg.add_redact_annot(fitz.Rect(*bbox), fill=(1, 1, 1))
+                            pg.add_redact_annot(pymupdf.Rect(*bbox), fill=(1, 1, 1))
                         pg.apply_redactions()
 
                 counter = 0
@@ -283,7 +283,7 @@ class TabPageNumbers(BasePage):
                     else:
                         x = rect.width - margin - tw
 
-                    page.insert_text(fitz.Point(x, y), label,
+                    page.insert_text(pymupdf.Point(x, y), label,
                                      fontsize=font_size, fontname="helv",
                                      color=(0, 0, 0))
                     worker.progress.emit(counter,

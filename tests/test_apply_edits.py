@@ -1,8 +1,8 @@
 """Headless tests for the pure edit-application dispatcher (R1 refactor).
 
-``app.editor.apply_edits.apply_pending_edits`` is the pure PDF/``fitz`` logic
+``app.editor.apply_edits.apply_pending_edits`` is the pure PDF/``pymupdf`` logic
 extracted from ``TabEditar._run``: it applies a list of pending edits to an
-already-open ``fitz.Document`` with NO file I/O and NO Qt. These tests exercise
+already-open ``pymupdf.Document`` with NO file I/O and NO Qt. These tests exercise
 it directly, without any widget, proving the refactor's headline win —
 testability. Each edit type is applied to a real in-memory document and the
 resulting document (via a save+reopen round-trip through bytes) is asserted.
@@ -18,7 +18,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 pymupdf = pytest.importorskip("pymupdf")
-fitz = pymupdf
 
 from app.editor.apply_edits import apply_pending_edits, ApplyResult  # noqa: E402
 
@@ -27,7 +26,7 @@ from app.editor.apply_edits import apply_pending_edits, ApplyResult  # noqa: E40
 
 def _page_with_text(text, *, fontname="helv", size=14, at=(30, 60),
                     width=400, height=200, color=(0, 0, 0)):
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=width, height=height)
     page.insert_text(at, text, fontsize=size, fontname=fontname, color=color)
     return doc, page
@@ -66,7 +65,7 @@ def _reopen(doc):
     live in-memory object."""
     data = doc.tobytes(garbage=4, deflate=True)
     doc.close()
-    return fitz.open("pdf", data)
+    return pymupdf.open("pdf", data)
 
 
 # ── return type ──────────────────────────────────────────────────────────
@@ -100,7 +99,7 @@ def test_text_edit_reinserts_new_and_removes_old():
 def test_redact_removes_covered_text():
     doc, page = _page_with_text("SECRETdata", size=16, at=(30, 60))
     span = _first_span(page)
-    rect = fitz.Rect(span["bbox"])
+    rect = pymupdf.Rect(span["bbox"])
     result = apply_pending_edits(
         doc, [{"type": "redact", "page": 0, "rect": rect, "fill": (1, 1, 1)}])
     assert isinstance(result, ApplyResult)
@@ -254,10 +253,10 @@ def test_fitting_text_edit_produces_no_warnings():
 def _write_png(dir_path, name="stamp.png", size=12, value=90):
     """Write a tiny valid PNG to ``dir_path`` and return its path string.
 
-    Uses only ``fitz`` (no PIL dependency): a solid-grey RGB pixmap saved as
+    Uses only ``pymupdf`` (no PIL dependency): a solid-grey RGB pixmap saved as
     PNG. Small but real, so ``insert_image`` genuinely embeds a raster.
     """
-    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, size, size))
+    pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, size, size))
     pix.clear_with(value)
     path = dir_path / name
     pix.save(str(path))
@@ -274,7 +273,7 @@ def test_image_and_signature_embed_raster(tmp_path, edit_type):
     assert page.get_images() == [], "page unexpectedly had an image to start"
     img_path = _write_png(tmp_path, name=f"{edit_type}.png")
     edit = {"type": edit_type, "page": 0,
-            "rect": fitz.Rect(40, 40, 140, 140), "path": img_path}
+            "rect": pymupdf.Rect(40, 40, 140, 140), "path": img_path}
     result = apply_pending_edits(doc, [edit])
     assert isinstance(result, ApplyResult)
     reopened = _reopen(doc)               # persist + reload through bytes
@@ -295,7 +294,7 @@ def test_highlight_creates_coloured_highlight_annot():
     before = len(list(page.annots() or []))
     colour = (0.1, 0.7, 0.3)             # distinct from the default yellow
     edit = {"type": "highlight", "page": 0,
-            "rect": fitz.Rect(span["bbox"]), "color": colour}
+            "rect": pymupdf.Rect(span["bbox"]), "color": colour}
     apply_pending_edits(doc, [edit])
     annots = list(page.annots() or [])
     count = len(annots)

@@ -70,11 +70,11 @@ def test_open_note_index_is_decremented_after_delete():
 def test_print_pixmap_uses_alpha_false_and_csrgb_fallback():
     """Print path must:
     - request alpha=False so we never end up reading RGBA as RGB888;
-    - fall back to fitz.Pixmap(csRGB, pix) for CMYK/greyscale (n != 3);
+    - fall back to pymupdf.Pixmap(csRGB, pix) for CMYK/greyscale (n != 3);
     - call .copy() on the QImage so the painter doesn't draw from the
       pixmap buffer after pix is freed on the next iteration."""
     assert "alpha=False" in PANEL
-    assert "fitz.csRGB" in PANEL
+    assert "pymupdf.csRGB" in PANEL
     assert "pix.n != 3" in PANEL
     # QImage(...).copy() is the lifetime-decoupling bit.
     assert ").copy()" in PANEL
@@ -86,12 +86,12 @@ def test_print_pixmap_uses_alpha_false_and_csrgb_fallback():
 def test_close_doc_called_when_loading_new_doc():
     """panel.load() must funnel the old-doc teardown through
     _canvas.close_doc() so the canvas clears _doc + bumps _gen BEFORE
-    the underlying fitz.Document is closed. Without that ordering, a
+    the underlying pymupdf.Document is closed. Without that ordering, a
     paintEvent/_on_page_ready queued between close and the next load
     touches a freed Document and raises ``RuntimeError: document
     closed``."""
     assert "self._canvas.close_doc()" in PANEL
-    # The panel must NOT also call _fitz_doc.close() in addition to
+    # The panel must NOT also call _pymupdf_doc.close() in addition to
     # close_doc(), because the canvas helper already closes the
     # underlying document — a second close raises.
     load_idx = PANEL.index("def load(self, path: str)")
@@ -156,6 +156,6 @@ def test_print_loop_preserves_pixmap_safety_fix():
     # guard to _print_pdf, shifting the render loop (and its .copy()) down.
     body = PANEL[print_idx: print_idx + 4000]
     assert "alpha=False" in body
-    assert "fitz.csRGB" in body
+    assert "pymupdf.csRGB" in body
     assert "pix.n != 3" in body
     assert ").copy()" in body

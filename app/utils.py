@@ -240,7 +240,7 @@ def prompt_pdf_password(path: str, parent=None) -> tuple[bool, str]:
     returns a winner to avoid.
 
     Detects encryption with PyMuPDF (handles all PDF flavours). The caller
-    opens the file with whatever library (pypdf, fitz) using the returned
+    opens the file with whatever library (pypdf, PyMuPDF) using the returned
     password.
 
     On any unexpected error during detection the function returns
@@ -249,22 +249,22 @@ def prompt_pdf_password(path: str, parent=None) -> tuple[bool, str]:
     never a hard gate.
     """
     try:
-        import fitz  # PyMuPDF
-        doc = fitz.open(path)
+        import pymupdf  # PyMuPDF
+        doc = pymupdf.open(path)
     except Exception:
         return True, ""
     try:
         if not doc.needs_pass:
             return True, ""
         from app.editor.dialogs import _PdfPasswordDialog
-        from app.pdf_password import authenticate_fitz
+        from app.pdf_password import authenticate_pymupdf
         from PySide6.QtWidgets import QDialog
         wrong = False
         while True:
             dlg = _PdfPasswordDialog(os.path.basename(path), wrong=wrong, parent=parent)
             if dlg.exec() != QDialog.DialogCode.Accepted:
                 return False, ""
-            winner = authenticate_fitz(doc, dlg.password())
+            winner = authenticate_pymupdf(doc, dlg.password())
             if winner is not None:
                 return True, winner
             wrong = True
@@ -476,8 +476,8 @@ def _is_valid_pdf(path: str) -> bool:
     except OSError:
         return False
     try:
-        import fitz
-        doc = fitz.open(path)
+        import pymupdf
+        doc = pymupdf.open(path)
         try:
             # A still-encrypted doc reports needs_pass and 0 readable
             # pages; treat that as invalid so it is never accepted.
@@ -487,8 +487,8 @@ def _is_valid_pdf(path: str) -> bool:
         finally:
             doc.close()
     except Exception:
-        pass  # fitz probe failed/unavailable — fall through to the pypdf fallback below.
-    # fitz unavailable — fall back to pypdf (a guaranteed dependency).
+        pass  # PyMuPDF probe failed/unavailable — fall through to the pypdf fallback below.
+    # PyMuPDF unavailable — fall back to pypdf (a guaranteed dependency).
     try:
         from pypdf import PdfReader
         r = PdfReader(path)
@@ -509,7 +509,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         · Grayscale conversion on extreme level
         · Best overall compression — same engine used by iLovePDF / SmallPDF
 
-      Pass B — PyMuPDF (fitz)
+      Pass B — PyMuPDF
         · scrub()  →  remove metadata, thumbnails, attached files
         · subset_fonts()  →  keep only used glyphs
         · rewrite_images()  →  DPI downsampling + JPEG re-encode
@@ -534,7 +534,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
 
     # ── Encryption gate ──────────────────────────────────────────────────
     # A previous bug let an encrypted source fall through every pass:
-    # Ghostscript exits non-zero (output discarded), fitz.open leaves the
+    # Ghostscript exits non-zero (output discarded), pymupdf.open leaves the
     # doc locked (operations swallowed by `except Exception: pass`), and
     # pikepdf.open raises PasswordError (also swallowed) — leaving
     # `temps` empty so the function raised the MISLEADING
@@ -543,10 +543,10 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     # supplied password is missing or wrong, so downstream passes can
     # authenticate deterministically.
     #
-    # Probe with fitz first: it is a guaranteed dependency and unlocks
+    # Probe with PyMuPDF first: it is a guaranteed dependency and unlocks
     # AES-256 natively, whereas pypdf.decrypt() needs an optional crypto
     # backend and would spuriously report a correct AES password as
-    # wrong. pypdf is only the fallback if fitz is somehow unavailable.
+    # wrong. pypdf is only the fallback if PyMuPDF is somehow unavailable.
     #
     # The probe resolves the *candidate spelling* that authenticates
     # (see app.pdf_password) and rebinds ``password`` to it, so the
@@ -555,13 +555,13 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     encrypted = False
     authed = False
     try:
-        import fitz
-        from app.pdf_password import authenticate_fitz
-        probe = fitz.open(src)
+        import pymupdf
+        from app.pdf_password import authenticate_pymupdf
+        probe = pymupdf.open(src)
         try:
             encrypted = probe.needs_pass
             if encrypted and password:
-                winner = authenticate_fitz(probe, password)
+                winner = authenticate_pymupdf(probe, password)
                 authed = winner is not None
                 if winner is not None:
                     password = winner
@@ -598,7 +598,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             # str path. Best-effort cleanup; the outer try/except at
             # the bottom retries any survivors after each pass's
             # finally has had a chance to release file handles
-            # (Windows can't unlink a tempfile while pikepdf/fitz
+            # (Windows can't unlink a tempfile while pikepdf/PyMuPDF
             # still has it open).
             for _p in temps:
                 try: os.unlink(_p)
@@ -696,8 +696,8 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     doc = None
     p = None
     try:
-        import fitz
-        doc = fitz.open(src)
+        import pymupdf
+        doc = pymupdf.open(src)
         if doc.needs_pass:
             # The encryption gate above already validated the password,
             # so a failure here means the file changed underneath us —

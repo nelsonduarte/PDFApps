@@ -39,7 +39,7 @@ def _read(rel: str) -> str:
 def test_run_detects_encrypted_input():
     src = _read("app/editor/tab.py")
     # R10 (CRIT-2): the encryption peek now uses a short-lived
-    # ``peek = fitz.open(...)`` BEFORE releasing the canvas so a user
+    # ``peek = pymupdf.open(...)`` BEFORE releasing the canvas so a user
     # cancel in the encryption prompt no longer strands the editor on
     # the placeholder. Allow either the legacy ``doc.needs_pass``
     # phrasing or the new ``peek.needs_pass`` one — both detect input
@@ -64,13 +64,13 @@ def test_prompt_encryption_choice_offers_three_paths():
     assert "setDefaultButton(keep_btn)" in body
 
 
-def test_fitz_save_path_supports_aes_256_reencryption():
+def test_pymupdf_save_path_supports_aes_256_reencryption():
     src = _read("app/editor/tab.py")
-    fitz_block = src[src.find('encrypt_choice = "plaintext"'):
-                     src.find("def _apply_forms")]
-    assert 'fitz.PDF_ENCRYPT_AES_256' in fitz_block
-    assert 'user_pw=self._pdf_password' in fitz_block
-    assert 'owner_pw=self._pdf_password' in fitz_block
+    pymupdf_block = src[src.find('encrypt_choice = "plaintext"'):
+                        src.find("def _apply_forms")]
+    assert 'pymupdf.PDF_ENCRYPT_AES_256' in pymupdf_block
+    assert 'user_pw=self._pdf_password' in pymupdf_block
+    assert 'owner_pw=self._pdf_password' in pymupdf_block
 
 
 def test_pypdf_forms_path_supports_aes_256_reencryption():
@@ -461,7 +461,7 @@ def test_note_deleted_existing_enqueues_delete_annot():
         "page": 2,
         "text": "hello",
         "_existing": True,
-        "_annot_type": 0,        # fitz.PDF_ANNOT_TEXT
+        "_annot_type": 0,        # pymupdf.PDF_ANNOT_TEXT
         "_annot_bbox": bbox,
     }
     s._pending.append(existing)

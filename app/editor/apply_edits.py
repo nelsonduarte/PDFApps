@@ -1,8 +1,8 @@
 """PDFApps – pure edit-application dispatcher for the PDF editor.
 
-This module holds the pure PDF/``fitz`` logic that applies a list of pending
+This module holds the pure PDF/``pymupdf`` logic that applies a list of pending
 edits to an already-open (and, if encrypted, already-authenticated)
-``fitz.Document``. It performs NO file I/O (it does not open, save or reload
+``pymupdf.Document``. It performs NO file I/O (it does not open, save or reload
 the document) and touches NO Qt / UI state (no ``QMessageBox``, no ``self``,
 no ``self._status`` and no password prompts), so it can be unit-tested
 headless. See ``TabEditar._run`` for the surrounding orchestration.
@@ -14,7 +14,7 @@ only adaptations are:
 * ``self._pending`` became the ``pending`` parameter;
 * ``text_fit_warnings.append`` became result accumulation (plus an optional
   ``warn_fn`` callback that preserves the previous semantics);
-* ``import fitz`` is done locally, mirroring how ``_run`` imported it.
+* ``import pymupdf`` is done locally, mirroring how ``_run`` imported it.
 
 ``subset_fonts()`` stays here (not in ``_run``): the original ran it
 unconditionally after the loop, gated on ``embedded_font``, operating solely
@@ -52,7 +52,7 @@ class ApplyResult:
 def apply_pending_edits(doc, pending, *, warn_fn=None) -> ApplyResult:
     """Apply ``pending`` edits to the already-open ``doc`` (pure; no I/O, no UI).
 
-    ``doc``: an open ``fitz.Document`` (already authenticated if it was
+    ``doc``: an open ``pymupdf.Document`` (already authenticated if it was
     encrypted). This function mutates it in place and does NOT save or close it.
 
     ``pending``: the list of edit dicts (``TabEditar._pending``). Each carries a
@@ -67,7 +67,7 @@ def apply_pending_edits(doc, pending, *, warn_fn=None) -> ApplyResult:
     Returns an :class:`ApplyResult` with the accumulated text-fit warnings and
     the ``embedded_font`` flag.
     """
-    import fitz
+    import pymupdf
 
     result = ApplyResult()
 
@@ -105,7 +105,7 @@ def apply_pending_edits(doc, pending, *, warn_fn=None) -> ApplyResult:
         elif e["type"] == "draw":
             # PyMuPDF's add_ink_annot expects a list of strokes, where
             # each stroke is a list of (x, y) float pairs — NOT a list
-            # of fitz.Point. Passing Points raises
+            # of pymupdf.Point. Passing Points raises
             # `ValueError: arg must be seq of seq of float pairs`.
             stroke = [(float(x), float(y))
                       for x, y in e.get("points", [])]
@@ -116,11 +116,11 @@ def apply_pending_edits(doc, pending, *, warn_fn=None) -> ApplyResult:
                 annot.update()
         elif e["type"] == "delete_annot":
             # Match by annot type + bbox (xref isn't stable across
-            # the canvas-release / fitz.open round-trip used here).
+            # the canvas-release / pymupdf.open round-trip used here).
             target_type = e.get("annot_type")
             target_bbox = e.get("bbox")
             if target_bbox is not None:
-                target_rect = fitz.Rect(target_bbox)
+                target_rect = pymupdf.Rect(target_bbox)
                 for annot in list(pg.annots() or []):
                     if (annot.type[0] == target_type
                             and abs(annot.rect.x0 - target_rect.x0) < 1
@@ -132,7 +132,7 @@ def apply_pending_edits(doc, pending, *, warn_fn=None) -> ApplyResult:
             # box) + insert_htmlbox preserving the original size, weight,
             # colour and — when the source font is embeddable — the exact
             # typeface, with a defensive base-14 fallback. See #147.
-            if _reinsert_edited_text(fitz, doc, pg, e,
+            if _reinsert_edited_text(pymupdf, doc, pg, e,
                                      warn_fn=_collect_warning):
                 embedded_font = True
     result.embedded_font = embedded_font

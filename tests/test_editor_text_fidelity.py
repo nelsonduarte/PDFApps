@@ -25,7 +25,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 pymupdf = pytest.importorskip("pymupdf")
-fitz = pymupdf
 
 from app.editor.text_reinsert import (  # noqa: E402
     _font_core, _font_matches, _text_edit_size, _text_edit_color_hex,
@@ -68,10 +67,10 @@ def _edit_from_span(span, new_text, page_idx=0):
 
 def _page_with_text(text, fontname, size, color=(0, 0, 0), *,
                     width=400, height=200, at=(30, 100), bg=None):
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=width, height=height)
     if bg is not None:
-        page.draw_rect(fitz.Rect(10, 10, width - 10, height - 40),
+        page.draw_rect(pymupdf.Rect(10, 10, width - 10, height - 40),
                        color=bg, fill=bg)
     page.insert_text(at, text, fontsize=size, fontname=fontname, color=color)
     return doc, page
@@ -80,7 +79,7 @@ def _page_with_text(text, fontname, size, color=(0, 0, 0), *,
 def _page_with_lines(lines, fontname, size, *, leading=1.2, at=(30, 60),
                      width=320, height=220):
     """Render several lines at NORMAL (~1.2x) leading; return (doc, page)."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=width, height=height)
     x, y0 = at
     for i, line in enumerate(lines):
@@ -104,10 +103,10 @@ def _edit_roundtrip(doc, page, new_text):
     """Apply the edit, save+reopen through bytes, return the resulting span."""
     span = _first_span(page)
     edit = _edit_from_span(span, new_text)
-    embedded = _reinsert_edited_text(fitz, doc, page, edit)
+    embedded = _reinsert_edited_text(pymupdf, doc, page, edit)
     data = doc.tobytes(garbage=4, deflate=True)
     doc.close()
-    reopened = fitz.open("pdf", data)
+    reopened = pymupdf.open("pdf", data)
     result = _first_span(reopened[0])
     reopened.close()
     return edit, embedded, result
@@ -219,9 +218,9 @@ def test_transparent_redaction_preserves_background():
     doc, page = _page_with_text("Original", "helv", 16, color=(1, 1, 1),
                                 bg=bg, at=(30, 60))
     span = _first_span(page)
-    bbox = fitz.Rect(span["bbox"])
+    bbox = pymupdf.Rect(span["bbox"])
     edit = _edit_from_span(span, "Modified")
-    _reinsert_edited_text(fitz, doc, page, edit)
+    _reinsert_edited_text(pymupdf, doc, page, edit)
     pm = page.get_pixmap(dpi=150)
     # sample a corner of the old span bbox (background, away from new glyphs)
     px = int((bbox.x0 + 1) / page.rect.width * pm.width)
@@ -238,7 +237,7 @@ def test_no_new_white_fill_drawn():
     doc, page = _page_with_text("Original", "helv", 14, bg=(0.2, 0.6, 0.9))
     span = _first_span(page)
     edit = _edit_from_span(span, "Edited")
-    _reinsert_edited_text(fitz, doc, page, edit)
+    _reinsert_edited_text(pymupdf, doc, page, edit)
     # No filled path should be white (1,1,1) covering the region.
     white_fills = [
         d for d in page.get_drawings()
@@ -267,12 +266,12 @@ def test_defensive_fallback_on_htmlbox_failure(monkeypatch):
     def _boom(*a, **k):
         raise RuntimeError("forced htmlbox failure")
 
-    monkeypatch.setattr(fitz.Page, "insert_htmlbox", _boom)
-    embedded = _reinsert_edited_text(fitz, doc, page, edit)
+    monkeypatch.setattr(pymupdf.Page, "insert_htmlbox", _boom)
+    embedded = _reinsert_edited_text(pymupdf, doc, page, edit)
     assert embedded is False
     data = doc.tobytes(garbage=4, deflate=True)
     doc.close()
-    reopened = fitz.open("pdf", data)
+    reopened = pymupdf.open("pdf", data)
     result = _first_span(reopened[0])
     txt = reopened[0].get_text()
     reopened.close()
@@ -286,7 +285,7 @@ def test_empty_new_text_only_redacts():
     doc, page = _page_with_text("DeleteMe", "helv", 14)
     span = _first_span(page)
     edit = _edit_from_span(span, "   ")  # whitespace -> treated as empty
-    embedded = _reinsert_edited_text(fitz, doc, page, edit)
+    embedded = _reinsert_edited_text(pymupdf, doc, page, edit)
     txt = page.get_text().strip()
     doc.close()
     assert embedded is False
@@ -298,7 +297,7 @@ def test_empty_new_text_only_redacts():
 def test_embedded_font_reused_exactly():
     """A fully embedded (non-subset) font is re-embedded, preserving the exact
     typeface and size — the headline #147 fidelity win."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=400, height=200)
     page.insert_font(fontname="DVS", fontfile=_DEJAVU)
     page.insert_text((30, 100), "Original", fontsize=16, fontname="DVS",
@@ -315,7 +314,7 @@ def test_embedded_font_reused_exactly():
 def test_subset_font_skipped_falls_back_to_generic():
     """A subsetted font (ABCDEF+ prefix) is NOT re-embedded; the generic family
     path is used instead (documented limitation)."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=400, height=200)
     page.insert_font(fontname="DVS", fontfile=_DEJAVU)
     page.insert_text((30, 100), "Original", fontsize=16, fontname="DVS")
@@ -323,7 +322,7 @@ def test_subset_font_skipped_falls_back_to_generic():
     doc.subset_fonts()
     data = doc.tobytes(garbage=4, deflate=True)
     doc.close()
-    doc = fitz.open("pdf", data)
+    doc = pymupdf.open("pdf", data)
     page = doc[0]
     basefonts = [f[3] for f in page.get_fonts(full=False)]
     assert any("+" in (bf or "") for bf in basefonts), (
@@ -343,8 +342,8 @@ def test_redaction_rect_is_tight_body_band():
     span = _find_span(page, "Only")
     edit = _edit_from_span(span, "x")
     size = _text_edit_size(edit)
-    rr = _text_edit_redaction_rect(fitz, edit, size)
-    bbox = fitz.Rect(span["bbox"])
+    rr = _text_edit_redaction_rect(pymupdf, edit, size)
+    bbox = pymupdf.Rect(span["bbox"])
     oy = span["origin"][1]
     doc.close()
     assert (rr.y1 - rr.y0) == pytest.approx(size, abs=0.5)   # ~= body, not line
@@ -358,7 +357,7 @@ def test_redaction_rect_falls_back_to_bbox_when_metrics_missing():
     which is always safe for removal (documented A1 fallback)."""
     edit = {"bbox": [10, 20, 110, 40], "origin": [10, 38],
             "ascender": 0, "descender": 0}
-    rr = _text_edit_redaction_rect(fitz, edit, 12)
+    rr = _text_edit_redaction_rect(pymupdf, edit, 12)
     assert [rr.x0, rr.y0, rr.x1, rr.y1] == [10, 20, 110, 40]
 
 
@@ -372,10 +371,10 @@ def test_editing_middle_line_keeps_neighbours_intact():
     span = _find_span(page, "BBB")
     assert span is not None
     edit = _edit_from_span(span, "EDITED middle")
-    _reinsert_edited_text(fitz, doc, page, edit)
+    _reinsert_edited_text(pymupdf, doc, page, edit)
     data = doc.tobytes(garbage=4, deflate=True)
     doc.close()
-    reopened = fitz.open("pdf", data)
+    reopened = pymupdf.open("pdf", data)
     txt = reopened[0].get_text()
     reopened.close()
     assert "EDITED middle" in txt          # (i) new text present
@@ -406,7 +405,7 @@ def test_editing_middle_line_neighbours_render_unclipped():
     ink_above_before = _row_ink(page, above_y)
     ink_below_before = _row_ink(page, below_y)
     edit = _edit_from_span(span, "REPLACED")
-    _reinsert_edited_text(fitz, doc, page, edit)
+    _reinsert_edited_text(pymupdf, doc, page, edit)
     ink_above_after = _row_ink(page, above_y)
     ink_below_after = _row_ink(page, below_y)
     doc.close()
@@ -431,10 +430,10 @@ def test_long_edit_stays_legible_not_silently_shrunk():
                  "its point size. It keeps going for a good while longer still.")
     edit = _edit_from_span(span, long_text)
     warned = []
-    _reinsert_edited_text(fitz, doc, page, edit, warn_fn=warned.append)
+    _reinsert_edited_text(pymupdf, doc, page, edit, warn_fn=warned.append)
     data = doc.tobytes(garbage=4, deflate=True)
     doc.close()
-    reopened = fitz.open("pdf", data)
+    reopened = pymupdf.open("pdf", data)
     spans = [s for b in reopened[0].get_text("dict")["blocks"]
              if b.get("type") == 0
              for ln in b.get("lines", []) for s in ln.get("spans", [])]
@@ -458,10 +457,10 @@ def test_unfittable_edit_warns_and_never_drops_text():
     huge = "word " * 400   # far more than a tiny page can hold at 14pt
     edit = _edit_from_span(span, huge)
     warned = []
-    _reinsert_edited_text(fitz, doc, page, edit, warn_fn=warned.append)
+    _reinsert_edited_text(pymupdf, doc, page, edit, warn_fn=warned.append)
     data = doc.tobytes(garbage=4, deflate=True)
     doc.close()
-    reopened = fitz.open("pdf", data)
+    reopened = pymupdf.open("pdf", data)
     full = reopened[0].get_text()
     reopened.close()
     assert warned, "no downscale warning raised for un-fittable text"

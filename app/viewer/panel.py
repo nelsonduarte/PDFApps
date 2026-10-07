@@ -13,7 +13,7 @@ from shiboken6 import isValid
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_SEC, _LQ, DESKTOP
-from app.pdf_password import authenticate_fitz
+from app.pdf_password import authenticate_pymupdf
 from app.utils import _paint_bg
 from app.i18n import t
 from app.viewer.canvas import _SelectCanvas
@@ -28,7 +28,7 @@ class PdfViewerPanel(QWidget):
         self.setObjectName("viewer_panel")
         self.setMinimumWidth(260)
         self._current_path = ""
-        self._fitz_doc     = None
+        self._pymupdf_doc  = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -171,9 +171,9 @@ class PdfViewerPanel(QWidget):
         # ── Canvas with continuous scroll of all pages ──────────────────
         self._canvas = _SelectCanvas()
         self._canvas.zoom_changed.connect(self._on_zoom_changed)
-        # M2: the canvas may close+reopen the shared fitz.Document (failed
+        # M2: the canvas may close+reopen the shared pymupdf.Document (failed
         # saveIncr in the delete-comment path). When it does, it hands us
-        # the new handle so _fitz_doc never points at a closed Document.
+        # the new handle so _pymupdf_doc never points at a closed Document.
         self._canvas.doc_replaced.connect(self._on_doc_replaced)
         self._canvas_scroll = QScrollArea()
         self._canvas_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -231,7 +231,7 @@ class PdfViewerPanel(QWidget):
         sb_lay.addWidget(self._search_prev_btn); sb_lay.addWidget(self._search_next_btn); sb_lay.addWidget(self._search_close_btn)
         self._search_bar.setVisible(False)
         layout.addWidget(self._search_bar)
-        self._search_results: list[tuple[int, list]] = []  # [(page_idx, [fitz_rects]), ...]
+        self._search_results: list[tuple[int, list]] = []  # [(page_idx, [pymupdf_rects]), ...]
         self._search_current = -1
         # Debounce keystrokes: _do_search scans every page synchronously on
         # the UI thread, which froze the viewer for seconds per keystroke on
@@ -552,10 +552,10 @@ class PdfViewerPanel(QWidget):
         self._canvas.set_night_mode(self._night_btn.isChecked())
 
     def _on_doc_replaced(self, new_doc):
-        """The canvas closed+reopened the shared fitz.Document (e.g. after a
-        failed saveIncr in the delete-comment path). Repoint _fitz_doc at the
+        """The canvas closed+reopened the shared pymupdf.Document (e.g. after a
+        failed saveIncr in the delete-comment path). Repoint _pymupdf_doc at the
         fresh handle so search/print never touch the closed one (M2)."""
-        self._fitz_doc = new_doc
+        self._pymupdf_doc = new_doc
 
     def _reset_search_state(self):
         """Cancel any pending debounced search and clear its results.
@@ -581,7 +581,7 @@ class PdfViewerPanel(QWidget):
         state.
         """
         self._current_path = ""
-        self._fitz_doc = None
+        self._pymupdf_doc = None
         # Cancel any pending debounced search, drop stale highlights and
         # close the search bar.
         self._reset_search_state()
@@ -609,18 +609,18 @@ class PdfViewerPanel(QWidget):
             QMessageBox.warning(self, t("viewer.invalid_format"),
                                 t("viewer.invalid_msg"))
             return
-        import fitz
+        import pymupdf
         # Close the previous document through the canvas helper so the
         # canvas drops its _doc reference + bumps _gen BEFORE the
-        # fitz.Document is actually closed. Without this ordering, a
+        # pymupdf.Document is actually closed. Without this ordering, a
         # paintEvent or _on_page_ready queued between the panel's
-        # _fitz_doc.close() and the next _canvas.load() touches a
+        # _pymupdf_doc.close() and the next _canvas.load() touches a
         # freed Document and raises ``RuntimeError: document closed``
         # (B1). _canvas.close_doc() also handles closing the underlying
         # doc, so don't double-close from this side.
-        if self._fitz_doc:
+        if self._pymupdf_doc:
             self._canvas.close_doc()
-            self._fitz_doc = None
+            self._pymupdf_doc = None
             # A search scheduled (debounced) against the outgoing document
             # must not fire against the new one — stop the timer, drop the
             # pending query and close the search bar before the swap.
@@ -634,7 +634,7 @@ class PdfViewerPanel(QWidget):
             # zero-scrub.
             self._clear_pdf_password()
         try:
-            doc = fitz.open(path)
+            doc = pymupdf.open(path)
         except Exception as ex:
             QMessageBox.critical(self, t("viewer.error_open"),
                                  t("viewer.error_open_msg", ex=ex))
@@ -653,7 +653,7 @@ class PdfViewerPanel(QWidget):
                     doc.close()
                     self._reset_to_placeholder()
                     return
-                winner = authenticate_fitz(doc, dlg.password())
+                winner = authenticate_pymupdf(doc, dlg.password())
                 if winner is not None:
                     # Cache the exact spelling that authenticated, never
                     # a canonicalised one: this value is propagated
@@ -666,7 +666,7 @@ class PdfViewerPanel(QWidget):
                     break
                 wrong = True
         self._current_path = path
-        self._fitz_doc     = doc
+        self._pymupdf_doc  = doc
         self._canvas.load(doc, 0, path=path, password=getattr(self, "_pdf_password", ""))
         self._canvas_scroll.verticalScrollBar().setValue(0)
         self._placeholder.setVisible(False)
@@ -738,7 +738,7 @@ class PdfViewerPanel(QWidget):
         # saveIncr in the canvas may have closed+reopened the handle. Guard
         # against a None or already-closed Document so a keystroke can never
         # crash with "document closed".
-        doc = self._fitz_doc
+        doc = self._pymupdf_doc
         if doc is None or getattr(doc, "is_closed", False):
             return
         results = []
@@ -787,7 +787,7 @@ class PdfViewerPanel(QWidget):
     def _update_search_highlight(self):
         total = sum(len(rects) for _, rects in self._search_results)
         self._search_lbl.setText(f"{self._search_current + 1} / {total}")
-        # Build highlight list for canvas: [(page_idx, fitz_rect), ...]
+        # Build highlight list for canvas: [(page_idx, pymupdf_rect), ...]
         all_highlights = []
         flat_idx = 0
         current_page = 0
@@ -853,7 +853,7 @@ class PdfViewerPanel(QWidget):
         # closed+reopened it (the panel is repointed via _on_doc_replaced),
         # but defend against a None or already-closed Document either way so
         # printing can never raise "document closed".
-        doc = self._fitz_doc
+        doc = self._pymupdf_doc
         if doc is None or getattr(doc, "is_closed", False):
             return
         from PySide6.QtPrintSupport import QPrinter, QPrintDialog
@@ -872,8 +872,8 @@ class PdfViewerPanel(QWidget):
         if not painter.begin(printer):
             return
 
-        import fitz
-        page_count = len(self._fitz_doc)
+        import pymupdf
+        page_count = len(self._pymupdf_doc)
         # Honour QPrintDialog settings — pre-fix the loop always printed
         # every page once in forward order, ignoring the user's choice
         # of range / copies / reverse (R7/N7-H1).
@@ -910,17 +910,17 @@ class PdfViewerPanel(QWidget):
                 if not first_page_printed:
                     printer.newPage()
                 first_page_printed = False
-                page = self._fitz_doc[i]
+                page = self._pymupdf_doc[i]
                 # Render at high DPI for print quality
                 dpi = printer.resolution()
                 zoom = dpi / 72.0
-                mat = fitz.Matrix(zoom, zoom)
+                mat = pymupdf.Matrix(zoom, zoom)
                 # alpha=False avoids RGBA pixmaps (n=4) being misread as
                 # Format_RGB888 (3 bytes/pixel); n != 3 catches the residual
                 # cases (CMYK n=4, greyscale n=1) — convert them to RGB.
                 pix = page.get_pixmap(matrix=mat, alpha=False)
                 if pix.n != 3:
-                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                    pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
                 # QImage(pix.samples, ...) views the native pixmap buffer;
                 # on the next loop iteration the old pix is freed and the
                 # painter would be drawing from freed memory. .copy() forces

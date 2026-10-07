@@ -55,7 +55,7 @@ def test_worker_uses_qthread():
 
 def test_worker_pixmap_lifetime_uses_copy():
     """The QImage-from-Pixmap pattern requires .copy() so pixels don't
-    disappear when the fitz Pixmap is freed on the next loop iteration
+    disappear when the PyMuPDF Pixmap is freed on the next loop iteration
     (same pattern as the print loop and OCR Round 3)."""
     assert ".copy()" in THUMBS_SRC
 
@@ -88,7 +88,7 @@ def test_image_ready_slot_decorated():
     assert "_on_image_ready" in THUMBS_SRC
 
 
-def test_worker_passes_password_to_fitz():
+def test_worker_passes_password_to_pymupdf():
     """Encrypted PDFs would raise on every page render without this."""
     assert "authenticate" in THUMBS_SRC
 
@@ -113,7 +113,7 @@ def test_worker_renders_dpr_aware():
     assert "setDevicePixelRatio" in THUMBS_SRC
     # Render must be matrix-driven (fit to the target box) rather than a
     # fixed low DPI that then gets upscaled on paint.
-    assert "fitz.Matrix(zoom, zoom)" in THUMBS_SRC
+    assert "pymupdf.Matrix(zoom, zoom)" in THUMBS_SRC
     assert "dpi=40" not in THUMBS_SRC, (
         "fixed 40 DPI render is the blurry-thumbnail regression"
     )
@@ -183,13 +183,13 @@ def test_model_data_returns_none_out_of_range(qapp):
     assert m.data(good, Qt.ItemDataRole.DisplayRole) == "1"
 
 
-# ── End-to-end render (real fitz + QThread worker) ────────────────────
+# ── End-to-end render (real PyMuPDF + QThread worker) ────────────────────
 
 
 def _make_real_pdf(path: Path, pages: int = 2) -> Path:
-    """Write a small multi-page PDF with visible text via fitz."""
-    import fitz
-    doc = fitz.open()
+    """Write a small multi-page PDF with visible text via PyMuPDF."""
+    import pymupdf
+    doc = pymupdf.open()
     for i in range(pages):
         page = doc.new_page(width=595, height=842)
         page.insert_text((72, 144), f"Thumbnail test page {i + 1}",
@@ -205,7 +205,7 @@ def test_end_to_end_worker_populates_cache(qapp, tmp_path):
     background worker actually delivered pixmaps into the model cache.
 
     If this fails with cache_size() == 0 the render pipeline is broken
-    (import fitz, get_pixmap, epoch guard, or main-thread QPixmap
+    (import pymupdf, get_pixmap, epoch guard, or main-thread QPixmap
     conversion) — exactly the placeholder-forever symptom."""
     from PySide6.QtTest import QTest
     from app.viewer.thumbnails import ThumbnailPanel
@@ -573,13 +573,13 @@ def test_toc_tab_active_by_default_across_reload(qapp, tmp_path):
     Contents tab and activates Pages) then a PDF WITH a TOC, the Contents
     tab must be visible AND active — the original behaviour. Before the
     fix it stayed on the Pages tab, so the outline appeared to be gone."""
-    import fitz
+    import pymupdf
     from PySide6.QtTest import QTest
     from app.viewer.panel import PdfViewerPanel
 
     def _make(name, toc):
         p = tmp_path / name
-        d = fitz.open()
+        d = pymupdf.open()
         for i in range(6):
             pg = d.new_page(width=595, height=842)
             pg.insert_text((72, 144), f"P{i + 1}", fontsize=20)

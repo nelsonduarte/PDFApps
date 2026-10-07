@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import fitz  # noqa: F401
+    import pymupdf  # noqa: F401
 
 _log = logging.getLogger(__name__)
 
@@ -266,7 +266,7 @@ def _block_text(block: TextBlock) -> str:
 # ---------------------------------------------------------------------------
 
 
-def extract_page_assets(doc: "fitz.Document", page_idx: int) -> PageAssets:
+def extract_page_assets(doc: "pymupdf.Document", page_idx: int) -> PageAssets:
     """Extract every relevant asset from a single PDF page.
 
     The returned ``PageAssets`` is intentionally cheap to construct: PyMuPDF

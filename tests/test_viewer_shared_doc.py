@@ -1,10 +1,10 @@
-"""Behavioural regression tests for the viewer shared-fitz-handle,
+"""Behavioural regression tests for the viewer shared-PyMuPDF-handle,
 saveIncr↔render race, search debounce and password-cancel fixes.
 
 These target the adversarial-audit bugs in ``app/viewer/canvas.py`` and
 ``app/viewer/panel.py``:
 
-* M2   — panel._fitz_doc must never keep pointing at a Document the
+* M2   — panel._pymupdf_doc must never keep pointing at a Document the
          canvas closed+reopened in the failed-saveIncr path; and
          _do_search / _print_pdf must not crash on a closed handle.
 * race — the delete-comment path must cancel in-flight render workers
@@ -31,7 +31,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 _app = QApplication.instance() or QApplication([])
 
-import fitz  # noqa: E402
+import pymupdf  # noqa: E402
 from app.i18n import t  # noqa: E402
 from app.viewer.canvas import _SelectCanvas  # noqa: E402
 from app.viewer.panel import PdfViewerPanel  # noqa: E402
@@ -43,7 +43,7 @@ CANVAS_SRC = (ROOT / "app" / "viewer" / "canvas.py").read_text(encoding="utf-8")
 
 
 def _make_pdf(path: Path, text: str = "Hello World", n_annots: int = 0):
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)
     page.insert_text((72, 72), text, fontsize=18)
     for i in range(n_annots):
@@ -54,10 +54,10 @@ def _make_pdf(path: Path, text: str = "Hello World", n_annots: int = 0):
 
 
 def _make_encrypted_pdf(path: Path, password: str = "secret"):
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)
     page.insert_text((72, 72), "Encrypted", fontsize=18)
-    doc.save(str(path), encryption=fitz.PDF_ENCRYPT_AES_256,
+    doc.save(str(path), encryption=pymupdf.PDF_ENCRYPT_AES_256,
              owner_pw=password, user_pw=password)
     doc.close()
     return path
@@ -71,36 +71,36 @@ def _pump(qtbot=None, ms: int = 60):
         qtbot.wait(ms)
 
 
-# ── M2: shared fitz handle stays valid ──────────────────────────────────
+# ── M2: shared PyMuPDF handle stays valid ──────────────────────────────────
 
 
 def test_doc_replaced_signal_repoints_panel_handle(qtbot, tmp_path):
     """When the canvas closes+reopens the shared Document, the panel must
     follow the new handle (root cause of M2). Without the doc_replaced
-    wiring, _fitz_doc stays pinned to the closed Document."""
+    wiring, _pymupdf_doc stays pinned to the closed Document."""
     pdf = _make_pdf(tmp_path / "a.pdf")
     panel = PdfViewerPanel()
     qtbot.addWidget(panel)
     panel.load(str(pdf))
     _pump(qtbot)
 
-    old = panel._fitz_doc
+    old = panel._pymupdf_doc
     assert old is not None
     # Emulate exactly what the canvas failed-saveIncr path does: it closes
     # the shared doc and emits a fresh handle.
     old.close()
-    new = fitz.open(str(pdf))
+    new = pymupdf.open(str(pdf))
     panel._canvas.doc_replaced.emit(new)
 
-    assert panel._fitz_doc is new
-    assert not panel._fitz_doc.is_closed
+    assert panel._pymupdf_doc is new
+    assert not panel._pymupdf_doc.is_closed
     # Search now works against the live handle.
     panel._do_search("Hello")
     assert panel._search_results  # found the text, no crash
 
 
 def test_do_search_survives_closed_document(qtbot, tmp_path):
-    """Defensive guard: even if _fitz_doc is a closed Document (e.g. a
+    """Defensive guard: even if _pymupdf_doc is a closed Document (e.g. a
     race we failed to repoint), a keystroke must not raise
     RuntimeError: document closed."""
     pdf = _make_pdf(tmp_path / "b.pdf")
@@ -109,7 +109,7 @@ def test_do_search_survives_closed_document(qtbot, tmp_path):
     panel.load(str(pdf))
     _pump(qtbot)
 
-    panel._fitz_doc.close()  # simulate the stale/closed handle
+    panel._pymupdf_doc.close()  # simulate the stale/closed handle
     # Must not raise.
     panel._do_search("Hello")
 
@@ -122,7 +122,7 @@ def test_print_pdf_guards_closed_document(qtbot, tmp_path, monkeypatch):
     qtbot.addWidget(panel)
     panel.load(str(pdf))
     _pump(qtbot)
-    panel._fitz_doc.close()
+    panel._pymupdf_doc.close()
 
     # Fail loudly if the guard is missing and execution reaches the dialog.
     import PySide6.QtPrintSupport as qps
@@ -144,7 +144,7 @@ def test_reopen_document_swaps_handle_and_emits_live(qtbot, tmp_path):
     pdf = _make_pdf(tmp_path / "reopen_ok.pdf")
     canvas = _SelectCanvas()
     qtbot.addWidget(canvas)
-    canvas.load(fitz.open(str(pdf)), path=str(pdf))
+    canvas.load(pymupdf.open(str(pdf)), path=str(pdf))
     _pump(qtbot)
 
     emitted: list = []
@@ -162,14 +162,14 @@ def test_reopen_document_swaps_handle_and_emits_live(qtbot, tmp_path):
 
 
 def test_reopen_failure_leaves_doc_none_not_closed(qtbot, tmp_path, monkeypatch):
-    """MINOR 3 root cause: a DOUBLE failure — the reopen fitz.open() also
+    """MINOR 3 root cause: a DOUBLE failure — the reopen pymupdf.open() also
     raises — must leave self._doc == None (every accessor guards for that),
     NEVER a closed Document (latent use-after-close). The panel is told via
     doc_replaced(None) so it drops the shared reference too."""
     pdf = _make_pdf(tmp_path / "reopen_fail.pdf")
     canvas = _SelectCanvas()
     qtbot.addWidget(canvas)
-    canvas.load(fitz.open(str(pdf)), path=str(pdf))
+    canvas.load(pymupdf.open(str(pdf)), path=str(pdf))
     _pump(qtbot)
 
     emitted: list = []
@@ -179,7 +179,7 @@ def test_reopen_failure_leaves_doc_none_not_closed(qtbot, tmp_path, monkeypatch)
     def _boom_open(*a, **k):
         raise RuntimeError("reopen boom")
 
-    monkeypatch.setattr(fitz, "open", _boom_open)
+    monkeypatch.setattr(pymupdf, "open", _boom_open)
 
     new_doc = canvas._reopen_document()
 
@@ -381,7 +381,7 @@ def test_cancel_password_restores_placeholder(qtbot, tmp_path, monkeypatch):
 
     panel.load(str(enc))
 
-    assert panel._fitz_doc is None
+    assert panel._pymupdf_doc is None
     assert panel._placeholder.isVisibleTo(panel)
     assert not panel._viewer_splitter.isVisibleTo(panel)
     assert not panel._sidebar_tabs.isVisibleTo(panel)
@@ -390,3 +390,56 @@ def test_cancel_password_restores_placeholder(qtbot, tmp_path, monkeypatch):
     for btn in (panel._prev_btn, panel._next_btn, panel._zoom_in_btn,
                 panel._zoom_out_btn, panel._fit_btn, panel._print_btn):
         assert not btn.isEnabled(), "navigation left enabled after cancel"
+
+
+# ── closing the last tab drops the shared handle ────────────────────────
+
+
+def test_closing_last_tab_then_opening_another_pdf_loads_it(
+        qtbot, tmp_path, monkeypatch):
+    """``_close_tab`` on the last tab closes the document through the
+    canvas but keeps the panel as a placeholder, so it must also drop
+    the panel's own reference to that Document. Left pointing at the
+    closed handle, the next open dies in ``PdfViewerPanel.load`` on
+    ``if self._pymupdf_doc:`` (``ValueError: document closed``), and the
+    user can no longer open any PDF in that window.
+    """
+    from PySide6.QtTest import QTest
+
+    from app.update_controller import UpdateController
+    from app.window import MainWindow
+
+    # _load_and_track records recents and closeEvent persists the
+    # layout: both must land in a throwaway config, not the user's.
+    monkeypatch.setattr("app.i18n._CONFIG_PATH",
+                        str(tmp_path / "config.json"))
+    monkeypatch.setattr(UpdateController, "check_async", lambda self: None)
+
+    pdf_a = _make_pdf(tmp_path / "a.pdf")
+    pdf_b = tmp_path / "b.pdf"
+    doc = pymupdf.open()
+    for _ in range(3):
+        doc.new_page(width=595, height=842)
+    doc.save(str(pdf_b))
+    doc.close()
+
+    win = MainWindow()
+    try:
+        win._load_and_track(str(pdf_a))
+        _pump(qtbot)
+        assert win._tab_bar.count() == 1
+        assert len(win._viewer._pymupdf_doc) == 1
+
+        win._close_tab(0)
+        _pump(qtbot)
+        assert win._viewer._pymupdf_doc is None, (
+            "the placeholder still holds the Document the canvas closed")
+
+        win._load_and_track(str(pdf_b))
+        _pump(qtbot)
+        assert win._viewer.current_path() == str(pdf_b)
+        assert len(win._viewer._pymupdf_doc) == 3
+    finally:
+        win.close()
+        win.deleteLater()
+        QTest.qWait(50)

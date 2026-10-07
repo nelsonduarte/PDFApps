@@ -24,7 +24,7 @@ import pytest  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-fitz = pytest.importorskip("pymupdf")
+pymupdf = pytest.importorskip("pymupdf")
 
 from PySide6.QtCore import Qt, QEvent  # noqa: E402
 from PySide6.QtGui import QFocusEvent, QKeyEvent  # noqa: E402
@@ -117,7 +117,7 @@ def test_focus_out_empty_insert_creates_no_pending(_app):
     c = _make_canvas(_app)
     inserted = []
     c.text_inserted.connect(lambda p, e: inserted.append(e))
-    c.begin_inline_text_insert(0, fitz.Point(30, 40), 12.0, (0, 0, 0),
+    c.begin_inline_text_insert(0, pymupdf.Point(30, 40), 12.0, (0, 0, 0),
                                "Helvetica")
 
     _focus_out(c._inline_edit)
@@ -131,7 +131,7 @@ def test_focus_out_commits_nonempty_insert(_app):
     c = _make_canvas(_app)
     inserted = []
     c.text_inserted.connect(lambda p, e: inserted.append(e))
-    c.begin_inline_text_insert(0, fitz.Point(30, 40), 12.0, (0, 0, 0),
+    c.begin_inline_text_insert(0, pymupdf.Point(30, 40), 12.0, (0, 0, 0),
                                "Helvetica")
     c._inline_edit.setText("New text")
 

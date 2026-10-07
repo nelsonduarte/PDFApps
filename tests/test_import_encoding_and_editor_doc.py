@@ -9,7 +9,7 @@ Bug map (adversarial bug hunt):
   already used ``errors="replace"``) had told the user the file was fine.
   The fix aligns the three ``do_work`` read sites with the pre-scan.
 
-* MINOR #2 — when every input was empty/rejected the ``fitz.Document``
+* MINOR #2 — when every input was empty/rejected the ``pymupdf.Document``
   had zero pages and ``doc.save()`` raised the cryptic
   ``ValueError: cannot save with zero pages`` (in ``_convert_images`` this
   also masked the "N images skipped" feedback). The fix returns a
@@ -17,9 +17,9 @@ Bug map (adversarial bug hunt):
   ``tool.import.no_content`` message.
 
 * MINOR #3 — ``PdfEditCanvas.load`` closed the previous doc then assigned
-  ``self._doc = fitz.open(path)``. A corrupt PDF that raised left
+  ``self._doc = pymupdf.open(path)``. A corrupt PDF that raised left
   ``self._doc`` pointing at the *already-closed* Document (use-after-close).
-  The fix clears ``self._doc`` before ``fitz.open`` and only publishes on
+  The fix clears ``self._doc`` before ``pymupdf.open`` and only publishes on
   success.
 """
 
@@ -37,7 +37,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication  # noqa: E402
 _unused_app = QApplication.instance() or QApplication([])
 
-import fitz  # noqa: E402
+import pymupdf  # noqa: E402
 
 from app.i18n import t  # noqa: E402
 from app.tools.import_pdf import (  # noqa: E402
@@ -99,7 +99,7 @@ def test_txt_cp1252_produces_valid_pdf(tmp_path, monkeypatch):
 
     assert result == str(out)
     assert out.exists()
-    doc = fitz.open(str(out))
+    doc = pymupdf.open(str(out))
     try:
         assert doc.page_count >= 1
     finally:
@@ -117,7 +117,7 @@ def test_md_latin1_produces_valid_pdf(tmp_path, monkeypatch):
 
     assert result == str(out)
     assert out.exists()
-    doc = fitz.open(str(out))
+    doc = pymupdf.open(str(out))
     try:
         assert doc.page_count >= 1
     finally:
@@ -137,7 +137,7 @@ def test_html_latin1_produces_valid_pdf(tmp_path, monkeypatch):
 
     assert result == str(out)
     assert out.exists()
-    doc = fitz.open(str(out))
+    doc = pymupdf.open(str(out))
     try:
         assert doc.page_count >= 1
     finally:
@@ -227,7 +227,7 @@ def test_no_content_key_present_in_all_languages():
 
 
 def _valid_pdf(path: Path) -> Path:
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page(width=200, height=200)
     doc.save(str(path))
     doc.close()
@@ -235,7 +235,7 @@ def _valid_pdf(path: Path) -> Path:
 
 
 def test_canvas_load_corrupt_leaves_doc_none(tmp_path):
-    """A corrupt PDF that makes fitz.open raise must leave self._doc as
+    """A corrupt PDF that makes pymupdf.open raise must leave self._doc as
     None — not a reference to the previous, already-closed Document."""
     canvas = PdfEditCanvas()
 

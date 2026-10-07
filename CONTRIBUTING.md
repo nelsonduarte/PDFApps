@@ -55,7 +55,7 @@ python pdfapps.py
 |---------|---------|
 | `PySide6` | Qt 6 GUI framework |
 | `pypdf` | PDF manipulation (split, merge, encrypt, metadata) |
-| `pymupdf` (fitz) | PDF rendering (viewer, editor, compression) |
+| `pymupdf` | PDF rendering (viewer, editor, compression) |
 | `qtawesome` | Font Awesome icons in Qt widgets |
 | `pillow` | Image processing (import tool, icon generation) |
 | `pytesseract` | OCR engine wrapper (Tesseract integration) |
@@ -614,7 +614,7 @@ _compress_pdf(
 | Pass | Engine | What it Does |
 |------|--------|-------------|
 | **A** | Ghostscript (if installed) | Full page re-render with image downsampling |
-| **B** | PyMuPDF (fitz) | Metadata scrub, font subsetting, image rewrite |
+| **B** | PyMuPDF | Metadata scrub, font subsetting, image rewrite |
 | **C** | pikepdf (if installed) | Structural optimization, object stream compression |
 
 **Compression levels:**
@@ -847,7 +847,7 @@ _SelectCanvas
 │
 ├── QThreadPool (max 2 workers)
 │   └── _PageJob (QRunnable)          # renders one page in background
-│       ├── Opens fitz.Document
+│       ├── Opens pymupdf.Document
 │       ├── Renders at zoom × devicePixelRatio
 │       ├── Extracts word list
 │       └── Emits _RenderSignals.page_ready
@@ -868,7 +868,7 @@ _SelectCanvas
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `load` | `(doc, page_idx=0, path="", password="")` | Loads fitz.Document, creates page entries, triggers initial render |
+| `load` | `(doc, page_idx=0, path="", password="")` | Loads pymupdf.Document, creates page entries, triggers initial render |
 | `close_doc` | `()` | Closes document, clears all page entries and pixmaps |
 | `page_count` | `() -> int` | Returns total number of pages |
 
@@ -921,7 +921,7 @@ _SelectCanvas
 
 Runs in `QThreadPool`. Each job:
 
-1. Opens `fitz.Document(path)` independently (thread-safe)
+1. Opens `pymupdf.Document(path)` independently (thread-safe)
 2. Renders page at `zoom × devicePixelRatio` for crisp display
 3. Extracts word list via `page.get_text("words")`
 4. Emits `page_ready(generation, page_index, pixmap, words)`
@@ -954,7 +954,7 @@ A standalone fullscreen widget for slideshow-style PDF viewing. Launched via F5 
 | Method | Description |
 |--------|-------------|
 | `__init__(path, password, start_page, total_pages)` | Creates widget, initialises all attributes before `setWindowState` (avoids `resizeEvent` crash) |
-| `_render()` | Opens fitz doc, renders current page at screen-fit zoom × DPR, stores pixmap |
+| `_render()` | Opens PyMuPDF doc, renders current page at screen-fit zoom × DPR, stores pixmap |
 | `_update_counter()` | Updates counter label text and position, starts hide timer |
 | `paintEvent(_)` | Fills black, draws centered pixmap |
 | `keyPressEvent(e)` | Handles all navigation keys |
@@ -1029,12 +1029,12 @@ Edits are stored as a list of dicts in `self._pending`. Each dict contains:
 {
     "type": "redact",           # overlay type
     "page": 0,                  # page index
-    "rect": fitz.Rect(...),     # bounding rectangle (PDF coordinates)
+    "rect": pymupdf.Rect(...),  # bounding rectangle (PDF coordinates)
     "fill": (0, 0, 0),          # fill color (RGB, 0-1 range)
 }
 ```
 
-Overlays are painted by `PdfEditCanvas.paintEvent()` on top of the PDF pixmap. When the user clicks "Apply and Save", all overlays are applied permanently to the PDF via fitz.
+Overlays are painted by `PdfEditCanvas.paintEvent()` on top of the PDF pixmap. When the user clicks "Apply and Save", all overlays are applied permanently to the PDF via PyMuPDF.
 
 #### Methods
 
@@ -1067,7 +1067,7 @@ Overlays are painted by `PdfEditCanvas.paintEvent()` on top of the PDF pixmap. W
 
 | Method | Description |
 |--------|-------------|
-| `_run()` | Applies all pending edits to PDF via fitz and saves to user-selected path |
+| `_run()` | Applies all pending edits to PDF via PyMuPDF and saves to user-selected path |
 | `_apply_forms(out)` | Applies form field changes from the table widget |
 
 **Navigation:**
@@ -1092,8 +1092,8 @@ Continuous-scroll canvas for the editor. Renders all pages vertically with a 4px
 
 | Signal | Type | Description |
 |--------|------|-------------|
-| `rect_selected` | `Signal(int, object)` | User finished drawing a rectangle (page_idx, fitz.Rect in PDF coords) |
-| `point_clicked` | `Signal(int, object)` | User clicked a point (page_idx, fitz.Point in PDF coords) |
+| `rect_selected` | `Signal(int, object)` | User finished drawing a rectangle (page_idx, pymupdf.Rect in PDF coords) |
+| `point_clicked` | `Signal(int, object)` | User clicked a point (page_idx, pymupdf.Point in PDF coords) |
 | `note_deleted` | `Signal(dict)` | User deleted a note overlay via context menu |
 | `zoom_changed` | `Signal(int)` | Zoom percentage changed |
 
@@ -1101,13 +1101,13 @@ Continuous-scroll canvas for the editor. Renders all pages vertically with a 4px
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `load` | `(path: str)` | Opens PDF with fitz, renders first page |
+| `load` | `(path: str)` | Opens PDF with PyMuPDF, renders first page |
 | `set_page` | `(idx: int)` | Sets current page index (used by tab navigation) |
 | `set_overlays` | `(overlays: list)` | Sets ALL overlay dicts to paint (all pages) |
 | `set_select_mode` | `(active: bool)` | Toggles text selection cursor |
 | `get_span_at` | `(page_idx, pdf_pt) -> dict\|None` | Returns closest text span on given page |
 | `close_doc` | `()` | Fully closes document and resets canvas |
-| `release_doc` | `()` | Closes fitz doc to release file lock |
+| `release_doc` | `()` | Closes PyMuPDF doc to release file lock |
 | `zoom_in` / `zoom_out` / `zoom_reset` | `()` | Zoom controls (1.25× steps) |
 | `page_count` | `() -> int` | Total pages |
 | `scroll_to_page` | `(idx: int) -> int` | Returns Y offset for a page index |
@@ -1174,13 +1174,13 @@ class TabMyTool(BasePage):
 | 3 | `TabRotar` | `rotate.py` | pypdf | Rotate pages. Page range input + angle combo (90°/180°/270°). |
 | 4 | `TabExtrair` | `extract.py` | pypdf | Extract page subsets. Page range input. |
 | 5 | `TabReordenar` | `reorder.py` | pypdf | Drag-reorder pages. Visual page list with up/down/delete/reset. |
-| 6 | `TabComprimir` | `compress.py` | gs/fitz/pikepdf | 3-pass compression. Level combo (Extreme/Recommended/Low). Shows before/after sizes. |
+| 6 | `TabComprimir` | `compress.py` | gs/PyMuPDF/pikepdf | 3-pass compression. Level combo (Extreme/Recommended/Low). Shows before/after sizes. |
 | 7 | `TabEncriptar` | `encrypt.py` | pypdf | Encrypt/decrypt. Mode toggle, owner + user password fields. |
 | 8 | `TabMarcaDagua` | `watermark.py` | pypdf | Overlay watermark PDF. Layer position (below/above content). |
-| 9 | `TabOCR` | `ocr.py` | pytesseract/fitz | Add text layer to scanned PDFs. Language combo (PT/EN/ES/FR/DE). Progress dialog. |
-| 10 | `TabConverter` | `convert.py` | fitz/docx | Export to PNG/JPG/DOCX/TXT. DPI selection for images. Output folder. |
-| 11 | `TabEditar` | `editor/tab.py` | fitz | Visual editor (see [Editor System](#editor-system)). Not a BasePage subclass. |
-| 12 | `TabImport` | `import_pdf.py` | fitz/PIL | Import TXT/images/Markdown → PDF. Type combo, file list. Batch support. |
+| 9 | `TabOCR` | `ocr.py` | pytesseract/PyMuPDF | Add text layer to scanned PDFs. Language combo (PT/EN/ES/FR/DE). Progress dialog. |
+| 10 | `TabConverter` | `convert.py` | PyMuPDF/docx | Export to PNG/JPG/DOCX/TXT. DPI selection for images. Output folder. |
+| 11 | `TabEditar` | `editor/tab.py` | PyMuPDF | Visual editor (see [Editor System](#editor-system)). Not a BasePage subclass. |
+| 12 | `TabImport` | `import_pdf.py` | PyMuPDF/PIL | Import TXT/images/Markdown → PDF. Type combo, file list. Batch support. |
 | 13 | `TabInfo` | `info.py` | pypdf | Read-only metadata display: path, size, pages, author, title, dates, fonts, encryption. |
 
 ### Adding a New Tool
@@ -1360,7 +1360,7 @@ MainWindow._load_and_track(path)
   ├── If current tab has a document → _add_viewer_tab(path) (new tab)
   └── PdfViewerPanel.load(path)
         ├── If encrypted → show _PdfPasswordDialog
-        ├── Open fitz.Document(path, password)
+        ├── Open pymupdf.Document(path, password)
         ├── Update header (filename, page count)
         └── _SelectCanvas.load(doc)
               ├── Create _PageEntry slots (one per page)
@@ -1369,7 +1369,7 @@ MainWindow._load_and_track(path)
               └── _schedule_visible()
                     ├── Determine viewport + buffer range
                     └── Queue _PageJob for each unrendered page
-                          ├── (in thread) fitz renders page → QPixmap
+                          ├── (in thread) PyMuPDF renders page → QPixmap
                           ├── (in thread) Extract word list for search
                           └── Emit page_ready signal
                                 └── Canvas stores pixmap, calls update()
@@ -1393,7 +1393,7 @@ User fills form → clicks action button
   ▼
 BasePage._run() (overridden by tool)
   ├── Validate inputs
-  ├── Process PDF (pypdf / fitz / pytesseract / etc.)
+  ├── Process PDF (pypdf / PyMuPDF / pytesseract / etc.)
   ├── Show progress dialog if needed
   ├── Save output file
   └── Update status bar
@@ -1429,7 +1429,7 @@ _compress_pdf(src, dst, level, progress_fn)
   │     └── Re-render entire PDF with image downsampling
   │         DPI and quality depend on level
   │
-  ├── Pass B: PyMuPDF (fitz)
+  ├── Pass B: PyMuPDF
   │     ├── Scrub metadata
   │     ├── Subset fonts
   │     ├── Rewrite images with reduced quality

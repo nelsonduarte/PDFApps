@@ -52,8 +52,8 @@ class PresentationWidget(QWidget):
         # 100–500 ms on multi-MB or encrypted files. Failures here
         # propagate to the caller (`_start_presentation`) so the user
         # still sees a friendly error dialog.
-        import fitz
-        self._doc = fitz.open(self._path)
+        import pymupdf
+        self._doc = pymupdf.open(self._path)
         if self._password:
             self._doc.authenticate(self._password)
 
@@ -107,7 +107,7 @@ class PresentationWidget(QWidget):
             self._hud.update_theme(self._dark_mode)
 
     def _render(self):
-        import fitz
+        import pymupdf
         try:
             if self._doc is None:
                 self._pixmap = None
@@ -119,7 +119,7 @@ class PresentationWidget(QWidget):
             sw, sh = geom.width(), geom.height()
             zoom = min(sw / page.rect.width, sh / page.rect.height)
             rz = zoom * dpr
-            pix = page.get_pixmap(matrix=fitz.Matrix(rz, rz))
+            pix = page.get_pixmap(matrix=pymupdf.Matrix(rz, rz))
             qp = QPixmap()
             qp.loadFromData(pix.tobytes("png"))
             qp.setDevicePixelRatio(dpr)
@@ -274,9 +274,9 @@ class PresentationWidget(QWidget):
                     getattr(self, "_hud_hide_timer", None)):
             if tmr is not None and isValid(tmr):
                 tmr.stop()
-        # Release the fitz document handle. Swallowing exceptions here
+        # Release the PyMuPDF document handle. Swallowing exceptions here
         # because the alternative is a Qt-level crash during teardown
-        # if fitz is mid-finalize on the worker thread.
+        # if PyMuPDF is mid-finalize on the worker thread.
         if self._doc is not None:
             with contextlib.suppress(Exception):
                 self._doc.close()

@@ -24,7 +24,7 @@ class _NoContent:
 
     Returned (instead of the output path) when every input was empty,
     rejected or unreadable so ``do_work`` never hands a page-less
-    ``fitz.Document`` to ``doc.save()`` — which raises the cryptic
+    ``pymupdf.Document`` to ``doc.save()`` — which raises the cryptic
     ``ValueError: cannot save with zero pages``. It is truthy/non-None so
     ``_run_background`` treats it as success (not a cancel) and routes it
     to the friendly ``tool.import.no_content`` message. ``skipped`` carries
@@ -168,7 +168,7 @@ class TabImport(BasePage):
             pass
 
         def do_work(worker):
-            import fitz
+            import pymupdf
             all_lines = []
             for i, src in enumerate(sources):
                 if worker.is_cancelled():
@@ -181,7 +181,7 @@ class TabImport(BasePage):
                     all_lines.extend(f.read().split("\n"))
                 all_lines.append("")  # separator between files
                 worker.progress.emit(i + 1, f"{i + 1}/{n}…")
-            doc = fitz.open()
+            doc = pymupdf.open()
             page = None
             y = 50
             fontsize = 10
@@ -199,13 +199,13 @@ class TabImport(BasePage):
                 if not line.strip():
                     y += line_height
                     continue
-                rect = fitz.Rect(margin_x, y, margin_x + max_width, max_y)
+                rect = pymupdf.Rect(margin_x, y, margin_x + max_width, max_y)
                 used = page.insert_textbox(rect, line, fontsize=fontsize,
                                            fontname="helv")
                 if used < 0:
                     page = doc.new_page(width=595, height=842)
                     y = 50
-                    rect = fitz.Rect(margin_x, y, margin_x + max_width, max_y)
+                    rect = pymupdf.Rect(margin_x, y, margin_x + max_width, max_y)
                     used = page.insert_textbox(rect, line, fontsize=fontsize,
                                                fontname="helv")
                 est_lines = max(1, len(line) * fontsize * 0.5 / max_width + 1)
@@ -231,16 +231,16 @@ class TabImport(BasePage):
         # R11-L1: filter to recognised image extensions up front. The
         # _IMG_EXTS tuple was previously declared but unused (dead code);
         # using it here catches obvious mistakes (user picked a .pdf or
-        # .txt in the multi-select dialog) before fitz.open raises an
+        # .txt in the multi-select dialog) before pymupdf.open raises an
         # unhelpful error.
         sources = [p for p in sources
                    if os.path.splitext(p)[1].lower() in _IMG_EXTS]
         n = len(sources)
 
         def do_work(worker):
-            import fitz
+            import pymupdf
             from app.utils import check_image_size
-            doc = fitz.open()
+            doc = pymupdf.open()
             skipped = 0
             try:
                 for i, img_path in enumerate(sources):
@@ -248,14 +248,14 @@ class TabImport(BasePage):
                         return None
                     # Mirror the editor's gigapixel guard — a single
                     # 50000x50000 TIFF in the import list would otherwise
-                    # make fitz allocate multi-GB and bring down the
+                    # make PyMuPDF allocate multi-GB and bring down the
                     # worker thread (which on a frozen PyInstaller build
                     # takes the whole app with it).
                     ok, _w, _h = check_image_size(img_path)
                     if not ok:
                         skipped += 1
                         continue
-                    img = fitz.open(img_path)
+                    img = pymupdf.open(img_path)
                     try:
                         if img.page_count == 0:
                             skipped += 1
@@ -295,7 +295,7 @@ class TabImport(BasePage):
         n = len(sources)
 
         def do_work(worker):
-            import fitz
+            import pymupdf
             all_md = []
             for i, src in enumerate(sources):
                 if worker.is_cancelled():
@@ -307,7 +307,7 @@ class TabImport(BasePage):
                 worker.progress.emit(i + 1, f"{i + 1}/{n}…")
             md_text = "\n\n---\n\n".join(all_md)
             lines = self._md_to_lines(md_text)
-            doc = fitz.open()
+            doc = pymupdf.open()
             try:
                 chunk = 55
                 for i in range(0, max(len(lines), 1), chunk):
@@ -320,10 +320,10 @@ class TabImport(BasePage):
                             break
                         font = "helv" if not bold else "hebo"
                         try:
-                            page.insert_text(fitz.Point(50, y), text,
+                            page.insert_text(pymupdf.Point(50, y), text,
                                              fontsize=size, fontname=font)
                         except Exception:
-                            page.insert_text(fitz.Point(50, y), text,
+                            page.insert_text(pymupdf.Point(50, y), text,
                                              fontsize=size, fontname="helv")
                         y += size * 1.5
                 if doc.page_count == 0:
@@ -380,8 +380,8 @@ class TabImport(BasePage):
 
         def do_work(worker):
             from docx import Document
-            import fitz
-            doc = fitz.open()
+            import pymupdf
+            doc = pymupdf.open()
             try:
                 for i, src in enumerate(sources):
                     if worker.is_cancelled():
@@ -442,8 +442,8 @@ class TabImport(BasePage):
 
         def do_work(worker):
             from pptx import Presentation
-            import fitz
-            doc = fitz.open()
+            import pymupdf
+            doc = pymupdf.open()
             try:
                 for fi, src in enumerate(sources):
                     if worker.is_cancelled():
@@ -475,10 +475,10 @@ class TabImport(BasePage):
                                 if y + size > slide_h - 20:
                                     break
                                 try:
-                                    page.insert_text(fitz.Point(40, y), text,
+                                    page.insert_text(pymupdf.Point(40, y), text,
                                                      fontsize=size, fontname=font)
                                 except Exception:
-                                    page.insert_text(fitz.Point(40, y), text,
+                                    page.insert_text(pymupdf.Point(40, y), text,
                                                      fontsize=size, fontname="helv")
                                 y += size * 1.4
                         # Slide-granular progress within the file; advance
@@ -516,8 +516,8 @@ class TabImport(BasePage):
 
         def do_work(worker):
             from openpyxl import load_workbook
-            import fitz
-            doc = fitz.open()
+            import pymupdf
+            doc = pymupdf.open()
             try:
                 for i, src in enumerate(sources):
                     if worker.is_cancelled():
@@ -565,8 +565,8 @@ class TabImport(BasePage):
 
         def do_work(worker):
             from bs4 import BeautifulSoup
-            import fitz
-            doc = fitz.open()
+            import pymupdf
+            doc = pymupdf.open()
             try:
                 for i, src in enumerate(sources):
                     if worker.is_cancelled():
@@ -644,8 +644,8 @@ class TabImport(BasePage):
             import ebooklib
             from ebooklib import epub
             from bs4 import BeautifulSoup
-            import fitz
-            doc = fitz.open()
+            import pymupdf
+            doc = pymupdf.open()
             try:
                 for i, src in enumerate(sources):
                     if worker.is_cancelled():
@@ -680,8 +680,8 @@ class TabImport(BasePage):
     # ── Shared line renderer ────────────────────────────────────────────
 
     def _render_lines_to_doc(self, doc, lines: list):
-        """Render a list of (text, fontsize, bold) tuples to pages in an open fitz doc."""
-        import fitz
+        """Render a list of (text, fontsize, bold) tuples to pages in an open PyMuPDF doc."""
+        import pymupdf
         page = None
         y = 50
         for text, size, bold in lines:
@@ -693,10 +693,10 @@ class TabImport(BasePage):
                 continue
             font = "hebo" if bold else "helv"
             try:
-                page.insert_text(fitz.Point(50, y), text,
+                page.insert_text(pymupdf.Point(50, y), text,
                                  fontsize=size, fontname=font)
             except Exception:
-                page.insert_text(fitz.Point(50, y), text,
+                page.insert_text(pymupdf.Point(50, y), text,
                                  fontsize=size, fontname="helv")
             y += size * 1.5
 

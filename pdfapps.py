@@ -18,8 +18,8 @@ except ImportError:
     sys.exit(1)
 
 try:
-    import fitz  # PyMuPDF — used by viewer render, editor, most tools
-    del fitz
+    import pymupdf  # PyMuPDF — used by viewer render, editor, most tools
+    del pymupdf
 except ImportError:
     _app = QApplication(sys.argv)
     QMessageBox.critical(None, "Missing dependency",
