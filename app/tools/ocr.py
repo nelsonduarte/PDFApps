@@ -17,93 +17,9 @@ from app.utils import (section, info_lbl, show_error,
 from app.worker import TaskRunner, run_task
 from app.constants import TEXT_SEC, DESKTOP
 from app.widgets import DropFileEdit
-
-
-def _find_tesseract() -> str | None:
-    """Returns the tesseract executable path or None if not found."""
-    import shutil, sys
-    found = shutil.which("tesseract")
-    if found:
-        return found
-    if sys.platform == "win32":
-        candidates = [
-            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-        ]
-    elif sys.platform == "darwin":
-        candidates = [
-            "/opt/homebrew/bin/tesseract",
-            "/usr/local/bin/tesseract",
-        ]
-    else:
-        candidates = [
-            "/usr/bin/tesseract",
-            "/usr/local/bin/tesseract",
-            "/snap/bin/tesseract",
-        ]
-    for p in candidates:
-        if os.path.isfile(p):
-            return p
-    return None
-
-
-def _find_tessdata(tess_exe: str | None) -> str | None:
-    """Locate the tessdata directory across platforms.
-
-    Precedence (first match wins):
-
-    1. ``<bindir>/tessdata`` adjacent to the binary — Windows and any
-       install that bundles the data next to the executable.
-    2. The versioned Linux layout
-       ``/usr/share/tesseract-ocr/<version>/tessdata``, reverse-sorted so
-       the newest version wins. Checked *before* the relative prefix
-       derivation (step 3) on purpose: the binary often has a stale
-       default baked in (Ubuntu 24.04 ships v5 but still points at
-       .../4.00/tessdata, see issue #27), and a flat ``/usr/share/tessdata``
-       — which step 3 would derive from ``/usr/bin/tesseract`` — must never
-       shadow a newer versioned directory.
-    3. ``<prefix>/share/tessdata`` derived relative to the binary
-       (``<prefix>/bin/tesseract`` -> ``<prefix>/share/tessdata``). This
-       covers Homebrew (Intel ``/usr/local``, Apple Silicon
-       ``/opt/homebrew``) and non-standard install prefixes; on those
-       systems the versioned glob in step 2 finds nothing so we land here.
-    4. Fixed fallbacks for older Debian, manual installs, Homebrew and
-       snap layouts.
-
-    Without TESSDATA_PREFIX set explicitly, OCR would otherwise fail with
-    'Error opening data file .../4.00/tessdata/eng.traineddata'."""
-    import sys
-    # 1. tessdata adjacent to the binary (Windows and bundled installs).
-    if tess_exe:
-        adjacent = os.path.join(os.path.dirname(tess_exe), "tessdata")
-        if os.path.isdir(adjacent):
-            return adjacent
-    # 2. Versioned Linux layout, newest first. Kept ahead of the relative
-    #    prefix derivation so a stale /usr/share/tessdata never shadows a
-    #    newer /usr/share/tesseract-ocr/<version>/tessdata (issue #27).
-    if sys.platform.startswith(("linux", "darwin")):
-        import glob
-        for p in sorted(glob.glob("/usr/share/tesseract-ocr/*/tessdata"),
-                        reverse=True):
-            if os.path.isdir(p):
-                return p
-    # 3. Homebrew (Intel /usr/local, Apple Silicon /opt/homebrew) and
-    #    custom prefixes: <prefix>/bin/tesseract -> <prefix>/share/tessdata.
-    if tess_exe:
-        prefixed = os.path.join(os.path.dirname(os.path.dirname(tess_exe)),
-                                "share", "tessdata")
-        if os.path.isdir(prefixed):
-            return prefixed
-    # 4. Older Debian, manual installs, Homebrew (Intel + Apple Silicon),
-    #    snap fallbacks.
-    if sys.platform.startswith(("linux", "darwin")):
-        for p in ("/usr/share/tessdata",
-                  "/usr/local/share/tessdata",
-                  "/opt/homebrew/share/tessdata",
-                  "/snap/tesseract/current/usr/share/tesseract-ocr/tessdata"):
-            if os.path.isdir(p):
-                return p
-    return None
+# Looked up through this module's globals by _ensure_tesseract, and imported
+# from here by tests: keep the names bound in app.tools.ocr.
+from app.tools._ocr_paths import _find_tessdata, _find_tesseract
 
 
 class TabOCR(BasePage):
