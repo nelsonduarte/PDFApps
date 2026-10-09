@@ -282,13 +282,10 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full d
 
 ## Support the project
 
-PDFApps is free, open source, and built by a solo developer. If you or your company find it useful, [sponsoring on GitHub](https://github.com/sponsors/nelsonduarte) or [funding on Polar](https://polar.sh/nelsonduarte) helps keep it maintained.
+PDFApps is free, open source, and built by a solo developer. If you or your company find it useful, [sponsoring on GitHub](https://github.com/sponsors/nelsonduarte) helps keep it maintained.
 
 <a href="https://github.com/sponsors/nelsonduarte">
   <img src="https://img.shields.io/badge/Sponsor_on_GitHub-♥-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor on GitHub">
-</a>
-<a href="https://polar.sh/nelsonduarte">
-  <img src="https://img.shields.io/badge/Fund_on_Polar-0062FF?style=for-the-badge" alt="Fund on Polar">
 </a>
 
 ---
