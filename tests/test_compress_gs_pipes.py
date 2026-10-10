@@ -173,8 +173,9 @@ def test_gs_pass_finishes_when_gs_floods_stdout_and_stderr(
             "the Ghostscript pass was still running after "
             f"{time.monotonic() - t0:.0f} s: gs is blocked writing to a "
             "stdout/stderr pipe that _compress_pdf never reads")
+    else:
+        assert after < before
 
-    assert after < before
     out = pymupdf.open(str(dst))
     try:
         r = out[0].rect
