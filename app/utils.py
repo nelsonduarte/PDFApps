@@ -652,8 +652,23 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             # mid-render. subprocess.run(timeout=120) blocks the worker
             # thread for the whole timeout window, leaving Cancel dead
             # for up to two minutes on big PDFs.
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
+            # env: GS_LIB pointing at the init files next to the binary
+            # (the snap's gs cannot find gs_init.ps otherwise); None, and
+            # so the inherited environment, when there are none. Working
+            # that out may run "gs --version" once per session, before
+            # the Cancel loop below (see _gs_paths._VERSION_TIMEOUT_S).
+            # stdout/stderr go to DEVNULL: nothing here reads them, and a
+            # pipe nobody drains stalls gs once its buffer is full. On one
+            # malformed PDF the snap's gs 9.55.0 prints 137,600 bytes to
+            # stdout; with PIPE it blocked once the pipe was full and ran
+            # until the 120 s deadline below terminated it (rc -15). The
+            # native gs 9.55.0 of Ubuntu 22.04 stalled the same way.
+            # creationflags: no console window for gswin64c on Windows.
+            from app._gs_paths import _gs_subprocess_env, _no_window_flags
+            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL,
+                                    env=_gs_subprocess_env(gs),
+                                    creationflags=_no_window_flags())
             deadline = time.monotonic() + 120
             cancelled = False
             try:
