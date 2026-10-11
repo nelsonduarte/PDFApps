@@ -254,77 +254,85 @@ Engels, Portugees, Spaans, Frans, Duits, Chinees, Italiaans, Nederlands.
 # RELEASE NOTES
 # ============================================================
 RELEASE_NOTES = {}
-RELEASE_NOTES['en-us'] = '''Version 1.15.0 — Password fixes and a stronger encryption stack
+RELEASE_NOTES['en-us'] = '''Version 1.15.1: OCR and compression fixes, and security updates
 
-• Password-protected PDFs: a correct password is no longer accepted by the unlock prompt and then rejected by every tool. Passwords with accented or non-English characters were affected, leaving blank page thumbnails and repeated prompts.
-• Unlock once and stay unlocked: the spelling that worked is remembered and reused across the viewer and all tools.
-• A wrong password now shows a clear translated message instead of a generic error with hidden technical details.
-• AES-256 encryption fixed on the Linux (Flatpak) build, where a missing cryptography component made it fail.
-• Security: pypdf 6.16.2 and cryptography 50.0.1, closing six PDF parser advisories and one cryptography advisory.
-• Clearer release notes: these notes now describe only what changes for you, with internal development entries left out and security fixes listed first in their own section.
+• OCR language: OCR now runs in the language you pick. Before, every run used the first installed language in alphabetical order. The list shows only installed languages and keeps your choice, and Chinese and Dutch now appear under their translated names.
+• PDFApps no longer closes when you run OCR with an old or unrecognised version of Tesseract installed.
+• No more console windows: running OCR or compressing a PDF no longer opens a terminal window on Windows.
+• Linux (Snap): OCR now finds its bundled language files, and compression runs its stronger stage, which it skipped before. On Linux, compressing some damaged PDFs no longer hangs for about two minutes.
+• Starting PDFApps from a terminal no longer prints a deprecation notice.
+• The Help button now opens the current documentation page.
+• Security: pypdf 6.19.0, closing three advisories present in 1.15.0 where a crafted PDF could use excessive memory or keep the app busy, and urllib3 2.8.0, closing three more.
 '''
-RELEASE_NOTES['pt-pt'] = '''Versão 1.15.0 — Correções de palavra-passe e encriptação mais robusta
+RELEASE_NOTES['pt-pt'] = '''Versão 1.15.1: Correções no OCR e na compressão, e atualizações de segurança
 
-• PDFs protegidos: uma palavra-passe correta deixa de ser aceite no pedido de desbloqueio e rejeitada depois por todas as ferramentas. Afetava palavras-passe com acentos ou caracteres não ingleses, deixando miniaturas em branco e pedidos repetidos.
-• Desbloqueie uma vez: a grafia que funcionou fica memorizada e é reutilizada no visualizador e em todas as ferramentas.
-• Palavra-passe errada mostra agora uma mensagem traduzida e clara, em vez de um erro genérico com detalhes técnicos escondidos.
-• Encriptação AES-256 corrigida na versão Linux (Flatpak), onde falhava por falta de um componente de criptografia.
-• Segurança: pypdf 6.16.2 e cryptography 50.0.1, fechando seis avisos no leitor de PDF e um na biblioteca de criptografia.
-• Notas de versão mais claras: estas notas passam a descrever apenas o que muda para si, sem entradas internas de desenvolvimento e com as correções de segurança em secção própria, listadas primeiro.
+• Idioma do OCR: o OCR passa a usar o idioma que escolher. Antes, cada execução usava o primeiro idioma instalado por ordem alfabética. A lista mostra apenas os idiomas instalados e mantém a sua escolha, e o chinês e o neerlandês passam a aparecer com o nome traduzido.
+• O PDFApps deixa de fechar quando executa o OCR com uma versão antiga ou não reconhecida do Tesseract instalada.
+• Sem janelas de consola: executar o OCR ou comprimir um PDF deixa de abrir uma janela de terminal no Windows.
+• Linux (Snap): o OCR passa a encontrar os ficheiros de idioma incluídos, e a compressão executa a etapa mais forte, que antes era ignorada. No Linux, comprimir alguns PDFs danificados deixa de bloquear durante cerca de dois minutos.
+• Iniciar o PDFApps a partir de um terminal deixa de mostrar um aviso de descontinuação.
+• O botão de Ajuda abre agora a página de documentação atual.
+• Segurança: pypdf 6.19.0, que fecha três avisos presentes na 1.15.0 em que um PDF manipulado podia consumir memória em excesso ou manter a aplicação ocupada, e urllib3 2.8.0, que fecha mais três.
 '''
-RELEASE_NOTES['es-es'] = '''Versión 1.15.0 — Correcciones de contraseña y cifrado más robusto
+RELEASE_NOTES['es-es'] = '''Versión 1.15.1: Correcciones de OCR y compresión, y actualizaciones de seguridad
 
-• PDF protegidos: una contraseña correcta ya no es aceptada al desbloquear y rechazada después por todas las herramientas. Afectaba a contraseñas con acentos o caracteres no ingleses, con miniaturas en blanco y peticiones repetidas.
-• Desbloquee una vez: la grafía que funcionó se recuerda y se reutiliza en el visor y en todas las herramientas.
-• Una contraseña incorrecta muestra ahora un mensaje traducido y claro, en lugar de un error genérico con detalles técnicos ocultos.
-• Cifrado AES-256 corregido en la versión Linux (Flatpak), donde fallaba por faltar un componente de criptografía.
-• Seguridad: pypdf 6.16.2 y cryptography 50.0.1, cerrando seis avisos del lector de PDF y uno de criptografía.
-• Notas de versión más claras: estas notas describen ahora solo lo que cambia para usted, sin entradas internas de desarrollo y con las correcciones de seguridad en su propia sección, listadas primero.
+• Idioma del OCR: el OCR usa ahora el idioma que elija. Antes, cada ejecución usaba el primer idioma instalado por orden alfabético. La lista muestra solo los idiomas instalados y conserva su elección, y el chino y el neerlandés aparecen ahora con su nombre traducido.
+• PDFApps ya no se cierra al ejecutar el OCR con una versión antigua o no reconocida de Tesseract instalada.
+• Sin ventanas de consola: ejecutar el OCR o comprimir un PDF ya no abre una ventana de terminal en Windows.
+• Linux (Snap): el OCR encuentra ahora los archivos de idioma incluidos, y la compresión ejecuta su etapa más potente, que antes se omitía. En Linux, comprimir algunos PDF dañados ya no se bloquea durante unos dos minutos.
+• Iniciar PDFApps desde un terminal ya no muestra un aviso de obsolescencia.
+• El botón de Ayuda abre ahora la página de documentación actual.
+• Seguridad: pypdf 6.19.0, que cierra tres avisos presentes en 1.15.0 en los que un PDF manipulado podía consumir memoria en exceso o mantener ocupada la aplicación, y urllib3 2.8.0, que cierra otros tres.
 '''
-RELEASE_NOTES['fr-fr'] = '''Version 1.15.0 — Corrections de mot de passe et chiffrement renforcé
+RELEASE_NOTES['fr-fr'] = '''Version 1.15.1 : Corrections de l\'OCR et de la compression, et mises à jour de sécurité
 
-• PDF protégés : un mot de passe correct n\'est plus accepté au déverrouillage puis rejeté par tous les outils. Les mots de passe avec accents ou caractères non anglais étaient concernés, avec des miniatures vides et des demandes répétées.
-• Déverrouillez une fois : l\'orthographe qui a fonctionné est mémorisée et réutilisée dans la visionneuse et tous les outils.
-• Un mot de passe erroné affiche désormais un message traduit et clair, au lieu d\'une erreur générique aux détails techniques masqués.
-• Chiffrement AES-256 corrigé sur la version Linux (Flatpak), où il échouait faute d\'un composant de cryptographie.
-• Sécurité : pypdf 6.16.2 et cryptography 50.0.1, corrigeant six avis sur le lecteur PDF et un sur la cryptographie.
-• Notes de version plus claires : ces notes ne décrivent plus que ce qui change pour vous, sans les entrées internes de développement, et les correctifs de sécurité ont leur propre section, placée en premier.
+• Langue de l\'OCR : l\'OCR utilise désormais la langue que vous choisissez. Auparavant, chaque exécution utilisait la première langue installée par ordre alphabétique. La liste n\'affiche que les langues installées et conserve votre choix, et le chinois et le néerlandais apparaissent désormais sous leur nom traduit.
+• PDFApps ne se ferme plus lorsque vous lancez l\'OCR avec une version ancienne ou non reconnue de Tesseract installée.
+• Plus de fenêtres de console : lancer l\'OCR ou compresser un PDF n\'ouvre plus de fenêtre de terminal sous Windows.
+• Linux (Snap) : l\'OCR trouve désormais les fichiers de langue inclus, et la compression exécute son étape la plus poussée, qui était ignorée auparavant. Sous Linux, compresser certains PDF endommagés ne bloque plus pendant environ deux minutes.
+• Lancer PDFApps depuis un terminal n\'affiche plus d\'avis d\'obsolescence.
+• Le bouton Aide ouvre désormais la page de documentation actuelle.
+• Sécurité : pypdf 6.19.0, qui corrige trois avis présents dans la 1.15.0 où un PDF malveillant pouvait consommer trop de mémoire ou occuper l\'application, et urllib3 2.8.0, qui en corrige trois autres.
 '''
-RELEASE_NOTES['de-de'] = '''Version 1.15.0 — Passwort-Korrekturen und stärkere Verschlüsselung
+RELEASE_NOTES['de-de'] = '''Version 1.15.1: OCR- und Komprimierungskorrekturen sowie Sicherheitsupdates
 
-• Geschützte PDFs: Ein korrektes Passwort wird nicht mehr beim Entsperren akzeptiert und danach von jedem Werkzeug abgelehnt. Betroffen waren Passwörter mit Akzenten oder nicht englischen Zeichen, mit leeren Miniaturansichten und wiederholten Abfragen.
-• Einmal entsperren: Die Schreibweise, die funktioniert hat, wird gemerkt und im Viewer und in allen Werkzeugen wiederverwendet.
-• Ein falsches Passwort zeigt jetzt eine klare, übersetzte Meldung statt eines generischen Fehlers mit versteckten technischen Details.
-• AES-256-Verschlüsselung in der Linux-Version (Flatpak) korrigiert, wo eine fehlende Krypto-Komponente sie scheitern ließ.
-• Sicherheit: pypdf 6.16.2 und cryptography 50.0.1, schließt sechs PDF-Parser-Hinweise und einen Krypto-Hinweis.
-• Klarere Versionshinweise: Diese Hinweise beschreiben jetzt nur noch, was sich für Sie ändert, ohne interne Entwicklungseinträge und mit Sicherheitskorrekturen in einem eigenen, zuerst genannten Abschnitt.
+• OCR-Sprache: Die Texterkennung verwendet jetzt die Sprache, die Sie auswählen. Bisher nutzte jeder Lauf die erste installierte Sprache in alphabetischer Reihenfolge. Die Liste zeigt nur installierte Sprachen und behält Ihre Auswahl, und Chinesisch und Niederländisch erscheinen jetzt mit übersetztem Namen.
+• PDFApps schließt sich nicht mehr, wenn Sie OCR mit einer alten oder nicht erkannten Tesseract-Version ausführen.
+• Keine Konsolenfenster mehr: OCR oder das Komprimieren einer PDF-Datei öffnet unter Windows kein Terminalfenster mehr.
+• Linux (Snap): Die OCR findet jetzt die mitgelieferten Sprachdateien, und die Komprimierung führt ihre stärkere Stufe aus, die bisher übersprungen wurde. Unter Linux hängt das Komprimieren mancher beschädigter PDFs nicht mehr etwa zwei Minuten lang.
+• Beim Start von PDFApps aus einem Terminal erscheint kein Veraltungshinweis mehr.
+• Die Hilfe-Schaltfläche öffnet jetzt die aktuelle Dokumentationsseite.
+• Sicherheit: pypdf 6.19.0 schließt drei in 1.15.0 vorhandene Hinweise, bei denen eine manipulierte PDF-Datei übermäßig Speicher verbrauchen oder die App blockieren konnte, und urllib3 2.8.0 schließt drei weitere.
 '''
-RELEASE_NOTES['zh-cn'] = '''版本 1.15.0 — 密码修复与更强的加密
+RELEASE_NOTES['zh-cn'] = '''版本 1.15.1：OCR 与压缩修复及安全更新
 
-• 受保护的 PDF：正确的密码不会再在解锁时被接受、随后却被所有工具拒绝。含重音或非英文字符的密码受影响，会出现空白缩略图和反复提示。
-• 解锁一次即可：生效的密码写法会被记住，并在查看器和所有工具中复用。
-• 密码错误时显示清晰的翻译提示，不再是隐藏技术细节的通用错误。
-• 修复 Linux (Flatpak) 版本的 AES-256 加密，此前因缺少加密组件而失败。
-• 安全：pypdf 升级至 6.16.2、cryptography 升级至 50.0.1，修复六项 PDF 解析器公告和一项加密库公告。
-• 更清晰的版本说明：本说明现在只描述与您相关的变化，不再包含内部开发条目，安全修复单独成节并列在最前。
+• OCR 语言：OCR 现在使用您选择的语言。此前每次运行都会使用按字母顺序排列的第一个已安装语言。列表只显示已安装的语言并保留您的选择，简体中文和荷兰语现在显示为翻译后的名称。
+• 安装了旧版或无法识别版本的 Tesseract 时，运行 OCR 不再导致 PDFApps 关闭。
+• 不再弹出控制台窗口：在 Windows 上运行 OCR 或压缩 PDF 时不再打开终端窗口。
+• Linux (Snap)：OCR 现在能找到随附的语言文件，压缩也会运行此前被跳过的更强压缩步骤。在 Linux 上，压缩某些损坏的 PDF 不再卡住约两分钟。
+• 从终端启动 PDFApps 时不再显示弃用提示。
+• “帮助”按钮现在打开当前的文档页面。
+• 安全：pypdf 升级至 6.19.0，修复 1.15.0 中存在的三项公告（特制 PDF 可能占用过多内存或使程序长时间忙碌）；urllib3 升级至 2.8.0，另修复三项公告。
 '''
-RELEASE_NOTES['it-it'] = '''Versione 1.15.0 — Correzioni delle password e cifratura più robusta
+RELEASE_NOTES['it-it'] = '''Versione 1.15.1: Correzioni di OCR e compressione, e aggiornamenti di sicurezza
 
-• PDF protetti: una password corretta non viene più accettata allo sblocco e poi rifiutata da ogni strumento. Erano interessate le password con accenti o caratteri non inglesi, con miniature vuote e richieste ripetute.
-• Sblocca una volta sola: la grafia che ha funzionato viene memorizzata e riusata nel visualizzatore e in tutti gli strumenti.
-• Una password errata mostra ora un messaggio tradotto e chiaro, invece di un errore generico con dettagli tecnici nascosti.
-• Cifratura AES-256 corretta nella versione Linux (Flatpak), dove falliva per un componente di crittografia mancante.
-• Sicurezza: pypdf 6.16.2 e cryptography 50.0.1, chiudendo sei avvisi del lettore PDF e uno di crittografia.
-• Note di versione più chiare: queste note descrivono ora solo ciò che cambia per te, senza voci interne di sviluppo e con le correzioni di sicurezza in una sezione dedicata, elencata per prima.
+• Lingua dell\'OCR: l\'OCR usa ora la lingua che scegli. Prima, ogni esecuzione usava la prima lingua installata in ordine alfabetico. L\'elenco mostra solo le lingue installate e mantiene la tua scelta, e il cinese e l\'olandese compaiono ora con il nome tradotto.
+• PDFApps non si chiude più quando esegui l\'OCR con una versione di Tesseract vecchia o non riconosciuta.
+• Niente più finestre di console: eseguire l\'OCR o comprimere un PDF non apre più una finestra del terminale su Windows.
+• Linux (Snap): l\'OCR trova ora i file di lingua inclusi, e la compressione esegue la sua fase più incisiva, che prima veniva saltata. Su Linux, comprimere alcuni PDF danneggiati non si blocca più per circa due minuti.
+• Avviare PDFApps da un terminale non mostra più un avviso di deprecazione.
+• Il pulsante Aiuto apre ora la pagina della documentazione attuale.
+• Sicurezza: pypdf 6.19.0, che chiude tre avvisi presenti nella 1.15.0 in cui un PDF manipolato poteva consumare troppa memoria o tenere occupata l\'app, e urllib3 2.8.0, che ne chiude altri tre.
 '''
-RELEASE_NOTES['nl-nl'] = '''Versie 1.15.0 — Wachtwoordfixes en sterkere versleuteling
+RELEASE_NOTES['nl-nl'] = '''Versie 1.15.1: OCR- en compressiefixes, en beveiligingsupdates
 
-• Beveiligde PDF\'s: een correct wachtwoord wordt niet langer bij het ontgrendelen geaccepteerd en daarna door elke tool geweigerd. Wachtwoorden met accenten of niet-Engelse tekens waren getroffen, met lege miniaturen en herhaalde vragen.
-• Eenmaal ontgrendelen: de schrijfwijze die werkte wordt onthouden en hergebruikt in de viewer en alle tools.
-• Een verkeerd wachtwoord toont nu een duidelijke vertaalde melding in plaats van een generieke fout met verborgen technische details.
-• AES-256-versleuteling hersteld in de Linux-versie (Flatpak), waar een ontbrekend crypto-onderdeel het liet mislukken.
-• Beveiliging: pypdf 6.16.2 en cryptography 50.0.1, met zes PDF-parser-adviezen en één crypto-advies verholpen.
-• Duidelijkere release-opmerkingen: deze opmerkingen beschrijven nu alleen wat er voor u verandert, zonder interne ontwikkelitems en met beveiligingsfixes in een eigen sectie, als eerste vermeld.
+• OCR-taal: OCR gebruikt nu de taal die u kiest. Voorheen gebruikte elke run de eerste geïnstalleerde taal in alfabetische volgorde. De lijst toont alleen geïnstalleerde talen en onthoudt uw keuze, en Chinees en Nederlands verschijnen nu met hun vertaalde naam.
+• PDFApps sluit niet meer af wanneer u OCR uitvoert met een oude of niet-herkende versie van Tesseract.
+• Geen consolevensters meer: OCR uitvoeren of een PDF comprimeren opent op Windows geen terminalvenster meer.
+• Linux (Snap): OCR vindt nu de meegeleverde taalbestanden, en compressie voert de sterkere stap uit die voorheen werd overgeslagen. Op Linux blijft het comprimeren van sommige beschadigde PDF\'s niet langer zo\'n twee minuten hangen.
+• PDFApps starten vanuit een terminal toont geen verouderingsmelding meer.
+• De Help-knop opent nu de actuele documentatiepagina.
+• Beveiliging: pypdf 6.19.0, met drie adviezen uit 1.15.0 verholpen waarbij een gemanipuleerde PDF overmatig geheugen kon gebruiken of de app bezig kon houden, en urllib3 2.8.0, met nog drie verholpen.
 '''
 
 # ============================================================

@@ -67,9 +67,29 @@
     <div class="container" style="max-width: 880px;">
         <div class="release">
             <div class="release-header">
+                <span class="version-tag">v1.15.1</span>
+                <span class="release-date">October 11, 2026</span>
+                <span class="release-badge">Latest</span>
+            </div>
+            <h3>OCR in the language you choose, OCR and compression fixed in the Snap, and security updates</h3>
+            <ul class="docs-list">
+                <li><strong>OCR language</strong>: OCR now runs in the language you pick. Before, every run used the first installed language in alphabetical order, whatever was selected: with English and Portuguese installed, choosing Portuguese ran English. The list now shows only the languages installed on your computer, keeps your choice, and starts on your interface language when it is installed, otherwise English. If the chosen language is no longer installed, PDFApps tells you instead of running in another language.</li>
+                <li><strong>Chinese and Dutch OCR</strong>: both now appear in the language list under their translated names instead of short codes.</li>
+                <li><strong>OCR with an old Tesseract</strong>: PDFApps no longer closes when you run OCR with a Tesseract older than 3.05, or one whose version it cannot recognise.</li>
+                <li><strong>No more console windows on Windows</strong>: running OCR or compressing a PDF no longer opens a terminal window.</li>
+                <li><strong>OCR fixed in the Snap package</strong>: OCR failed in the Snap because PDFApps could not find the language files bundled with it. It now finds them and OCR works.</li>
+                <li><strong>Compression fixed in the Snap package</strong>: the stronger compression stage (Ghostscript) could not start in the Snap and was skipped without a message, so files could come out much larger than they should. It now runs.</li>
+                <li><strong>No more two-minute stalls when compressing</strong>: on Linux, compressing some damaged PDFs could hang for about two minutes before the stronger stage gave up. It now finishes in seconds.</li>
+                <li><strong>Quiet start from a terminal</strong>: starting PDFApps from a terminal no longer prints a deprecation notice from its PDF library.</li>
+                <li><strong>Help button</strong>: the "?" button opened a documentation section that no longer existed. It now opens the documentation on pdf-apps.com.</li>
+                <li><strong>Security &amp; dependencies</strong>: pypdf updated to 6.19.0. The 1.15.0 downloads shipped pypdf 6.18.1, which has three advisories where a specially crafted PDF can use excessive memory or keep the app busy; one of them could freeze the window for close to a minute when saving filled-in form fields in the editor. urllib3 updated to 2.8.0, closing three advisories.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
                 <span class="version-tag">v1.15.0</span>
                 <span class="release-date">September 12, 2026</span>
-                <span class="release-badge">Latest</span>
             </div>
             <h3>Passwords that unlock once, stay unlocked, and a stronger encryption stack</h3>
             <ul class="docs-list">
