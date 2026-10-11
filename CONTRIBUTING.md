@@ -261,7 +261,7 @@ See `app/window.py:_restart_app` and memory entry `feedback_pyinstaller_relaunch
 
 | Var | Behaviour |
 |---|---|
-| `TESSDATA_PREFIX` | Override the location of `tessdata/` directory; set automatically by `app/tools/ocr.py:_ensure_tesseract` when a non-standard install is detected |
+| `TESSDATA_PREFIX` | Override the location of `tessdata/` directory; set automatically by `app/tools/ocr.py:_locate_tesseract`, on the tool's first show and before each run, when a non-standard install is detected |
 
 ---
 
@@ -1177,7 +1177,7 @@ class TabMyTool(BasePage):
 | 6 | `TabComprimir` | `compress.py` | gs/PyMuPDF/pikepdf | 3-pass compression. Level combo (Extreme/Recommended/Low). Shows before/after sizes. |
 | 7 | `TabEncriptar` | `encrypt.py` | pypdf | Encrypt/decrypt. Mode toggle, owner + user password fields. |
 | 8 | `TabMarcaDagua` | `watermark.py` | pypdf | Overlay watermark PDF. Layer position (below/above content). |
-| 9 | `TabOCR` | `ocr.py` | pytesseract/PyMuPDF | Add text layer to scanned PDFs. Language combo (PT/EN/ES/FR/DE). Progress dialog. |
+| 9 | `TabOCR` | `ocr.py` | pytesseract/PyMuPDF | Add text layer to scanned PDFs. Language combo listing the languages `tesseract --list-langs` reports, first selected by the UI language. Progress dialog. |
 | 10 | `TabConverter` | `convert.py` | PyMuPDF/docx | Export to PNG/JPG/DOCX/TXT. DPI selection for images. Output folder. |
 | 11 | `TabEditar` | `editor/tab.py` | PyMuPDF | Visual editor (see [Editor System](#editor-system)). Not a BasePage subclass. |
 | 12 | `TabImport` | `import_pdf.py` | PyMuPDF/PIL | Import TXT/images/Markdown → PDF. Type combo, file list. Batch support. |

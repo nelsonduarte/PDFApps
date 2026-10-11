@@ -452,7 +452,7 @@ def test_binary_prefix_lookup_on_a_prefix_no_host_has(monkeypatch, platform):
 
 
 def test_snap_chain_from_path_lookup(monkeypatch, tmp_path):
-    # End to end over the two helpers, as _ensure_tesseract uses them: PATH
+    # End to end over the two helpers, as _locate_tesseract uses them: PATH
     # inside the snap resolves tesseract to $SNAP/usr/bin/tesseract, and
     # the tessdata found must be the one shipped next to it.
     from app.tools import _ocr_paths
@@ -472,7 +472,7 @@ def test_snap_chain_from_path_lookup(monkeypatch, tmp_path):
 # module boundary
 # ---------------------------------------------------------------------------
 def test_ocr_reexports_the_pure_helpers():
-    # _ensure_tesseract resolves both names through app.tools.ocr's globals.
+    # _locate_tesseract resolves both names through app.tools.ocr's globals.
     from app.tools import _ocr_paths, ocr
 
     assert ocr._find_tessdata is _ocr_paths._find_tessdata
