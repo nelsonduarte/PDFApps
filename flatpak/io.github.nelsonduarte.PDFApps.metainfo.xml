@@ -98,6 +98,24 @@
   </provides>
 
   <releases>
+    <release version="1.15.1" date="2026-10-11">
+      <description>
+        <p>OCR and compression fixes, and security updates:</p>
+        <ul>
+          <li>OCR runs in the language you pick, instead of the first installed one</li>
+          <li>The OCR language list shows only installed languages and keeps your choice</li>
+          <li>Chinese and Dutch appear in the OCR language list under their translated names</li>
+          <li>Running OCR no longer closes the app when an old or unrecognised Tesseract is installed</li>
+          <li>OCR and compression no longer open a console window on Windows</li>
+          <li>OCR fixed in the Snap package, which could not find its bundled language files</li>
+          <li>Compression in the Snap package now runs its stronger stage, which it skipped before</li>
+          <li>Compressing some damaged PDFs on Linux no longer hangs for about two minutes</li>
+          <li>Starting from a terminal no longer prints a deprecation notice</li>
+          <li>The Help button opens the current documentation page</li>
+          <li>Security: pypdf 6.19.0, closing three advisories present in 1.15.0, and urllib3 2.8.0, closing three</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.15.0" date="2026-09-12">
       <description>
         <p>Password fixes and a stronger encryption stack:</p>
