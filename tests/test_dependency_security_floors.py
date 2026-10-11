@@ -19,14 +19,15 @@ was measured. The test only knows the advisories it lists.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
+from _requirements_parsing import lowest_admitted as _lowest_admitted
+from _requirements_parsing import parse_line as _parse_line
+from _requirements_parsing import parse_requirements_text
 from packaging.requirements import Requirement
-from packaging.specifiers import Specifier, SpecifierSet
-from packaging.utils import canonicalize_name
-from packaging.version import InvalidVersion, Version
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 ROOT = Path(__file__).resolve().parent.parent
 REQUIREMENTS = ROOT / "requirements.txt"
@@ -51,46 +52,11 @@ SECURITY_FLOORS = {
     "idna": ("3.15", ("3.13", "3.14")),
 }
 
-# pip strips "#" to end of line when it starts the line or follows
-# whitespace; "pypdf>=6.19.0  # note" is a valid requirements line.
-_INLINE_COMMENT = re.compile(r"(^|\s)#.*$")
-
-
-def _parse_line(line: str) -> Requirement | None:
-    s = _INLINE_COMMENT.sub("", line).strip()
-    return Requirement(s) if s else None
-
 
 def _requirements(text: str | None = None) -> dict[str, Requirement]:
     if text is None:
         text = REQUIREMENTS.read_text(encoding="utf-8")
-    out: dict[str, Requirement] = {}
-    for line in text.splitlines():
-        req = _parse_line(line)
-        if req is None:
-            continue
-        name = canonicalize_name(req.name)
-        assert name not in out, f"{req.name} listed twice"
-        out[name] = req
-    return out
-
-
-def _lowest_admitted(clause: Specifier) -> Version | None:
-    """Lowest version ``clause`` can admit, or None if it has no floor.
-
-    ``==X.*`` admits X's dev and pre-releases, which sort below X, so its
-    floor is ``X.dev0``. Every other bounding operator admits nothing
-    below its own version (``>X`` admits nothing at or below X).
-    """
-    if clause.operator in ("<", "<=", "!="):
-        return None
-    ver = clause.version
-    if ver.endswith(".*"):
-        ver = ver[:-2] + ".dev0"
-    try:
-        return Version(ver)
-    except InvalidVersion:
-        return None  # "===" with a non-PEP 440 string
+    return parse_requirements_text(text)
 
 
 def _rejects_everything_below(spec: SpecifierSet, minimum: Version) -> bool:

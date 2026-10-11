@@ -1,4 +1,13 @@
-PySide6>=6.11.1
+# Temporary ceiling for the 1.15.1 release. PySide6 6.12.0 (2026-10-08)
+# moved WebEngine and Pdf into wheels of their own; 6.11 already shipped
+# both inside PySide6_Addons. A Windows PyInstaller build barely changes
+# (PDFApps.exe +0.54%), but the frozen macOS and Linux builds, the snap
+# and the AppImage have not been tested with 6.12. Remove the ceiling,
+# together with tests/test_pyside6_ceiling.py, once the frozen Windows,
+# macOS and Linux builds, the snap and (while it ships) the AppImage
+# all pass the smoke test with 6.12. Until then, close by hand any
+# Dependabot PR that widens it.
+PySide6>=6.11.1,<6.12
 # PYSEC-2026-3655 / PYSEC-2026-3656 (fixed in 6.15.0), CVE-2026-82398
 # (6.15.0), CVE-2026-84309 (6.16.0) and CVE-2026-84310 / CVE-2026-84311
 # (6.16.1). Then PYSEC-2026-4158 (6.17.0), PYSEC-2026-4153 (6.18.0),
@@ -11,10 +20,10 @@ PySide6>=6.11.1
 # floor, so a floor that admits vulnerable releases audits clean for as
 # long as a fixed release exists.
 # tests/test_dependency_security_floors.py fails if the floor drops
-# below 6.19.0, but only where pytest runs (as of 2026-10-05 no
-# workflow on main runs pytest). An advisory published later against
-# the floor turns nothing that audits this file red once a fixed
-# release exists. Do not lower it.
+# below 6.19.0, wherever pytest runs; tests.yml runs it on every pull
+# request to main and every push to main. An advisory published later
+# against the floor turns nothing that audits this file red once a
+# fixed release exists. Do not lower it.
 pypdf>=6.19.0
 # GHSA-537c-gmf6-5ccf: signature verification bypass in legacy OpenSSL
 # providers fixed in 48.0.1, and PYSEC-2026-3552 / CVE-2026-69247
