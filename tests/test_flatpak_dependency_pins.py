@@ -19,6 +19,8 @@ import re
 from pathlib import Path
 
 import pytest
+from _requirements_parsing import floor_of, parse_requirements_text
+from packaging.version import Version
 
 try:
     import yaml
@@ -136,30 +138,98 @@ def test_build_command_installs_every_pinned_package():
     )
 
 
+def _stale_pins(root_text: str, pin_text: str) -> list[str]:
+    """Flatpak pins below their requirements.txt floor, one line each.
+
+    Fail-closed: a root line this check cannot judge (an environment
+    marker, no floor at all) or a pin that is not an exact ``==`` is
+    reported too. Skipping such lines would be fail-open: a floor raised
+    as ``pypdf>=6.99.0  # note`` would then let a 6.19.0 pin pass.
+    """
+    root = parse_requirements_text(root_text)
+    problems = []
+    for name, pin in parse_requirements_text(pin_text).items():
+        req = root.get(name)
+        if req is None:
+            continue  # e.g. shiboken6, a PySide6 transitive not pinned at root
+        if req.marker is not None:
+            problems.append(
+                f"{name}: requirements.txt '{req}' carries an environment "
+                "marker, so its floor does not hold everywhere"
+            )
+            continue
+        floor = floor_of(req.specifier)
+        if floor is None:
+            problems.append(f"{name}: requirements.txt '{req}' has no floor")
+            continue
+        clauses = list(pin.specifier)
+        if (
+            len(clauses) != 1
+            or clauses[0].operator != "=="
+            or clauses[0].version.endswith(".*")
+        ):
+            problems.append(f"{name}: flatpak pin '{pin}' is not an exact '==' pin")
+            continue
+        got = Version(clauses[0].version)
+        if got < floor:
+            problems.append(f"{name}: flatpak pin {got} < requirements floor {floor}")
+    return problems
+
+
+_SAMPLE_PINS = "PySide6==6.11.1\nshiboken6==6.11.1\npypdf==6.19.0\n"
+
+
+@pytest.mark.parametrize(
+    ("root_line", "expected"),
+    [
+        ("pypdf>=6.99.0  # note", "< requirements floor 6.99.0"),
+        ('pypdf>=6.99.0; sys_platform != "emscripten"', "environment marker"),
+        ("PySide6~=6.11.2", "< requirements floor 6.11.2"),
+        ("PySide6<6.12,>=6.11.2", "< requirements floor 6.11.2"),
+        ("PySide6>=6.11.1,<6.12  # cap", None),
+        ("pypdf>=6.19.0", None),
+        ("pypdf>=6.19.1", "< requirements floor 6.19.1"),
+        ("pypdf>=6.0,>=6.99.0", "< requirements floor 6.99.0"),
+        ("PySide6<6.12", "has no floor"),
+        ("pypdf", "has no floor"),
+    ],
+)
+def test_stale_pins_flags_stale_and_unjudgeable_root_lines(root_line, expected):
+    problems = _stale_pins(root_line, _SAMPLE_PINS)
+    if expected is None:
+        assert problems == []
+    else:
+        assert len(problems) == 1 and expected in problems[0], problems
+
+
+@pytest.mark.parametrize("pin", [">=6.19.0", "==6.19.*", "", "==6.19.0,<7"])
+def test_stale_pins_rejects_a_pin_that_is_not_exact(pin):
+    problems = _stale_pins("pypdf>=6.19.0", f"pypdf{pin}")
+    assert len(problems) == 1 and "not an exact" in problems[0], problems
+
+
+@pytest.mark.parametrize("ceiling", ["", ",<6.12"])
+def test_stale_pins_accepts_the_real_files_with_and_without_a_ceiling(ceiling):
+    real = REQUIREMENTS.read_text(encoding="utf-8")
+    floor = floor_of(parse_requirements_text(real)["pyside6"].specifier)
+    root_text, n = re.subn(
+        r"(?m)^PySide6\b.*$", f"PySide6>={floor}{ceiling}", real
+    )
+    assert n == 1
+    assert _stale_pins(root_text, PINNED.read_text(encoding="utf-8")) == []
+
+
 def test_flatpak_pins_satisfy_the_root_requirements_floor():
     """Every Flatpak pin must be >= the floor in requirements.txt.
 
     Without this, a security bump to requirements.txt can land while the
     Flatpak keeps installing the vulnerable version.
     """
-    root = _parse_requirements(REQUIREMENTS)
-    pinned = _parse_requirements(PINNED)
-
-    def parts(v: str) -> tuple[int, ...]:
-        return tuple(int(x) for x in re.findall(r"\d+", v)[:4])
-
-    stale = []
-    for name, spec in pinned.items():
-        floor_spec = root.get(name)
-        if floor_spec is None:
-            continue  # e.g. shiboken6, a PySide6 transitive not pinned at root
-        m = re.fullmatch(r">=\s*(.+)", floor_spec)
-        if not m:
-            continue
-        want, got = parts(m.group(1)), parts(spec.lstrip("= "))
-        if got < want:
-            stale.append(f"{name}: flatpak pin {spec.lstrip('= ')} < requirements floor {m.group(1)}")
-    assert not stale, "\n".join(stale)
+    problems = _stale_pins(
+        REQUIREMENTS.read_text(encoding="utf-8"),
+        PINNED.read_text(encoding="utf-8"),
+    )
+    assert not problems, "\n".join(problems)
 
 
 def test_no_root_dependency_is_silently_dropped_from_the_flatpak():
