@@ -7,7 +7,7 @@
 # macOS and Linux builds, the snap and (while it ships) the AppImage
 # all pass the smoke test with 6.12. Until then, close by hand any
 # Dependabot PR that widens it.
-PySide6>=6.11.1,<6.12
+PySide6>=6.12.0,<6.13
 # PYSEC-2026-3655 / PYSEC-2026-3656 (fixed in 6.15.0), CVE-2026-82398
 # (6.15.0), CVE-2026-84309 (6.16.0) and CVE-2026-84310 / CVE-2026-84311
 # (6.16.1). Then PYSEC-2026-4158 (6.17.0), PYSEC-2026-4153 (6.18.0),
