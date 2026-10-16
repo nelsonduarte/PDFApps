@@ -27,7 +27,11 @@ concurrency:
 jobs:
   audit:
     name: pip-audit + outdated check
-    runs-on: ubuntu-latest
+    # Pinned instead of ubuntu-latest: GitHub moves that label to Ubuntu
+    # 26.04 from 2026-10-19, and the runner image should change when we
+    # choose, not on that date. Move to ubuntu-26.04 once a run there has
+    # validated this job.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:

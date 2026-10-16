@@ -17,7 +17,12 @@ concurrency:
 jobs:
   pytest:
     name: pytest (Ubuntu, Python 3.14)
-    runs-on: ubuntu-latest
+    # Pinned instead of ubuntu-latest: GitHub moves that label to Ubuntu
+    # 26.04 from 2026-10-19, and the runner image should change when we
+    # choose, not on that date. Move to ubuntu-26.04 once a run there has
+    # validated the "Install Qt system deps" step and the rest of the job.
+    # The job name above is the required check context; keep it unchanged.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
