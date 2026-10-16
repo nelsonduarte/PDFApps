@@ -177,7 +177,7 @@ python -m PyInstaller --clean installer.spec
 | Component        | Technology                                                                                                      | Version |
 | ---------------- | --------------------------------------------------------------------------------------------------------------- | ------- |
 | GUI              | [PySide6](https://doc.qt.io/qtforpython/) (Qt 6)                                                                | 6.10.2  |
-| PDF rendering    | [PyMuPDF](https://pymupdf.readthedocs.io/)                                                                      | 1.27.2  |
+| PDF rendering    | [PyMuPDF](https://pymupdf.readthedocs.io/)                                                                      | 1.28.2  |
 | PDF manipulation | [pypdf](https://pypdf.readthedocs.io/)                                                                          | 6.8.0   |
 | OCR              | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13  |
 | DOCX export      | [python-docx](https://python-docx.readthedocs.io/)                                                              | 1.2.0   |

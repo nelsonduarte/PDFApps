@@ -2,10 +2,11 @@
 
 PyMuPDF 1.28.2 prints a deprecation notice to STDOUT on ``import fitz``
 (``message_warning``, not ``warnings.warn``, so no warnings filter can
-silence it). That corrupted ``pdfapps.py --version`` output. On 1.28.0, the
-``requirements.txt`` floor, nothing is printed, so the ``--version``
-test alone cannot catch a regression there; this static scan does, on
-every PyMuPDF version.
+silence it). That corrupted ``pdfapps.py --version`` output. On 1.28.0
+(the ``requirements.txt`` floor until it was raised to 1.28.2, and still
+what a venv created before then has) nothing is printed, so the
+``--version`` test alone cannot catch a regression there; this static
+scan does, on every PyMuPDF version.
 
 The name is banned, not just the import: with ``import pymupdf as fitz``
 every call site still reads ``fitz.open(...)`` and a reader concludes
