@@ -59,7 +59,7 @@ Most tests never touch the real filesystem: ``os.path.isdir``,
 ``glob.glob`` and ``sys.platform`` are monkeypatched so they run
 identically on Windows and Linux hosts. The two adjacent-tessdata tests
 patch only ``os.path.isdir``: the adjacent probe returns before any glob.
-CI runs the suite on Linux only (``tests.yml``, ubuntu-latest; no macOS
+CI runs the suite on Linux only (``tests.yml``, ubuntu-24.04; no macOS
 job runs it), so the ``darwin`` cases are exercised by faking
 ``sys.platform``. The tests that build a snap tree with ``_make_snap``
 create the real layout in ``tmp_path`` and fake only ``sys.platform``

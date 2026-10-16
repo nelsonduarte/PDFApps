@@ -210,7 +210,12 @@ jobs:
 
   release:
     needs: [build, appimage]
-    runs-on: ubuntu-latest
+    # Pinned instead of ubuntu-latest: GitHub moves that label to Ubuntu
+    # 26.04 from 2026-10-19, and the runner image should change when we
+    # choose, not on that date. Move to ubuntu-26.04 once a run there has
+    # validated this job, including the release notes generator, which
+    # runs on the image's own python3 (there is no setup-python step).
+    runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:

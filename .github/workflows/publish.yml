@@ -14,11 +14,17 @@ permissions:
   contents: read
 
 jobs:
+  # resolve, aur and copr are pinned to ubuntu-24.04 instead of
+  # ubuntu-latest: GitHub moves that label to Ubuntu 26.04 from
+  # 2026-10-19, and the runner image should change when we choose, not on
+  # that date. Move them to ubuntu-26.04 once a run there has validated
+  # each job, in particular aur, which installs pacman-package-manager
+  # with apt and runs the image's own python3.
   # ─────────────────────────────────────────────────────────────────
   # Resolve which version to publish
   # ─────────────────────────────────────────────────────────────────
   resolve:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.v.outputs.version }}
       tag: ${{ steps.v.outputs.tag }}
@@ -41,7 +47,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   aur:
     needs: resolve
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ vars.ENABLE_AUR != 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -177,7 +183,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   copr:
     needs: resolve
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ vars.ENABLE_COPR != 'false' }}
     container: fedora:latest
     steps:
