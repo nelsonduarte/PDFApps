@@ -33,7 +33,7 @@ pypdf>=6.19.0
 # Also the AES backend pypdf resolves at import time (pypdf declares it
 # only as the optional `crypto` extra), so without it AES-encrypted PDFs
 # raise DependencyError.
-cryptography>=50.0.1
+cryptography>=50.0.2
 qtawesome>=1.4.2
 pillow>=12.3.0
 # PyMuPDF 1.28.0 can segfault in Document.subset_fonts()
