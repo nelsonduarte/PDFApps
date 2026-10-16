@@ -36,7 +36,14 @@ pypdf>=6.19.0
 cryptography>=50.0.1
 qtawesome>=1.4.2
 pillow>=12.3.0
-pymupdf>=1.28.0
+# PyMuPDF 1.28.0 can segfault in Document.subset_fonts()
+# (pymupdf/PyMuPDF#5049, a use-after-free in the MuPDF font subsetter,
+# fixed in 1.28.2). Compress (pass B in app/utils.py) and a text edit
+# that re-embeds the original font (app/editor/apply_edits.py) both call
+# it, and their try/except cannot catch a segfault: the app just dies.
+# tests/test_pymupdf_floor.py fails if the floor drops below 1.28.2.
+# Do not lower it.
+pymupdf>=1.28.2
 pytesseract>=0.3.13
 python-docx>=1.2.0
 python-pptx>=1.0.2
