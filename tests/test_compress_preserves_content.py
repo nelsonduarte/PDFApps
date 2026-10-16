@@ -129,8 +129,9 @@ def _tesseract_or_skip(monkeypatch):
         langs = pytesseract.get_languages(config="")
     except Exception as e:  # noqa: BLE001 - any failure means "cannot OCR"
         pytest.skip(f"Tesseract does not run: {e}")
-    if "eng" not in langs:
-        pytest.skip("Tesseract has no 'eng' language data")
+    else:
+        if "eng" not in langs:
+            pytest.skip("Tesseract has no 'eng' language data")
     return pytesseract
 
 
