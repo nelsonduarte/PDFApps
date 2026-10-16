@@ -509,11 +509,14 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         · Grayscale conversion on extreme level
         · Best overall compression — same engine used by iLovePDF / SmallPDF
 
-      Pass B — PyMuPDF
-        · scrub()  →  remove metadata, thumbnails, attached files
+      Pass B — PyMuPDF (keeps every piece of content: text, including an
+      invisible OCR layer, drawings, annotations and replies, links, form
+      values, attachments, metadata, JavaScript, layers, thumbnails and
+      pending redactions)
         · subset_fonts()  →  keep only used glyphs
         · rewrite_images()  →  DPI downsampling + JPEG re-encode
-        · save() with garbage=4 + deflate + use_objstms
+        · save() with garbage=4 + deflate + deflate_fonts + use_objstms,
+          and clean=False (see the comment at the save call)
 
       Pass C — pikepdf (if installed)
         · recompress_flate  →  re-encode all Flate streams at optimal level
@@ -706,7 +709,15 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 try: os.unlink(p)
                 except Exception: pass
 
-    # ── Pass B : PyMuPDF — scrub + rewrite_images ────────────────────────
+    # ── Pass B : PyMuPDF — subset_fonts + rewrite_images ─────────────────
+    # Compress must not remove content, so there is deliberately no
+    # doc.scrub() here. With its defaults scrub() strips the invisible
+    # text of an OCR layer (PyMuPDF 1.28.2 detects it as hidden text),
+    # visible text and drawings overlapping it, links, form values,
+    # attachments, JavaScript, comment replies and popups, and it applies
+    # pending redactions. It can also raise halfway through; the call used
+    # to sit in `except Exception: pass`, so a half-cleaned document was
+    # saved anyway.
     _prog("passB_setup")
     doc = None
     p = None
@@ -716,29 +727,22 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         if doc.needs_pass:
             # The encryption gate above already validated the password,
             # so a failure here means the file changed underneath us —
-            # abort loudly instead of scrubbing a locked doc into an
+            # abort loudly instead of saving a locked doc into an
             # empty output that would be reported as success.
             if not (password and doc.authenticate(password)):
                 raise WrongPasswordError(t("tool.err.wrong_password"))
 
-        # 1. Remove dead weight
-        try:
-            doc.scrub(metadata=True, xml_metadata=True,
-                      thumbnails=True, attached_files=True)
-        except Exception:
-            pass
-
-        # Cancel checkpoint between scrub (slow on heavy XMP /
-        # attachments) and subset_fonts (also slow on font-heavy PDFs).
+        # Cancel checkpoint after open/authenticate, before subset_fonts
+        # (slow on font-heavy PDFs).
         _prog("passB_setup")
 
-        # 2. Font subsetting
+        # 1. Font subsetting
         try:
             doc.subset_fonts()
         except Exception:
             pass
 
-        # 3. Rewrite all images (replaces the old manual loop)
+        # 2. Rewrite all images (replaces the old manual loop)
         _prog("passB_images", 0, 1)
         try:
             doc.rewrite_images(
@@ -756,10 +760,13 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             pass
         _prog("passB_images", 1, 1)
 
-        # 4. Save with all compression flags
+        # 3. Save with the lossless compression flags. clean=False on
+        # purpose: clean=True rewrites every content stream, and that
+        # rewrite duplicates glyphs drawn over each other ("(f)Tj 0 0 TD
+        # (faeces)Tj" comes back as "ffaeces"; PyMuPDF 1.28.0 and 1.28.2).
         _prog("passB_save")
         fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
-        save_kw = dict(garbage=4, deflate=True, deflate_fonts=True, clean=True)
+        save_kw = dict(garbage=4, deflate=True, deflate_fonts=True, clean=False)
         try:
             doc.save(p, **save_kw, use_objstms=True)
         except TypeError:
@@ -773,7 +780,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         # would silently continue into Pass C.
         raise
     except WrongPasswordError:
-        # A locked doc must never be scrubbed into an (empty) output and
+        # A locked doc must never be saved into an (empty) output and
         # reported as success — surface the password error instead of
         # being swallowed by `except Exception` below.
         raise
