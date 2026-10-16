@@ -66,4 +66,25 @@ urllib3>=2.8.0
 # not either) and app/ does not import it; only requests depends on it.
 # Floor for PYSEC-2026-215, idna < 3.15.
 idna>=3.18
+# Transitive of beautifulsoup4 only, which asks for soupsieve>=1.6.1.
+# Without this line, pip would not upgrade it in an existing venv unless
+# run with --upgrade --upgrade-strategy eager. app/ never calls .select()
+# (app/tools/import_pdf.py only uses find_all on "html.parser" trees),
+# but bs4 imports soupsieve whenever bs4 is imported, and PyInstaller
+# bundles it. Floor for PYSEC-2026-4170 / PYSEC-2026-4171 (polynomial
+# ReDoS in the selector parser, affecting 2.8.4), fixed in 2.9, which
+# also clears PYSEC-2026-3071 / PYSEC-2026-3072 (fixed in 2.8.4).
+# tests/test_dependency_security_floors.py fails if the floor drops
+# below 2.9. Do not lower it. Do not raise it above 2.10 either: every
+# soupsieve 3.x requires Python >=3.11 (>=3.11.5 from 3.0.2), and two
+# builds still install this file on Python 3.10, where ">=2.9" resolves
+# to 2.10. The appimage job in build.yml (ubuntu-22.04, Python 3.10)
+# would fail with "No matching distribution", and the release job needs
+# it, so the tag would publish nothing; the snap (core22, Python 3.10)
+# would fail as well, after the release is out.
+# tests/test_soupsieve_py310.py fails if this line stops admitting 2.10,
+# so a Dependabot PR that raises it goes red; close it by hand. Remove
+# the restriction, together with that test, once neither the snap nor
+# the AppImage builds on Python 3.10.
+soupsieve>=2.9
 pyinstaller>=6.22.3

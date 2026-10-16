@@ -34,11 +34,12 @@ MODULES = ROOT / "flatpak" / "python-modules.yml"
 FLATPAK_README = ROOT / "flatpak" / "README.md"
 DEPENDABOT = ROOT / ".github" / "dependabot.yml"
 
-# Packages the Flatpak deliberately does not ship: PyInstaller only
-# builds the Windows executable, and the rest are the still-missing
-# converters documented in flatpak/README.md. Listing them here keeps
-# the parity test honest about what is knowingly absent instead of
-# silently ignoring every mismatch.
+# Packages in requirements.txt that the Flatpak pin set knowingly lacks.
+# flatpak/README.md sorts them into its four kinds (deliberate, build
+# blocker, floor-only pins, feature gaps) and says why each is absent;
+# test_flatpak_readme_documents_every_omitted_package keeps the two in
+# step. Listing them here keeps the parity test honest about what is
+# knowingly absent instead of silently ignoring every mismatch.
 FLATPAK_OMITTED = {
     "pyinstaller",
     "python-pptx",
@@ -48,6 +49,7 @@ FLATPAK_OMITTED = {
     "lxml",
     "urllib3",
     "idna",
+    "soupsieve",
 }
 
 

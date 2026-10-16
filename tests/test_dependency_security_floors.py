@@ -50,6 +50,10 @@ SECURITY_FLOORS = {
     "lxml": ("6.1.0", ("6.0.2", "6.0.4")),
     # PYSEC-2026-215 (fixed 3.15).
     "idna": ("3.15", ("3.13", "3.14")),
+    # PYSEC-2026-3071 / 3072 (fixed 2.8.4), PYSEC-2026-4170 / 4171 (fixed
+    # 2.9; OSV writes it 2.9.0, PyPI publishes it as "2.9"). Measured on
+    # 2026-10-16.
+    "soupsieve": ("2.9", ("2.8.3", "2.8.4")),
 }
 
 

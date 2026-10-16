@@ -7,11 +7,12 @@ This directory contains files for submitting PDFApps to [Flathub](https://flathu
 `requirements-pinned.txt` and `python-modules.yml` are out of date relative to
 the root `requirements.txt`. The canonical list of what is absent lives in
 `FLATPAK_OMITTED` in `tests/test_flatpak_dependency_pins.py`; keep this section
-and that set in step. The eight entries split into four kinds:
+and that set in step. The nine entries split into four kinds:
 
 **Deliberate** (never needed in the Flatpak):
 
-- `pyinstaller`: only builds the Windows executable.
+- `pyinstaller`: builds the frozen Windows, macOS and Linux executables in
+  `build.yml`; the Flatpak runs the app from source with `python3`.
 
 **Build blocker** (the Flatpak build fails outright, before any feature runs):
 
@@ -25,6 +26,9 @@ and that set in step. The eight entries split into four kinds:
 - `urllib3`, `idna`: present at the root only to raise the floor on transitive
   advisories. They must come back here the moment a package that pulls
   `requests` is added to the Flatpak pin set.
+- `soupsieve`: present at the root only to raise the floor on a transitive of
+  `beautifulsoup4`, which is itself omitted (below). It must come back here,
+  at or above the root floor, together with `beautifulsoup4`.
 
 `lxml` is not the only unmet hard dependency of the current pin set: `cffi`
 (from `cryptography`), `typing_extensions` (from `python-docx`), `packaging`
