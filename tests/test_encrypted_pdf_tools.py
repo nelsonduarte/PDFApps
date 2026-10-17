@@ -244,6 +244,16 @@ def test_convert_images_worker_raises_on_auth_failure(tmp_path, monkeypatch):
     # Point the output folder widget at a temp dir so _resolve_output_dir
     # doesn't prompt.
     page._drop_folder.set_path(str(tmp_path))
+    # _convert_images asks before replacing a page_NNN file already in
+    # that folder; offscreen nobody answers the box and the run hangs.
+    # Fail fast instead if anything ever lands one there.
+    from PySide6.QtWidgets import QDialog, QMessageBox
+
+    def _no_modal(box, *_a, **_k):
+        pytest.fail(f"unexpected modal dialog: {box.windowTitle()!r}")
+
+    monkeypatch.setattr(QDialog, "exec", _no_modal)
+    monkeypatch.setattr(QMessageBox, "exec", _no_modal)
 
     do_work = _capture_do_work(
         page, lambda: page._convert_images(str(src), 0))

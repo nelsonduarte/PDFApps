@@ -54,6 +54,7 @@ class DropFileEdit(QWidget):
         self._save         = save
         self._default      = default_name
         self._path_value   = ""
+        self._confirmed_path = ""
         self._placeholder  = placeholder or t("widget.drop_hint")
         self.setAcceptDrops(True)
         self.setObjectName("drop_zone")
@@ -90,7 +91,42 @@ class DropFileEdit(QWidget):
     def path(self) -> str:
         return self._path_value
 
+    def mark_confirmed(self) -> None:
+        """Record that the Save dialog already asked about replacing the
+        current path.
+
+        Only ``_browse`` calls it, and only for a path that existed when
+        it was picked: that is the one case where the dialog asked, so
+        the next ``BasePage._resolve_output_file_guarded`` must not ask
+        again. A path that did not exist got no question, and a file
+        created there before the run (by another program, or by another
+        tool of this app) must still be asked about.
+
+        The mark covers that one run only: the guard takes it with
+        ``take_confirmed``, because once a run has written the file the
+        Save dialog's answer no longer covers what is on disk. Any
+        change of path revokes it for good (``set_path`` to another
+        path, ``clear``), so coming back to the same path later, through
+        a format switch or a reloaded input, does not bring it back.
+        Picking the same path again in the Save dialog once it no longer
+        exists revokes it too: that pick got no question.
+        """
+        self._confirmed_path = self._path_value
+
+    def is_confirmed(self) -> bool:
+        return bool(self._path_value) and self._path_value == self._confirmed_path
+
+    def take_confirmed(self) -> bool:
+        """``is_confirmed``, then drop the mark."""
+        confirmed = self.is_confirmed()
+        self._confirmed_path = ""
+        return confirmed
+
     def set_path(self, p: str):
+        """Show ``p`` as the selected path. A path other than the one
+        ``mark_confirmed`` recorded revokes that mark."""
+        if p != self._confirmed_path:
+            self._confirmed_path = ""
         self._path_value = p
         name = os.path.basename(p)
         self._lbl.setText(f"  {name}")
@@ -106,6 +142,7 @@ class DropFileEdit(QWidget):
 
     def clear(self):
         self._path_value = ""
+        self._confirmed_path = ""
         muted = _muted_icon_color()
         self._lbl.setText(self._placeholder)
         self._lbl.setToolTip("")
@@ -192,6 +229,15 @@ class DropFileEdit(QWidget):
             p, _ = QFileDialog.getOpenFileName(self, t("widget.open_file"), DESKTOP, self._filters)
         if p:
             self.set_path(p)
+            if self._save:
+                if os.path.lexists(p):
+                    self.mark_confirmed()
+                else:
+                    # set_path keeps the mark when p is the path it was
+                    # given for; the dialog asked nothing this time, so
+                    # the earlier answer must not cover a file that
+                    # appears there before the run.
+                    self._confirmed_path = ""
 
 
 class MultiDropWidget(QWidget):
