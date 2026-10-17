@@ -16,6 +16,12 @@ def _clean(text: str) -> str:
     return _CTRL_RE.sub('', text)
 
 
+def _image_name(index: int, ext: str) -> str:
+    """File name of page ``index`` (0-based) in a PNG/JPG export. The
+    overwrite check and the writer must agree on it."""
+    return f"page_{index + 1:03d}.{ext}"
+
+
 def _atomic_save(out_path: str, write_cb):
     """Run ``write_cb(tmp_path)`` then atomically rename onto ``out_path``.
 
@@ -232,17 +238,25 @@ class TabConverter(BasePage):
         out_dir = self._resolve_output_dir(self._drop_folder, pdf_path)
         if not out_dir:
             return
-        os.makedirs(out_dir, exist_ok=True)
         ext = "png" if fmt == 0 else "jpg"
         dpi = self._DPI_VALUES[self.cmb_dpi.currentIndex()]
-        self._status(t("tool.convert.status.starting",
-                       format=ext.upper(), dpi=dpi))
 
         try:
             with self._open_pymupdf(pdf_path) as _probe:
                 total = _probe.page_count
         except Exception as e:
             show_error(self, e); return
+
+        # Before the folder or the "starting" status exist: a Cancel
+        # here must leave no trace of a run that never started.
+        out_dir = self._guard_folder_outputs(
+            self._drop_folder, out_dir,
+            [_image_name(i, ext) for i in range(total)])
+        if not out_dir:
+            return
+        os.makedirs(out_dir, exist_ok=True)
+        self._status(t("tool.convert.status.starting",
+                       format=ext.upper(), dpi=dpi))
 
         pwd = self._pdf_password
 
@@ -267,7 +281,7 @@ class TabConverter(BasePage):
                         pix = pymupdf.Pixmap(pix, 0)
                     if pix.n == 4:
                         pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
-                    out_file = os.path.join(out_dir, f"page_{i + 1:03d}.{ext}")
+                    out_file = os.path.join(out_dir, _image_name(i, ext))
                     if ext == "png":
                         pix.save(out_file)
                     else:
@@ -293,8 +307,8 @@ class TabConverter(BasePage):
                              on_done=on_done)
 
     def _convert_docx(self, pdf_path: str):
-        out_path = self._resolve_output_file(self._drop_file, pdf_path,
-                                             filter_key="file_filter.docx")
+        out_path = self._resolve_output_file_guarded(self._drop_file, pdf_path,
+                                                     filter_key="file_filter.docx")
         if not out_path:
             return
         # Pre-flight on main thread: dep checks + page count + capture pwd.
@@ -669,8 +683,8 @@ class TabConverter(BasePage):
                              on_done=on_done)
 
     def _convert_txt(self, pdf_path: str):
-        out_path = self._resolve_output_file(self._drop_file, pdf_path,
-                                             filter_key="file_filter.txt")
+        out_path = self._resolve_output_file_guarded(self._drop_file, pdf_path,
+                                                     filter_key="file_filter.txt")
         if not out_path:
             return
         try:
@@ -733,8 +747,8 @@ class TabConverter(BasePage):
     # ── PDF → PPTX ──────────────────────────────────────────────────────
 
     def _convert_pptx(self, pdf_path: str):
-        out_path = self._resolve_output_file(self._drop_file, pdf_path,
-                                             filter_key="file_filter.pptx")
+        out_path = self._resolve_output_file_guarded(self._drop_file, pdf_path,
+                                                     filter_key="file_filter.pptx")
         if not out_path:
             return
         try:
@@ -1024,8 +1038,8 @@ class TabConverter(BasePage):
     # ── PDF → XLSX ──────────────────────────────────────────────────────
 
     def _convert_xlsx(self, pdf_path: str):
-        out_path = self._resolve_output_file(self._drop_file, pdf_path,
-                                             filter_key="file_filter.xlsx")
+        out_path = self._resolve_output_file_guarded(self._drop_file, pdf_path,
+                                                     filter_key="file_filter.xlsx")
         if not out_path:
             return
         try:
@@ -1094,8 +1108,8 @@ class TabConverter(BasePage):
     # ── PDF → HTML ──────────────────────────────────────────────────────
 
     def _convert_html(self, pdf_path: str):
-        out_path = self._resolve_output_file(self._drop_file, pdf_path,
-                                             filter_key="file_filter.html")
+        out_path = self._resolve_output_file_guarded(self._drop_file, pdf_path,
+                                                     filter_key="file_filter.html")
         if not out_path:
             return
         try:
@@ -1188,8 +1202,8 @@ class TabConverter(BasePage):
     # ── PDF → EPUB ──────────────────────────────────────────────────────
 
     def _convert_epub(self, pdf_path: str):
-        out_path = self._resolve_output_file(self._drop_file, pdf_path,
-                                             filter_key="file_filter.epub")
+        out_path = self._resolve_output_file_guarded(self._drop_file, pdf_path,
+                                                     filter_key="file_filter.epub")
         if not out_path:
             return
         try:

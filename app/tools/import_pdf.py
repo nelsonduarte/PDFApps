@@ -133,7 +133,7 @@ class TabImport(BasePage):
         if not files:
             QMessageBox.warning(self, t("msg.warning"), t("tool.import.select_file"))
             return
-        out = self._resolve_output_file(self.drop_out, files[0])
+        out = self._resolve_output_file_guarded(self.drop_out, files[0])
         if not out:
             return
         self.lbl_result.setText("")

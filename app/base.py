@@ -10,7 +10,7 @@ from typing import Iterable
 from PySide6.QtCore import Qt, QTimer, Signal
 from shiboken6 import isValid
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFileDialog,
-                               QPushButton, QLabel)
+                               QPushButton, QLabel, QMessageBox)
 
 from app import pdf_io
 from app.constants import DESKTOP, ACCENT
@@ -300,6 +300,127 @@ class BasePage(QWidget):
         if out:
             drop_widget.set_path(out)
         return out
+
+    # ── overwrite confirmation ─────────────────────────────────────────────
+    #
+    # Opt-in: only the tools that call these helpers ask before replacing
+    # an existing output. ``_resolve_output_file`` / ``_resolve_output_dir``
+    # are left exactly as they were, so the tools that still call them
+    # keep their current behaviour.
+
+    OVERWRITE_REPLACE = "replace"
+    OVERWRITE_RENAME = "rename"
+    OVERWRITE_CANCEL = "cancel"
+
+    def _ask_overwrite(self, existing: "list[str]", *,
+                       folder: bool = False) -> str:
+        """Ask what to do about output file(s) that already exist.
+
+        ``existing`` is the non-empty list of clashing paths; with
+        ``folder=True`` they are files inside one output folder and the
+        second button offers another folder instead of another name.
+        Returns one of ``OVERWRITE_REPLACE`` / ``OVERWRITE_RENAME`` /
+        ``OVERWRITE_CANCEL``. Closing the box (Escape, the title-bar X)
+        counts as cancel; so does a box that returns without any button
+        clicked, so nothing is ever replaced by default.
+        """
+        first = existing[0]
+        name = os.path.basename(first)
+        where = os.path.normpath(os.path.dirname(first) or ".")
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle(t("overwrite.title"))
+        if folder:
+            box.setText(t("overwrite.folder_text", folder=where,
+                          n=len(existing), name=name))
+        else:
+            box.setText(t("overwrite.file_text", folder=where, name=name))
+        replace_btn = box.addButton(t("overwrite.replace"),
+                                    QMessageBox.ButtonRole.DestructiveRole)
+        other_btn = box.addButton(
+            t("overwrite.choose_folder" if folder else "overwrite.choose_name"),
+            QMessageBox.ButtonRole.ActionRole)
+        cancel_btn = box.addButton(t("btn.cancel"),
+                                   QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(cancel_btn)
+        box.setEscapeButton(cancel_btn)
+        box.exec()
+        clicked = box.clickedButton()
+        box.deleteLater()  # parented to the page: would live as long as it
+        if clicked is replace_btn:
+            return self.OVERWRITE_REPLACE
+        if clicked is other_btn:
+            return self.OVERWRITE_RENAME
+        return self.OVERWRITE_CANCEL
+
+    def _resolve_output_file_guarded(self, drop_widget, input_path: str = "",
+                                     filter_key: str = "file_filter.pdf") -> str:
+        """``_resolve_output_file`` that never replaces a file silently.
+
+        Returns the path to write, or ``""`` to abort the run. Asks
+        through ``_ask_overwrite`` when the resolved path already exists,
+        unless a Save dialog asked about replacing it for this very run:
+        the one this call opens (empty field, or "Choose another name"),
+        or the field's own "Save as" button since the previous run. That
+        last answer is consumed here, so the run after it asks again: by
+        then the file on disk is the one the previous run wrote, or one
+        the user has edited since, not the one the dialog asked about.
+        Pipeline temp outputs never ask.
+        """
+        if self._pipeline_active:
+            return self._resolve_output_file(drop_widget, input_path, filter_key)
+        prefilled = bool(drop_widget.path())
+        confirmed = self._take_confirmed(drop_widget)
+        out = self._resolve_output_file(drop_widget, input_path, filter_key)
+        if not out:
+            return ""
+        if not prefilled:
+            # _resolve_output_file just took it from the Save dialog.
+            return out
+        if confirmed or not os.path.lexists(out):
+            return out
+        answer = self._ask_overwrite([out])
+        if answer == self.OVERWRITE_REPLACE:
+            return out
+        if answer != self.OVERWRITE_RENAME:
+            return ""
+        new = self._prompt_save_as(os.path.basename(out),
+                                   os.path.dirname(out), filter_key)
+        if new:
+            drop_widget.set_path(new)
+        return new
+
+    def _guard_folder_outputs(self, drop_widget, out_dir: str,
+                              names: "Iterable[str]") -> str:
+        """Check that writing ``names`` into ``out_dir`` replaces nothing
+        the user has not agreed to replace.
+
+        Returns the folder to write into (``out_dir``, or another one
+        the user picked), or ``""`` to abort the run. A folder picker
+        does not ask about the files inside it, so a newly picked
+        folder is checked again.
+        """
+        names = list(names)
+        while True:
+            clashes = [os.path.join(out_dir, n) for n in names
+                       if os.path.lexists(os.path.join(out_dir, n))]
+            if not clashes:
+                return out_dir
+            answer = self._ask_overwrite(clashes, folder=True)
+            if answer == self.OVERWRITE_REPLACE:
+                return out_dir
+            if answer != self.OVERWRITE_RENAME:
+                return ""
+            new = self._prompt_save_dir(out_dir)
+            if not new:
+                return ""
+            drop_widget.set_path(new)
+            out_dir = new
+
+    @staticmethod
+    def _take_confirmed(drop_widget) -> bool:
+        take = getattr(drop_widget, "take_confirmed", None)
+        return bool(take()) if callable(take) else False
 
     # ── encrypted-PDF helpers ──────────────────────────────────────────────
 
