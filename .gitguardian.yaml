@@ -29,3 +29,5 @@ secret:
     - tests/test_password_lifecycle.py
     # Core suite; a couple of encrypted-PDF cases carry inline literals.
     - tests/test_pdfapps.py
+    # Watermark characterization; seals a tmp_path source to pin the unencrypted output.
+    - tests/test_watermark_characterization.py
