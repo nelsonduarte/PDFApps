@@ -613,6 +613,12 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     gs = _find_gs()
     p = None
     if gs:
+        # Imported outside the try: an ImportError (say, a module left out
+        # of a bundle) would be swallowed by its `except Exception` and
+        # pass A skipped without a word, the failure system_tool_env
+        # exists to stop.
+        from app._gs_paths import _gs_subprocess_env, _no_window_flags
+        from app._subprocess_env import system_tool_env
         try:
             presets = {
                 "extreme":     "/screen",
@@ -655,11 +661,17 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             # mid-render. subprocess.run(timeout=120) blocks the worker
             # thread for the whole timeout window, leaving Cancel dead
             # for up to two minutes on big PDFs.
-            # env: GS_LIB pointing at the init files next to the binary
-            # (the snap's gs cannot find gs_init.ps otherwise); None, and
-            # so the inherited environment, when there are none. Working
-            # that out may run "gs --version" once per session, before
-            # the Cancel loop below (see _gs_paths._VERSION_TIMEOUT_S).
+            # env: built in two layers, None (inherit) when neither applies.
+            # First system_tool_env(): the frozen Linux build inherits an
+            # LD_LIBRARY_PATH that points into the bundle, and with it the
+            # system gs loads the bundle's older libstdc++ and exits 1
+            # (v1.15.1 on Ubuntu 26.04: "GLIBCXX_3.4.32 not found"; the
+            # pass was dropped silently and the output came out 3.25x
+            # larger). Then GS_LIB pointing at the init files next to the
+            # binary (the snap's gs cannot find gs_init.ps otherwise).
+            # Working that out may run "gs --version" once per session,
+            # with the same environment, before the Cancel loop below
+            # (see _gs_paths._VERSION_TIMEOUT_S).
             # stdout/stderr go to DEVNULL: nothing here reads them, and a
             # pipe nobody drains stalls gs once its buffer is full. On one
             # malformed PDF the snap's gs 9.55.0 prints 137,600 bytes to
@@ -667,10 +679,13 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             # until the 120 s deadline below terminated it (rc -15). The
             # native gs 9.55.0 of Ubuntu 22.04 stalled the same way.
             # creationflags: no console window for gswin64c on Windows.
-            from app._gs_paths import _gs_subprocess_env, _no_window_flags
+            base_env = system_tool_env()
+            gs_env = _gs_subprocess_env(gs, environ=base_env)
+            if gs_env is None:
+                gs_env = base_env
             proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL,
-                                    env=_gs_subprocess_env(gs),
+                                    env=gs_env,
                                     creationflags=_no_window_flags())
             deadline = time.monotonic() + 120
             cancelled = False

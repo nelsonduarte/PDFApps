@@ -78,8 +78,14 @@ def _no_window_flags() -> int:
     return 0
 
 
-def _gs_version(gs_exe: str) -> str | None:
+def _gs_version(gs_exe: str,
+                env: dict[str, str] | None = None) -> str | None:
     """Return the version printed by ``gs --version``, or None.
+
+    *env* is the environment the gs child itself will get (None
+    inherits). The probe must run with the same one: in the frozen Linux
+    build the inherited ``LD_LIBRARY_PATH`` makes gs exit 1, and the
+    failure would stay cached for the session.
 
     A failure is logged at WARNING, not INFO. The probe only runs when
     the binary has a ``share/ghostscript`` tree next to it, so a working
@@ -97,6 +103,7 @@ def _gs_version(gs_exe: str) -> str | None:
             timeout=_VERSION_TIMEOUT_S,
             check=False,
             creationflags=_no_window_flags(),
+            env=env,
         )
     except (OSError, subprocess.SubprocessError, ValueError) as exc:
         _log.warning("gs --version probe failed for %s: %r", gs_exe, exc)
@@ -113,7 +120,8 @@ def _gs_version(gs_exe: str) -> str | None:
     return None
 
 
-def _derive_gs_lib_dirs(gs_exe: str) -> tuple[str, ...] | None:
+def _derive_gs_lib_dirs(gs_exe: str, environ: dict[str, str] | None = None
+                        ) -> tuple[str, ...] | None:
     prefix = os.path.dirname(os.path.dirname(gs_exe))
     share = os.path.join(prefix, "share", "ghostscript")
     # Checked before probing the version so an install without this
@@ -121,7 +129,7 @@ def _derive_gs_lib_dirs(gs_exe: str) -> tuple[str, ...] | None:
     # no share directory; its init files are compiled into the executable.
     if not os.path.isdir(share):
         return None
-    version = _gs_version(gs_exe)
+    version = _gs_version(gs_exe, environ)
     if version is None:
         return None
     base = os.path.join(share, version)
@@ -132,17 +140,21 @@ def _derive_gs_lib_dirs(gs_exe: str) -> tuple[str, ...] | None:
     return (init, lib) if os.path.isdir(lib) else (init,)
 
 
-def _gs_lib_dirs(gs_exe: str | None) -> tuple[str, ...] | None:
+def _gs_lib_dirs(gs_exe: str | None,
+                 environ: dict[str, str] | None = None
+                 ) -> tuple[str, ...] | None:
     """Init directories that belong to *gs_exe*, or None.
 
     Only ``<prefix>/share/ghostscript/<its own version>/Resource/Init``
     (plus the sibling ``lib`` when present) is returned, and only when that
-    directory exists.
+    directory exists. *environ* goes to the version probe (None inherits).
+    The cache is keyed on the binary alone: within a session the caller
+    passes the same environment every time.
     """
     if not gs_exe:
         return None
     if gs_exe not in _GS_LIB_CACHE:
-        _GS_LIB_CACHE[gs_exe] = _derive_gs_lib_dirs(gs_exe)
+        _GS_LIB_CACHE[gs_exe] = _derive_gs_lib_dirs(gs_exe, environ)
     return _GS_LIB_CACHE[gs_exe]
 
 
@@ -157,9 +169,9 @@ def _gs_subprocess_env(gs_exe: str | None,
     derived directories appended to ``GS_LIB``. A ``GS_LIB`` the user
     already set stays first, so their entries keep precedence; the
     derived ones are only searched after them and before the compiled-in
-    default.
+    default. The ``gs --version`` probe, when it runs, gets *environ* too.
     """
-    dirs = _gs_lib_dirs(gs_exe)
+    dirs = _gs_lib_dirs(gs_exe, environ)
     if not dirs:
         return None
     env = dict(os.environ if environ is None else environ)
