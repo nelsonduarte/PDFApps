@@ -620,10 +620,25 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 "low":         "/printer",
             }
             fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+            # -dAutoRotatePages=/None: /screen and /ebook default to
+            # /PageByPage and /All (Resource/Init/gs_pdfwr.ps). /screen
+            # (/PageByPage) turns each page to its own dominant text
+            # direction; /ebook (/All) applies the rotation of the whole
+            # document's dominant direction to every page. Measured with
+            # gs 9.55.0, 10.05.0 and 10.06.0 and these arguments: a
+            # /Rotate 180 page with upright text came out upside down, a
+            # /Rotate 0 page of text at 90 degrees came out landscape, a
+            # /Rotate 90 page of horizontal text came out at 270, and
+            # under /ebook a page of horizontal text came out turned
+            # because the next page held text at 90 degrees. With /None
+            # the render matches the source. See "Setting page
+            # orientation" in
+            # https://ghostscript.readthedocs.io/en/latest/VectorDevices.html
             cmd = [
                 gs, "-sDEVICE=pdfwrite",
                 "-dCompatibilityLevel=1.4",
                 f"-dPDFSETTINGS={presets[level]}",
+                "-dAutoRotatePages=/None",
                 "-dNOPAUSE", "-dQUIET", "-dBATCH",
                 "-dDownsampleColorImages=true",
                 "-dDownsampleGrayImages=true",
