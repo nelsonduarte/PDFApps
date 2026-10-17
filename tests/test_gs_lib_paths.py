@@ -284,6 +284,38 @@ def test_version_probe_passes_no_window_flag_on_linux(
     assert seen.get("creationflags", 0) == 0
 
 
+def _env_recorder(stdout=b"9.55.0\n"):
+    """Fake ``subprocess.run`` that records the ``env`` of every call."""
+    seen = []
+
+    def fake(args, **kwargs):
+        seen.append(kwargs.get("env", "<absent>"))
+        return subprocess.CompletedProcess(args, 0, stdout=stdout)
+
+    return fake, seen
+
+
+def test_version_probe_inherits_by_default(gp, monkeypatch, tmp_path):
+    seen = _probe_kwargs(gp, monkeypatch, tmp_path)
+    assert "env" in seen
+    assert seen["env"] is None
+
+
+def test_version_probe_runs_with_the_childs_environment(
+        gp, monkeypatch, tmp_path):
+    # In the frozen Linux build the inherited LD_LIBRARY_PATH makes gs exit
+    # 1; a probe run with it would fail and stay cached for the session.
+    gs = _make_gs_tree(tmp_path)
+    fake, seen = _env_recorder()
+    monkeypatch.setattr(subprocess, "run", fake)
+    clean = {"PATH": "/usr/bin"}
+    init, lib = _gs_dirs(os.path.dirname(os.path.dirname(gs)), "9.55.0")
+    env = gp._gs_subprocess_env(gs, environ=clean)
+    assert seen == [clean]
+    assert env == {"PATH": "/usr/bin", "GS_LIB": init + os.pathsep + lib}
+    assert clean == {"PATH": "/usr/bin"}
+
+
 def test_none_binary(gp):
     assert gp._gs_lib_dirs(None) is None
     assert gp._gs_subprocess_env(None, environ={}) is None
@@ -390,7 +422,7 @@ class _FakeProc:
         pass
 
 
-def _run_compress(monkeypatch, tmp_path, gs, version=b"9.55.0\n"):
+def _run_compress(monkeypatch, tmp_path, gs, version=b"9.55.0\n", run=None):
     import pymupdf
 
     from app import utils
@@ -409,7 +441,7 @@ def _run_compress(monkeypatch, tmp_path, gs, version=b"9.55.0\n"):
 
     monkeypatch.setattr(utils, "_find_gs", lambda: gs)
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(subprocess, "run", _Runs(version))
+    monkeypatch.setattr(subprocess, "run", run or _Runs(version))
     try:
         utils._compress_pdf(str(src), str(tmp_path / "out.pdf"),
                             level="extreme")
@@ -461,3 +493,66 @@ def test_compress_passes_no_window_flag_on_linux(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "platform", "linux")
     kwargs = _run_compress(monkeypatch, tmp_path, gs)
     assert kwargs.get("creationflags", 0) == 0
+
+
+# ── _compress_pdf with the frozen-build environment ──────────────────────
+# system_tool_env() is None outside a frozen build, so these replace it
+# with a sentinel mapping; its contents never reach a real process.
+
+def _sentinel_env(monkeypatch):
+    import app._subprocess_env as se
+    sentinel = {"PDFAPPS_SENTINEL": "1", "PATH": "/sentinel/bin"}
+    monkeypatch.setattr(se, "system_tool_env", lambda: sentinel)
+    return sentinel
+
+
+def test_compress_builds_gs_lib_on_the_system_tool_env(monkeypatch, tmp_path):
+    gs = _make_gs_tree(tmp_path / "snap" / "pdfapps" / "43")
+    sentinel = _sentinel_env(monkeypatch)
+    fake, probes = _env_recorder()
+    kwargs = _run_compress(monkeypatch, tmp_path, gs, run=fake)
+    init, lib = _gs_dirs(os.path.dirname(os.path.dirname(gs)), "9.55.0")
+    assert probes == [sentinel]
+    assert kwargs["env"] == {**sentinel, "GS_LIB": init + os.pathsep + lib}
+    assert sentinel == {"PDFAPPS_SENTINEL": "1", "PATH": "/sentinel/bin"}
+
+
+@pytest.mark.parametrize("versions", [(), ("10.02.1",)],
+                         ids=["no-share", "other-version"])
+def test_compress_without_init_dirs_still_gets_the_system_tool_env(
+        monkeypatch, tmp_path, versions):
+    # Without GS_LIB to add, gs must get the system-tool environment, not
+    # None: None would hand it the bundle's LD_LIBRARY_PATH again.
+    gs = _make_gs_tree(tmp_path / "other", versions=versions)
+    sentinel = _sentinel_env(monkeypatch)
+    fake, probes = _env_recorder()
+    kwargs = _run_compress(monkeypatch, tmp_path, gs, run=fake)
+    assert kwargs["env"] is not None
+    assert kwargs["env"] == sentinel
+    assert probes == ([sentinel] if versions else [])
+
+
+def test_compress_does_not_swallow_a_missing_env_helper(monkeypatch, tmp_path):
+    # Imported inside pass A's `try`, an ImportError would be swallowed by
+    # its `except Exception` and gs skipped without a word: the silent
+    # failure the helper exists to fix.
+    import pymupdf
+
+    from app import utils
+
+    src = tmp_path / "in.pdf"
+    doc = pymupdf.open()
+    doc.new_page().insert_text((72, 72), "hello")
+    doc.save(str(src))
+    doc.close()
+    popen_calls = []
+    monkeypatch.setattr(utils, "_find_gs",
+                        lambda: _make_gs_tree(tmp_path / "gs", versions=()))
+    monkeypatch.setattr(subprocess, "Popen",
+                        lambda *a, **k: popen_calls.append(a) or _FakeProc())
+    monkeypatch.setattr(subprocess, "run", _Runs())
+    monkeypatch.setitem(sys.modules, "app._subprocess_env", None)
+    with pytest.raises(ImportError):
+        utils._compress_pdf(str(src), str(tmp_path / "out.pdf"),
+                            level="extreme")
+    assert popen_calls == []
