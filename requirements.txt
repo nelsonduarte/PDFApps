@@ -24,7 +24,7 @@ PySide6>=6.11.1,<6.12
 # request to main and every push to main. An advisory published later
 # against the floor turns nothing that audits this file red once a
 # fixed release exists. Do not lower it.
-pypdf>=6.19.0
+pypdf>=6.21.1
 # GHSA-537c-gmf6-5ccf: signature verification bypass in legacy OpenSSL
 # providers fixed in 48.0.1, and PYSEC-2026-3552 / CVE-2026-69247
 # (Bleichenbacher oracle in PKCS#7 EnvelopedData decryption, introduced
