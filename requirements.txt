@@ -35,7 +35,7 @@ pypdf>=6.19.0
 # raise DependencyError.
 cryptography>=50.0.1
 qtawesome>=1.4.2
-pillow>=12.3.0
+pillow>=13.0.0
 # PyMuPDF 1.28.0 can segfault in Document.subset_fonts()
 # (pymupdf/PyMuPDF#5049, a use-after-free in the MuPDF font subsetter,
 # fixed in 1.28.2). Compress (pass B in app/utils.py) and a text edit
