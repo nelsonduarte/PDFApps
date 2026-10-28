@@ -16,7 +16,7 @@ pypdf 6.20.0 and Pillow 12.3.0.
 
 A package may be split across lines by environment marker when its first
 clean release cannot install everywhere (Pillow 13.0.0 needs Python
-3.11, and the AppImage and the snap build on 3.10). Such a split must
+3.11, and the snap builds on 3.10). Such a split must
 give exactly one line in every environment, and each line must hold the
 floor where it applies: the clean floor, or, only on the Python versions
 the clean release cannot install on, the accepted residual floor in
@@ -304,7 +304,7 @@ def test_marker_split_resolves_to_one_line_per_environment():
         for label, env in TARGET_ENVIRONMENTS.items()
     }
     assert str(by_env["linux-py3.10"].specifier) == ">=12.3.0"
-    for label in ("windows-py3.14", "macos-py3.14", "linux-py3.14", "flatpak-py3.12"):
+    for label in ("windows-py3.14", "macos-py3.14", "linux-py3.14"):
         assert str(by_env[label].specifier) == ">=13.0.0", label
     # Without an environment there is no single Pillow requirement.
     assert "pillow" not in parse_requirements_text(_PILLOW_SPLIT)
@@ -334,9 +334,8 @@ def _residual_install_problems(text: str, name: str) -> list[str]:
     The residual floor is the newest release those Python versions can
     install, so a line there that rejects it (Dependabot raising
     ``pillow>=12.3.0; python_version < "3.11"`` to 13.0.0, say) leaves
-    pip with "No matching distribution": the AppImage job fails on the
-    tag and the snap after the release, as tests/test_soupsieve_py310.py
-    explains for soupsieve.
+    pip with "No matching distribution": the snap fails after the
+    release, as tests/test_soupsieve_py310.py explains for soupsieve.
     """
     covers, _clean, floor, _affected = RESIDUAL_FLOORS[name]
     lines = parse_requirement_lines(text).get(name, [])

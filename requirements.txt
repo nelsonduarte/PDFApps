@@ -1,12 +1,11 @@
 # Temporary ceiling for the 1.15.1 release. PySide6 6.12.0 (2026-10-08)
 # moved WebEngine and Pdf into wheels of their own; 6.11 already shipped
 # both inside PySide6_Addons. A Windows PyInstaller build barely changes
-# (PDFApps.exe +0.54%), but the frozen macOS and Linux builds, the snap
-# and the AppImage have not been tested with 6.12. Remove the ceiling,
-# together with tests/test_pyside6_ceiling.py, once the frozen Windows,
-# macOS and Linux builds, the snap and (while it ships) the AppImage
-# all pass the smoke test with 6.12. Until then, close by hand any
-# Dependabot PR that widens it.
+# (PDFApps.exe +0.54%), but the frozen macOS and Linux builds and the
+# snap have not been tested with 6.12. Remove the ceiling, together with
+# tests/test_pyside6_ceiling.py, once the frozen Windows, macOS and
+# Linux builds and the snap all pass the smoke test with 6.12. Until
+# then, close by hand any Dependabot PR that widens it.
 PySide6>=6.11.1,<6.12
 # PYSEC-2026-3655 / PYSEC-2026-3656 (fixed in 6.15.0), CVE-2026-82398
 # (6.15.0), CVE-2026-84309 (6.16.0) and CVE-2026-84310 / CVE-2026-84311
@@ -47,9 +46,8 @@ qtawesome>=1.4.2
 # GHSA-8g5g-8vmr-9782, GHSA-v9pv-5gc8-w2m6, GHSA-w889-685w-c8fh), all
 # fixed in 13.0.0 and none backported to a 12.x release. v1.15.1 shipped
 # 12.3.0 in all four build.yml jobs (run 38148726512). 13.0.0 requires
-# Python >=3.11, and two builds still install this file on Python 3.10:
-# the appimage job in build.yml (ubuntu-22.04) and the snap (core22).
-# Hence the two lines, split by marker: Python 3.11 and later take the
+# Python >=3.11, and one build still installs this file on Python
+# 3.10: the snap (core22). Hence the two lines, split by marker: Python 3.11 and later take the
 # fixed release, Python 3.10 keeps 12.3.0, the best it can get (12.2.0
 # carries 85). That residual on the 3.10 builds is accepted, not fixed,
 # and nothing narrows it: app/utils.py:check_image_size calls
@@ -59,9 +57,8 @@ qtawesome>=1.4.2
 # tests/test_dependency_security_floors.py checks that from Python 3.8
 # to 3.20, with 13.0.0 as the floor on 3.11+ and 12.3.0 below, and fails
 # if the 3.10 line stops admitting 12.3.0 (a Dependabot PR raising it to
-# 13.0.0 would break the AppImage and the snap; close it by hand). Drop
-# the 3.10 line once neither the snap nor the AppImage builds on Python
-# 3.10.
+# 13.0.0 would break the snap; close it by hand). Drop the 3.10 line
+# once the snap no longer builds on Python 3.10.
 pillow>=13.0.0; python_version >= "3.11"
 pillow>=12.3.0; python_version < "3.11"
 # PyMuPDF 1.28.0 can segfault in Document.subset_fonts()
@@ -114,15 +111,13 @@ idna>=3.18
 # also clears PYSEC-2026-3071 / PYSEC-2026-3072 (fixed in 2.8.4).
 # tests/test_dependency_security_floors.py fails if the floor drops
 # below 2.9. Do not lower it. Do not raise it above 2.10 either: every
-# soupsieve 3.x requires Python >=3.11 (>=3.11.5 from 3.0.2), and two
-# builds still install this file on Python 3.10, where ">=2.9" resolves
-# to 2.10. The appimage job in build.yml (ubuntu-22.04, Python 3.10)
-# would fail with "No matching distribution", and the release job needs
-# it, so the tag would publish nothing; the snap (core22, Python 3.10)
-# would fail as well, after the release is out.
+# soupsieve 3.x requires Python >=3.11 (>=3.11.5 from 3.0.2), and one
+# build still installs this file on Python 3.10, where ">=2.9" resolves
+# to 2.10: the snap (core22, Python 3.10) would fail with "No matching
+# distribution", after the release is out.
 # tests/test_soupsieve_py310.py fails if this line stops admitting 2.10,
 # so a Dependabot PR that raises it goes red; close it by hand. Remove
-# the restriction, together with that test, once neither the snap nor
-# the AppImage builds on Python 3.10.
+# the restriction, together with that test, once the snap no longer
+# builds on Python 3.10.
 soupsieve>=2.9
 pyinstaller>=6.22.3

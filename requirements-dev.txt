@@ -14,17 +14,14 @@
 #
 # PyYAML is mandatory for the same kind of reason: tests/
 # test_release_bump_script.py imports it at module scope, so without it
-# collection ERRORs and the run aborts as Interrupted. (tests/
-# test_flatpak_dependency_pins.py and tests/test_security_deps_workflow.py
-# do wrap the import in try/except and skip; that one does not.)
+# collection ERRORs and the run aborts as Interrupted.
+# (tests/test_security_deps_workflow.py does wrap the import in
+# try/except and skip; that one does not.)
 #
 # Install with:  pip install -r requirements-dev.txt
 #
 # Deliberately NOT in requirements.txt: that file is the shipped runtime
-# surface. It feeds the PyInstaller builds in build.yml, and every entry
-# in it must also be pinned in flatpak/requirements-pinned.txt or listed
-# in FLATPAK_OMITTED (enforced by
-# tests/test_flatpak_dependency_pins.py::test_no_root_dependency_is_silently_dropped_from_the_flatpak).
+# surface. It feeds the PyInstaller builds in build.yml and the snap.
 # A test runner has no business in the app bundle.
 #
 # Lower bounds mirror the >= style of requirements.txt so a fresh venv

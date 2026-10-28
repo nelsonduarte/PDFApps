@@ -163,17 +163,15 @@ PDFApps/
 │   ├── index.html          # Landing page (JS-based i18n, 8 languages)
 │   └── *.png               # Screenshots
 │
-├── flatpak/                # Flathub submission (manifest, metainfo, desktop)
-├── winget/                 # Windows winget manifests (3 YAMLs per version)
+├── data/                   # AppStream metainfo + .desktop file (AUR, Snap)
+├── msix/                   # Microsoft Store package (manifest, assets, build.ps1)
 ├── snap/                   # Snap Store (snapcraft.yaml + gui/banner)
-├── rpm/                    # Fedora Copr RPM spec
 ├── aur/
 │   ├── pdfapps/            # AUR source PKGBUILD
 │   └── pdfapps-bin/        # AUR binary PKGBUILD
-├── appimage/               # AppImage build script + AppRun launcher
 │
 └── .github/workflows/
-    └── build.yml           # CI/CD — Win/Linux/macOS + AppImage + Release
+    └── build.yml           # CI/CD — Win/Linux/macOS + Store MSIX + Release
 ```
 
 ---
@@ -1215,7 +1213,7 @@ Checks for updates via the GitHub Releases API and downloads/installs them.
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `check_for_update` | `() -> dict \| None` | Fetches latest release from GitHub API. Returns release dict if remote version > local, else `None`. |
-| `_find_asset` | `(release: dict) -> dict \| None` | Finds platform-specific binary: `PDFAppsSetup.exe` (Win), `PDFApps-macOS.zip`, `PDFApps-Linux.tar.gz` |
+| `_find_asset` | `(release: dict) -> dict \| None` | Finds platform-specific binary: `PDFAppsSetup.exe` (Win), `PDFApps-macOS.dmg`, `PDFApps-Linux.tar.gz` |
 | `_download` | `(url, dest, signals)` | Downloads file with progress reporting. Emits `signals.progress(0-100)`, `signals.finished(path)`, or `signals.error(msg)`. |
 | `_apply_update_windows` | `(downloaded_installer: str)` | Runs installer with `ShellExecuteW(None, "runas", ...)`. Raises `OSError` if return ≤ 32. |
 | `_apply_update_unix` | `(downloaded: str)` | Replaces running binary and restarts via `os.execv()`. Creates backup, restores on failure. |
@@ -1340,11 +1338,11 @@ Triggered on `v*` tag push. Builds on three platforms (matrix strategy):
 
 | Platform | Builds | Release Asset |
 |----------|--------|--------------|
-| `windows-latest` | `PDFApps.exe` + `PDFAppsSetup.exe` + `PDFAppsUninstall.exe` | `PDFApps.exe`, `PDFAppsSetup.exe` |
+| `windows-latest` | `PDFApps.exe` + `PDFAppsSetup.exe` + `PDFAppsUninstall.exe` + `PDFApps-<version>.msix` | `PDFAppsSetup.exe` |
 | `ubuntu-22.04` | `PDFApps` → `PDFApps-Linux.tar.gz` | `PDFApps-Linux.tar.gz` |
-| `macos-latest` | `PDFApps` → `PDFApps-macOS.zip` | `PDFApps-macOS.zip` |
+| `macos-latest` | `PDFApps.app` → `PDFApps-macOS.dmg` | `PDFApps-macOS.dmg` |
 
-Both `PDFApps.exe` (bare app) and `PDFAppsSetup.exe` (installer) are published. The bare exe is needed for backward compatibility with old updater versions that download `PDFApps.exe`.
+Only these three are release assets, the names `app/updater.py` downloads. The `.msix` is for the Microsoft Store only: it is not published on the release, and the workflow keeps it as the `PDFApps-MSIX-Store` artifact of the run, to download and upload in Partner Center.
 
 ---
 
@@ -1522,17 +1520,17 @@ When writing code that handles files, user input, or external processes, follow 
 
 ### CI security check
 
-The `security-deps` workflow runs `pip-audit` against `requirements.txt` and `flatpak/requirements-pinned.txt` on every PR that touches those files. It also runs weekly (Monday 06:00 UTC) as a safety net so newly-published CVEs are caught even when the pins have not changed.
+The `security-deps` workflow runs `pip-audit` against `requirements.txt` and against its floors (every line pinned to its `>=` bound by `scripts/requirements_floors.py`) on every PR that touches those files. It also runs weekly (Monday 06:00 UTC) as a safety net so newly-published CVEs are caught even when the pins have not changed.
 
 | Trigger | When |
 |---|---|
-| `pull_request` | The PR modifies `requirements.txt`, `flatpak/requirements-pinned.txt`, or the workflow itself |
+| `pull_request` | The PR modifies `requirements.txt`, `scripts/requirements_floors.py`, or the workflow itself |
 | `push` to `main` | Same paths as above |
 | `schedule` | Weekly, Monday 06:00 UTC |
 | `workflow_dispatch` | Manual: `gh workflow run security-deps.yml` |
 
 **What it does:**
-- Posts (or updates) a single comment on the PR with the `pip-audit` findings for both requirement files, plus an informational outdated-packages table
+- Posts (or updates) a single comment on the PR with the `pip-audit` findings for `requirements.txt` and its floors, plus an informational outdated-packages table
 - Runs `pip-audit --strict` as a final gate — the PR merge is blocked if any known vulnerability is reported
 
 The PR comment is posted via the `gh` CLI (no third-party action), so there is no external supply-chain dependency in the security workflow itself.

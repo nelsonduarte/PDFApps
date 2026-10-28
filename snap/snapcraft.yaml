@@ -114,10 +114,10 @@ parts:
       EOF
       chmod +x $CRAFT_PART_INSTALL/bin/pdfapps
       install -d $CRAFT_PART_INSTALL/usr/share/applications
-      cp flatpak/io.github.nelsonduarte.PDFApps.desktop \
+      cp data/io.github.nelsonduarte.PDFApps.desktop \
         $CRAFT_PART_INSTALL/usr/share/applications/
       install -d $CRAFT_PART_INSTALL/usr/share/metainfo
-      cp flatpak/io.github.nelsonduarte.PDFApps.metainfo.xml \
+      cp data/io.github.nelsonduarte.PDFApps.metainfo.xml \
         $CRAFT_PART_INSTALL/usr/share/metainfo/
       install -Dm644 icon_512.png \
         $CRAFT_PART_INSTALL/usr/share/icons/hicolor/512x512/apps/io.github.nelsonduarte.PDFApps.png

@@ -48,11 +48,11 @@ EOF
     chmod +x "$pkgdir/usr/bin/$pkgname"
 
     # Desktop file
-    install -Dm644 flatpak/io.github.nelsonduarte.PDFApps.desktop \
+    install -Dm644 data/io.github.nelsonduarte.PDFApps.desktop \
         "$pkgdir/usr/share/applications/io.github.nelsonduarte.PDFApps.desktop"
 
     # AppStream metainfo
-    install -Dm644 flatpak/io.github.nelsonduarte.PDFApps.metainfo.xml \
+    install -Dm644 data/io.github.nelsonduarte.PDFApps.metainfo.xml \
         "$pkgdir/usr/share/metainfo/io.github.nelsonduarte.PDFApps.metainfo.xml"
 
     # Icons

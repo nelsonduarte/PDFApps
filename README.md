@@ -90,7 +90,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 ### Other highlights
 
 - **Pipeline mode** — apply multiple tools in sequence (e.g. rotate then compress) and save only at the end with Ctrl+S
-- **Auto-update** — direct installs check for new versions on startup and download/install them in-app with a progress bar; Microsoft Store, Snap, Flatpak and distro packages skip the check entirely and are updated by the platform
+- **Auto-update** — direct installs check for new versions on startup and download/install them in-app with a progress bar; Microsoft Store, Snap and AUR packages skip the check entirely and are updated by the platform
 - **Multi-language** — auto-detects system language (EN, PT, ES, FR, DE, ZH, IT, NL), with selector in toolbar; auto-restarts on change
 - **Localized installer** — installer and uninstaller detect the OS language and display in the user's language
 - **Recent files** — quick access to the last 10 opened PDFs via history icon
@@ -110,12 +110,11 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 | Platform                   | How to get it                                                                                                                                                                                              |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Windows** 10/11 (Store)  | [Get it on the Microsoft Store](https://apps.microsoft.com/detail/9P70QGR8BSMZ) — auto-updates handled by Windows                                                                                          |
-| **Windows** 10/11 (direct) | `winget install nelsonduarte.PDFApps`, or download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest)                                                             |
+| **Windows** 10/11 (direct) | Download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest)                                                                                                       |
 | **macOS** 10.14+           | Download `PDFApps-macOS.dmg` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), mount, and drag PDFApps.app to Applications — Tesseract via `brew install tesseract tesseract-lang` |
 | **Ubuntu / Debian / Snap** | `sudo snap install pdfapps`                                                                                                                                                                                |
-| **Fedora**                 | `sudo dnf copr enable nelsonduarte2809/pdfapps && sudo dnf install pdfapps`                                                                                                                                |
 | **Arch / Manjaro**         | `yay -S pdfapps` (source) or `yay -S pdfapps-bin` (binary)                                                                                                                                                 |
-| **Any Linux**              | Download the latest `PDFApps-*-x86_64.AppImage` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), `chmod +x` and run                                                               |
+| **Any Linux**              | Download `PDFApps-Linux.tar.gz` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), extract it with `tar -xzf` and run `./PDFApps`                                                   |
 
 ### Run from source
 
@@ -212,11 +211,9 @@ PDFApps/
 │   ├── icon.png            # App icon for website
 │   └── favicon.ico         # Browser favicon
 ├── msix/                   # Microsoft Store packaging (manifest, assets, build.ps1)
-├── flatpak/                # Flatpak / AppStream metainfo + .desktop file
+├── data/                   # AppStream metainfo + .desktop file (AUR, Snap)
 ├── snap/                   # Snap Store package definition
 ├── aur/                    # AUR PKGBUILDs (pdfapps source build + pdfapps-bin binary)
-├── rpm/                    # Fedora Copr .spec file
-├── winget/                 # Microsoft winget manifest
 ├── app/                    # Modular source code
 │   ├── constants.py        # Colours and design constants
 │   ├── styles.py           # Qt stylesheet (dark/light theme)
