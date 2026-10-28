@@ -19,7 +19,12 @@ import re
 from pathlib import Path
 
 import pytest
-from _requirements_parsing import floor_of, parse_requirements_text
+from _requirements_parsing import (
+    FLATPAK_ENVIRONMENT,
+    floor_of,
+    parse_requirement_lines,
+    parse_requirements_text,
+)
 from packaging.version import Version
 
 try:
@@ -143,23 +148,29 @@ def test_build_command_installs_every_pinned_package():
 def _stale_pins(root_text: str, pin_text: str) -> list[str]:
     """Flatpak pins below their requirements.txt floor, one line each.
 
-    Fail-closed: a root line this check cannot judge (an environment
-    marker, no floor at all) or a pin that is not an exact ``==`` is
-    reported too. Skipping such lines would be fail-open: a floor raised
-    as ``pypdf>=6.99.0  # note`` would then let a 6.19.0 pin pass.
+    Root markers are evaluated in the Flatpak's own environment (CPython
+    3.12 on x86_64 Linux, the target python-modules.yml is generated
+    for), so the floor judged is the one pip would apply there: Pillow's
+    Python 3.11+ line, not its 3.10 one.
+
+    Fail-closed: a root name with no line that applies in that
+    environment, a root line with no floor at all, or a pin that is not
+    an exact ``==`` is reported too. Skipping such lines would be
+    fail-open: a floor raised as ``pypdf>=6.99.0  # note`` would then let
+    a 6.19.0 pin pass.
     """
-    root = parse_requirements_text(root_text)
+    root = parse_requirements_text(root_text, environment=FLATPAK_ENVIRONMENT)
+    root_names = set(parse_requirement_lines(root_text))
     problems = []
     for name, pin in parse_requirements_text(pin_text).items():
         req = root.get(name)
         if req is None:
+            if name in root_names:
+                problems.append(
+                    f"{name}: no requirements.txt line applies on the "
+                    "Flatpak's Python, so it has no floor there"
+                )
             continue  # e.g. shiboken6, a PySide6 transitive not pinned at root
-        if req.marker is not None:
-            problems.append(
-                f"{name}: requirements.txt '{req}' carries an environment "
-                "marker, so its floor does not hold everywhere"
-            )
-            continue
         floor = floor_of(req.specifier)
         if floor is None:
             problems.append(f"{name}: requirements.txt '{req}' has no floor")
@@ -178,14 +189,31 @@ def _stale_pins(root_text: str, pin_text: str) -> list[str]:
     return problems
 
 
-_SAMPLE_PINS = "PySide6==6.11.1\nshiboken6==6.11.1\npypdf==6.19.0\n"
+_SAMPLE_PINS = (
+    "PySide6==6.11.1\nshiboken6==6.11.1\npypdf==6.19.0\npillow==13.0.0\n"
+)
+_PILLOW_SPLIT = (
+    'pillow>=13.0.0; python_version >= "3.11"\n'
+    'pillow>=12.3.0; python_version < "3.11"'
+)
 
 
 @pytest.mark.parametrize(
     ("root_line", "expected"),
     [
         ("pypdf>=6.99.0  # note", "< requirements floor 6.99.0"),
-        ('pypdf>=6.99.0; sys_platform != "emscripten"', "environment marker"),
+        # The marker holds on the Flatpak, so its floor is judged there.
+        ('pypdf>=6.99.0; sys_platform != "emscripten"', "< requirements floor 6.99.0"),
+        ('pypdf>=6.19.0; sys_platform == "linux"', None),
+        # The marker excludes the Flatpak's Python 3.12: no floor there.
+        ('pypdf>=6.19.0; python_version < "3.11"', "no requirements.txt line applies"),
+        ('pypdf>=6.19.0; sys_platform == "win32"', "no requirements.txt line applies"),
+        # Pillow's split: the 3.11+ line is the one that binds the pin.
+        (_PILLOW_SPLIT, None),
+        (_PILLOW_SPLIT.replace(">=13.0.0", ">=13.0.1"), "< requirements floor 13.0.1"),
+        # Split at 3.13 instead: on 3.12 the second line binds.
+        ('pillow>=12.3.0; python_version >= "3.13"\n'
+         'pillow>=13.0.1; python_version < "3.13"', "< requirements floor 13.0.1"),
         ("PySide6~=6.11.2", "< requirements floor 6.11.2"),
         ("PySide6<6.12,>=6.11.2", "< requirements floor 6.11.2"),
         ("PySide6>=6.11.1,<6.12  # cap", None),
@@ -202,6 +230,15 @@ def test_stale_pins_flags_stale_and_unjudgeable_root_lines(root_line, expected):
         assert problems == []
     else:
         assert len(problems) == 1 and expected in problems[0], problems
+
+
+def test_stale_pins_rejects_a_split_with_two_lines_on_the_flatpak():
+    overlap = (
+        'pillow>=13.0.0; python_version >= "3.12"\n'
+        'pillow>=12.3.0; python_version < "3.13"'
+    )
+    with pytest.raises(AssertionError, match="2 lines apply"):
+        _stale_pins(overlap, _SAMPLE_PINS)
 
 
 @pytest.mark.parametrize("pin", [">=6.19.0", "==6.19.*", "", "==6.19.0,<7"])

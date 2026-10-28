@@ -462,14 +462,23 @@ if sys.platform == "win32":
     # affecting gs ≤10.05.1: CVE-2025-48708 (password leak in created
     # PDFs), CVE-2025-59798 / 59799 (stack buffer overflow in
     # pdf_write_cmap / pdfmark_coerce_dest), CVE-2025-59800 (integer →
-    # heap overflow in ocr_begin_page). NVD confirms 10.07.0 has zero
-    # known CVEs as of 2026-05.
-    GHOSTSCRIPT_EXE = r"C:\Program Files\gs\gs10.07.0\bin\gswin64c.exe"
+    # heap overflow in ocr_begin_page).
+    # Then 10.07.0 → 10.08.0 for CVE-2026-39919 (CRITICAL, heap overflow
+    # in the JPEG 2000 output adapter, every release before 10.08.0),
+    # CVE-2026-103226 (stack overflow in pdfwrite's type1_callsubr, up to
+    # 10.07.0) and CVE-2026-19547 (Windows-only privilege escalation via
+    # PostScript resources under C:\gs\, before 10.08.0); NVD, 2026-10-27.
+    # That is no claim that 10.08.0 has no known CVEs: it only clears
+    # these. The SHA256 is of the file at the URL below, whose SHA512
+    # matches the release's SHA512SUMS and whose Authenticode signature
+    # verifies as "Artifex Software, Inc." (Sectigo Public Code Signing
+    # CA R36), checked 2026-10-28.
+    GHOSTSCRIPT_EXE = r"C:\Program Files\gs\gs10.08.0\bin\gswin64c.exe"
     GHOSTSCRIPT_URL = (
         "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/"
-        "gs10070/gs10070w64.exe"
+        "gs10080/gs10080w64.exe"
     )
-    GHOSTSCRIPT_SHA256 = "8af854e2d62f9a3a674331321b347118a83928a3726631e458194121cf3bbeec"
+    GHOSTSCRIPT_SHA256 = "52a91b8bf09298788d7a57b9206127026c23eacd75405f0a131e26dc381dce50"
 elif sys.platform == "darwin":
     GHOSTSCRIPT_EXE = shutil.which("gs") or "/opt/homebrew/bin/gs"
     GHOSTSCRIPT_URL = None
