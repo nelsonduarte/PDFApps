@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 import qtawesome as qta
 
 from app.i18n import t
+from app._shading_patterns import has_shading_pattern
 from app.constants import (
     ACCENT, DESKTOP,
     BG_BASE, BG_CARD, BG_INPUT,
@@ -514,7 +515,9 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
       values, attachments, metadata, JavaScript, layers, thumbnails and
       pending redactions)
         · subset_fonts()  →  keep only used glyphs
-        · rewrite_images()  →  DPI downsampling + JPEG re-encode
+        · rewrite_images()  →  DPI downsampling + JPEG re-encode (and gray
+          on extreme), skipped when the PDF has a shading pattern, whose
+          gradient it would lose
         · save() with garbage=4 + deflate + deflate_fonts + use_objstms,
           and clean=False (see the comment at the save call)
 
@@ -775,17 +778,26 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         # 2. Rewrite all images (replaces the old manual loop)
         _prog("passB_images", 0, 1)
         try:
-            doc.rewrite_images(
-                dpi_threshold=dpi + 10,
-                dpi_target=dpi,
-                quality=quality,
-                lossy=True,
-                lossless=True,
-                bitonal=True,
-                color=True,
-                gray=True,
-                set_to_gray=gray,
-            )
+            # With a shading pattern in the PDF, rewrite_images() leaves a
+            # dangling /Shading null in its place, whatever flags it gets,
+            # and the gradient vanishes; the recolor() it runs first for
+            # set_to_gray rebuilds the pattern without its /Matrix, which
+            # moves the gradient (app/_shading_patterns.py). Skip both:
+            # the images keep their size and, at extreme, their colours.
+            # The check stays inside this try so that a detector error
+            # skips them too instead of failing pass B.
+            if not has_shading_pattern(doc):
+                doc.rewrite_images(
+                    dpi_threshold=dpi + 10,
+                    dpi_target=dpi,
+                    quality=quality,
+                    lossy=True,
+                    lossless=True,
+                    bitonal=True,
+                    color=True,
+                    gray=True,
+                    set_to_gray=gray,
+                )
         except Exception:
             pass
         _prog("passB_images", 1, 1)
