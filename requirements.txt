@@ -39,7 +39,7 @@ pypdf>=6.21.2
 # Also the AES backend pypdf resolves at import time (pypdf declares it
 # only as the optional `crypto` extra), so without it AES-encrypted PDFs
 # raise DependencyError.
-cryptography>=50.0.1
+cryptography>=50.0.2
 qtawesome>=1.4.2
 # Pillow 12.3.0 carries 59 advisories in api.osv.dev (2026-10-28), five
 # of them CRITICAL (GHSA-332p-7hrc-92wf, GHSA-5x8w-8jj5-q52h,
