@@ -153,6 +153,11 @@ jobs:
                   # comment is not rewritten by an unanchored v{ANY}.
                   (rf'/v{ANY}/', f'/v{new}/'),
                   (rf'pdfapps-{ANY}\.tar\.gz', f'pdfapps-{new}.tar.gz'),
+                  # The auxiliary sources carry the version in their local
+                  # name so makepkg never reuses a stale copy from an earlier
+                  # release (pdfapps-bin 1.15.1 metainfo checksum failure).
+                  (rf'pdfapps-{ANY}(\.(?:LICENSE|desktop|metainfo\.xml|png|svg))::',
+                   rf'pdfapps-{new}\g<1>::'),
               ], True),
               ("winget/nelsonduarte.PDFApps.installer.yaml", [
                   (rf'PackageVersion:\s*{ANY}', f'PackageVersion: {new}'),
