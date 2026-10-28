@@ -13,18 +13,25 @@ PySide6>=6.11.1,<6.12
 # (6.16.1). Then PYSEC-2026-4158 (6.17.0), PYSEC-2026-4153 (6.18.0),
 # PYSEC-2026-4154 / PYSEC-2026-4155 / PYSEC-2026-4156 (6.18.1) and
 # PYSEC-2026-4157 / PYSEC-2026-4159 / PYSEC-2026-4160 (6.19.0), all
-# memory or runtime exhaustion on crafted PDFs. 6.19.0 is the first
-# release clear of all fourteen; 6.18.1, which build.yml installed for
-# every v1.15.0 binary it built (run 34720950897), still carries three.
+# memory or runtime exhaustion on crafted PDFs. Then GHSA-39mj-jf6j-2qj3
+# / GHSA-7mh2-4gg2-979f (6.20.0), GHSA-9mx8-4j7g-633p /
+# GHSA-qfv9-64jg-mh7p (6.20.1), GHSA-6vvc-x485-93v7 /
+# GHSA-cgf9-327m-v77c / GHSA-f54x-cmq8-qg57 (6.21.0), GHSA-5hx5-vpf9-5wcv
+# (6.21.1) and three HIGH: GHSA-6c7f-9265-g8fw (CVE-2026-115572),
+# GHSA-jr96-gvgh-j3r4 (CVE-2026-115585) and GHSA-gmh7-3g9r-mjh5
+# (CVE-2026-115580), all fixed in 6.21.2. 6.21.2 is the first release
+# clear of every one of them (api.osv.dev, 2026-10-27); 6.20.0, which
+# build.yml installed for every v1.15.1 binary, still carries nine.
 # "pip-audit -r" audits the newest release that satisfies ">=", not the
 # floor, so a floor that admits vulnerable releases audits clean for as
-# long as a fixed release exists.
+# long as a fixed release exists; security-deps.yml therefore also
+# audits the floors themselves, rewritten to "==" and with --no-deps.
 # tests/test_dependency_security_floors.py fails if the floor drops
-# below 6.19.0, wherever pytest runs; tests.yml runs it on every pull
+# below 6.21.2, wherever pytest runs; tests.yml runs it on every pull
 # request to main and every push to main. An advisory published later
 # against the floor turns nothing that audits this file red once a
 # fixed release exists. Do not lower it.
-pypdf>=6.19.0
+pypdf>=6.21.2
 # GHSA-537c-gmf6-5ccf: signature verification bypass in legacy OpenSSL
 # providers fixed in 48.0.1, and PYSEC-2026-3552 / CVE-2026-69247
 # (Bleichenbacher oracle in PKCS#7 EnvelopedData decryption, introduced
@@ -35,7 +42,28 @@ pypdf>=6.19.0
 # raise DependencyError.
 cryptography>=50.0.1
 qtawesome>=1.4.2
-pillow>=12.3.0
+# Pillow 12.3.0 carries 59 advisories in api.osv.dev (2026-10-28), five
+# of them CRITICAL (GHSA-332p-7hrc-92wf, GHSA-5x8w-8jj5-q52h,
+# GHSA-8g5g-8vmr-9782, GHSA-v9pv-5gc8-w2m6, GHSA-w889-685w-c8fh), all
+# fixed in 13.0.0 and none backported to a 12.x release. v1.15.1 shipped
+# 12.3.0 in all four build.yml jobs (run 38148726512). 13.0.0 requires
+# Python >=3.11, and two builds still install this file on Python 3.10:
+# the appimage job in build.yml (ubuntu-22.04) and the snap (core22).
+# Hence the two lines, split by marker: Python 3.11 and later take the
+# fixed release, Python 3.10 keeps 12.3.0, the best it can get (12.2.0
+# carries 85). That residual on the 3.10 builds is accepted, not fixed,
+# and nothing narrows it: app/utils.py:check_image_size calls
+# Image.open without formats=, so every Pillow decoder stays reachable.
+# The two markers must partition the Python versions: exactly one line
+# applies wherever this file is installed.
+# tests/test_dependency_security_floors.py checks that from Python 3.8
+# to 3.20, with 13.0.0 as the floor on 3.11+ and 12.3.0 below, and fails
+# if the 3.10 line stops admitting 12.3.0 (a Dependabot PR raising it to
+# 13.0.0 would break the AppImage and the snap; close it by hand). Drop
+# the 3.10 line once neither the snap nor the AppImage builds on Python
+# 3.10.
+pillow>=13.0.0; python_version >= "3.11"
+pillow>=12.3.0; python_version < "3.11"
 # PyMuPDF 1.28.0 can segfault in Document.subset_fonts()
 # (pymupdf/PyMuPDF#5049, a use-after-free in the MuPDF font subsetter,
 # fixed in 1.28.2). Compress (pass B in app/utils.py) and a text edit
@@ -43,7 +71,17 @@ pillow>=12.3.0
 # it, and their try/except cannot catch a segfault: the app just dies.
 # tests/test_pymupdf_floor.py fails if the floor drops below 1.28.2.
 # Do not lower it.
-pymupdf>=1.28.2
+# Ceiling for the same reason as PySide6 above: PyMuPDF 2.0 (2026-10-19,
+# Python >=3.11) is a new major that also pulls onnxruntime, numpy,
+# networkx and (through onnxruntime) protobuf, and since it became what
+# ">=1.28.2" resolves to on Python 3.11+, pull requests fail in pytest
+# (tests/test_watermark_characterization.py::
+# test_form_widget_survives_on_the_page_without_its_acroform; tests.yml
+# run 39544717071). No build has been tested with it. Remove the
+# ceiling, together with tests/test_pymupdf_ceiling.py, once the suite
+# and the frozen builds pass with 2.x. Until then, close by hand any
+# Dependabot PR that widens it.
+pymupdf>=1.28.2,<2
 pytesseract>=0.3.13
 python-docx>=1.2.0
 python-pptx>=1.0.2

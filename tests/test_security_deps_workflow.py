@@ -142,3 +142,153 @@ def test_pr_comment_step_has_continue_on_error():
         "Comment step must have continue-on-error: true so the strict "
         "gate still runs when the comment fails on fork PRs."
     )
+
+
+# ── Floors audit, both services, retry on service failure ─────────────────
+
+GATE_STEP = "Strict gate - fail on any known vulnerability"
+
+
+def _step(name: str) -> dict:
+    data = _load_workflow_yaml()
+    for step in data["jobs"]["audit"]["steps"]:
+        if step.get("name") == name:
+            return step
+    raise AssertionError(f"step {name!r} not found")
+
+
+def test_floors_file_is_written_by_the_tested_script_and_can_fail_the_job():
+    step = _step("Pin requirements.txt to its floors")
+    assert "scripts/requirements_floors.py requirements.txt > floors.txt" in step["run"]
+    # A script failure must stop the job, not drop the floors from the audit.
+    assert not step.get("continue-on-error", False)
+
+
+def test_script_changes_trigger_the_workflow():
+    data = _load_workflow_yaml()
+    triggers = data.get(True, data.get("on"))
+    assert "scripts/requirements_floors.py" in triggers["pull_request"]["paths"]
+    assert "scripts/requirements_floors.py" in triggers["push"]["paths"]
+
+
+def test_renders_use_the_osv_service():
+    for name in (
+        "Run pip-audit on requirements.txt (informational render)",
+        "Run pip-audit on the requirements.txt floors (informational render)",
+        "Run pip-audit on flatpak/requirements-pinned.txt (informational render)",
+    ):
+        assert "-s osv" in _step(name)["run"], name
+    assert "--no-deps --disable-pip" in _step(
+        "Run pip-audit on the requirements.txt floors (informational render)"
+    )["run"]
+    assert "audit-floors.md" in _step("Assemble PR comment body")["run"]
+
+
+def _posix_bash() -> str | None:
+    import shutil
+
+    bash = shutil.which("bash")
+    # On Windows, System32\bash.exe and the WindowsApps alias start WSL,
+    # which cannot see this temporary directory by its Windows path.
+    if bash is None or any(s in bash.lower() for s in ("system32", "windowsapps")):
+        return None
+    return bash
+
+
+_FAKE_PIP_AUDIT = r"""#!/bin/sh
+echo "$*" >> "$CALLS"
+out=""
+prev=""
+for a in "$@"; do
+  if [ "$prev" = "--output" ]; then out="$a"; fi
+  prev="$a"
+done
+case "$SCENARIO" in
+  clean) exit 0 ;;
+  down) echo "pip_audit._service.interface.ServiceError" >&2; exit 1 ;;
+  flaky)
+    n=$(cat "$STATE" 2>/dev/null || echo 0)
+    n=$((n + 1))
+    echo "$n" > "$STATE"
+    if [ "$n" -eq 1 ]; then exit 1; fi
+    exit 0 ;;
+  vuln)
+    case "$*" in
+      *floors.txt*) echo "pypdf 6.21.1 CVE-2026-115572 6.21.2" > "$out"; exit 1 ;;
+    esac
+    exit 0 ;;
+esac
+exit 99
+"""
+
+
+def _run_gate(tmp_path: Path, scenario: str):
+    import os
+    import subprocess
+
+    bash = _posix_bash()
+    if bash is None:
+        pytest.skip("no POSIX bash to run the gate step with")
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    for name, body in (("pip-audit", _FAKE_PIP_AUDIT), ("sleep", "#!/bin/sh\nexit 0\n")):
+        p = bindir / name
+        p.write_text(body, encoding="utf-8", newline="\n")
+        p.chmod(0o755)
+    work = tmp_path / "work"
+    (work / "flatpak").mkdir(parents=True)
+    for rel in ("requirements.txt", "floors.txt", "flatpak/requirements-pinned.txt"):
+        (work / rel).write_text("x==1\n", encoding="utf-8")
+    script = tmp_path / "gate.sh"
+    script.write_text(_step(GATE_STEP)["run"], encoding="utf-8", newline="\n")
+    calls = tmp_path / "calls.txt"
+    env = dict(os.environ)
+    env.update(
+        PATH=str(bindir) + os.pathsep + env.get("PATH", ""),
+        CALLS=str(calls),
+        STATE=str(tmp_path / "state.txt"),
+        SCENARIO=scenario,
+    )
+    # GitHub runs a bash "run:" block as: bash --noprofile --norc -eo pipefail
+    proc = subprocess.run(
+        [bash, "--noprofile", "--norc", "-eo", "pipefail", str(script)],
+        cwd=work, env=env, capture_output=True, text=True, timeout=60,
+    )
+    lines = calls.read_text(encoding="utf-8").splitlines() if calls.exists() else []
+    return proc, lines
+
+
+def test_gate_audits_three_inputs_with_both_services(tmp_path):
+    proc, calls = _run_gate(tmp_path, "clean")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert len(calls) == 6, calls
+    assert all("--strict" in c for c in calls)
+    for svc in ("osv", "pypi"):
+        mine = [c for c in calls if f"-s {svc}" in c]
+        assert len(mine) == 3, calls
+        assert any("-r requirements.txt" in c for c in mine)
+        assert any("-r floors.txt --no-deps --disable-pip" in c for c in mine)
+        assert any("-r flatpak/requirements-pinned.txt" in c for c in mine)
+
+
+def test_gate_retries_a_service_failure_and_then_passes(tmp_path):
+    proc, calls = _run_gate(tmp_path, "flaky")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert len(calls) == 7, calls  # the first audit ran twice
+    assert calls[0] == calls[1]
+
+
+def test_gate_fails_when_a_service_stays_down(tmp_path):
+    proc, calls = _run_gate(tmp_path, "down")
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert len(calls) == 18, calls  # every audit tried three times
+    assert "after 3 attempts" in proc.stdout
+
+
+def test_gate_fails_on_a_finding_without_retrying_it(tmp_path):
+    proc, calls = _run_gate(tmp_path, "vuln")
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert len(calls) == 6, calls  # findings are not retried
+    assert "pypdf 6.21.1 CVE-2026-115572" in proc.stdout
+    # The other audits still ran after the first finding.
+    assert sum("flatpak/requirements-pinned.txt" in c for c in calls) == 2

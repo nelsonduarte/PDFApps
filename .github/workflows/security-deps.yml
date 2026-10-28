@@ -5,12 +5,14 @@ on:
     paths:
       - 'requirements.txt'
       - 'flatpak/requirements-pinned.txt'
+      - 'scripts/requirements_floors.py'
       - '.github/workflows/security-deps.yml'
   push:
     branches: [main]
     paths:
       - 'requirements.txt'
       - 'flatpak/requirements-pinned.txt'
+      - 'scripts/requirements_floors.py'
   schedule:
     # Weekly safety net: catch new CVEs even when deps have not changed.
     - cron: '0 6 * * 1'
@@ -32,7 +34,9 @@ jobs:
     # choose, not on that date. Move to ubuntu-26.04 once a run there has
     # validated this job.
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Three inputs times two vulnerability services in the gate, each
+    # retried on a service failure, plus the informational renders.
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -51,6 +55,21 @@ jobs:
           # deliberately when a new release is vetted.
           python -m pip install pip-audit==2.10.1
 
+      - name: Pin requirements.txt to its floors
+        # "pip-audit -r requirements.txt" audits the newest release each
+        # ">=" admits, so a floor that still admits a vulnerable release
+        # audits clean. floors.txt pins every line to its floor, for the
+        # --no-deps audits below. No continue-on-error: a line the
+        # script cannot pin fails here instead of leaving the audit.
+        run: |
+          python scripts/requirements_floors.py requirements.txt > floors.txt
+          cat floors.txt
+
+      # The renders use OSV, not pip-audit's default PyPI service: the
+      # PyPI service lags it. On 2026-10-27 it did not report
+      # GHSA-8g5g-8vmr-9782 (CRITICAL), and on 2026-10-28 it still did
+      # not report GHSA-xvh5-g6gv-559v or GHSA-rfgq-q3w2-pmv2, all three
+      # against Pillow 12.3.0. The strict gate queries both.
       - name: Run pip-audit on requirements.txt (informational render)
         continue-on-error: true
         run: |
@@ -58,7 +77,7 @@ jobs:
           # Never fail the workflow here — the strict gate at the end
           # is what blocks the PR. This step only produces the human
           # markdown report that gets posted as a comment.
-          pip-audit -r requirements.txt --format markdown \
+          pip-audit -r requirements.txt -s osv --format markdown \
             --output audit-main.md \
             || echo "_(pip-audit reported findings — see strict gate below.)_" >> audit-main.md
           if [ ! -s audit-main.md ]; then
@@ -66,12 +85,24 @@ jobs:
           fi
           cat audit-main.md
 
+      - name: Run pip-audit on the requirements.txt floors (informational render)
+        continue-on-error: true
+        run: |
+          echo "=== pip-audit requirements.txt floors ==="
+          pip-audit -r floors.txt --no-deps --disable-pip -s osv --format markdown \
+            --output audit-floors.md \
+            || echo "_(pip-audit reported findings: see strict gate below.)_" >> audit-floors.md
+          if [ ! -s audit-floors.md ]; then
+            echo "No known vulnerabilities." > audit-floors.md
+          fi
+          cat audit-floors.md
+
       - name: Run pip-audit on flatpak/requirements-pinned.txt (informational render)
         continue-on-error: true
         run: |
           if [ -f flatpak/requirements-pinned.txt ]; then
             echo "=== pip-audit flatpak/requirements-pinned.txt ==="
-            pip-audit -r flatpak/requirements-pinned.txt --format markdown \
+            pip-audit -r flatpak/requirements-pinned.txt -s osv --format markdown \
               --output audit-flatpak.md \
               || echo "_(pip-audit reported findings — see strict gate below.)_" >> audit-flatpak.md
             if [ ! -s audit-flatpak.md ]; then
@@ -169,6 +200,10 @@ jobs:
             echo ""
             cat audit-main.md
             echo ""
+            echo "### pip-audit: \`requirements.txt\` floors"
+            echo ""
+            cat audit-floors.md
+            echo ""
             echo "### pip-audit: \`flatpak/requirements-pinned.txt\`"
             echo ""
             cat audit-flatpak.md
@@ -220,9 +255,46 @@ jobs:
           # blocks the PR merge via required-check policy. --strict also
           # fails if pip-audit itself can't complete (missing metadata,
           # skipped dep, etc.), which is the safe default for a CI gate.
-          echo "=== Strict gate: requirements.txt ==="
-          pip-audit -r requirements.txt --strict
-          if [ -f flatpak/requirements-pinned.txt ]; then
-            echo "=== Strict gate: flatpak/requirements-pinned.txt ==="
-            pip-audit -r flatpak/requirements-pinned.txt --strict
-          fi
+          #
+          # Both services: OSV sees advisories the PyPI service misses
+          # (see the renders above), and the PyPI service is kept so a
+          # gap on the OSV side does not go unseen either.
+          #
+          # audit() retries only a run that leaves no report behind.
+          # Measured with pip-audit 2.10.1: a vulnerability exits 1 and
+          # writes --output; a service error (a 503 from PyPI or OSV, a
+          # timeout) exits 1 with a traceback and writes nothing. So a
+          # finding is never retried, and a service that stays down still
+          # fails the gate after the last attempt.
+          audit() {
+            local label="$1"
+            shift
+            local attempt
+            for attempt in 1 2 3; do
+              echo "=== Strict gate: ${label} (attempt ${attempt}) ==="
+              rm -f gate-report.txt
+              if pip-audit "$@" --strict --output gate-report.txt; then
+                return 0
+              fi
+              if [ -s gate-report.txt ]; then
+                cat gate-report.txt
+                return 1
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                sleep 30
+              fi
+            done
+            echo "pip-audit did not complete for ${label} after 3 attempts"
+            return 1
+          }
+          failed=0
+          for svc in osv pypi; do
+            audit "requirements.txt (${svc})" -r requirements.txt -s "$svc" || failed=1
+            audit "requirements.txt floors (${svc})" \
+              -r floors.txt --no-deps --disable-pip -s "$svc" || failed=1
+            if [ -f flatpak/requirements-pinned.txt ]; then
+              audit "flatpak/requirements-pinned.txt (${svc})" \
+                -r flatpak/requirements-pinned.txt -s "$svc" || failed=1
+            fi
+          done
+          exit "$failed"
