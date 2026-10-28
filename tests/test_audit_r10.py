@@ -185,14 +185,48 @@ def test_editor_delete_prompts_for_confirmation():
 # ── #9 — .SRCINFO regex anchored to tarball context ─────────────────────
 
 
+def _bump_target_block(src: str, path: str) -> str:
+    """The substitution list of one target in release.yml's bump script.
+
+    Delimited by the target's own opening and closing, not by whichever
+    target happens to follow it: the old end marker was the winget entry,
+    and once winget was retired ``find`` returned -1 and the "block" ran
+    to the end of the file.
+    """
+    start = src.find(f'("{path}", [')
+    assert start != -1, f"no bump target {path!r} in release.yml"
+    end = src.find("], True),", start)
+    assert end != -1, f"bump target {path!r} is not closed"
+    block = src[start:end]
+    # Every target opens with ("path", [ ; a second one means the span
+    # ran past this target's end.
+    assert block.count('("') == 1, f"block for {path!r} spills into another target"
+    return block
+
+
+def test_bump_target_block_stops_at_its_own_target():
+    src = _read(".github/workflows/release.yml")
+    block = _bump_target_block(src, "aur/pdfapps/.SRCINFO")
+    assert "pkgver = {ANY}" in block
+    assert "aur/pdfapps-bin" not in block
+    # An unanchored rule planted in the bin target is seen there and only
+    # there, so the checks below cannot pass by reading the wrong span.
+    planted = src.replace(
+        "(rf'provides = pdfapps={ANY}'",
+        "(rf'v{ANY}', f'v{new}'),\n                  (rf'provides = pdfapps={ANY}'",
+        1,
+    )
+    assert planted != src
+    assert "rf'v{ANY}'" in _bump_target_block(planted, "aur/pdfapps-bin/.SRCINFO")
+    assert "rf'v{ANY}'" not in _bump_target_block(planted, "aur/pdfapps/.SRCINFO")
+
+
 def test_srcinfo_regex_is_anchored():
     """The version-bump step must anchor v{ANY} replacements to a
     file/path context so future history comments are not rewritten."""
     src = _read(".github/workflows/release.yml")
     # No unanchored v{ANY} substitution for aur/pdfapps/.SRCINFO.
-    aur_block_start = src.find('"aur/pdfapps/.SRCINFO"')
-    aur_block_end = src.find('"aur/pdfapps-bin/.SRCINFO"', aur_block_start)
-    aur_block = src[aur_block_start:aur_block_end]
+    aur_block = _bump_target_block(src, "aur/pdfapps/.SRCINFO")
     # The bare unanchored ``v{ANY}`` rule is gone.
     assert "rf'v{ANY}'" not in aur_block
     # New anchored rules:
@@ -201,9 +235,7 @@ def test_srcinfo_regex_is_anchored():
 
 def test_srcinfo_bin_regex_is_anchored():
     src = _read(".github/workflows/release.yml")
-    bin_start = src.find('"aur/pdfapps-bin/.SRCINFO"')
-    bin_end = src.find("winget/nelsonduarte", bin_start)
-    bin_block = src[bin_start:bin_end]
+    bin_block = _bump_target_block(src, "aur/pdfapps-bin/.SRCINFO")
     assert "rf'v{ANY}'" not in bin_block
     assert "rf'pdfapps-{ANY}'" not in bin_block  # unanchored is gone
     assert "/v{ANY}/" in bin_block

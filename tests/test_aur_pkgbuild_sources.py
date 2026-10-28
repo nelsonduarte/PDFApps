@@ -142,7 +142,7 @@ def test_pin_check_rejects_branches_and_other_versions(url: str) -> None:
 @pytest.mark.parametrize(
     "url",
     [
-        f"https://raw.githubusercontent.com/{REPO_SLUG}/v1.15.1/flatpak/a.metainfo.xml",
+        f"https://raw.githubusercontent.com/{REPO_SLUG}/v1.15.1/data/a.metainfo.xml",
         f"https://raw.githubusercontent.com/{REPO_SLUG}/{'a' * 40}/LICENSE",
         f"https://github.com/{REPO_SLUG}/releases/download/v1.15.1/PDFApps-Linux.tar.gz",
         f"https://github.com/{REPO_SLUG}/archive/refs/tags/v1.15.1.tar.gz",
@@ -345,6 +345,74 @@ def test_bin_package_installs_exactly_the_auxiliary_sources_it_declares() -> Non
         if not _split_source(s)[0].endswith(".tar.gz")
     }
     assert used - tarball_contents == aux
+
+
+# ── the shared desktop file and metainfo must exist where consumers look ──
+
+# They lived in flatpak/ until the Flatpak was retired (D8) and moved to
+# data/. pdfapps-bin fetches them from the release tag, pdfapps installs
+# them from the tag's source tarball and the snap copies them from the
+# tag's checkout, so a consumer left on the old path only breaks after
+# the next release is cut.
+_DESKTOP_DATA = (
+    "data/io.github.nelsonduarte.PDFApps.desktop",
+    "data/io.github.nelsonduarte.PDFApps.metainfo.xml",
+)
+
+
+def _raw_paths(sources: list[str], pkgver: str) -> list[str]:
+    prefix = f"https://raw.githubusercontent.com/{REPO_SLUG}/v{pkgver}/"
+    return [
+        url[len(prefix):]
+        for url in (_split_source(s)[1] for s in sources)
+        if url.startswith(prefix)
+    ]
+
+
+def _repo_paths_fetched_by_bin() -> list[str]:
+    variables, sources = _parse_pkgbuild(_read("pdfapps-bin", "PKGBUILD"))
+    return _raw_paths(sources, variables["pkgver"])
+
+
+def test_bin_package_fetches_files_that_exist_at_the_tag() -> None:
+    """The raw URLs resolve against the tag, whose tree is this one."""
+    paths = _repo_paths_fetched_by_bin()
+    assert set(_DESKTOP_DATA) <= set(paths), paths
+    assert not [p for p in paths if not (REPO_ROOT / p).is_file()], paths
+
+
+def test_bin_srcinfo_fetches_the_same_paths_as_the_pkgbuild() -> None:
+    info = _parse_srcinfo(_read("pdfapps-bin", ".SRCINFO"))
+    (pkgver,) = info["pkgver"]
+    assert _raw_paths(info["source"], pkgver) == _repo_paths_fetched_by_bin()
+
+
+def test_source_package_installs_files_that_exist_in_the_tarball() -> None:
+    body = _read("pdfapps", "PKGBUILD")
+    installed = re.findall(r"install -Dm644 (\S+) ", body)
+    assert set(_DESKTOP_DATA) <= set(installed), installed
+    assert not [p for p in installed if not (REPO_ROOT / p).is_file()], installed
+
+
+def test_snap_copies_the_desktop_file_and_metainfo_from_data() -> None:
+    snap = (REPO_ROOT / "snap" / "snapcraft.yaml").read_text(encoding="utf-8")
+    copied = re.findall(
+        r"^\s*cp (\S+\.(?:desktop|metainfo\.xml)) \\$", snap, flags=re.MULTILINE
+    )
+    assert sorted(copied) == sorted(_DESKTOP_DATA), copied
+
+
+def test_publish_hashes_the_files_pdfapps_bin_fetches() -> None:
+    """publish.yml recomputes the sha256sums from raw URLs of its own; a
+    path there that differs from the PKGBUILD hashes a 404 instead."""
+    publish = (REPO_ROOT / ".github" / "workflows" / "publish.yml").read_text(
+        encoding="utf-8"
+    )
+    hashed = re.findall(
+        rf"https://raw\.githubusercontent\.com/{REPO_SLUG}/v\$\{{VER\}}/([^\"]+)\"",
+        publish,
+    )
+    assert hashed == _repo_paths_fetched_by_bin()
 
 
 # ── the release bump must keep the .SRCINFO consistent ──

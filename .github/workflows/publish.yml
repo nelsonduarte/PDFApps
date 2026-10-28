@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  # resolve, aur and copr are pinned to ubuntu-24.04 instead of
+  # resolve and aur are pinned to ubuntu-24.04 instead of
   # ubuntu-latest: GitHub moves that label to Ubuntu 26.04 from
   # 2026-10-19, and the runner image should change when we choose, not on
   # that date. Move them to ubuntu-26.04 once a run there has validated
@@ -83,13 +83,14 @@ jobs:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
         if: env.AUR_SSH_KEY != ''
         run: |
-          set -e
+          # -f and pipefail: see the pdfapps-bin step below.
+          set -eo pipefail
           VER="${{ needs.resolve.outputs.version }}"
           git config --global user.name "Nelson Duarte"
           git config --global user.email "noreply@github.com"
 
           # Compute sha256 of the source tarball GitHub generates for the tag
-          SRC_SHA=$(curl -sL "https://github.com/nelsonduarte/PDFApps/archive/refs/tags/v${VER}.tar.gz" | sha256sum | awk '{print $1}')
+          SRC_SHA=$(curl -fsL "https://github.com/nelsonduarte/PDFApps/archive/refs/tags/v${VER}.tar.gz" | sha256sum | awk '{print $1}')
           echo "Source tarball sha256: $SRC_SHA"
 
           rm -rf /tmp/aur-pdfapps
@@ -114,7 +115,11 @@ jobs:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
         if: env.AUR_SSH_KEY != ''
         run: |
-          set -e
+          # pipefail: without it a 404 from curl -f is masked by awk and
+          # the step pushes the sha256 of empty input. That is what a tag
+          # cut before the desktop file and the metainfo moved from
+          # flatpak/ to data/ would get if re-published from main.
+          set -eo pipefail
           VER="${{ needs.resolve.outputs.version }}"
 
           # Compute sha256 for all six sources. Five are tag-pinned
@@ -122,8 +127,8 @@ jobs:
           # users want `updpkgsums` to be a no-op (BluePeril, 2026-05).
           BIN_SHA=$(curl -fsL "https://github.com/nelsonduarte/PDFApps/releases/download/v${VER}/PDFApps-Linux.tar.gz" | sha256sum | awk '{print $1}')
           LICENSE_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/LICENSE" | sha256sum | awk '{print $1}')
-          DESKTOP_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/flatpak/io.github.nelsonduarte.PDFApps.desktop" | sha256sum | awk '{print $1}')
-          METAINFO_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/flatpak/io.github.nelsonduarte.PDFApps.metainfo.xml" | sha256sum | awk '{print $1}')
+          DESKTOP_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/data/io.github.nelsonduarte.PDFApps.desktop" | sha256sum | awk '{print $1}')
+          METAINFO_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/data/io.github.nelsonduarte.PDFApps.metainfo.xml" | sha256sum | awk '{print $1}')
           PNG_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/icon_512.png" | sha256sum | awk '{print $1}')
           SVG_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/pdfapps.svg" | sha256sum | awk '{print $1}')
 
@@ -178,45 +183,6 @@ jobs:
           fi
 
   # ─────────────────────────────────────────────────────────────────
-  # Fedora Copr — trigger a rebuild from the new git tag
-  # Requires: COPR_API_TOKEN (full ~/.config/copr file content)
-  # ─────────────────────────────────────────────────────────────────
-  copr:
-    needs: resolve
-    runs-on: ubuntu-24.04
-    if: ${{ vars.ENABLE_COPR != 'false' }}
-    container: fedora:latest
-    steps:
-      - name: Install copr-cli
-        run: dnf install -y copr-cli git
-
-      - name: Configure copr-cli
-        env:
-          COPR_API_TOKEN: ${{ secrets.COPR_API_TOKEN }}
-        run: |
-          if [ -z "$COPR_API_TOKEN" ]; then
-            echo "::warning::COPR_API_TOKEN not set — skipping Copr build"
-            exit 0
-          fi
-          mkdir -p ~/.config
-          echo "$COPR_API_TOKEN" > ~/.config/copr
-
-      - name: Trigger Copr build from SCM
-        env:
-          COPR_API_TOKEN: ${{ secrets.COPR_API_TOKEN }}
-        if: env.COPR_API_TOKEN != ''
-        run: |
-          set -e
-          VER="${{ needs.resolve.outputs.version }}"
-          copr-cli buildscm \
-            --clone-url https://github.com/nelsonduarte/PDFApps.git \
-            --commit "v${VER}" \
-            --spec rpm/pdfapps.spec \
-            --type git \
-            --nowait \
-            nelsonduarte2809/pdfapps
-
-  # ─────────────────────────────────────────────────────────────────
   # Snap Store — build and upload the snap
   # Requires: SNAPCRAFT_TOKEN (from `snapcraft export-login`)
   # ─────────────────────────────────────────────────────────────────
@@ -255,30 +221,3 @@ jobs:
         with:
           snap: ${{ steps.build.outputs.snap }}
           release: stable
-
-  # ─────────────────────────────────────────────────────────────────
-  # winget — submit a PR to microsoft/winget-pkgs via wingetcreate
-  # Requires: WINGET_PAT (GitHub PAT with public_repo scope)
-  # ─────────────────────────────────────────────────────────────────
-  winget:
-    needs: resolve
-    runs-on: windows-latest
-    if: ${{ vars.ENABLE_WINGET != 'false' }}
-    steps:
-      - name: Submit winget PR
-        env:
-          WINGET_PAT: ${{ secrets.WINGET_PAT_TOKEN }}
-        shell: pwsh
-        run: |
-          if (-not $env:WINGET_PAT) {
-            Write-Host "::warning::WINGET_PAT not set — skipping winget PR"
-            exit 0
-          }
-          $ver = "${{ needs.resolve.outputs.version }}"
-          $url = "https://github.com/nelsonduarte/PDFApps/releases/download/v$ver/PDFAppsSetup.exe"
-          iwr https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
-          ./wingetcreate.exe update nelsonduarte.PDFApps `
-            --version $ver `
-            --urls $url `
-            --submit `
-            --token $env:WINGET_PAT

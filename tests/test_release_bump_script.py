@@ -68,10 +68,6 @@ def fake_repo(tmp_path: Path) -> Path:
     (tmp_path / "snap" / "snapcraft.yaml").write_text(
         "name: pdfapps\nversion: '1.13.9'\n", encoding="utf-8"
     )
-    (tmp_path / "rpm").mkdir()
-    (tmp_path / "rpm" / "pdfapps.spec").write_text(
-        "Name:           pdfapps\nVersion:        1.13.9\n", encoding="utf-8"
-    )
     for sub in ("pdfapps", "pdfapps-bin"):
         (tmp_path / "aur" / sub).mkdir(parents=True)
         (tmp_path / "aur" / sub / "PKGBUILD").write_text(
@@ -87,23 +83,9 @@ def fake_repo(tmp_path: Path) -> Path:
         "\tsource = pdfapps-1.13.10.tar.gz::https://x/v1.13.10/y.tar.gz\n",
         encoding="utf-8",
     )
-    (tmp_path / "winget").mkdir()
-    (tmp_path / "winget" / "nelsonduarte.PDFApps.installer.yaml").write_text(
-        "PackageVersion: 1.13.9\nInstallerUrl: https://x/v1.13.9/y.exe\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "winget" / "nelsonduarte.PDFApps.locale.en-US.yaml").write_text(
-        "PackageVersion: 1.13.9\nReleaseNotesUrl: https://x/v1.13.9\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "winget" / "nelsonduarte.PDFApps.yaml").write_text(
-        "PackageVersion: 1.13.9\n", encoding="utf-8"
-    )
-    (tmp_path / "flatpak").mkdir()
-    (tmp_path / "flatpak" / "io.github.nelsonduarte.PDFApps.yml").write_text(
-        "    sources:\n      - type: git\n        tag: v1.13.9\n",
-        encoding="utf-8",
-    )
+    # No rpm/, winget/ or flatpak/ here: those channels are retired (D8),
+    # and the script fails with "Required packaging files missing" if it
+    # still lists one of them as a target.
     return tmp_path
 
 
@@ -136,23 +118,16 @@ def test_bump_script_updates_all_required_packaging_files(fake_repo: Path) -> No
 
     # Spot-check each ecosystem.
     assert 'APP_VERSION = "1.13.15"' in (fake_repo / "app" / "constants.py").read_text()
-    assert "Version:        1.13.15" in (fake_repo / "rpm" / "pdfapps.spec").read_text()
+    assert 'APP_VERSION = "1.13.15"' in (fake_repo / "installer.py").read_text()
     assert "pkgver=1.13.15" in (fake_repo / "aur" / "pdfapps" / "PKGBUILD").read_text()
     assert "pkgver=1.13.15" in (fake_repo / "aur" / "pdfapps-bin" / "PKGBUILD").read_text()
-    assert "PackageVersion: 1.13.15" in (
-        fake_repo / "winget" / "nelsonduarte.PDFApps.installer.yaml"
-    ).read_text()
-    assert "tag: v1.13.15" in (
-        fake_repo / "flatpak" / "io.github.nelsonduarte.PDFApps.yml"
-    ).read_text()
     # No stale 1.13.9 / 1.13.10 / 1.13.14 references in required files.
     for path in [
         fake_repo / "snap" / "snapcraft.yaml",
-        fake_repo / "rpm" / "pdfapps.spec",
         fake_repo / "aur" / "pdfapps" / "PKGBUILD",
+        fake_repo / "aur" / "pdfapps" / ".SRCINFO",
         fake_repo / "aur" / "pdfapps-bin" / "PKGBUILD",
-        fake_repo / "winget" / "nelsonduarte.PDFApps.installer.yaml",
-        fake_repo / "flatpak" / "io.github.nelsonduarte.PDFApps.yml",
+        fake_repo / "aur" / "pdfapps-bin" / ".SRCINFO",
     ]:
         body = path.read_text()
         assert "1.13.9" not in body, f"{path.name} still references 1.13.9"
@@ -208,6 +183,21 @@ def test_bump_script_is_idempotent(fake_repo: Path) -> None:
     assert second.returncode == 0, (
         f"second bump should be a no-op, got: {second.stdout}\n{second.stderr}"
     )
+
+
+RETIRED_TARGETS = ("rpm/", "winget/", "flatpak/")
+
+
+def test_bump_script_targets_only_files_that_exist() -> None:
+    """Every bump target is required, so one whose file is gone fails the
+    release job before it tags anything. The channels retired in D8 took
+    their files with them; this names the culprit instead of leaving it to
+    the job log."""
+    script = _extract_bump_script()
+    targets = re.findall(r'^\s*\("([^"]+)", \[$', script, flags=re.MULTILINE)
+    assert "aur/pdfapps-bin/.SRCINFO" in targets, targets
+    assert not [t for t in targets if t.startswith(RETIRED_TARGETS)], targets
+    assert not [t for t in targets if not (REPO_ROOT / t).is_file()], targets
 
 
 def test_current_snapcraft_yaml_is_at_release_version() -> None:

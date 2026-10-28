@@ -44,10 +44,13 @@ def test_security_deps_workflow_is_valid_yaml():
 
 def test_security_deps_workflow_targets_expected_files():
     src = _read_workflow_text()
-    # The workflow must audit both dependency files. Losing either
-    # means half of the runtime surface goes unchecked.
-    assert "requirements.txt" in src
-    assert "flatpak/requirements-pinned.txt" in src
+    # The workflow must audit requirements.txt and its floors. Losing
+    # either means half of the runtime surface goes unchecked.
+    assert "-r requirements.txt" in src
+    assert "-r floors.txt" in src
+    # The Flatpak was retired (D8) and its pin file deleted; an audit
+    # of it left behind would only ever audit nothing.
+    assert "flatpak" not in src
 
 
 def test_security_deps_workflow_uses_pip_audit():
@@ -73,7 +76,7 @@ def test_security_deps_workflow_pull_request_path_filter_covers_deps():
     assert isinstance(pr, dict)
     paths = pr.get("paths", [])
     assert "requirements.txt" in paths
-    assert "flatpak/requirements-pinned.txt" in paths
+    assert not [p for p in paths if p.startswith("flatpak/")], paths
 
 
 def test_security_deps_workflow_has_strict_gate():
@@ -175,24 +178,12 @@ def test_renders_use_the_osv_service():
     for name in (
         "Run pip-audit on requirements.txt (informational render)",
         "Run pip-audit on the requirements.txt floors (informational render)",
-        "Run pip-audit on flatpak/requirements-pinned.txt (informational render)",
     ):
         assert "-s osv" in _step(name)["run"], name
     assert "--no-deps --disable-pip" in _step(
         "Run pip-audit on the requirements.txt floors (informational render)"
     )["run"]
     assert "audit-floors.md" in _step("Assemble PR comment body")["run"]
-
-
-def _posix_bash() -> str | None:
-    import shutil
-
-    bash = shutil.which("bash")
-    # On Windows, System32\bash.exe and the WindowsApps alias start WSL,
-    # which cannot see this temporary directory by its Windows path.
-    if bash is None or any(s in bash.lower() for s in ("system32", "windowsapps")):
-        return None
-    return bash
 
 
 _FAKE_PIP_AUDIT = r"""#!/bin/sh
@@ -223,72 +214,67 @@ exit 99
 
 
 def _run_gate(tmp_path: Path, scenario: str):
-    import os
-    import subprocess
-
-    bash = _posix_bash()
-    if bash is None:
-        pytest.skip("no POSIX bash to run the gate step with")
-    bindir = tmp_path / "bin"
-    bindir.mkdir()
-    for name, body in (("pip-audit", _FAKE_PIP_AUDIT), ("sleep", "#!/bin/sh\nexit 0\n")):
-        p = bindir / name
-        p.write_text(body, encoding="utf-8", newline="\n")
-        p.chmod(0o755)
-    work = tmp_path / "work"
-    (work / "flatpak").mkdir(parents=True)
-    for rel in ("requirements.txt", "floors.txt", "flatpak/requirements-pinned.txt"):
-        (work / rel).write_text("x==1\n", encoding="utf-8")
-    script = tmp_path / "gate.sh"
-    script.write_text(_step(GATE_STEP)["run"], encoding="utf-8", newline="\n")
-    calls = tmp_path / "calls.txt"
-    env = dict(os.environ)
-    env.update(
-        PATH=str(bindir) + os.pathsep + env.get("PATH", ""),
-        CALLS=str(calls),
-        STATE=str(tmp_path / "state.txt"),
-        SCENARIO=scenario,
+    from _workflow_steps import (
+        bash_flags,
+        require_posix_bash,
+        run_bash_script,
+        write_fake_commands,
     )
-    # GitHub runs a bash "run:" block as: bash --noprofile --norc -eo pipefail
-    proc = subprocess.run(
-        [bash, "--noprofile", "--norc", "-eo", "pipefail", str(script)],
-        cwd=work, env=env, capture_output=True, text=True, timeout=60,
+
+    require_posix_bash()
+    bindir = tmp_path / "bin"
+    write_fake_commands(bindir, {
+        "pip-audit": _FAKE_PIP_AUDIT, "sleep": "#!/bin/sh\nexit 0\n",
+    })
+    work = tmp_path / "work"
+    work.mkdir(parents=True)
+    for rel in ("requirements.txt", "floors.txt"):
+        (work / rel).write_text("x==1\n", encoding="utf-8")
+    step = _step(GATE_STEP)
+    calls = tmp_path / "calls.txt"
+    # The step sets no shell:, so the runner gives bash -e, without pipefail.
+    proc = run_bash_script(
+        step["run"], bash_flags(_load_workflow_yaml(), "audit", step),
+        tmp_path=tmp_path, cwd=work, bindir=bindir,
+        env={"CALLS": str(calls), "STATE": str(tmp_path / "state.txt"),
+             "SCENARIO": scenario},
     )
     lines = calls.read_text(encoding="utf-8").splitlines() if calls.exists() else []
     return proc, lines
 
 
-def test_gate_audits_three_inputs_with_both_services(tmp_path):
+def test_gate_audits_two_inputs_with_both_services(tmp_path):
     proc, calls = _run_gate(tmp_path, "clean")
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert len(calls) == 6, calls
+    assert len(calls) == 4, calls
     assert all("--strict" in c for c in calls)
     for svc in ("osv", "pypi"):
         mine = [c for c in calls if f"-s {svc}" in c]
-        assert len(mine) == 3, calls
+        assert len(mine) == 2, calls
         assert any("-r requirements.txt" in c for c in mine)
         assert any("-r floors.txt --no-deps --disable-pip" in c for c in mine)
-        assert any("-r flatpak/requirements-pinned.txt" in c for c in mine)
 
 
 def test_gate_retries_a_service_failure_and_then_passes(tmp_path):
     proc, calls = _run_gate(tmp_path, "flaky")
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert len(calls) == 7, calls  # the first audit ran twice
+    assert len(calls) == 5, calls  # the first audit ran twice
     assert calls[0] == calls[1]
 
 
 def test_gate_fails_when_a_service_stays_down(tmp_path):
     proc, calls = _run_gate(tmp_path, "down")
     assert proc.returncode == 1, proc.stdout + proc.stderr
-    assert len(calls) == 18, calls  # every audit tried three times
+    assert len(calls) == 12, calls  # every audit tried three times
     assert "after 3 attempts" in proc.stdout
 
 
 def test_gate_fails_on_a_finding_without_retrying_it(tmp_path):
     proc, calls = _run_gate(tmp_path, "vuln")
     assert proc.returncode == 1, proc.stdout + proc.stderr
-    assert len(calls) == 6, calls  # findings are not retried
+    assert len(calls) == 4, calls  # findings are not retried
     assert "pypdf 6.21.1 CVE-2026-115572" in proc.stdout
-    # The other audits still ran after the first finding.
-    assert sum("flatpak/requirements-pinned.txt" in c for c in calls) == 2
+    # The other audits still ran after the first finding (the osv floors
+    # audit, the second call): the pypi pair came after it.
+    assert "floors.txt" in calls[1] and "-s osv" in calls[1], calls
+    assert sum("-s pypi" in c for c in calls) == 2, calls

@@ -48,23 +48,18 @@ def target_environment(python_version: str, sys_platform: str) -> dict[str, str]
     }
 
 
-# Every environment that installs requirements.txt (or, for the Flatpak,
-# whose pins must honour it), keyed by a label used in test ids. The
-# Python versions come from the workflows and manifests named below;
-# when one of them moves, this table moves with it.
+# Every environment that installs requirements.txt, keyed by a label
+# used in test ids. The Python versions come from the workflows and
+# manifests named below; when one of them moves, this table moves with it.
 TARGET_ENVIRONMENTS = {
     # build.yml matrix; tests.yml and security-deps.yml also run 3.14,
     # on Linux.
     "windows-py3.14": target_environment("3.14", "win32"),
     "macos-py3.14": target_environment("3.14", "darwin"),
     "linux-py3.14": target_environment("3.14", "linux"),
-    # appimage job in build.yml (python-version '3.10') and the snap
-    # (base: core22, python3.10 in snap/snapcraft.yaml).
+    # The snap (base: core22, python3.10 in snap/snapcraft.yaml).
     "linux-py3.10": target_environment("3.10", "linux"),
-    # flatpak/python-modules.yml is generated for 312-x86_64.
-    "flatpak-py3.12": target_environment("3.12", "linux"),
 }
-FLATPAK_ENVIRONMENT = TARGET_ENVIRONMENTS["flatpak-py3.12"]
 
 
 def parse_line(line: str) -> Requirement | None:

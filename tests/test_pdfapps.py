@@ -782,17 +782,3 @@ class TestAuditRegressions:
             "ink-annot strokes must be (x,y) tuples, not pymupdf.Point"
         assert "(float(x), float(y))" in block, \
             "expected explicit float tuple conversion in draw branch"
-
-    def test_flatpak_manifest_tag_is_current(self):
-        # Flatpak tag was hardcoded to v1.8.3 long after release v1.13.x.
-        # Bump script now keeps it in sync; this test ensures it matches
-        # APP_VERSION at any given point.
-        import re
-        with open(_REPO_ROOT / "app" / "constants.py", encoding="utf-8") as f:
-            const = f.read()
-        version = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', const).group(1)
-        with open(_REPO_ROOT / "flatpak" / "io.github.nelsonduarte.PDFApps.yml",
-                  encoding="utf-8") as f:
-            manifest = f.read()
-        assert f"tag: v{version}" in manifest, \
-            f"Flatpak manifest tag must match APP_VERSION ({version})"

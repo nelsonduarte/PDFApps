@@ -85,13 +85,24 @@ jobs:
           name: ${{ matrix.artifact }}
           # Intentionally do NOT upload dist/PDFApps.exe (the raw
           # PyInstaller binary). Users install via PDFAppsSetup.exe
-          # (NSIS installer) or the .msix package; shipping the raw
+          # (NSIS installer) or the Microsoft Store; shipping the raw
           # exe just publishes the runner's internal build paths
           # embedded in PyInstaller debug strings.
           path: |
             dist/PDFAppsSetup.exe
             dist/PDFAppsUninstall.exe
-            dist/PDFApps-*.msix
+
+      # The .msix is for Microsoft Store submission only and is not a
+      # release asset. It gets a workflow artifact of its own, which the
+      # release job does not publish; download it from this run's
+      # Artifacts and upload it in Partner Center.
+      - name: Upload MSIX for the Microsoft Store (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: PDFApps-MSIX-Store
+          path: dist/PDFApps-*.msix
+          if-no-files-found: error
 
       # ── Linux ───────────────────────────────────────────────────
       - name: Install Linux system deps
@@ -186,30 +197,8 @@ jobs:
           name: ${{ matrix.artifact }}
           path: dist/PDFApps-macOS.dmg
 
-  appimage:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
-        with:
-          python-version: '3.10'
-      - name: Install AppImage build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfuse2 libegl1 libxkbcommon0 libxcb-cursor0 wget
-      - name: Build AppImage
-        run: |
-          chmod +x appimage/build.sh
-          ./appimage/build.sh
-      - name: Upload AppImage
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: PDFApps-AppImage
-          path: PDFApps-*.AppImage
-
   release:
-    needs: [build, appimage]
+    needs: [build]
     # Pinned instead of ubuntu-latest: GitHub moves that label to Ubuntu
     # 26.04 from 2026-10-19, and the runner image should change when we
     # choose, not on that date. Move to ubuntu-26.04 once a run there has
@@ -263,10 +252,8 @@ jobs:
           echo "" >> release_notes.md
           echo "## Checksums (SHA256)" >> release_notes.md
           for f in artifacts/PDFApps-Windows/PDFAppsSetup.exe \
-                   artifacts/PDFApps-Windows/PDFApps-*.msix \
                    artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz \
-                   artifacts/PDFApps-macOS/PDFApps-macOS.dmg \
-                   artifacts/PDFApps-AppImage/PDFApps-*.AppImage; do
+                   artifacts/PDFApps-macOS/PDFApps-macOS.dmg; do
             for match in $f; do
               if [ -f "$match" ]; then
                 sha=$(sha256sum "$match" | awk '{print $1}')
@@ -285,7 +272,5 @@ jobs:
           body_path: release_notes.md
           files: |
             artifacts/PDFApps-Windows/PDFAppsSetup.exe
-            artifacts/PDFApps-Windows/PDFApps-*.msix
             artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz
             artifacts/PDFApps-macOS/PDFApps-macOS.dmg
-            artifacts/PDFApps-AppImage/PDFApps-*.AppImage

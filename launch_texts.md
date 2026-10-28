@@ -23,7 +23,7 @@ So I started building PDFApps. It's a desktop app that runs completely offline. 
 
 Right now it has 15 tools (split, merge, rotate, compress, encrypt, OCR, and more), a visual editor where you can add text, images, signatures and highlights directly on the PDF, and an integrated viewer with tabs, search, bookmarks, night mode and presentation mode.
 
-It works on Windows, macOS and Linux. I ship installers for all three, plus Snap, AUR, Copr, AppImage and winget.
+It works on Windows, macOS and Linux. I ship installers for all three, plus the Microsoft Store, Snap and AUR.
 
 A few things I'm happy with:
 
@@ -62,7 +62,7 @@ A few technical details for those interested:
 - Pipeline mode: chain multiple tools before saving (works via temp files)
 - PyInstaller for packaging, CI/CD builds for all platforms on every tag
 
-MIT licensed. Installers for Windows, macOS, Linux (also on Snap, AUR, Copr, winget).
+MIT licensed. Installers for Windows, macOS, Linux (also on the Microsoft Store, Snap and AUR).
 
 https://github.com/nelsonduarte/PDFApps
 

@@ -62,6 +62,12 @@ Add-AppxPackage -Path "dist\PDFApps-1.13.8.msix"
 3. Upload the unsigned MSIX in the Partner Center submission page
    (Microsoft signs it with their own cert).
 
+   For a release, take the MSIX that CI built instead of building it
+   locally: `build.yml` builds it on every `v*` tag with the
+   `MSIX_PUBLISHER_CN` secret and keeps it as the `PDFApps-MSIX-Store`
+   artifact of that run (Actions, the run of the tag, Artifacts). It
+   is not a GitHub release asset.
+
 4. Fill in: screenshots, description (per supported language),
    age rating self-attestation, privacy policy URL
    (<https://pdf-apps.com>), price = free.

@@ -4,14 +4,12 @@ on:
   pull_request:
     paths:
       - 'requirements.txt'
-      - 'flatpak/requirements-pinned.txt'
       - 'scripts/requirements_floors.py'
       - '.github/workflows/security-deps.yml'
   push:
     branches: [main]
     paths:
       - 'requirements.txt'
-      - 'flatpak/requirements-pinned.txt'
       - 'scripts/requirements_floors.py'
   schedule:
     # Weekly safety net: catch new CVEs even when deps have not changed.
@@ -34,7 +32,7 @@ jobs:
     # choose, not on that date. Move to ubuntu-26.04 once a run there has
     # validated this job.
     runs-on: ubuntu-24.04
-    # Three inputs times two vulnerability services in the gate, each
+    # Two inputs times two vulnerability services in the gate, each
     # retried on a service failure, plus the informational renders.
     timeout-minutes: 20
 
@@ -96,22 +94,6 @@ jobs:
             echo "No known vulnerabilities." > audit-floors.md
           fi
           cat audit-floors.md
-
-      - name: Run pip-audit on flatpak/requirements-pinned.txt (informational render)
-        continue-on-error: true
-        run: |
-          if [ -f flatpak/requirements-pinned.txt ]; then
-            echo "=== pip-audit flatpak/requirements-pinned.txt ==="
-            pip-audit -r flatpak/requirements-pinned.txt -s osv --format markdown \
-              --output audit-flatpak.md \
-              || echo "_(pip-audit reported findings — see strict gate below.)_" >> audit-flatpak.md
-            if [ ! -s audit-flatpak.md ]; then
-              echo "No known vulnerabilities." > audit-flatpak.md
-            fi
-            cat audit-flatpak.md
-          else
-            echo "_flatpak/requirements-pinned.txt not present._" > audit-flatpak.md
-          fi
 
       - name: Check outdated packages (informational)
         continue-on-error: true
@@ -204,10 +186,6 @@ jobs:
             echo ""
             cat audit-floors.md
             echo ""
-            echo "### pip-audit: \`flatpak/requirements-pinned.txt\`"
-            echo ""
-            cat audit-flatpak.md
-            echo ""
             echo "### Outdated check (informational)"
             echo ""
             cat outdated.md
@@ -292,9 +270,5 @@ jobs:
             audit "requirements.txt (${svc})" -r requirements.txt -s "$svc" || failed=1
             audit "requirements.txt floors (${svc})" \
               -r floors.txt --no-deps --disable-pip -s "$svc" || failed=1
-            if [ -f flatpak/requirements-pinned.txt ]; then
-              audit "flatpak/requirements-pinned.txt (${svc})" \
-                -r flatpak/requirements-pinned.txt -s "$svc" || failed=1
-            fi
           done
           exit "$failed"

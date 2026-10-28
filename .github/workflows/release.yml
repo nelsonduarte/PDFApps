@@ -127,9 +127,6 @@ jobs:
               ("snap/snapcraft.yaml", [
                   (rf"version:\s*'{ANY}'", f"version: '{new}'"),
               ], True),
-              ("rpm/pdfapps.spec", [
-                  (rf'^Version:\s+{ANY}', f'Version:        {new}'),
-              ], True),
               ("aur/pdfapps/PKGBUILD", [
                   (rf'pkgver={ANY}', f'pkgver={new}'),
               ], True),
@@ -158,20 +155,6 @@ jobs:
                   # release (pdfapps-bin 1.15.1 metainfo checksum failure).
                   (rf'pdfapps-{ANY}(\.(?:LICENSE|desktop|metainfo\.xml|png|svg))::',
                    rf'pdfapps-{new}\g<1>::'),
-              ], True),
-              ("winget/nelsonduarte.PDFApps.installer.yaml", [
-                  (rf'PackageVersion:\s*{ANY}', f'PackageVersion: {new}'),
-                  (rf'v{ANY}', f'v{new}'),
-              ], True),
-              ("winget/nelsonduarte.PDFApps.locale.en-US.yaml", [
-                  (rf'PackageVersion:\s*{ANY}', f'PackageVersion: {new}'),
-                  (rf'v{ANY}', f'v{new}'),
-              ], True),
-              ("winget/nelsonduarte.PDFApps.yaml", [
-                  (rf'PackageVersion:\s*{ANY}', f'PackageVersion: {new}'),
-              ], True),
-              ("flatpak/io.github.nelsonduarte.PDFApps.yml", [
-                  (rf'tag:\s*v{ANY}', f'tag: v{new}'),
               ], True),
           ]
 

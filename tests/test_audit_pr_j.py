@@ -294,8 +294,8 @@ def test_build_yml_does_not_publish_raw_exe():
         stripped_lines.append(ln)
     body = "\n".join(stripped_lines)
     # The raw PyInstaller binary path must NOT appear in upload, sha256
-    # loop, or final release files list. The installer (.exe) and msix
-    # (.msix) remain.
+    # loop, or final release files list. The installer (.exe) remains;
+    # the .msix is a Store-only workflow artifact (test_release_assets.py).
     assert "dist/PDFApps.exe" not in body, \
         "raw PDFApps.exe must not be in upload-artifact path list"
     assert "PDFApps-Windows/PDFApps.exe" not in body, \

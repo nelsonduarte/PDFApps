@@ -1,12 +1,11 @@
 """requirements.txt must keep PySide6 below 6.12 while the ceiling lasts.
 
 The ceiling is temporary, for the 1.15.1 release: the frozen macOS and
-Linux builds, the snap and the AppImage have not been tested with
-PySide6 6.12. It goes once the frozen Windows, macOS and Linux builds,
-the snap and (while it ships) the AppImage all pass the smoke test
-with 6.12. This test exists only to stop the ceiling being widened or
-dropped by accident (a Dependabot PR, a hand edit), and it is removed
-together with the ceiling.
+Linux builds and the snap have not been tested with PySide6 6.12. It
+goes once the frozen Windows, macOS and Linux builds and the snap all
+pass the smoke test with 6.12. This test exists only to stop the
+ceiling being widened or dropped by accident (a Dependabot PR, a hand
+edit), and it is removed together with the ceiling.
 """
 
 from __future__ import annotations
@@ -69,7 +68,7 @@ def test_requirements_keep_pyside6_below_6_12():
     problems = _ceiling_problems(req)
     assert not problems, (
         "requirements.txt must keep PySide6 below 6.12 until the "
-        "frozen Windows, macOS and Linux builds, the snap and (while "
-        "it ships) the AppImage all pass the smoke test with 6.12: "
+        "frozen Windows, macOS and Linux builds and the snap all "
+        "pass the smoke test with 6.12: "
         + "; ".join(problems)
     )

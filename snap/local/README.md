@@ -61,7 +61,7 @@ Recommended workflow: push to `edge` first, then promote to `beta` → `candidat
 ## Notes
 
 - **Confinement**: `strict` — sandboxed with explicit interface plugs
-- **Bundled tools**: Tesseract OCR (5 languages) and Ghostscript are INCLUDED via `stage-packages` (unlike Flatpak)
+- **Bundled tools**: Tesseract OCR (5 languages) and Ghostscript are INCLUDED via `stage-packages`
 - **File access**: `home` interface allows opening PDFs from the home directory; `removable-media` for USB drives
 - **Auto-updater**: Should be disabled in snap (snap manages its own updates) — TODO: detect via `SNAP` env var
 - **Qt6**: Provided by the `kde-neon-6` extension (Qt 6.x runtime)

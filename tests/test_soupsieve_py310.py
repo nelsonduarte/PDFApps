@@ -1,11 +1,9 @@
 """requirements.txt must keep admitting soupsieve 2.10 while 3.10 builds last.
 
-Two builds install requirements.txt on Python 3.10: the appimage job in
-build.yml (ubuntu-22.04, ``python-version: '3.10'``), which the release
-job needs, and the snap (core22). Every soupsieve 3.x requires Python
->=3.11, so a soupsieve line that excludes 2.10 leaves pip on Python 3.10
-with "No matching distribution": the AppImage fails on the tag and the
-release job never runs, and the snap fails after the release is out.
+One build installs requirements.txt on Python 3.10: the snap (core22).
+Every soupsieve 3.x requires Python >=3.11, so a soupsieve line that
+excludes 2.10 leaves pip on Python 3.10 with "No matching distribution":
+the snap fails after the release is out, when publish.yml builds it.
 
 CI cannot catch this on its own, because every job that installs
 requirements.txt on a pull request (tests.yml, security-deps.yml) uses
@@ -24,7 +22,7 @@ measured on 2026-10-16. If a later 2.x release still supports Python
 3.10, this constant and the requirements.txt comment move together.
 
 Remove this test, together with the restriction in the requirements.txt
-comment, once neither the snap nor the AppImage builds on Python 3.10.
+comment, once the snap no longer builds on Python 3.10.
 """
 
 from __future__ import annotations
@@ -72,9 +70,8 @@ def test_requirements_keep_admitting_soupsieve_2_10():
     problems = _py310_problems(req)
     assert not problems, (
         f"requirements.txt must keep admitting soupsieve {LAST_PY310_RELEASE}, "
-        "the last release that installs on Python 3.10: the appimage job "
-        "in build.yml and the snap (core22) both install requirements.txt "
-        "on Python 3.10, and the release job needs the appimage job. See "
+        "the last release that installs on Python 3.10: the snap (core22) "
+        "installs requirements.txt on Python 3.10. See "
         "the comment above the soupsieve line in requirements.txt: "
         + "; ".join(problems)
     )
