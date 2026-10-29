@@ -98,6 +98,21 @@
   </provides>
 
   <releases>
+    <release version="1.15.2" date="2026-10-29">
+      <description>
+        <p>Compression fixes, overwrite prompts and security updates:</p>
+        <ul>
+          <li>Compression no longer removes colour gradients; PDFs with gradients compress less without Ghostscript</li>
+          <li>Compression no longer turns pages to follow the direction of their text</li>
+          <li>Compression keeps the OCR text layer and, in most cases, links, form values, attachments and metadata</li>
+          <li>On Linux, compression runs Ghostscript with the system's own libraries</li>
+          <li>Converter and Import ask before replacing an existing file</li>
+          <li>AUR pdfapps-bin: no more checksum failure on update, and missing dependencies declared</li>
+          <li>AppImage, winget, Copr, Flatpak and the GitHub .msix are retired; use the Snap, the AUR or the tar.gz</li>
+          <li>Security: pypdf 6.21.2 or later, closing three CVEs; Pillow 13 on Python 3.11 or later; Ghostscript 10.08.0 in the Windows installer</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.15.1" date="2026-10-11">
       <description>
         <p>OCR and compression fixes, and security updates:</p>

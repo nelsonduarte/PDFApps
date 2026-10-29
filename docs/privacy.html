@@ -65,7 +65,7 @@
 
 <section>
     <div class="container docs-content" style="max-width: 820px;">
-        <p><strong>Last updated:</strong> May 8, 2026</p>
+        <p><strong>Last updated:</strong> October 29, 2026</p>
 
         <section id="short-version">
             <h2>The short version</h2>
@@ -94,7 +94,7 @@
             <ul class="docs-list">
                 <li><strong>Update check.</strong> On direct installs (the Windows installer, the Linux tarball, the macOS disk image) the app queries the public GitHub Releases API (<code>api.github.com</code>) on launch to see whether a newer version is available. The request contains no personal data, only a standard HTTP user-agent.</li>
                 <li><strong>Update download.</strong> If you choose to install an update, the installer is downloaded from the official GitHub release URL.</li>
-                <li><strong>System-managed installs</strong> (Microsoft Store, Snap, Flatpak, Homebrew, AUR, apt, rpm) skip the in-app update check entirely — they make no update request at all. Updates flow through your platform's package manager, which for the Microsoft Store means Windows keeps the app up to date for you.</li>
+                <li><strong>System-managed installs</strong> (Microsoft Store, Snap, Homebrew, AUR, apt, rpm) skip the in-app update check entirely, so they make no update request at all. Updates flow through your platform's package manager, which for the Microsoft Store means Windows keeps the app up to date for you.</li>
             </ul>
             <p>The app does <strong>not</strong> connect to any other server. PDF processing (merging, splitting, compressing, OCR, conversion, watermarking, and every other tool) runs 100% offline.</p>
         </section>

@@ -254,85 +254,77 @@ Engels, Portugees, Spaans, Frans, Duits, Chinees, Italiaans, Nederlands.
 # RELEASE NOTES
 # ============================================================
 RELEASE_NOTES = {}
-RELEASE_NOTES['en-us'] = '''Version 1.15.1: OCR and compression fixes, and security updates
+RELEASE_NOTES['en-us'] = '''Version 1.15.2: Compression fixes and security updates
 
-• OCR language: OCR now runs in the language you pick. Before, every run used the first installed language in alphabetical order. The list shows only installed languages and keeps your choice, and Chinese and Dutch now appear under their translated names.
-• PDFApps no longer closes when you run OCR with an old or unrecognised version of Tesseract installed.
-• No more console windows: running OCR or compressing a PDF no longer opens a terminal window on Windows.
-• Linux (Snap): OCR now finds its bundled language files, and compression runs its stronger stage, which it skipped before. On Linux, compressing some damaged PDFs no longer hangs for about two minutes.
-• Starting PDFApps from a terminal no longer prints a deprecation notice.
-• The Help button now opens the current documentation page.
-• Security: pypdf 6.19.0, closing three advisories present in 1.15.0 where a crafted PDF could use excessive memory or keep the app busy, and urllib3 2.8.0, closing three more.
+• Compression no longer removes colour gradients. On some PDFs, pages lost their gradients or came out blank. PDFs with gradients now skip the step that caused it, so they may compress less than before.
+• Compression no longer turns pages to follow the direction of their text.
+• Compression keeps the invisible text layer added by OCR, so compressed scans stay searchable, and in most cases also keeps links, form values, attachments and metadata.
+• Converter and Import now ask before replacing an existing file with the same name.
+• Security: pypdf 6.21.2, closing three high-severity issues that a crafted PDF could reach, and Pillow 13.0.0.
+• Known issue: on rare PDFs, compression can close the app. The cause is in a third-party library and a fix is planned for the next update.
 '''
-RELEASE_NOTES['pt-pt'] = '''Versão 1.15.1: Correções no OCR e na compressão, e atualizações de segurança
+RELEASE_NOTES['pt-pt'] = '''Versão 1.15.2: Correções na compressão e atualizações de segurança
 
-• Idioma do OCR: o OCR passa a usar o idioma que escolher. Antes, cada execução usava o primeiro idioma instalado por ordem alfabética. A lista mostra apenas os idiomas instalados e mantém a sua escolha, e o chinês e o neerlandês passam a aparecer com o nome traduzido.
-• O PDFApps deixa de fechar quando executa o OCR com uma versão antiga ou não reconhecida do Tesseract instalada.
-• Sem janelas de consola: executar o OCR ou comprimir um PDF deixa de abrir uma janela de terminal no Windows.
-• Linux (Snap): o OCR passa a encontrar os ficheiros de idioma incluídos, e a compressão executa a etapa mais forte, que antes era ignorada. No Linux, comprimir alguns PDFs danificados deixa de bloquear durante cerca de dois minutos.
-• Iniciar o PDFApps a partir de um terminal deixa de mostrar um aviso de descontinuação.
-• O botão de Ajuda abre agora a página de documentação atual.
-• Segurança: pypdf 6.19.0, que fecha três avisos presentes na 1.15.0 em que um PDF manipulado podia consumir memória em excesso ou manter a aplicação ocupada, e urllib3 2.8.0, que fecha mais três.
+• A compressão deixa de remover gradientes de cor. Em alguns PDFs, as páginas perdiam os gradientes ou ficavam em branco. Os PDFs com gradientes passam a saltar o passo que causava o problema, pelo que podem comprimir menos do que antes.
+• A compressão deixa de rodar as páginas para seguir a direção do texto.
+• A compressão mantém a camada de texto invisível criada pelo OCR, para que os documentos digitalizados continuem pesquisáveis, e na maioria dos casos mantém também ligações, valores de formulários, anexos e metadados.
+• O Converter e o Importar passam a perguntar antes de substituir um ficheiro existente com o mesmo nome.
+• Segurança: pypdf 6.21.2, que fecha três falhas graves que um PDF manipulado podia explorar, e Pillow 13.0.0.
+• Problema conhecido: em PDFs raros, a compressão pode fechar a aplicação. A causa está numa biblioteca de terceiros e a correção está prevista para a próxima atualização.
 '''
-RELEASE_NOTES['es-es'] = '''Versión 1.15.1: Correcciones de OCR y compresión, y actualizaciones de seguridad
+RELEASE_NOTES['es-es'] = '''Versión 1.15.2: Correcciones de compresión y actualizaciones de seguridad
 
-• Idioma del OCR: el OCR usa ahora el idioma que elija. Antes, cada ejecución usaba el primer idioma instalado por orden alfabético. La lista muestra solo los idiomas instalados y conserva su elección, y el chino y el neerlandés aparecen ahora con su nombre traducido.
-• PDFApps ya no se cierra al ejecutar el OCR con una versión antigua o no reconocida de Tesseract instalada.
-• Sin ventanas de consola: ejecutar el OCR o comprimir un PDF ya no abre una ventana de terminal en Windows.
-• Linux (Snap): el OCR encuentra ahora los archivos de idioma incluidos, y la compresión ejecuta su etapa más potente, que antes se omitía. En Linux, comprimir algunos PDF dañados ya no se bloquea durante unos dos minutos.
-• Iniciar PDFApps desde un terminal ya no muestra un aviso de obsolescencia.
-• El botón de Ayuda abre ahora la página de documentación actual.
-• Seguridad: pypdf 6.19.0, que cierra tres avisos presentes en 1.15.0 en los que un PDF manipulado podía consumir memoria en exceso o mantener ocupada la aplicación, y urllib3 2.8.0, que cierra otros tres.
+• La compresión ya no elimina los degradados de color. En algunos PDF, las páginas perdían sus degradados o quedaban en blanco. Los PDF con degradados omiten ahora el paso que lo causaba, por lo que pueden comprimirse menos que antes.
+• La compresión ya no gira las páginas para seguir la dirección de su texto.
+• La compresión conserva la capa de texto invisible que añade el OCR, para que los documentos escaneados comprimidos sigan admitiendo búsquedas, y en la mayoría de los casos conserva también los enlaces, los valores de los formularios, los adjuntos y los metadatos.
+• Convertir e Importar preguntan ahora antes de reemplazar un archivo existente con el mismo nombre.
+• Seguridad: pypdf 6.21.2, que cierra tres fallos de gravedad alta a los que podía llegar un PDF manipulado, y Pillow 13.0.0.
+• Problema conocido: en algunos PDF poco habituales, la compresión puede cerrar la aplicación. La causa está en una biblioteca de terceros y hay una corrección prevista para la próxima actualización.
 '''
-RELEASE_NOTES['fr-fr'] = '''Version 1.15.1 : Corrections de l\'OCR et de la compression, et mises à jour de sécurité
+RELEASE_NOTES['fr-fr'] = '''Version 1.15.2 : Corrections de la compression et mises à jour de sécurité
 
-• Langue de l\'OCR : l\'OCR utilise désormais la langue que vous choisissez. Auparavant, chaque exécution utilisait la première langue installée par ordre alphabétique. La liste n\'affiche que les langues installées et conserve votre choix, et le chinois et le néerlandais apparaissent désormais sous leur nom traduit.
-• PDFApps ne se ferme plus lorsque vous lancez l\'OCR avec une version ancienne ou non reconnue de Tesseract installée.
-• Plus de fenêtres de console : lancer l\'OCR ou compresser un PDF n\'ouvre plus de fenêtre de terminal sous Windows.
-• Linux (Snap) : l\'OCR trouve désormais les fichiers de langue inclus, et la compression exécute son étape la plus poussée, qui était ignorée auparavant. Sous Linux, compresser certains PDF endommagés ne bloque plus pendant environ deux minutes.
-• Lancer PDFApps depuis un terminal n\'affiche plus d\'avis d\'obsolescence.
-• Le bouton Aide ouvre désormais la page de documentation actuelle.
-• Sécurité : pypdf 6.19.0, qui corrige trois avis présents dans la 1.15.0 où un PDF malveillant pouvait consommer trop de mémoire ou occuper l\'application, et urllib3 2.8.0, qui en corrige trois autres.
+• La compression ne supprime plus les dégradés de couleur. Sur certains PDF, les pages perdaient leurs dégradés ou devenaient blanches. Les PDF contenant des dégradés ignorent désormais l\'étape qui en était la cause, ils peuvent donc être moins compressés qu\'avant.
+• La compression ne fait plus pivoter les pages pour suivre le sens de leur texte.
+• La compression conserve la couche de texte invisible ajoutée par l\'OCR, afin que les documents numérisés compressés restent consultables par recherche, et conserve aussi, dans la plupart des cas, les liens, les valeurs des formulaires, les pièces jointes et les métadonnées.
+• Convertir et Importer demandent désormais confirmation avant de remplacer un fichier existant portant le même nom.
+• Sécurité : pypdf 6.21.2, qui corrige trois failles de gravité élevée qu\'un PDF malveillant pouvait atteindre, et Pillow 13.0.0.
+• Problème connu : sur de rares PDF, la compression peut fermer l\'application. La cause se trouve dans une bibliothèque tierce et un correctif est prévu pour la prochaine mise à jour.
 '''
-RELEASE_NOTES['de-de'] = '''Version 1.15.1: OCR- und Komprimierungskorrekturen sowie Sicherheitsupdates
+RELEASE_NOTES['de-de'] = '''Version 1.15.2: Komprimierungskorrekturen und Sicherheitsupdates
 
-• OCR-Sprache: Die Texterkennung verwendet jetzt die Sprache, die Sie auswählen. Bisher nutzte jeder Lauf die erste installierte Sprache in alphabetischer Reihenfolge. Die Liste zeigt nur installierte Sprachen und behält Ihre Auswahl, und Chinesisch und Niederländisch erscheinen jetzt mit übersetztem Namen.
-• PDFApps schließt sich nicht mehr, wenn Sie OCR mit einer alten oder nicht erkannten Tesseract-Version ausführen.
-• Keine Konsolenfenster mehr: OCR oder das Komprimieren einer PDF-Datei öffnet unter Windows kein Terminalfenster mehr.
-• Linux (Snap): Die OCR findet jetzt die mitgelieferten Sprachdateien, und die Komprimierung führt ihre stärkere Stufe aus, die bisher übersprungen wurde. Unter Linux hängt das Komprimieren mancher beschädigter PDFs nicht mehr etwa zwei Minuten lang.
-• Beim Start von PDFApps aus einem Terminal erscheint kein Veraltungshinweis mehr.
-• Die Hilfe-Schaltfläche öffnet jetzt die aktuelle Dokumentationsseite.
-• Sicherheit: pypdf 6.19.0 schließt drei in 1.15.0 vorhandene Hinweise, bei denen eine manipulierte PDF-Datei übermäßig Speicher verbrauchen oder die App blockieren konnte, und urllib3 2.8.0 schließt drei weitere.
+• Die Komprimierung entfernt keine Farbverläufe mehr. Bei manchen PDFs verloren Seiten ihre Farbverläufe oder wurden leer. PDFs mit Farbverläufen überspringen jetzt den Schritt, der das verursacht hat, und werden daher möglicherweise weniger stark komprimiert als bisher.
+• Die Komprimierung dreht Seiten nicht mehr, um sie an der Richtung ihres Textes auszurichten.
+• Die Komprimierung behält die unsichtbare Textebene der Texterkennung (OCR), sodass komprimierte Scans durchsuchbar bleiben, und in den meisten Fällen auch Links, Formularwerte, Anhänge und Metadaten.
+• Konvertieren und Importieren fragen jetzt nach, bevor eine vorhandene Datei mit demselben Namen ersetzt wird.
+• Sicherheit: pypdf 6.21.2 schließt drei schwerwiegende Lücken, die eine manipulierte PDF-Datei erreichen konnte, dazu Pillow 13.0.0.
+• Bekanntes Problem: Bei seltenen PDFs kann die Komprimierung die App schließen. Die Ursache liegt in einer Drittanbieter-Bibliothek, eine Korrektur ist für das nächste Update geplant.
 '''
-RELEASE_NOTES['zh-cn'] = '''版本 1.15.1：OCR 与压缩修复及安全更新
+RELEASE_NOTES['zh-cn'] = '''版本 1.15.2：压缩修复及安全更新
 
-• OCR 语言：OCR 现在使用您选择的语言。此前每次运行都会使用按字母顺序排列的第一个已安装语言。列表只显示已安装的语言并保留您的选择，简体中文和荷兰语现在显示为翻译后的名称。
-• 安装了旧版或无法识别版本的 Tesseract 时，运行 OCR 不再导致 PDFApps 关闭。
-• 不再弹出控制台窗口：在 Windows 上运行 OCR 或压缩 PDF 时不再打开终端窗口。
-• Linux (Snap)：OCR 现在能找到随附的语言文件，压缩也会运行此前被跳过的更强压缩步骤。在 Linux 上，压缩某些损坏的 PDF 不再卡住约两分钟。
-• 从终端启动 PDFApps 时不再显示弃用提示。
-• “帮助”按钮现在打开当前的文档页面。
-• 安全：pypdf 升级至 6.19.0，修复 1.15.0 中存在的三项公告（特制 PDF 可能占用过多内存或使程序长时间忙碌）；urllib3 升级至 2.8.0，另修复三项公告。
+• 压缩不再移除颜色渐变。在某些 PDF 中，页面会丢失渐变或变成空白。包含渐变的 PDF 现在会跳过导致该问题的步骤，因此压缩效果可能不如以前。
+• 压缩不再为了顺应文字方向而旋转页面。
+• 压缩会保留 OCR 添加的不可见文本层，使压缩后的扫描件仍可搜索；在大多数情况下，还会保留链接、表单值、附件和元数据。
+• “转换”和“导入”现在会在替换同名的现有文件之前进行询问。
+• 安全：pypdf 升级至 6.21.2，修复三个特制 PDF 可触发的高危问题；Pillow 升级至 13.0.0。
+• 已知问题：在少数 PDF 上，压缩可能导致应用关闭。原因在于第三方库，修复计划在下一次更新中发布。
 '''
-RELEASE_NOTES['it-it'] = '''Versione 1.15.1: Correzioni di OCR e compressione, e aggiornamenti di sicurezza
+RELEASE_NOTES['it-it'] = '''Versione 1.15.2: Correzioni della compressione e aggiornamenti di sicurezza
 
-• Lingua dell\'OCR: l\'OCR usa ora la lingua che scegli. Prima, ogni esecuzione usava la prima lingua installata in ordine alfabetico. L\'elenco mostra solo le lingue installate e mantiene la tua scelta, e il cinese e l\'olandese compaiono ora con il nome tradotto.
-• PDFApps non si chiude più quando esegui l\'OCR con una versione di Tesseract vecchia o non riconosciuta.
-• Niente più finestre di console: eseguire l\'OCR o comprimere un PDF non apre più una finestra del terminale su Windows.
-• Linux (Snap): l\'OCR trova ora i file di lingua inclusi, e la compressione esegue la sua fase più incisiva, che prima veniva saltata. Su Linux, comprimere alcuni PDF danneggiati non si blocca più per circa due minuti.
-• Avviare PDFApps da un terminale non mostra più un avviso di deprecazione.
-• Il pulsante Aiuto apre ora la pagina della documentazione attuale.
-• Sicurezza: pypdf 6.19.0, che chiude tre avvisi presenti nella 1.15.0 in cui un PDF manipolato poteva consumare troppa memoria o tenere occupata l\'app, e urllib3 2.8.0, che ne chiude altri tre.
+• La compressione non rimuove più le sfumature di colore. In alcuni PDF, le pagine perdevano le sfumature o risultavano vuote. I PDF con sfumature saltano ora il passaggio che causava il problema, quindi potrebbero essere compressi meno di prima.
+• La compressione non ruota più le pagine per seguire la direzione del testo.
+• La compressione mantiene il livello di testo invisibile aggiunto dall\'OCR, così le scansioni compresse restano ricercabili, e nella maggior parte dei casi mantiene anche link, valori dei moduli, allegati e metadati.
+• Converti e Importa chiedono ora conferma prima di sostituire un file esistente con lo stesso nome.
+• Sicurezza: pypdf 6.21.2, che chiude tre vulnerabilità di gravità elevata sfruttabili da un PDF manipolato, e Pillow 13.0.0.
+• Problema noto: su rari PDF, la compressione può chiudere l\'app. La causa è in una libreria di terze parti e una correzione è prevista per il prossimo aggiornamento.
 '''
-RELEASE_NOTES['nl-nl'] = '''Versie 1.15.1: OCR- en compressiefixes, en beveiligingsupdates
+RELEASE_NOTES['nl-nl'] = '''Versie 1.15.2: Compressiefixes en beveiligingsupdates
 
-• OCR-taal: OCR gebruikt nu de taal die u kiest. Voorheen gebruikte elke run de eerste geïnstalleerde taal in alfabetische volgorde. De lijst toont alleen geïnstalleerde talen en onthoudt uw keuze, en Chinees en Nederlands verschijnen nu met hun vertaalde naam.
-• PDFApps sluit niet meer af wanneer u OCR uitvoert met een oude of niet-herkende versie van Tesseract.
-• Geen consolevensters meer: OCR uitvoeren of een PDF comprimeren opent op Windows geen terminalvenster meer.
-• Linux (Snap): OCR vindt nu de meegeleverde taalbestanden, en compressie voert de sterkere stap uit die voorheen werd overgeslagen. Op Linux blijft het comprimeren van sommige beschadigde PDF\'s niet langer zo\'n twee minuten hangen.
-• PDFApps starten vanuit een terminal toont geen verouderingsmelding meer.
-• De Help-knop opent nu de actuele documentatiepagina.
-• Beveiliging: pypdf 6.19.0, met drie adviezen uit 1.15.0 verholpen waarbij een gemanipuleerde PDF overmatig geheugen kon gebruiken of de app bezig kon houden, en urllib3 2.8.0, met nog drie verholpen.
+• Compressie verwijdert geen kleurverlopen meer. Bij sommige PDF\'s verloren pagina\'s hun kleurverlopen of werden ze leeg. PDF\'s met kleurverlopen slaan nu de stap over die dit veroorzaakte, waardoor ze mogelijk minder sterk worden gecomprimeerd dan voorheen.
+• Compressie draait pagina\'s niet meer om de richting van hun tekst te volgen.
+• Compressie behoudt de onzichtbare tekstlaag die OCR toevoegt, zodat gecomprimeerde scans doorzoekbaar blijven, en behoudt in de meeste gevallen ook koppelingen, formulierwaarden, bijlagen en metadata.
+• Converteren en Importeren vragen nu om bevestiging voordat een bestaand bestand met dezelfde naam wordt vervangen.
+• Beveiliging: pypdf 6.21.2, met drie ernstige problemen verholpen die een gemanipuleerde PDF kon bereiken, en Pillow 13.0.0.
+• Bekend probleem: bij zeldzame PDF\'s kan compressie de app afsluiten. De oorzaak ligt in een externe bibliotheek en een oplossing staat gepland voor de volgende update.
 '''
 
 # ============================================================

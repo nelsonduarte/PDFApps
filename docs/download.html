@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Download - PDFApps</title>
-    <meta name="description" content="Download PDFApps for Windows, macOS, or Linux. Available on Snap Store, Flathub, AUR, Fedora Copr, AppImage, and winget.">
+    <meta name="description" content="Download PDFApps for Windows, macOS, or Linux. Available on the Microsoft Store, Snap Store, and AUR.">
     <link rel="canonical" href="https://pdf-apps.com/download">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="PDFApps">
     <meta property="og:url" content="https://pdf-apps.com/download">
     <meta property="og:title" content="Download - PDFApps">
-    <meta property="og:description" content="Download PDFApps for Windows, macOS, or Linux. Available on Snap Store, AUR, Fedora Copr, AppImage, and winget.">
+    <meta property="og:description" content="Download PDFApps for Windows, macOS, or Linux. Available on the Microsoft Store, Snap Store, and AUR.">
     <meta property="og:image" content="https://pdf-apps.com/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Download - PDFApps">
@@ -85,6 +85,14 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Download DMG
                 </a>
+                <p class="os-note" style="margin-top: 10px; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; text-align: left;">
+                    The app is not yet signed or notarized by Apple, so macOS blocks it the first time you open it. Signing and notarization are planned. To open it:
+                </p>
+                <ol class="os-note" style="margin: 6px 0 0; padding-left: 20px; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; text-align: left;">
+                    <li>Open the DMG and drag PDFApps to Applications.</li>
+                    <li>Open PDFApps once. When the warning appears, go to <strong>System Settings &gt; Privacy &amp; Security</strong>, click <strong>Open Anyway</strong> and confirm. On older macOS versions, you can instead right-click the app and choose <strong>Open</strong>.</li>
+                    <li>If macOS says the app is damaged, run <code style="overflow-wrap: anywhere;">xattr -dr com.apple.quarantine /Applications/PDFApps.app</code> in Terminal and open PDFApps again.</li>
+                </ol>
             </div>
             <div class="os-card">
                 <img class="os-icon" src="icons/ubuntu.svg" alt="Linux">
@@ -104,7 +112,7 @@
         <div class="section-header">
             <span class="eyebrow">Linux</span>
             <h2>Pick your distro</h2>
-            <p>Native packages for the most popular distributions, plus a portable AppImage that runs everywhere.</p>
+            <p>Install from the Snap Store or the AUR. A pre-built tar.gz archive is also available.</p>
         </div>
 
         <div class="distro-grid">
@@ -117,14 +125,6 @@
                 </div>
             </div>
             <div class="distro-card">
-                <img class="distro-icon" src="icons/fedora.svg" alt="Fedora">
-                <div style="flex: 1;">
-                    <h4>Fedora</h4>
-                    <div class="distro-desc">From the Copr repository, native RPM</div>
-                    <code>sudo dnf copr enable nelsonduarte2809/pdfapps && sudo dnf install pdfapps</code>
-                </div>
-            </div>
-            <div class="distro-card">
                 <img class="distro-icon" src="icons/archlinux.svg" alt="Arch Linux">
                 <div style="flex: 1;">
                     <h4>Arch / Manjaro</h4>
@@ -134,19 +134,19 @@
                 </div>
             </div>
             <div class="distro-card">
-                <img class="distro-icon" src="icons/appimage.svg" alt="AppImage">
+                <svg class="distro-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
                 <div style="flex: 1;">
-                    <h4>AppImage (any distro)</h4>
-                    <div class="distro-desc">Portable, no installation. Works on any modern Linux.</div>
-                    <code>chmod +x PDFApps-*.AppImage && ./PDFApps-*.AppImage</code>
+                    <h4>tar.gz (other distros)</h4>
+                    <div class="distro-desc">Pre-built archive. It needs system libraries that it does not include, such as libGL, and may not start on a minimal install. The Snap or the AUR is recommended.</div>
+                    <code>tar -xzf PDFApps-Linux.tar.gz && ./PDFApps</code>
                 </div>
             </div>
         </div>
 
         <div style="text-align: center; margin-top: 32px;">
-            <a href="https://github.com/nelsonduarte/PDFApps/releases/latest" class="btn btn-secondary">
+            <a href="https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFApps-Linux.tar.gz" class="btn btn-secondary">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download AppImage
+                Download tar.gz
             </a>
         </div>
     </div>
