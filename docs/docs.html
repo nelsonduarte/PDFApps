@@ -107,11 +107,10 @@
             <p>PDFApps is available on every major platform. Pick the one that matches your system:</p>
             <ul class="docs-list">
                 <li><strong>Windows 10/11:</strong> download the installer from the <a href="/download">Download page</a></li>
-                <li><strong>macOS 10.14+:</strong> download the macOS zip and drag to Applications</li>
+                <li><strong>macOS 10.14+:</strong> download <code>PDFApps-macOS.dmg</code> from the <a href="/download">Download page</a> and drag PDFApps to Applications. The app is not yet signed by Apple, so the first launch needs an extra step: see <a href="#macos-open">macOS blocks PDFApps on first launch</a></li>
                 <li><strong>Ubuntu / Snap:</strong> <code>sudo snap install pdfapps</code></li>
-                <li><strong>Fedora:</strong> <code>sudo dnf copr enable nelsonduarte2809/pdfapps &amp;&amp; sudo dnf install pdfapps</code></li>
-                <li><strong>Arch / Manjaro:</strong> <code>yay -S pdfapps</code></li>
-                <li><strong>Any Linux:</strong> download the AppImage and run it</li>
+                <li><strong>Arch / Manjaro:</strong> <code>yay -S pdfapps</code> (source) or <code>yay -S pdfapps-bin</code> (pre-compiled)</li>
+                <li><strong>Other Linux:</strong> download <code>PDFApps-Linux.tar.gz</code>, extract it and run <code>./PDFApps</code>. It needs system libraries that it does not include, such as libGL, so the Snap or the AUR is recommended.</li>
             </ul>
             <p>For OCR and advanced compression you also need <strong>Tesseract</strong> and <strong>Ghostscript</strong> installed on your system. The Windows installer offers to install both automatically.</p>
         </section>
@@ -328,6 +327,15 @@
 
         <section id="troubleshooting">
             <h2>Troubleshooting</h2>
+            <div class="faq-item" id="macos-open">
+                <h3>macOS blocks PDFApps on first launch</h3>
+                <p>The macOS app is not yet signed or notarized by Apple, so Gatekeeper blocks it with a message such as "PDFApps cannot be opened because Apple cannot check it for malicious software" or "PDFApps is damaged and can't be opened". Signing and notarization are planned. To open it:</p>
+                <ol class="docs-list" style="margin-top: 8px; margin-bottom: 0;">
+                    <li>Open <code>PDFApps-macOS.dmg</code> and drag PDFApps to Applications.</li>
+                    <li>Open PDFApps once. When the warning appears, go to <strong>System Settings &gt; Privacy &amp; Security</strong>, click <strong>Open Anyway</strong> and confirm. On older macOS versions, you can instead right-click the app and choose <strong>Open</strong>.</li>
+                    <li>If macOS says the app is damaged, run <code>xattr -dr com.apple.quarantine /Applications/PDFApps.app</code> in Terminal and open PDFApps again.</li>
+                </ol>
+            </div>
             <div class="faq-item">
                 <h3>The OCR tool says Tesseract is not installed</h3>
                 <p>Make sure <code>tesseract</code> is on your system PATH. Test with <code>tesseract --version</code> in a terminal. If installed but not detected, restart PDFApps after installation.</p>
@@ -338,7 +346,7 @@
             </div>
             <div class="faq-item">
                 <h3>The auto-updater is stuck</h3>
-                <p>Auto-updater is disabled in Microsoft Store, Flatpak and Snap installations because the platform handles updates for you — the Store keeps the app current automatically. In direct installations, check that you have admin rights, because the installer needs UAC elevation on Windows.</p>
+                <p>Auto-updater is disabled in Microsoft Store, Snap and AUR installations because the platform handles updates for you: the Store keeps the app current automatically. In direct installations, check that you have admin rights, because the installer needs UAC elevation on Windows.</p>
             </div>
             <div class="faq-item">
                 <h3>Found a bug?</h3>

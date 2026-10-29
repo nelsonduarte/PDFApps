@@ -67,9 +67,28 @@
     <div class="container" style="max-width: 880px;">
         <div class="release">
             <div class="release-header">
+                <span class="version-tag">v1.15.2</span>
+                <span class="release-date">October 29, 2026</span>
+                <span class="release-badge">Latest</span>
+            </div>
+            <h3>Compression that keeps gradients, page orientation and OCR text, and security updates</h3>
+            <ul class="docs-list">
+                <li><strong>Gradients kept when compressing</strong>: on some PDFs, compression removed colour gradients, and some pages came out blank. PDFs that contain gradients now skip the image recompression step that caused it, so without Ghostscript they compress less than before.</li>
+                <li><strong>No more turned pages</strong>: Ghostscript rotated pages to follow the direction of their text, so a page could end up on its side or upside down. Compression now keeps every page as it was.</li>
+                <li><strong>OCR text kept when compressing</strong>: 1.15.0 and 1.15.1 removed the invisible text layer that OCR adds, along with links, form values, attachments and metadata. All of these are now kept, with one exception listed under known issues.</li>
+                <li><strong>Ghostscript on Linux</strong>: in the <code>tar.gz</code> and the AUR <code>pdfapps-bin</code> package, Ghostscript picked up libraries bundled with PDFApps and failed on newer distributions such as Ubuntu 26.04. It now uses the system's own libraries.</li>
+                <li><strong>No more silent overwrites in Converter and Import</strong>: both tools now ask before replacing an existing file with the same name.</li>
+                <li><strong>AUR <code>pdfapps-bin</code></strong>: updating no longer fails with a checksum error, and the package declares the runtime dependencies it was missing.</li>
+                <li><strong>Retired download channels</strong>: the AppImage, the <code>.msix</code> on GitHub, winget, Fedora Copr and Flatpak no longer receive updates. On Windows, use the Microsoft Store; on Linux, the Snap, the AUR or <code>PDFApps-Linux.tar.gz</code>.</li>
+                <li><strong>Security &amp; dependencies</strong>: pypdf 6.21.2 or later, closing CVE-2026-115572, CVE-2026-115585 and CVE-2026-115580; Pillow 13.0.0 where Python 3.11 or later is used; Ghostscript 10.08.0 in the Windows installer, closing CVE-2026-39919, CVE-2026-103226 and CVE-2026-19547 (an existing Ghostscript is not updated: update it from ghostscript.com); PyMuPDF held below 2.0.</li>
+                <li><strong>Known issues</strong>: <code>PDFApps-Linux.tar.gz</code> needs system libraries such as libGL, so the Snap or the AUR is recommended on Linux. On rare PDFs, compression can close the app because of a PyMuPDF defect; a fix is planned for 1.15.3. When Ghostscript is installed and its result is the smaller one, compressing can still lose form fields, attachments and links; this will be addressed in a later release. The macOS app is not yet signed or notarized by Apple, so macOS blocks its first launch; see <a href="/docs#macos-open">how to open it</a>.</li>
+            </ul>
+        </div>
+
+        <div class="release">
+            <div class="release-header">
                 <span class="version-tag">v1.15.1</span>
                 <span class="release-date">October 11, 2026</span>
-                <span class="release-badge">Latest</span>
             </div>
             <h3>OCR in the language you choose, OCR and compression fixed in the Snap, and security updates</h3>
             <ul class="docs-list">
