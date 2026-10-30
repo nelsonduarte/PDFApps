@@ -32,7 +32,9 @@ The fix:
 Tesseract is never run: ``subprocess.run`` is replaced by a fake that
 answers ``--list-langs``, a fake ``pytesseract`` module records the
 ``lang`` passed to each OCR call, ``run_task`` runs the worker on the
-calling thread, and ``QMessageBox`` is replaced by a recorder. The scan
+calling thread, and ``QMessageBox`` is replaced by a recorder; any other
+modal (``_fail_closed_modals``) answers as a cancel at once and fails the
+test instead of hanging it. The scan
 job does run on its thread pool; ``_finish_scan`` waits for it and
 delivers its queued result, and a gate holds it mid-flight where a test
 needs the user to act before it finishes.
@@ -55,12 +57,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import (  # noqa: E402
     QCoreApplication, QRunnable, QThreadPool)
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import (  # noqa: E402
+    QApplication, QDialog, QFileDialog, QMessageBox)
 _unused_app = QApplication.instance() or QApplication([])
 
 import pymupdf  # noqa: E402
 import shiboken6  # noqa: E402
 
+from _fail_closed_modals import install_fail_closed_modals  # noqa: E402
 from app import i18n  # noqa: E402
 from app.i18n import t  # noqa: E402
 from app.tools import _ocr_langs  # noqa: E402
@@ -279,6 +283,15 @@ def _env_session(monkeypatch, tmp_path):
 
     monkeypatch.setattr(subprocess, "Popen", _GuardedPopen)
 
+    # The boxes above replace only the statics the tool calls through
+    # ocr_mod.QMessageBox. A modal built anywhere else (the overwrite
+    # question BasePage builds and exec()s, a Save dialog) would wait
+    # for a click that never comes and hang the offscreen run: several
+    # tests run twice onto the same output. Every such modal answers as
+    # a cancel instead, and teardown fails the test on it.
+    modals = []
+    install_fail_closed_modals(monkeypatch, modals)
+
     # Spaces and non-ASCII in both paths.
     src = tmp_path / "digitalização 1.pdf"
     doc = pymupdf.open()
@@ -296,7 +309,7 @@ def _env_session(monkeypatch, tmp_path):
     # would have collected next.
     gc.collect()
     ns = types.SimpleNamespace(tess=tess, boxes=boxes, src=src,
-                               tmp=tmp_path, pages=[])
+                               tmp=tmp_path, pages=[], modals=modals)
     yield ns
     # Never leave a scan job running into the next test.
     if tess.gate is not None:
@@ -307,6 +320,7 @@ def _env_session(monkeypatch, tmp_path):
             shiboken6.delete(page)
     gc.collect()
     _assert_no_stray_calls(tess)
+    assert modals == [], f"modal(s) reached, answered as cancelled: {modals!r}"
 
 
 @pytest.fixture
@@ -1282,4 +1296,35 @@ def test_env_teardown_fails_on_a_stray_call(monkeypatch, tmp_path, kind):
     # The check is the teardown's last step: the scan pool is drained and
     # the pages deleted before it raises.
     with pytest.raises(AssertionError):
+        next(gen)
+
+
+# ---------------------------------------------------------------------------
+# The env fixture's fail-closed modals
+# ---------------------------------------------------------------------------
+def test_env_answers_a_modal_as_cancelled(env):
+    # The overwrite question BasePage builds is an instance exec(); a
+    # real one would wait for a click forever offscreen.
+    box = QMessageBox(QMessageBox.Icon.Warning, "title", "text")
+    try:
+        assert box.exec() == QDialog.DialogCode.Rejected
+        assert box.clickedButton() is None
+    finally:
+        box.deleteLater()
+    assert QFileDialog.getSaveFileName(None, "caption", "dir") == ("", "")
+    assert [name for name, _ in env.modals] == [
+        "QMessageBox.exec", "QFileDialog.getSaveFileName"]
+    # The teardown fails on any recorded modal; these were expected.
+    env.modals.clear()
+
+
+def test_env_teardown_fails_on_a_modal(monkeypatch, tmp_path):
+    gen = _env_session(monkeypatch, tmp_path)
+    next(gen)
+    dlg = QDialog()
+    try:
+        assert dlg.exec() == QDialog.DialogCode.Rejected
+    finally:
+        dlg.deleteLater()
+    with pytest.raises(AssertionError, match="modal"):
         next(gen)
