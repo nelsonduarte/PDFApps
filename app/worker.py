@@ -88,10 +88,12 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
              on_finished, on_error=None):
     """Run a TaskRunner in a QThread bound to a QProgressDialog.
 
-    - runner.progress  → progress_dlg.setValue + setLabelText
+    - runner.progress  → progress_dlg.setValue + setLabelText, until the
+                         user cancels or the task ends
     - progress_dlg.canceled → runner.cancel
-    - runner.finished  → on_finished(result), then quit thread
-    - runner.error     → on_error(msg) (default: nothing), then quit
+    - runner.finished  → close dialog, on_finished(result), then quit thread
+    - runner.error     → close dialog, on_error(msg) (default: nothing),
+                         then quit
     - thread.finished  → deleteLater for both thread and runner
 
     Returns the QThread so the caller can keep a reference (otherwise
@@ -108,7 +110,15 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
     # with active painter" warnings, and crashes. We guard against
     # re-entrancy and coalesce pending values: an inner call just stores
     # the latest pct/label; the outermost call drains them in a loop.
-    _state = {"in": False, "pct": None, "label": None}
+    #
+    # The same pump can deliver `finished` too, so _final may run nested
+    # inside a setValue made by _drain. "done" is what stops the outer
+    # _drain from resuming with a stale value: QProgressDialog.setValue()
+    # shows a hidden dialog again, and that left a modal stuck at 85 % over
+    # a task that had already ended, until the user pressed Cancel.
+    # Whether `finished` lands inside that pump depends on when the worker
+    # gets there, so the same file can show it on one run and not the next.
+    _state = {"in": False, "done": False, "pct": None, "label": None}
 
     def _drain():
         _state["in"] = True
@@ -117,6 +127,10 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
                 p = _state["pct"]; lbl = _state["label"]
                 _state["pct"] = None; _state["label"] = None
                 try:
+                    # Cancel hid the dialog, and setValue() would show it
+                    # again while the worker runs to its next checkpoint.
+                    if progress_dlg.wasCanceled():
+                        return
                     if p is not None:
                         # Sentinel: pct = -1 → indeterminate / busy bar
                         # (used by tools that wrap a single blocking
@@ -129,7 +143,7 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
                             if progress_dlg.maximum() == 0:
                                 progress_dlg.setRange(0, 100)
                             progress_dlg.setValue(int(p))
-                    if lbl:
+                    if lbl and not _state["done"]:
                         progress_dlg.setLabelText(lbl)
                 except RuntimeError:
                     # Dialog already destroyed (page closed mid-task,
@@ -141,13 +155,15 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
             _state["in"] = False
 
     def _final(handler, arg):
+        _state["done"] = True
+        _state["pct"] = None; _state["label"] = None
         try:
-            # If the dialog is in busy/indeterminate mode (max==0),
-            # setValue(max) is a no-op and the dialog won't auto-hide.
-            # Restore the 0–100 range first, then snap to max.
-            if progress_dlg.maximum() == 0:
-                progress_dlg.setRange(0, 100)
-            progress_dlg.setValue(progress_dlg.maximum())
+            # reset(), not setValue(maximum): that is a no-op in busy mode
+            # (max==0) and when the bar already holds the maximum, which is
+            # the case nested inside a setValue(maximum) from a tool that
+            # reports n of n; it also pumps events and can show a hidden
+            # dialog just to hide it.
+            progress_dlg.reset()
         except RuntimeError:
             pass  # dialog destroyed (e.g. user closed window)
         if handler is not None:
@@ -178,6 +194,8 @@ def run_task(parent, runner: TaskRunner, progress_dlg,
         # from run_task's parameters.
         @Slot(int, str)
         def relay_progress(self, pct, label):
+            if _state["done"]:
+                return
             _state["pct"] = pct
             _state["label"] = label
             if _state["in"]:
