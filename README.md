@@ -114,7 +114,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 | **macOS** 10.14+           | Download `PDFApps-macOS.dmg` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), mount, and drag PDFApps.app to Applications — Tesseract via `brew install tesseract tesseract-lang` |
 | **Ubuntu / Debian / Snap** | `sudo snap install pdfapps`                                                                                                                                                                                |
 | **Arch / Manjaro**         | `yay -S pdfapps` (source) or `yay -S pdfapps-bin` (binary)                                                                                                                                                 |
-| **Any Linux**              | Download `PDFApps-Linux.tar.gz` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), extract it with `tar -xzf` and run `./PDFApps`                                                   |
+| **Any Linux**              | Download `PDFApps-Linux-x86_64.tar.gz` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), extract it with `tar -xzf` and run `./PDFApps`                                                   |
 
 ### Run from source
 
