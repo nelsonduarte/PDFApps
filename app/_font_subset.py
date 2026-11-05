@@ -239,7 +239,7 @@ def _create_job_for(proc: subprocess.Popen):
         return None
     try:
         import ctypes
-        from ctypes import wintypes
+        import ctypes.wintypes as wintypes
 
         class _Basic(ctypes.Structure):
             _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64),
@@ -300,7 +300,7 @@ def _close_job(job) -> None:
         return
     try:
         import ctypes
-        from ctypes import wintypes
+        import ctypes.wintypes as wintypes
         kernel32 = ctypes.WinDLL("kernel32")
         kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
         kernel32.CloseHandle(job)
@@ -315,7 +315,7 @@ def _feed_stdin(stream, payload: bytes) -> None:
         try:
             step()
         except (OSError, ValueError):
-            pass
+            pass  # run_subset learns the outcome from the child, not here
 
 
 def _kill_and_wait(proc: subprocess.Popen) -> None:

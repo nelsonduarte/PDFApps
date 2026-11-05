@@ -653,7 +653,7 @@ def _compress_pdf_in(work_dir: str, src: str, dst: str, level: str,
         # still has it open).
         for _p in temps:
             try: os.unlink(_p)
-            except Exception: pass
+            except Exception: pass  # _compress_pdf removes it with work_dir
         raise CancelledError()
 
     def _prog(stage, cur=0, tot=0):

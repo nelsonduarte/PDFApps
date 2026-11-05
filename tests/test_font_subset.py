@@ -1069,7 +1069,7 @@ def _dacl(path) -> str | None:
     """The DACL of *path* in SDDL ("D:<flags>(ace)(ace)..."), None if it
     no longer exists."""
     import ctypes
-    from ctypes import wintypes
+    import ctypes.wintypes as wintypes
     advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
     kernel32 = ctypes.WinDLL("kernel32")
     get = advapi32.GetNamedSecurityInfoW
@@ -1960,7 +1960,7 @@ def page(monkeypatch, tmp_path):
     from app.i18n import t
     from app.tools import compress as tool
 
-    _app = QApplication.instance() or QApplication([])
+    _unused_app = QApplication.instance() or QApplication([])
     src = _make_pdf(tmp_path / "in.pdf", pages=1)
 
     class Harness:
@@ -2365,7 +2365,7 @@ def test_the_window_gives_the_panel_the_width_the_toast_is_laid_out_for(
     class NoServer(QObject):
         new_paths = Signal(list)
 
-    _app = QApplication.instance() or QApplication([])
+    _unused_app = QApplication.instance() or QApplication([])
     monkeypatch.setattr("app.i18n._CONFIG_PATH", str(tmp_path / "config.json"))
     monkeypatch.setattr(UpdateController, "check_async", lambda self: None)
     # A real one would listen on the user's own pipe while the suite runs.
