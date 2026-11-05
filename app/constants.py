@@ -28,3 +28,7 @@ _LA = "#0F766E"; _LAH = "#0D9488"; _LAP = "#0F5F58"
 _LB = "#F4F7F6"; _LS = "#E9EFEC"; _LC = "#FFFFFF"
 _LI = "#F2F7F5"; _LN = "#ECF3F1"; _LO = "#C7D8D3"
 _LP = "#1A2B28"; _LQ = "#3D5450"
+
+# Narrowest the tool panel gets: the window enforces it (app/window.py) and
+# the toast decides from it whether two buttons share a row (app/base.py).
+TOOL_PANEL_MIN_WIDTH = 320

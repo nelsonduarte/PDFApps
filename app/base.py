@@ -1,6 +1,7 @@
 """PDFApps – BasePage: standard page layout (header + scroll + action bar)."""
 
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -13,7 +14,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFileDialog,
                                QPushButton, QLabel, QMessageBox)
 
 from app import pdf_io
-from app.constants import DESKTOP, ACCENT
+from app.constants import DESKTOP, ACCENT, TOOL_PANEL_MIN_WIDTH
 from app.i18n import t
 from app.utils import (ToolHeader, ActionBar, scrolled, _paint_bg,
                        WrongPasswordError)
@@ -23,6 +24,30 @@ from app.utils import (ToolHeader, ActionBar, scrolled, _paint_bg,
 # tooling that resolves forward refs (e.g. typing.get_type_hints)
 # finds the symbol.
 __all__ = ["BasePage", "Iterable"]
+
+
+def _breakable(text: str) -> str:
+    """Add zero-width spaces where a word-wrapped QLabel may break *text*.
+
+    Qt wraps at spaces, so a long path stays in one piece: it is clipped, and
+    its width pushes every other widget in the layout out of the panel.
+    """
+    with_separators = re.sub(r"([\\/])", "\\1\u200b", text)
+    return re.sub(r"[^\s\u200b]{25}", "\\g<0>\u200b", with_separators)
+
+
+# The toast's own side margins and spacing between buttons.
+_TOAST_MARGIN = 8
+_TOAST_BUTTON_SPACING = 8
+
+
+def _toast_row(*buttons) -> QHBoxLayout:
+    row = QHBoxLayout()
+    row.setSpacing(_TOAST_BUTTON_SPACING)
+    for button in buttons:
+        row.addWidget(button)
+    row.addStretch(1)
+    return row
 
 
 def _reveal_file(path: str) -> None:
@@ -255,29 +280,44 @@ class BasePage(QWidget):
             "font-size: 10pt; text-decoration: underline; padding: 0 4px; }"
             "#toast QPushButton:hover { color: white; }"
             "#toast QPushButton#toast_save { color: white; font-weight: 600; }")
-        h = QHBoxLayout(toast); h.setContentsMargins(8, 4, 8, 4); h.setSpacing(8)
-        h.addWidget(QLabel(f"✔ {message}"), 1)
+        # A column: the panel is 320 to 600 px wide, and the three buttons
+        # alone need up to 484 px on one line (fr, with a wide font; 316 with
+        # Segoe UI). That is also why the save button has a row of its own.
+        col = QVBoxLayout(toast)
+        col.setContentsMargins(_TOAST_MARGIN, 4, _TOAST_MARGIN, 4); col.setSpacing(4)
+        label = QLabel(_breakable(f"✔ {message}"))
+        label.setWordWrap(True)
+        col.addWidget(label)
+        file_row = None
         if with_save:
             btn_save = QPushButton(t("widget.save_as"))
             btn_save.setObjectName("toast_save")
             btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_save.clicked.connect(self.pipeline_save_requested)
-            h.addWidget(btn_save)
+            col.addLayout(_toast_row(btn_save))
         if file_path and os.path.exists(file_path):
             btn_file = QPushButton(t("toast.open_file"))
             btn_file.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_file.clicked.connect(lambda: _reveal_file(file_path))
-            h.addWidget(btn_file)
             btn_folder = QPushButton(t("toast.open_folder"))
             btn_folder.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_folder.clicked.connect(lambda: _open_folder(file_path))
-            h.addWidget(btn_folder)
+            file_row = _toast_row(btn_file, btn_folder)
+            col.addLayout(file_row)
 
         # Insert above action bar
         layout = self.layout()
         idx = layout.indexOf(self._action_bar)
         layout.insertWidget(idx, toast)
         self._toast_widget = toast
+        # Only now: the sizes depend on the stylesheet, which reaches the
+        # buttons once they are inside the toast. On one line that does not
+        # fit, the panel's minimum width would grow to make room.
+        if file_row is not None and (
+                btn_file.sizeHint().width() + btn_folder.sizeHint().width()
+                + _TOAST_BUTTON_SPACING + 2 * _TOAST_MARGIN > TOOL_PANEL_MIN_WIDTH):
+            file_row.removeWidget(btn_folder)
+            col.addLayout(_toast_row(btn_folder))
         # In pipeline mode (with_save=True) the toast is the ONLY UI
         # that surfaces the unsaved-state save action. Don't auto-hide
         # it — the user needs time to notice and click. In plain

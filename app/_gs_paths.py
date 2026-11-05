@@ -179,3 +179,22 @@ def _gs_subprocess_env(gs_exe: str | None,
     user = env.get("GS_LIB")
     env["GS_LIB"] = f"{user}{os.pathsep}{ours}" if user else ours
     return env
+
+
+def _gs_scratch_env(environ: dict[str, str] | None,
+                    scratch_dir: str) -> dict[str, str]:
+    """Copy of *environ* (default ``os.environ``) that puts Ghostscript's
+    own scratch files in *scratch_dir*.
+
+    pdfwrite writes the streams of the document it is building to scratch
+    files, decrypted when the source is encrypted: measured on a 40-page
+    PDF, four of them, the largest 57 MB. Linux gs (10.06.0) follows
+    ``TMPDIR``, not ``TEMP`` and ``TMP`` pointing elsewhere; Windows gs
+    (10.05.0) follows ``TMPDIR`` set alone, and ``TEMP`` with ``TMP`` set
+    alone. All three are set. Neither *environ* nor ``os.environ`` is
+    modified.
+    """
+    env = dict(os.environ if environ is None else environ)
+    for name in ("TMPDIR", "TEMP", "TMP"):
+        env[name] = scratch_dir
+    return env

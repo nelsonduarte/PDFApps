@@ -3,17 +3,19 @@
 PyMuPDF 1.28.0 can segfault in ``Document.subset_fonts()``
 (pymupdf/PyMuPDF#5049): MuPDF's ``do_adjust_simple_font`` replaced a
 simple font's ``/Widths`` array and then kept reading the one it had
-just freed. Fixed in 1.28.2; there is no 1.28.1 on PyPI. PDFApps calls
-``subset_fonts()`` in compress pass B (``app/utils.py``) and after a text
-edit that re-embeds the original font (``app/editor/apply_edits.py``).
-The ``try/except`` around both calls cannot catch a segfault, so the
-whole app dies, background thread or not.
+just freed. Fixed in 1.28.2; there is no 1.28.1 on PyPI. That fix does not
+end the crashes in this call: on Windows 1.28.2 still crashes on other PDFs
+(0xC0000005). PDFApps calls ``subset_fonts()`` for compress in a child
+process (``app/_font_subset.py``), which survives that, and in its own
+process after a text edit that re-embeds the original font
+(``app/editor/apply_edits.py``). The ``try/except`` around that second call
+cannot catch a segfault, so the whole app dies, background thread or not.
 
 Measured on 2026-10-16 (Ubuntu 26.04, Python 3.14.4, PySide6 6.11.2,
 the PDF attached to #5049), 200 runs per version, each in a fresh
 process: ``_compress_pdf`` crashed 6 times on 1.28.0 and never on
 1.28.2; ``apply_pending_edits`` crashed 8 times on 1.28.0 and never on
-1.28.2. On Windows, 300 compress runs on 1.28.0 did not crash.
+1.28.2. On Windows, 300 compress runs on 1.28.0 did not crash on that PDF.
 
 The frozen builds resolve ``>=`` at build time and the v1.15.1 ones
 already took 1.28.2, so the floor is what protects everything that

@@ -255,6 +255,8 @@ These are cleared by `_restart_app` before relaunching to prevent stale state co
 
 See `app/window.py:_restart_app` and memory entry `feedback_pyinstaller_relaunch.md` for the relaunch contract.
 
+**The inverse rule holds for the font subsetting child.** `app/_font_subset.py` starts the same executable as a child of the running application, and that child must inherit these variables untouched, along with `LD_LIBRARY_PATH`. Clearing them is right for a relaunch, which is a new application. Here it would make the bootloader unpack the whole bundle again for every compress. Do not "fix" it with a sweep or with `system_tool_env` (that one is for system binaries such as `gs`).
+
 ### Tesseract OCR
 
 | Var | Behaviour |
@@ -603,7 +605,9 @@ _compress_pdf(
     src: str,                # source PDF path
     dst: str,                # destination PDF path
     level: str = "recommended",  # "extreme" | "recommended" | "low"
-    progress_fn = None       # callback(stage: str, current: int, total: int) → False to cancel
+    progress_fn = None,      # callback(stage: str, current: int, total: int) → False to cancel
+                             # stage "passB_fonts_skipped" is a notice, not a step of the bar
+    password: str | None = None  # password of an encrypted source
 ) -> tuple[int, int]         # (before_size, after_size) in bytes
 ```
 
@@ -612,7 +616,7 @@ _compress_pdf(
 | Pass | Engine | What it Does |
 |------|--------|-------------|
 | **A** | Ghostscript (if installed) | Full page re-render with image downsampling |
-| **B** | PyMuPDF | Metadata scrub, font subsetting, image rewrite |
+| **B** | PyMuPDF | Metadata scrub, font subsetting (in a child process, skipped if the child fails), image rewrite |
 | **C** | pikepdf (if installed) | Structural optimization, object stream compression |
 
 **Compression levels:**
@@ -1429,7 +1433,8 @@ _compress_pdf(src, dst, level, progress_fn)
   │
   ├── Pass B: PyMuPDF
   │     ├── Scrub metadata
-  │     ├── Subset fonts
+  │     ├── Subset fonts in a child process (app/_font_subset.py);
+  │     │   if it crashes, hangs or writes junk: carry on without it
   │     ├── Rewrite images with reduced quality
   │     └── Save with deflate compression
   │
