@@ -131,8 +131,8 @@ def _read(package: str, name: str) -> str:
         f"https://raw.githubusercontent.com/{REPO_SLUG}/v1.0.0/x.svg",
         f"https://github.com/{REPO_SLUG}/archive/refs/heads/main.tar.gz",
         f"https://github.com/{REPO_SLUG}/archive/main.tar.gz",
-        f"https://github.com/{REPO_SLUG}/releases/latest/download/PDFApps-Linux.tar.gz",
-        f"https://github.com/{REPO_SLUG}/releases/download/v1.0.0/PDFApps-Linux.tar.gz",
+        f"https://github.com/{REPO_SLUG}/releases/latest/download/PDFApps-Linux-x86_64.tar.gz",
+        f"https://github.com/{REPO_SLUG}/releases/download/v1.0.0/PDFApps-Linux-x86_64.tar.gz",
     ],
 )
 def test_pin_check_rejects_branches_and_other_versions(url: str) -> None:
@@ -144,7 +144,7 @@ def test_pin_check_rejects_branches_and_other_versions(url: str) -> None:
     [
         f"https://raw.githubusercontent.com/{REPO_SLUG}/v1.15.1/data/a.metainfo.xml",
         f"https://raw.githubusercontent.com/{REPO_SLUG}/{'a' * 40}/LICENSE",
-        f"https://github.com/{REPO_SLUG}/releases/download/v1.15.1/PDFApps-Linux.tar.gz",
+        f"https://github.com/{REPO_SLUG}/releases/download/v1.15.1/PDFApps-Linux-x86_64.tar.gz",
         f"https://github.com/{REPO_SLUG}/archive/refs/tags/v1.15.1.tar.gz",
     ],
 )
@@ -415,6 +415,37 @@ def test_publish_hashes_the_files_pdfapps_bin_fetches() -> None:
     assert hashed == _repo_paths_fetched_by_bin()
 
 
+def _bin_asset_url(sources: list[str]) -> str:
+    (url,) = [
+        _split_source(s)[1] for s in sources
+        if "/releases/download/" in _split_source(s)[1]
+    ]
+    return url
+
+
+def test_bin_package_and_publish_fetch_the_asset_the_release_publishes() -> None:
+    """publish.yml hashes this URL at the tag, so a name differing from
+    build.yml fails the AUR job, and differing from the PKGBUILD pushes a
+    checksum that fails makepkg."""
+    build = (REPO_ROOT / ".github" / "workflows" / "build.yml").read_text(
+        encoding="utf-8"
+    )
+    published = re.findall(r"artifacts/PDFApps-Linux/(\S+)$", build, flags=re.MULTILINE)
+    assert published
+    (asset,) = set(published)
+
+    _, sources = _parse_pkgbuild(_read("pdfapps-bin", "PKGBUILD"))
+    assert _bin_asset_url(sources).rsplit("/", 1)[1] == asset
+    info = _parse_srcinfo(_read("pdfapps-bin", ".SRCINFO"))
+    assert _bin_asset_url(info["source"]).rsplit("/", 1)[1] == asset
+
+    publish = (REPO_ROOT / ".github" / "workflows" / "publish.yml").read_text(
+        encoding="utf-8"
+    )
+    hashed = re.findall(r"/releases/download/v\$\{VER\}/([^\"]+)\"", publish)
+    assert hashed == [asset]
+
+
 # ── the release bump must keep the .SRCINFO consistent ──
 
 
@@ -457,3 +488,7 @@ def test_release_bump_moves_every_bin_source_to_the_new_version(tmp_path: Path) 
     assert info["pkgver"] == [new]
     assert info["source"] == sources
     assert not [s for s in info["source"] if old in s]
+    # The bump keeps the asset's name and changes only the version in the
+    # URL: the name build.yml publishes, not the one removed in the rename.
+    assert _bin_asset_url(sources).endswith(f"/v{new}/PDFApps-Linux-x86_64.tar.gz")
+    assert _bin_asset_url(info["source"]) == _bin_asset_url(sources)

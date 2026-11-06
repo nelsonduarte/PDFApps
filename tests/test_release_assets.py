@@ -11,7 +11,10 @@ release body: the updater refuses an asset whose hash is not published.
 """
 from __future__ import annotations
 
+import hashlib
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -51,7 +54,7 @@ def _updater_names() -> set[str]:
     names = set()
     for platform in ("win32", "darwin", "linux"):
         assets = [{"name": n} for n in (
-            "PDFAppsSetup.exe", "PDFApps-macOS.dmg", "PDFApps-Linux.tar.gz",
+            "PDFAppsSetup.exe", "PDFApps-macOS.dmg", "PDFApps-Linux-x86_64.tar.gz",
         )]
         with patch.object(sys, "platform", platform):
             found = updater._find_asset({"assets": assets})
@@ -62,12 +65,64 @@ def _updater_names() -> set[str]:
 
 def test_release_publishes_exactly_what_the_updater_downloads():
     assert _published() == _updater_names() == {
-        "PDFAppsSetup.exe", "PDFApps-macOS.dmg", "PDFApps-Linux.tar.gz",
+        "PDFAppsSetup.exe", "PDFApps-macOS.dmg", "PDFApps-Linux-x86_64.tar.gz",
     }
 
 
 def test_every_published_asset_gets_a_checksum_line():
     assert _checksummed() == _published()
+
+
+def test_the_old_linux_name_is_never_published_again():
+    """Versions up to 1.15.2 copy an asset of that name over their own
+    executable; only its absence stops them. See app/updater.py."""
+    assert "PDFApps-Linux.tar.gz" not in _published() | _checksummed()
+    for step in _workflow()["jobs"]["build"]["steps"]:
+        if step.get("name") == "Build (Linux)":
+            assert " dist/PDFApps-Linux-x86_64.tar.gz " in step["run"]
+            break
+    else:
+        raise AssertionError("no Linux build step")
+
+
+def test_the_linux_asset_is_built_uploaded_and_published_under_one_name():
+    steps = _workflow()["jobs"]["build"]["steps"]
+    (upload,) = [s for s in steps if s.get("name") == "Upload (Linux)"]
+    assert Path(upload["with"]["path"]).name == updater.LINUX_ASSET_NAME
+    assert updater.LINUX_ASSET_NAME in _published()
+
+
+def test_the_updater_reads_the_checksum_lines_the_workflow_writes(tmp_path):
+    """Runs the release step's own loop, then parses its output as the
+    release body. The line must carry the name the updater asks for."""
+    bash = shutil.which("bash")
+    if bash is None:
+        pytest.skip("needs bash")
+    run = _release_step("Append SHA256 checksums to release notes")["run"]
+    for name in _published():
+        folder = {".exe": "PDFApps-Windows", ".gz": "PDFApps-Linux",
+                  ".dmg": "PDFApps-macOS"}[Path(name).suffix]
+        target = tmp_path / "artifacts" / folder / name
+        target.parent.mkdir(parents=True)
+        target.write_bytes(name.encode())
+    script = tmp_path / "step.sh"
+    script.write_text(run, encoding="utf-8", newline="\n")
+    subprocess.run([bash, script.name], cwd=tmp_path, check=True, capture_output=True)
+    body = (tmp_path / "release_notes.md").read_text(encoding="utf-8")
+    for name in _published():
+        expected = hashlib.sha256(name.encode()).hexdigest()
+        assert updater._get_expected_hash({"body": body}, name) == expected, name
+
+
+def test_site_download_links_name_assets_the_release_publishes():
+    """A /releases/latest/download/ link to any other name is a 404."""
+    links = []
+    for page in (ROOT / "docs").glob("*.html"):
+        links += re.findall(r"/releases/latest/download/([^\"'\s]+)",
+                            page.read_text(encoding="utf-8"))
+    assert links
+    assert set(links) <= _published()
+    assert updater.LINUX_ASSET_NAME in links
 
 
 @pytest.mark.parametrize("suffix", [".msix", ".AppImage"])

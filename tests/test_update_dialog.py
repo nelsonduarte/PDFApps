@@ -41,7 +41,7 @@ MOCK_RELEASE = {
             "browser_download_url": "https://example.com/fake.exe",
         },
         {
-            "name": "PDFApps-Linux.tar.gz",
+            "name": "PDFApps-Linux-x86_64.tar.gz",
             "browser_download_url": "https://example.com/fake.tar.gz",
         },
         {

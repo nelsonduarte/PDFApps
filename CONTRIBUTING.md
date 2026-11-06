@@ -132,6 +132,7 @@ PDFApps/
 │   ├── i18n.py             # Translation system + config management (~150 lines)
 │   ├── translations.json   # 300+ keys × 8 languages
 │   ├── updater.py          # Auto-update via GitHub Releases API
+│   ├── update_apply.py     # Linux self-update: swap the binary and execve (no Qt)
 │   │
 │   ├── viewer/             # ── PDF viewer subsystem ──
 │   │   ├── __init__.py
@@ -246,7 +247,7 @@ PDFApps respects the following environment variables for platform integration an
 
 ### PyInstaller internals (auto-managed)
 
-These are cleared by `_restart_app` before relaunching to prevent stale state contamination. Do not set manually.
+These are cleared by `_restart_app` before relaunching, and by `app/update_apply.py` before `os.execve()` in the Linux self-update, to prevent stale state contamination. Do not set manually.
 
 - `_PYI_APPLICATION_HOME_DIR`
 - `_PYI_PARENT_PROCESS_LEVEL`
@@ -1217,10 +1218,22 @@ Checks for updates via the GitHub Releases API and downloads/installs them.
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `check_for_update` | `() -> dict \| None` | Fetches latest release from GitHub API. Returns release dict if remote version > local, else `None`. |
-| `_find_asset` | `(release: dict) -> dict \| None` | Finds platform-specific binary: `PDFAppsSetup.exe` (Win), `PDFApps-macOS.dmg`, `PDFApps-Linux.tar.gz` |
+| `_find_asset` | `(release: dict) -> dict \| None` | Finds platform-specific binary: `PDFAppsSetup.exe` (Win), `PDFApps-macOS.dmg`, `PDFApps-Linux-x86_64.tar.gz` |
 | `_download` | `(url, dest, signals)` | Downloads file with progress reporting. Emits `signals.progress(0-100)`, `signals.finished(path)`, or `signals.error(msg)`. |
 | `_apply_update_windows` | `(downloaded_installer: str)` | Runs installer with `ShellExecuteW(None, "runas", ...)`. Raises `OSError` if return ≤ 32. |
-| `_apply_update_unix` | `(downloaded: str)` | Replaces running binary and restarts via `os.execv()`. Creates backup, restores on failure. |
+| `_apply_update_macos_dmg` | `(dmg_path: str)` | Opens the `.dmg` for the user to drag the new `.app` to Applications, then quits. |
+| `_replaces_running_binary` | `(asset_name: str) -> bool` | Whether this update swaps the executable and `os.execve()`s into it (Linux). Decided by the asset's name, never by the download's temp path. |
+
+### `app/update_apply.py`
+
+The Linux self-update, with no Qt import. Every message it raises is translated, for the dialog to show.
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `install_new_binary` | `(downloaded: str, asset_name: str, expected_version: str) -> InstalledUpdate` | Blocks for seconds; runs off the GUI thread. Refuses anything but a `.tar.gz` holding one ELF named `PDFApps`, refuses outside a frozen build, runs the staged copy with `--version` and refuses it unless it reports the release tag, copies the installed binary to a backup in the temp dir, refuses while another PDFApps runs from the same binary, then swaps with one `os.replace`. Raises `UpdateError` with the installed binary untouched. |
+| `restart_into` | `(update: InstalledUpdate, before_exec=None) -> None` | On the GUI thread: runs `before_exec`, then `os.execve()` with the PyInstaller variables swept and `PDFAPPS_UPDATE_BACKUP` naming the backup. If either fails, puts the backup back and raises `UpdateError` (or the `UpdateBlocked` the callback raised); `RestoreFailed` names the backup when even that failed, and marks it so no later update deletes it. |
+| `discard_backup_after_update` | `(environ=None) -> None` | Called by `pdfapps.py` once the new window is shown: deletes the one backup named in `PDFAPPS_UPDATE_BACKUP` (only a backup of this binary, in the temp dir, owned by this user, without a failed-restore mark) and removes the variable. An update also sweeps backups earlier ones left behind. |
+| `refuse_if_running_elsewhere` | `() -> None` | Raises `UpdateError` while another process of this user runs the same binary (read from `/proc/*/exe`, its own ancestors and descendants excluded, so a task's child running the same binary is not taken for another window). Replacing the file under it breaks that instance's next import. |
 
 #### Classes
 
@@ -1236,11 +1249,15 @@ Checks for updates via the GitHub Releases API and downloads/installs them.
 
 | Method | Description |
 |--------|-------------|
-| `__init__(release, parent)` | Shows version info, install button, progress bar |
-| `_start_download()` | Creates QThread worker, starts download |
+| `__init__(release, parent, *, confirm_discard=None, before_exec=None)` | Shows version info, install button, progress bar. The two callbacks matter only on Linux, where `execve` skips `MainWindow.closeEvent`; `UpdateController` passes `MainWindow._confirm_update_restart` and `MainWindow._prepare_update_restart`. |
+| `_start_download()` | On Linux, first refuses while another instance runs the binary and asks `confirm_discard` (False: stop; `UpdateError`: shown as the reason). Then creates the QThread worker and starts the download |
 | `_on_progress(pct)` | Updates progress bar |
-| `_on_finished(path)` | Applies update (platform-specific), shows restart message, quits app |
+| `_on_finished(path)` | Windows: runs the installer and quits. macOS: opens the `.dmg`. Linux: `_start_install(path)` |
+| `_start_install(path)` | Runs `install_new_binary` in an `_InstallWorker` on its own QThread; the dialog cannot be closed meanwhile |
+| `_on_installed(update)` | `restart_into(update, before_exec=...)`; on failure shows the message and keeps the button off after a failed restore |
 | `_on_error(msg)` | Shows error in status label |
+
+**`_InstallWorker(QObject)`**: runs `install_new_binary` off the GUI thread and emits `installed(InstalledUpdate)` or `failed(exception)`.
 
 #### Critical Design Constraint
 
@@ -1343,7 +1360,7 @@ Triggered on `v*` tag push. Builds on three platforms (matrix strategy):
 | Platform | Builds | Release Asset |
 |----------|--------|--------------|
 | `windows-latest` | `PDFApps.exe` + `PDFAppsSetup.exe` + `PDFAppsUninstall.exe` + `PDFApps-<version>.msix` | `PDFAppsSetup.exe` |
-| `ubuntu-22.04` | `PDFApps` → `PDFApps-Linux.tar.gz` | `PDFApps-Linux.tar.gz` |
+| `ubuntu-22.04` | `PDFApps` → `PDFApps-Linux-x86_64.tar.gz` | `PDFApps-Linux-x86_64.tar.gz` |
 | `macos-latest` | `PDFApps.app` → `PDFApps-macOS.dmg` | `PDFApps-macOS.dmg` |
 
 Only these three are release assets, the names `app/updater.py` downloads. The `.msix` is for the Microsoft Store only: it is not published on the release, and the workflow keeps it as the `PDFApps-MSIX-Store` artifact of the run, to download and upload in Partner Center.

@@ -8,17 +8,27 @@ import sys
 import tempfile
 import urllib.request
 
-from PySide6.QtCore import Qt, Signal, QObject
+from PySide6.QtCore import Qt, Signal, Slot, QObject, QThread
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QProgressBar,
     QMessageBox, QTextEdit,
 )
 
 from app.constants import APP_VERSION, GITHUB_REPO, ACCENT, TEXT_SEC, _LQ
+from app.update_apply import (
+    RestoreFailed, UpdateError, install_new_binary,
+    refuse_if_running_elsewhere, restart_into,
+)
 from app.utils import error_color
 
 
 _API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+
+# Was PDFApps-Linux.tar.gz up to 1.15.2, and must never be published under
+# that name again. Those versions look for it by exact name and then copy
+# the tarball over their own executable. Not finding it, they show "No
+# download available" and do not destroy themselves.
+LINUX_ASSET_NAME = "PDFApps-Linux-x86_64.tar.gz"
 
 # Section headings used in auto-generated release notes, produced by
 # scripts/release_notes.py. The match below is a plain string replace,
@@ -217,7 +227,7 @@ def _find_asset(release: dict) -> dict | None:
     elif sys.platform == "darwin":
         name = "PDFApps-macOS.dmg"
     else:
-        name = "PDFApps-Linux.tar.gz"
+        name = LINUX_ASSET_NAME
     for asset in release.get("assets", []):
         if asset["name"] == name:
             return asset
@@ -357,87 +367,70 @@ def _apply_update_macos_dmg(dmg_path: str):
     _qw.QApplication.instance().quit()
 
 
-def _apply_update_unix(downloaded: str):
-    """Replace the running binary and restart, or open DMG on macOS."""
-    if downloaded.endswith(".dmg"):
-        _apply_update_macos_dmg(downloaded)
-        return
-    import shutil
-    import stat
-    current = sys.executable
-    # Place the backup in the system temp dir rather than next to the
-    # binary. On OneDrive-installed copies the previous "<exe>.bak"
-    # neighbour file became visible to the user's sync history and was
-    # uploaded over wifi every update. tempfile.gettempdir() lives
-    # outside OneDrive and is auto-cleaned by the OS.
-    #
-    # Use shutil.move (not os.rename) because temp dir is frequently
-    # on a different volume from /usr/bin on Linux installs — rename
-    # then ENOXDEV; move falls back to copy+delete transparently.
-    backup_fd, backup = tempfile.mkstemp(
-        suffix=".pdfapps-backup", prefix=os.path.basename(current) + ".")
-    os.close(backup_fd)
-    # mkstemp pre-creates an empty file; remove so shutil.move can
-    # rename current onto the same name without "destination exists".
-    with contextlib.suppress(OSError):
-        os.unlink(backup)
-    try:
+def _replaces_running_binary(asset_name: str) -> bool:
+    """Whether this update swaps the executable and ``execve``s into it.
+
+    Decided by the asset's name, never by the download's temp path. Only
+    this path leaves the process without ``MainWindow.closeEvent``.
+    """
+    return sys.platform != "win32" and not asset_name.endswith(".dmg")
+
+
+class _InstallWorker(QObject):
+    """Runs ``install_new_binary`` off the GUI thread.
+
+    Extraction plus the ``--version`` probe took 3 to 5 s with a real build
+    (measured in WSL); the dialog keeps animating meanwhile.
+    """
+
+    installed = Signal(object)  # InstalledUpdate
+    failed = Signal(object)     # the exception
+
+    def __init__(self, downloaded: str, asset_name: str, version: str):
+        super().__init__()
+        self._downloaded = downloaded
+        self._asset_name = asset_name
+        self._version = version
+
+    @Slot()
+    def run(self):
         try:
-            shutil.move(current, backup)
-            dest_dir = os.path.dirname(current)
-            abs_dest = os.path.abspath(dest_dir)
-            if downloaded.endswith(".tar.gz"):
-                import tarfile
-                with tarfile.open(downloaded, "r:gz") as tar:
-                    # Validate ALL members before extracting any
-                    for m in tar.getmembers():
-                        if m.issym() or m.islnk():
-                            raise ValueError(f"Symlink/hardlink rejected: {m.name}")
-                        extracted = os.path.abspath(os.path.join(dest_dir, m.name))
-                        if not extracted.startswith(abs_dest + os.sep) and extracted != abs_dest:
-                            raise ValueError(f"Path traversal detected: {m.name}")
-                        if m.name != "PDFApps":
-                            raise ValueError(f"Unexpected member: {m.name}")
-                    # Safe to extract after full validation
-                    for m in tar.getmembers():
-                        tar.extract(m, dest_dir)
-            elif downloaded.endswith(".zip"):
-                import zipfile
-                with zipfile.ZipFile(downloaded, "r") as zf:
-                    # Validate ALL members before extracting any
-                    for info in zf.infolist():
-                        extracted = os.path.abspath(os.path.join(dest_dir, info.filename))
-                        if not extracted.startswith(abs_dest + os.sep) and extracted != abs_dest:
-                            raise ValueError(f"Path traversal detected: {info.filename}")
-                        if info.filename != "PDFApps":
-                            raise ValueError(f"Unexpected member: {info.filename}")
-                    zf.extract("PDFApps", dest_dir)
-            else:
-                shutil.copy2(downloaded, current)
-            os.chmod(current, os.stat(current).st_mode | stat.S_IEXEC)
-            os.remove(backup)
-        except Exception:
-            if os.path.isfile(backup):
-                shutil.move(backup, current)
-            raise
-    finally:
-        # Drop the ~100 MB installer tempfile on every exit — success
-        # AND failure (R5/F3). Previously os.remove(downloaded) only ran
-        # on the success path, so a failed apply left the artefact in
-        # /tmp until the OS reboot cleaned it up.
-        with contextlib.suppress(Exception):
-            if os.path.isfile(downloaded):
-                os.unlink(downloaded)
-    os.execv(current, sys.argv)
+            update = install_new_binary(
+                self._downloaded, self._asset_name, self._version)
+        except Exception as exc:
+            self.failed.emit(exc)
+        else:
+            self.installed.emit(update)
 
 
 class UpdateDialog(QDialog):
     """Dialog that shows update progress and applies the update."""
 
-    def __init__(self, release: dict, parent=None):
+    def __init__(self, release: dict, parent=None, *,
+                 confirm_discard=None, before_exec=None):
+        """*confirm_discard* and *before_exec* matter only where the update
+        ``execve``s (Linux), which skips ``MainWindow.closeEvent``: the
+        first asks about unsaved work before the download (False: the user
+        cancelled; an ``UpdateError`` is shown as the reason not to go
+        on), the second does the window's teardown right before
+        ``execve`` and may raise ``UpdateBlocked``, which ``restart_into``
+        turns into the old binary back in place and this message."""
         super().__init__(parent)
         self._release = release
         self._asset = _find_asset(release)
+        self._confirm_discard = confirm_discard
+        self._before_exec = before_exec
+        self._install_thread: QThread | None = None
+        self._install_worker: _InstallWorker | None = None
+        # True from the end of the download until the restart attempt is
+        # over; the dialog refuses to close meanwhile (see reject).
+        self._installing = False
+        # Closed by the user: a download that finishes later is dropped.
+        self._dismissed = False
+        # After a failed restore the copy named in the message is the only
+        # good binary left. Another attempt would back up the version that
+        # did not start, so the button stays off.
+        self._restore_failed = False
         tag = release.get("tag_name", "?")
 
         from app.i18n import t as _t
@@ -476,6 +469,14 @@ class UpdateDialog(QDialog):
 
         self._status = QLabel("")
         self._status.setStyleSheet(f"color: {_sec}; font-size: 12px;")
+        # The failure messages are long and one of them carries the path
+        # the user has to recover from: wrapped to fit, and copyable.
+        # Plain text: those paths and OS errors are not ours, and a folder
+        # named like a tag would otherwise show as rich text.
+        self._status.setTextFormat(Qt.TextFormat.PlainText)
+        self._status.setWordWrap(True)
+        self._status.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse)
         lay.addWidget(self._status)
 
         btn_row = QHBoxLayout()
@@ -517,9 +518,26 @@ class UpdateDialog(QDialog):
         # worker translates into a silent _DownloadCancelled).
         self._cancel_holder: dict = {"resp": None, "cancelled": False}
 
+    def _asset_name(self) -> str:
+        # Without an asset the button is disabled and nothing downloads.
+        return self._asset["name"] if self._asset else ""
+
     def _start_download(self):
         from app.i18n import t
         from PySide6.QtCore import QThread
+
+        # execve never reaches MainWindow.closeEvent and its prompts. Asked
+        # here, before anything is downloaded, so Cancel costs nothing.
+        if _replaces_running_binary(self._asset_name()):
+            try:
+                # First: no answer to the prompts can change this one.
+                refuse_if_running_elsewhere()
+                if (self._confirm_discard is not None
+                        and not self._confirm_discard()):
+                    return
+            except UpdateError as exc:
+                self._show_failure(str(exc))
+                return
 
         self._update_btn.setEnabled(False)
         self._cancel_btn.setEnabled(False)
@@ -623,9 +641,18 @@ class UpdateDialog(QDialog):
         if not isValid(self):
             return
         from app.i18n import t
+        replaces_binary = _replaces_running_binary(self._asset_name())
+        if replaces_binary and self._dismissed:
+            # Queued before the user closed the dialog: they said no.
+            with contextlib.suppress(OSError):
+                os.unlink(path)
+            return
         self._stop_dots_animation()
         self._progress.setValue(100)
         self._start_dots_animation(t("update.applying"))
+        if replaces_binary:
+            self._start_install(path)
+            return
 
         try:
             if sys.platform == "win32":
@@ -637,17 +664,75 @@ class UpdateDialog(QDialog):
                 import PySide6.QtWidgets as _qw
                 _qw.QApplication.instance().quit()
             else:
-                _apply_update_unix(path)
+                _apply_update_macos_dmg(path)
         except Exception as exc:
             self._on_error(str(exc))
         else:
             # Symmetric with _on_error: re-enable controls on success so
             # the user can dismiss the dialog cleanly. Harmless on Windows
             # (app is quitting in the success branch); meaningful on
-            # macOS/Linux where _apply_update_unix returns to a still-open
-            # dialog and the Cancel button must remain interactive.
+            # macOS where the dmg path returns to a still-open dialog and
+            # the Cancel button must remain interactive.
             self._cancel_btn.setEnabled(True)
             self._update_btn.setEnabled(True)
+
+    def _start_install(self, path: str):
+        self._installing = True
+        self._progress.setRange(0, 0)  # busy: nothing to count here
+        thread = QThread()
+        worker = _InstallWorker(path, self._asset_name(),
+                                self._release.get("tag_name", ""))
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.installed.connect(self._on_installed)
+        worker.failed.connect(self._on_install_failed)
+        for done in (worker.installed, worker.failed):
+            done.connect(thread.quit)
+            done.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._on_install_thread_finished)
+        self._install_thread = thread
+        self._install_worker = worker
+        thread.start()
+
+    def _on_installed(self, update):
+        from shiboken6 import isValid
+        if not isValid(self):
+            return
+        try:
+            restart_into(update, before_exec=self._before_exec)
+        except RestoreFailed as exc:
+            self._restore_failed = True
+            self._show_failure(str(exc))
+        except UpdateError as exc:
+            self._show_failure(str(exc))
+        else:
+            # Only with execve replaced by a test double.
+            self._installing = False
+
+    def _on_install_failed(self, exc):
+        from shiboken6 import isValid
+        if not isValid(self):
+            return
+        from app.i18n import t
+        if isinstance(exc, UpdateError):
+            self._show_failure(str(exc))
+        else:
+            self._show_failure(t("update.error.apply_failed", error=exc))
+
+    def _on_install_thread_finished(self) -> None:
+        self._install_thread = None
+        self._install_worker = None
+
+    def _show_failure(self, msg: str):
+        """Show *msg* as it is: these are not "could not check" errors."""
+        self._installing = False
+        self._stop_dots_animation()
+        self._progress.setRange(0, 100)
+        self._cancel_btn.setEnabled(True)
+        self._update_btn.setEnabled(not self._restore_failed)
+        self._status.setText(msg)
+        self._status.setStyleSheet(f"color: {error_color()}; font-size: 12px;")
 
     def _on_error(self, msg: str):
         # Queued from the worker thread — guard against widget destruction
@@ -657,7 +742,7 @@ class UpdateDialog(QDialog):
             return
         self._stop_dots_animation()
         self._cancel_btn.setEnabled(True)
-        self._update_btn.setEnabled(True)
+        self._update_btn.setEnabled(not self._restore_failed)
         from app.i18n import t
         self._status.setText(t("update.error") + f" {msg}")
         self._status.setStyleSheet(f"color: {error_color()}; font-size: 12px;")
@@ -720,6 +805,10 @@ class UpdateDialog(QDialog):
 
     def closeEvent(self, event):
         """Clean up download thread if dialog is closed mid-download."""
+        if self._installing:
+            event.ignore()
+            return
+        self._dismissed = True
         self._stop_dots_animation()
         if self._dl_thread_running():
             self._abort_download()
@@ -735,6 +824,12 @@ class UpdateDialog(QDialog):
 
     def reject(self):
         """Handle Cancel button — also cleans up thread."""
+        if self._installing:
+            # The install worker may be between the backup and the rename,
+            # where the terminate() below would cut it short. It ends by
+            # itself in a few seconds, in _on_installed or _show_failure.
+            return
+        self._dismissed = True
         self._stop_dots_animation()
         if self._dl_thread_running():
             self._abort_download()

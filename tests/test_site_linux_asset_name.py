@@ -1,18 +1,16 @@
-"""The site and the README must name the Linux asset the v1.15.2 release has.
+"""The site and the README must name the Linux asset the updater asks for.
 
-``PDFApps-Linux.tar.gz`` left that release and cannot come back: updaters up
-to 1.15.2 look for that exact name, and from 1.12.2 they copy what they
-download over their own executable. A page that names it is a 404 at best.
+``PDFApps-Linux.tar.gz`` left the v1.15.2 release and must never be published
+again: updaters up to 1.15.2 look for that exact name, and from 1.12.2 they
+copy what they download over their own executable. A page that names it is a
+404 at best.
 
-The expected name is written here on purpose instead of being read from
-build.yml. The release was renamed by hand, so build.yml may lag behind it,
-and comparing against a stale workflow would demand the dead name. Until the
-updater fix renames the asset in build.yml and app/updater.py, nothing ties
-the site to the workflow: test_release_assets.py keeps only the workflow and
-the updater on one name, and that name is still the old one.
+The expected name is ``app.updater.LINUX_ASSET_NAME``, and
+test_release_assets.py keeps build.yml publishing that same name, so the
+site, the updater and the workflow can only be renamed together.
 
 docs/changelog.html is scanned too: its v1.15.2 entry tells Linux users which
-file to download, and that release now carries only the new name.
+file to download, and that release carries only the new name.
 """
 from __future__ import annotations
 
@@ -21,8 +19,10 @@ from pathlib import Path
 
 import pytest
 
+from app.updater import LINUX_ASSET_NAME
+
 ROOT = Path(__file__).resolve().parents[1]
-NEW_NAME = "PDFApps-Linux-x86_64.tar.gz"
+NEW_NAME = LINUX_ASSET_NAME
 
 PAGES = sorted((ROOT / "docs").glob("*.html")) + [ROOT / "README.md"]
 
