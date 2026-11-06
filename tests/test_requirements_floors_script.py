@@ -70,7 +70,7 @@ def test_the_real_requirements_pin_every_line(tmp_path):
         if ln
     ]
     assert len(pins) == len(lines)
-    assert "pypdf==6.21.2" in pins
+    assert "pypdf==6.21.4" in pins
     assert 'pillow==13.0.0; python_version >= "3.11"' in pins
     assert 'pillow==12.3.0; python_version < "3.11"' in pins
     assert "pymupdf==1.28.2" in pins
