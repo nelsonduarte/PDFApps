@@ -1,8 +1,25 @@
 """PDFApps – entry point."""
+import os
+import sys
+
+# Font subsetting child of the compress tool (app/_font_subset.py). It has
+# to stay above every other import, so that this file makes the child load
+# neither Qt nor the app, and it must run before logging setup and
+# single-instance forwarding. In the bundle a runtime hook has already loaded
+# a little of Qt by now: see the docstring of that module.
+# The whole block is guarded, the import included, and leaves by os._exit:
+# an exception escaping to the windowed bootloader opens its "Unhandled
+# exception in script" dialog and blocks there. dump_traceback_later is no
+# substitute: with the GIL held it did not fire in the bundle.
+if sys.argv[1:2] == ["--internal-subset-fonts"]:
+    try:
+        from app._font_subset import worker_main
+        worker_main()
+    finally:
+        os._exit(2)
+
 import argparse
 import logging
-import sys
-import os
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 

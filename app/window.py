@@ -17,6 +17,7 @@ from PySide6.QtGui import QColor
 import qtawesome as qta
 
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP, BORDER
+from app.constants import TOOL_PANEL_MIN_WIDTH
 from app.i18n import t, set_language, get_language, add_recent_file
 from app.styles import STYLE, STYLE_LIGHT
 from app.utils import resource_path, _make_palette
@@ -831,7 +832,7 @@ class MainWindow(QMainWindow):
                 self._redo_top_btn.clicked.connect(edit_w._redo)
                 self._undo_redo_handlers = (edit_w._undo, edit_w._redo)
             else:
-                self.stack.setMinimumWidth(320)
+                self.stack.setMinimumWidth(TOOL_PANEL_MIN_WIDTH)
                 self.stack.setMaximumWidth(600)
                 self._tab_container.setVisible(True)
                 self._undo_top_btn.setVisible(False)

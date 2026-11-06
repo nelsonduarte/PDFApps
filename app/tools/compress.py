@@ -140,11 +140,21 @@ class TabComprimir(BasePage):
             "passC":        t("progress.compress.passC"),
         }
 
+        # Written on the worker thread, read in _on_done: run_task delivers
+        # that after do_work has returned.
+        fonts_skipped = []
+
         class _CompressRunner(TaskRunner):
             def do_work(_self):
                 def progress_fn(stage, cur=0, tot=0):
                     if _self.is_cancelled():
                         return False
+                    if stage == "passB_fonts_skipped":
+                        # Not a step of the bar: reporting it as one would
+                        # fall into the general case below, which resets
+                        # the bar to 0 with an empty label.
+                        fonts_skipped.append(True)
+                        return True
                     if stage == "passB_images":
                         # PyMuPDF's rewrite_images is a single blocking
                         # call with no per-page callback — emit -1
@@ -196,12 +206,16 @@ class TabComprimir(BasePage):
                     pct=f"{ratio:.0f}")
             self.lbl_result.setText(msg)
             self._status(f"✔  {msg.strip()}")
+            fonts_note = (t("tool.compress.fonts_skipped")
+                          if fonts_skipped else "")
             if self._pipeline_active:
-                self._pipeline_success(msg, out_path)
+                self._pipeline_success(
+                    f"{msg}\n{fonts_note}" if fonts_note else msg, out_path)
             else:
                 gs_hint = "" if _find_gs() else "\n\n" + t("tool.compress.gs_hint")
+                fonts_line = f"\n\n{fonts_note}" if fonts_note else ""
                 QMessageBox.information(self, t("msg.done"),
-                    t("msg.pdf_saved", path=out_path) + gs_hint)
+                    t("msg.pdf_saved", path=out_path) + fonts_line + gs_hint)
 
         def _on_err(exc):
             self.action_btn.setEnabled(True)

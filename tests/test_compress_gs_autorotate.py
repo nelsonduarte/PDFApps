@@ -88,10 +88,15 @@ def test_pass_a_turns_off_auto_rotation_on_every_level(
     monkeypatch.setattr(utils, "_find_gs", lambda: gs)
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
     monkeypatch.setattr(subprocess, "run", _fake_version_run)
+    # Pass B's child process would count as a second spawn.
+    monkeypatch.setattr("app._font_subset.run_subset",
+                        lambda *a, **k: "failed")
     try:
         utils._compress_pdf(str(src), str(tmp_path / "out.pdf"), level=level)
     except (ValueError, RuntimeError):
-        pass  # no size gain on a one-line PDF; only the gs argv matters
+        # Not raised today: every level delivers this PDF, 790 to 757
+        # bytes (measured). Only the gs argv matters, whatever happens.
+        pass
 
     assert len(calls) == 1, calls
     cmd = calls[0]

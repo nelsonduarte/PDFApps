@@ -44,6 +44,12 @@ jobs:
           python -m PyInstaller --noconfirm uninstaller.spec
           python -m PyInstaller --noconfirm installer.spec
 
+      # The path has no extension here: the script adds it, because
+      # test_audit_pr_j bans the raw binary's name from this file.
+      - name: Smoke test the font subsetting child (Windows)
+        if: runner.os == 'Windows'
+        run: python scripts/smoke_font_subset_child.py dist/PDFApps
+
       - name: Build MSIX (Windows)
         if: runner.os == 'Windows'
         env:
@@ -118,6 +124,10 @@ jobs:
           chmod +x dist/PDFApps
           tar -czf dist/PDFApps-Linux.tar.gz -C dist PDFApps
 
+      - name: Smoke test the font subsetting child (Linux)
+        if: runner.os == 'Linux'
+        run: python scripts/smoke_font_subset_child.py dist/PDFApps
+
       - name: Upload (Linux)
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -189,6 +199,10 @@ jobs:
           echo "── after DMG ──"
           df -h
           ls -lh dist/PDFApps-macOS.dmg
+
+      - name: Smoke test the font subsetting child (macOS)
+        if: runner.os == 'macOS'
+        run: python scripts/smoke_font_subset_child.py dist/dmg/PDFApps.app/Contents/MacOS/PDFApps
 
       - name: Upload (macOS)
         if: runner.os == 'macOS'

@@ -23,7 +23,9 @@ The unit tests fake ``subprocess.run`` and, where they use literal paths,
 ``os.path.isdir``. The ``tmp_path`` tests build the layout on disk and fake
 only ``subprocess.run``. The ``_compress_pdf`` tests fake ``_find_gs``,
 ``subprocess.Popen`` and ``subprocess.run``, and do not import
-``app._gs_paths``, so on a tree without it they fail on the assertion. The
+``app._gs_paths``, so on a tree without it they fail on the assertion. They
+also point ``tempfile.tempdir`` into ``tmp_path`` and record ``mkdtemp``, to
+check that gs works in the call's own folder and that it is removed. The
 console-window tests also set ``sys.platform``.
 """
 
@@ -404,6 +406,25 @@ def test_user_gs_lib_is_read_per_call_not_cached(gp, monkeypatch, tmp_path):
         os.pathsep.join(["/u", init, lib]))
 
 
+# ── _gs_scratch_env ──────────────────────────────────────────────────────
+
+def test_scratch_env_names_the_folder_in_all_three(gp):
+    env = gp._gs_scratch_env({"TMPDIR": "/tmp", "TEMP": "t", "K": "v"}, "/w")
+    assert env == {"TMPDIR": "/w", "TEMP": "/w", "TMP": "/w", "K": "v"}
+
+
+def test_scratch_env_copies_and_never_writes_its_input(gp, monkeypatch):
+    monkeypatch.setenv("PDFAPPS_GS_TEST", "kept")
+    before = dict(os.environ)
+    env = gp._gs_scratch_env(None, "/w")
+    assert env is not os.environ
+    assert env["PDFAPPS_GS_TEST"] == "kept"
+    assert dict(os.environ) == before
+    given = {"A": "1"}
+    assert gp._gs_scratch_env(given, "/w") is not given
+    assert given == {"A": "1"}
+
+
 # ── _compress_pdf wiring (no import of app._gs_paths) ────────────────────
 
 class _FakeProc:
@@ -423,6 +444,8 @@ class _FakeProc:
 
 
 def _run_compress(monkeypatch, tmp_path, gs, version=b"9.55.0\n", run=None):
+    import tempfile
+
     import pymupdf
 
     from app import utils
@@ -433,23 +456,74 @@ def _run_compress(monkeypatch, tmp_path, gs, version=b"9.55.0\n", run=None):
     doc.save(str(src))
     doc.close()
 
+    # Every temporary lands here: a folder made elsewhere, or not removed,
+    # shows up below instead of piling up in the real temporary folder.
+    temp_root = tmp_path / "temp root"
+    temp_root.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(temp_root))
+    made = []
+    real_mkdtemp = tempfile.mkdtemp
+
+    def mkdtemp(*a, **k):
+        made.append(real_mkdtemp(*a, **k))
+        return made[-1]
+
+    monkeypatch.setattr(tempfile, "mkdtemp", mkdtemp)
     popen_calls = []
 
     def fake_popen(cmd, **kwargs):
-        popen_calls.append((list(cmd), kwargs))
+        # Resolved now: the folder is gone once _compress_pdf returns.
+        env = kwargs.get("env") or {}
+        scratch = {k: os.path.realpath(env[k]) for k in _SCRATCH if k in env}
+        (out,) = [a[len("-sOutputFile="):] for a in cmd
+                  if a.startswith("-sOutputFile=")]
+        popen_calls.append((list(cmd), dict(
+            kwargs, scratch=scratch, work=os.path.realpath(made[0]),
+            output_dir=os.path.dirname(os.path.realpath(out)))))
         return _FakeProc()
 
     monkeypatch.setattr(utils, "_find_gs", lambda: gs)
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
     monkeypatch.setattr(subprocess, "run", run or _Runs(version))
+    # Pass B's child process is not what these tests look at, and stubbing
+    # it (rather than filtering the calls) keeps gs as the only spawn.
+    monkeypatch.setattr("app._font_subset.run_subset",
+                        lambda *a, **k: "failed")
     try:
         utils._compress_pdf(str(src), str(tmp_path / "out.pdf"),
                             level="extreme")
     except (ValueError, RuntimeError):
-        pass  # no size gain on a one-line PDF; only the gs call matters
+        # Not raised in these tests (measured: all seven deliver a file);
+        # whatever the outcome, only the gs call matters here.
+        pass
     assert len(popen_calls) == 1
     assert popen_calls[0][0][0] == gs
+    # One folder for the whole call, and gone when it returns.
+    (work,) = made
+    assert not os.path.exists(work)
+    assert list(temp_root.iterdir()) == []
     return popen_calls[0][1]
+
+
+_SCRATCH = ("TMPDIR", "TEMP", "TMP")
+
+
+def _without_scratch(env: dict) -> dict:
+    """*env* without the variables that _gs_scratch_env sets."""
+    assert env is not None, "gs was spawned with no environment of its own"
+    return {k: v for k, v in env.items() if k not in _SCRATCH}
+
+
+def _assert_scratch_in_work_folder(kwargs) -> None:
+    """gs's scratch files and its output go to the one folder the call
+    made, not just to a folder with the same prefix."""
+    scratch = kwargs["scratch"]
+    assert set(scratch) == set(_SCRATCH)
+    (folder,) = set(scratch.values())
+    assert os.path.basename(folder).startswith("pdfapps-compress-")
+    work = os.path.normcase(kwargs["work"])
+    assert os.path.normcase(folder) == work
+    assert os.path.normcase(kwargs["output_dir"]) == work
 
 
 def test_compress_passes_gs_lib_to_snap_gs(monkeypatch, tmp_path):
@@ -466,9 +540,12 @@ def test_compress_passes_gs_lib_to_snap_gs(monkeypatch, tmp_path):
 
 
 def test_compress_inherits_environment_without_init_dirs(monkeypatch, tmp_path):
+    # Inherited but for where gs puts its scratch files.
     gs = _make_gs_tree(tmp_path / "other", versions=("10.02.1",))
     kwargs = _run_compress(monkeypatch, tmp_path, gs)
-    assert kwargs.get("env") is None
+    assert _without_scratch(kwargs.get("env")) == _without_scratch(
+        dict(os.environ))
+    _assert_scratch_in_work_folder(kwargs)
 
 
 def test_compress_spawns_gs_without_a_console_on_windows(monkeypatch, tmp_path):
@@ -484,7 +561,9 @@ def test_compress_spawns_gs_without_a_console_on_windows(monkeypatch, tmp_path):
     assert kwargs.get("creationflags", 0) & _CREATE_NO_WINDOW
     assert kwargs["stdout"] == subprocess.DEVNULL
     assert kwargs["stderr"] == subprocess.DEVNULL
-    assert kwargs.get("env") is None
+    assert _without_scratch(kwargs.get("env")) == _without_scratch(
+        dict(os.environ))
+    _assert_scratch_in_work_folder(kwargs)
 
 
 def test_compress_passes_no_window_flag_on_linux(monkeypatch, tmp_path):
@@ -513,7 +592,9 @@ def test_compress_builds_gs_lib_on_the_system_tool_env(monkeypatch, tmp_path):
     kwargs = _run_compress(monkeypatch, tmp_path, gs, run=fake)
     init, lib = _gs_dirs(os.path.dirname(os.path.dirname(gs)), "9.55.0")
     assert probes == [sentinel]
-    assert kwargs["env"] == {**sentinel, "GS_LIB": init + os.pathsep + lib}
+    assert _without_scratch(kwargs["env"]) == {
+        **sentinel, "GS_LIB": init + os.pathsep + lib}
+    _assert_scratch_in_work_folder(kwargs)
     assert sentinel == {"PDFAPPS_SENTINEL": "1", "PATH": "/sentinel/bin"}
 
 
@@ -527,8 +608,8 @@ def test_compress_without_init_dirs_still_gets_the_system_tool_env(
     sentinel = _sentinel_env(monkeypatch)
     fake, probes = _env_recorder()
     kwargs = _run_compress(monkeypatch, tmp_path, gs, run=fake)
-    assert kwargs["env"] is not None
-    assert kwargs["env"] == sentinel
+    assert _without_scratch(kwargs["env"]) == sentinel
+    _assert_scratch_in_work_folder(kwargs)
     assert probes == ([sentinel] if versions else [])
 
 
@@ -536,6 +617,8 @@ def test_compress_does_not_swallow_a_missing_env_helper(monkeypatch, tmp_path):
     # Imported inside pass A's `try`, an ImportError would be swallowed by
     # its `except Exception` and gs skipped without a word: the silent
     # failure the helper exists to fix.
+    import tempfile
+
     import pymupdf
 
     from app import utils
@@ -545,6 +628,9 @@ def test_compress_does_not_swallow_a_missing_env_helper(monkeypatch, tmp_path):
     doc.new_page().insert_text((72, 72), "hello")
     doc.save(str(src))
     doc.close()
+    temp_root = tmp_path / "temp root"
+    temp_root.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(temp_root))
     popen_calls = []
     monkeypatch.setattr(utils, "_find_gs",
                         lambda: _make_gs_tree(tmp_path / "gs", versions=()))
@@ -556,3 +642,4 @@ def test_compress_does_not_swallow_a_missing_env_helper(monkeypatch, tmp_path):
         utils._compress_pdf(str(src), str(tmp_path / "out.pdf"),
                             level="extreme")
     assert popen_calls == []
+    assert list(temp_root.iterdir()) == []

@@ -514,7 +514,12 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
       invisible OCR layer, drawings, annotations and replies, links, form
       values, attachments, metadata, JavaScript, layers, thumbnails and
       pending redactions)
-        · subset_fonts()  →  keep only used glyphs
+        · subset_fonts()  →  keep only used glyphs, in a child process
+          (app/_font_subset.py): it can crash natively. On a failure the
+          pipeline carries on without it. If the file delivered in the end
+          is one of those without a subset, progress_fn gets the stage
+          "passB_fonts_skipped" just before it is written, so the UI can
+          tell the user
         · rewrite_images()  →  DPI downsampling + JPEG re-encode (and gray
           on extreme), skipped when the PDF has a shading pattern, whose
           gradient it would lose
@@ -528,7 +533,43 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
 
     Falls back gracefully if Ghostscript or pikepdf are not available.
     Raises ValueError if no pass reduced the file.
+
+    Every temporary file of the pipeline, Ghostscript's scratch files
+    included, lives in one folder made by mkdtemp for this call and removed
+    when it returns or raises, unless something still uses it (say, a
+    Ghostscript that outlived being stopped): then it stays, with a
+    warning in the log. A decrypted copy of an encrypted source goes
+    through it, and that folder is what keeps other users out: on Linux
+    PyMuPDF's save turns a 0600 mkstemp file into 0644, and on Windows a
+    file made directly in %TEMP% inherits the ACL of %TEMP% (both measured).
+    A folder that cannot be made is an error: there is nowhere private left
+    to work in.
     """
+    import shutil
+    import tempfile
+
+    # 0700 on POSIX. On Windows, with Python's fix for CVE-2024-4030 (in
+    # 3.13; measured with 3.14), an ACL that lets in only the owner, SYSTEM
+    # and Administrators, inherited by what is made in it.
+    work_dir = tempfile.mkdtemp(prefix="pdfapps-compress-")
+    try:
+        return _compress_pdf_in(work_dir, src, dst, level, progress_fn,
+                                password)
+    finally:
+        # Every pass has closed its files by now: Windows cannot delete a
+        # file that is still open.
+        shutil.rmtree(work_dir, ignore_errors=True)
+        # It may hold a decrypted copy of an encrypted source, so a failure
+        # here must not pass unnoticed.
+        if os.path.exists(work_dir):
+            logging.getLogger(__name__).warning(
+                "compress: temporary directory not removed: %s", work_dir)
+
+
+def _compress_pdf_in(work_dir: str, src: str, dst: str, level: str,
+                     progress_fn, password: str | None) -> tuple:
+    """The passes of :func:`_compress_pdf`, with every temporary in
+    *work_dir*, which the caller owns and removes."""
     import tempfile, shutil, subprocess, time
 
     cfg     = _COMPRESS_LEVELS.get(level, _COMPRESS_LEVELS["recommended"])
@@ -537,6 +578,11 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     gray    = cfg["grayscale"]
     before  = os.path.getsize(src)
     temps: list = []
+    # Results that went through Ghostscript, which subsets fonts on its own:
+    # a failed child costs them nothing, so no warning may mention it.
+    # Measured: the same size and fonts with the child failing or working.
+    subset_by_gs: set = set()
+    subset_failed = False
 
     # ── Encryption gate ──────────────────────────────────────────────────
     # A previous bug let an encrypted source fall through every pass:
@@ -596,31 +642,43 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     if not encrypted:
         password = None
 
+    def _abort_cancelled():
+        # Loop var is `_p`, not `t` — the module-level `t` from
+        # app.i18n is shadowed inside this function otherwise, and
+        # any future translated string here would silently call a
+        # str path. Best-effort cleanup; the outer try/except at
+        # the bottom retries any survivors after each pass's
+        # finally has had a chance to release file handles
+        # (Windows can't unlink a tempfile while pikepdf/PyMuPDF
+        # still has it open).
+        for _p in temps:
+            try: os.unlink(_p)
+            except Exception: pass  # _compress_pdf removes it with work_dir
+        raise CancelledError()
+
     def _prog(stage, cur=0, tot=0):
         if progress_fn and progress_fn(stage, cur, tot) is False:
-            # Loop var is `_p`, not `t` — the module-level `t` from
-            # app.i18n is shadowed inside this function otherwise, and
-            # any future translated string here would silently call a
-            # str path. Best-effort cleanup; the outer try/except at
-            # the bottom retries any survivors after each pass's
-            # finally has had a chance to release file handles
-            # (Windows can't unlink a tempfile while pikepdf/PyMuPDF
-            # still has it open).
-            for _p in temps:
-                try: os.unlink(_p)
-                except Exception: pass
-            raise CancelledError()
+            _abort_cancelled()
 
     # ── Pass A : Ghostscript — full re-render ────────────────────────────
     _prog("passA")
     gs = _find_gs()
     p = None
+    # Imported here and not in the try below, for the reason given on the
+    # next import: without this module pass B would vanish in silence.
+    from app._font_subset import (
+        CHILD_TIMEOUT_S,
+        SUBSET_CANCELLED,
+        SUBSET_FAILED,
+        SUBSET_OK,
+        run_subset,
+    )
     if gs:
         # Imported outside the try: an ImportError (say, a module left out
         # of a bundle) would be swallowed by its `except Exception` and
         # pass A skipped without a word, the failure system_tool_env
         # exists to stop.
-        from app._gs_paths import _gs_subprocess_env, _no_window_flags
+        from app._gs_paths import _gs_scratch_env, _gs_subprocess_env, _no_window_flags
         from app._subprocess_env import system_tool_env
         try:
             presets = {
@@ -628,7 +686,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 "recommended": "/ebook",
                 "low":         "/printer",
             }
-            fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+            fd, p = tempfile.mkstemp(suffix=".pdf", dir=work_dir); os.close(fd)
             # -dAutoRotatePages=/None: /screen and /ebook default to
             # /PageByPage and /All (Resource/Init/gs_pdfwr.ps). /screen
             # (/PageByPage) turns each page to its own dominant text
@@ -697,15 +755,20 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
             # until the 120 s deadline below terminated it (rc -15). The
             # native gs 9.55.0 of Ubuntu 22.04 stalled the same way.
             # creationflags: no console window for gswin64c on Windows.
+            # Last, gs's own scratch files go to work_dir (_gs_scratch_env).
+            # Short path as on the command line, though gs 10.05.0 also
+            # follows the long one with non-ASCII characters (measured);
+            # older releases were not measured.
             base_env = system_tool_env()
             gs_env = _gs_subprocess_env(gs, environ=base_env)
             if gs_env is None:
                 gs_env = base_env
+            gs_env = _gs_scratch_env(gs_env, _win_short_path(work_dir))
             proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL,
                                     env=gs_env,
                                     creationflags=_no_window_flags())
-            deadline = time.monotonic() + 120
+            deadline = time.monotonic() + CHILD_TIMEOUT_S
             cancelled = False
             try:
                 while True:
@@ -732,6 +795,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                 raise CancelledError()
             if proc.returncode == 0 and _is_valid_pdf(p):
                 temps.append(p)
+                subset_by_gs.add(p)
             else:
                 try: os.unlink(p)
                 except Exception: pass
@@ -754,6 +818,8 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
     _prog("passB_setup")
     doc = None
     p = None
+    # mkstemp names start with "tmp", so this one cannot clash with them.
+    subset_pdf = os.path.join(work_dir, "subset.pdf")
     try:
         import pymupdf
         doc = pymupdf.open(src)
@@ -769,11 +835,30 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         # (slow on font-heavy PDFs).
         _prog("passB_setup")
 
-        # 1. Font subsetting
+        # 1. Font subsetting, in a child process: subset_fonts() can crash
+        # natively and no except clause here could catch that. Whatever
+        # goes wrong with the child, doc is still the untouched source.
+        subset_doc = None
         try:
-            doc.subset_fonts()
-        except Exception:
-            pass
+            outcome = run_subset(
+                src, subset_pdf, password, doc.page_count,
+                should_cancel=lambda: bool(progress_fn) and progress_fn(
+                    "passB_setup", 0, 0) is False)
+            if outcome == SUBSET_OK:
+                subset_doc = pymupdf.open(subset_pdf)
+        except Exception as exc:
+            # Pass B works without the subset. Left to the handler below,
+            # this would drop the whole pass without a word.
+            logging.getLogger(__name__).warning(
+                "font subset: %s", type(exc).__name__)
+            outcome = SUBSET_FAILED
+        if outcome == SUBSET_CANCELLED:
+            _abort_cancelled()
+        if subset_doc is not None:
+            doc.close()
+            doc = subset_doc
+        else:
+            subset_failed = True
 
         # 2. Rewrite all images (replaces the old manual loop)
         _prog("passB_images", 0, 1)
@@ -807,7 +892,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         # rewrite duplicates glyphs drawn over each other ("(f)Tj 0 0 TD
         # (faeces)Tj" comes back as "ffaeces"; PyMuPDF 1.28.0 and 1.28.2).
         _prog("passB_save")
-        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+        fd, p = tempfile.mkstemp(suffix=".pdf", dir=work_dir); os.close(fd)
         save_kw = dict(garbage=4, deflate=True, deflate_fonts=True, clean=False)
         try:
             doc.save(p, **save_kw, use_objstms=True)
@@ -835,6 +920,11 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         if p:
             try: os.unlink(p)
             except Exception: pass
+        # After doc.close(): Windows cannot delete a file still open. Only
+        # so that the copy does not take disk space through pass C; one
+        # left here goes with work_dir.
+        with contextlib.suppress(OSError):
+            os.unlink(subset_pdf)
 
     # ── Pass C : pikepdf — structural optimization ───────────────────────
     _prog("passC")
@@ -851,7 +941,7 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
         # Exception: pass` swallowed.
         open_kw = {"password": password} if (best_so_far == src and password) else {}
         pdf = pikepdf.open(best_so_far, **open_kw)
-        fd, p = tempfile.mkstemp(suffix=".pdf"); os.close(fd)
+        fd, p = tempfile.mkstemp(suffix=".pdf", dir=work_dir); os.close(fd)
         # Cancel checkpoint between open and save — pdf.save is the
         # slow part (linearize + recompress_flate). Without this, a
         # cancel during the parse window would still pay the full save
@@ -864,6 +954,8 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                  linearize=True)
         if _is_valid_pdf(p):
             temps.append(p)
+            if best_so_far in subset_by_gs:
+                subset_by_gs.add(p)
             p = None  # ownership transferred to temps
     except CancelledError:
         # Close pdf eagerly so any tempfile pikepdf was holding open
@@ -907,26 +999,41 @@ def _compress_pdf(src: str, dst: str, level: str = "recommended",
                            before=f"{before/1024:.0f}",
                            after=f"{best_size/1024:.0f}"))
 
+    if subset_failed and best not in subset_by_gs:
+        _prog("passB_fonts_skipped")
+
     # Atomic write: rename within the same volume, else copy to a temp
     # file next to dst and atomic-rename. shutil.move falls back to a
-    # plain copy + unlink across volumes (best lives in %TEMP%, dst
+    # plain copy + unlink across volumes (best lives under %TEMP%, dst
     # usually on the user's disk) — a crash mid-copy would leave dst
-    # truncated and overwrite a previous good output.
-    dst_dir = os.path.dirname(dst) or "."
+    # truncated and overwrite a previous good output. (A crash mid-copy
+    # here leaves a tmp*.pdf next to dst instead; any other failure
+    # tries to delete it.)
+    #
+    # On Windows always the copy, never the rename: a file renamed out of
+    # the private work folder keeps that folder's ACL, turned into
+    # explicit, protected entries (measured: D:P(A;;FA;;;SY)(A;;FA;;;BA)
+    # (A;;FA;;;OW)), so it would inherit nothing from dst's folder. A file
+    # made next to dst inherits from that folder, as any new file there
+    # does. Both replace the ACL of a file they overwrite: after the copy
+    # it has the one inherited from dst's folder, its own explicit entries
+    # gone, as after atomic_pdf_write (measured). Measured cost of the
+    # copy: 6 ms at 5 MB, 32 ms at 50 MB, 205 ms at 300 MB.
+    if sys.platform != "win32":
+        with contextlib.suppress(OSError):
+            os.replace(best, dst)
+            return before, best_size
+    fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=os.path.dirname(dst) or ".")
+    os.close(fd)
     try:
-        os.replace(best, dst)
-    except OSError:
-        fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=dst_dir)
-        os.close(fd)
-        try:
-            shutil.copyfile(best, tmp)
-            os.replace(tmp, dst)
-        except Exception:
-            with contextlib.suppress(Exception):
-                os.unlink(tmp)
-            raise
+        shutil.copyfile(best, tmp)
+        os.replace(tmp, dst)
+    except Exception:
         with contextlib.suppress(Exception):
-            os.unlink(best)
+            os.unlink(tmp)
+        raise
+    with contextlib.suppress(Exception):
+        os.unlink(best)
     return before, best_size
 
 
