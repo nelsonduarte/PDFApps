@@ -196,11 +196,7 @@ def worker_main() -> None:
         job = json.loads(_read_job_bytes().decode("ascii"))
         _tie_life_to_parent(job.get("parent_pid"))
         subset(job["src"], job["dst"], job.get("password"))
-    except Exception:  # the rc is the only thing the parent can read
-        os._exit(_RC_FAILED)
-    except KeyboardInterrupt:
-        os._exit(_RC_FAILED)
-    except SystemExit:
+    except BaseException:  # the rc is the only thing the parent can read
         os._exit(_RC_FAILED)
     os._exit(0)
 
