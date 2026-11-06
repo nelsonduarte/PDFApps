@@ -18,8 +18,8 @@ without a message (380428 bytes out instead of 116990).
 :func:`system_tool_env` builds the environment those children should get.
 It never writes ``os.environ``: the running process keeps the bundle path,
 and dlopen does not re-read the variable after start-up anyway. Relaunching
-PDFApps itself is a different case and does not use this (see
-``app/window.py``).
+PDFApps on a language change does not use it (see ``app/window.py``); the
+self-update does, for the reason in ``app/update_apply.py``.
 """
 
 from __future__ import annotations
@@ -32,6 +32,15 @@ _LD_ORIG = "LD_LIBRARY_PATH_ORIG"
 # The ld.so list separator. Not os.pathsep: this code only acts for
 # platform "linux", and the tests run it on Windows too.
 _LD_SEP = ":"
+
+
+def is_bootloader_var(name: str) -> bool:
+    """Whether *name* is state of the PyInstaller one-file bootloader.
+
+    A process that starts PDFApps anew must remove all of these together:
+    see ``_restart_app`` in ``app/window.py`` for what a partial sweep does.
+    """
+    return name.startswith(("_PYI_", "_MEIPASS"))
 
 
 def _inside(entry: str, root: str) -> bool:

@@ -121,7 +121,7 @@ class TestGetExpectedHash:
 
     def test_missing_asset_returns_none(self):
         h = "a" * 64
-        data = self._body(f"{h}  PDFApps-Linux.tar.gz")
+        data = self._body(f"{h}  PDFApps-Linux-x86_64.tar.gz")
         assert _get_expected_hash(data, "PDFAppsSetup.exe") is None
 
     def test_empty_body_returns_none(self):
@@ -156,7 +156,7 @@ class TestGetExpectedHash:
             "",
             "## Checksums (SHA256)",
             f"{h}  PDFAppsSetup.exe",
-            f"{'e' * 64}  PDFApps-Linux.tar.gz",
+            f"{'e' * 64}  PDFApps-Linux-x86_64.tar.gz",
         )
         assert _get_expected_hash(data, "PDFAppsSetup.exe") == h
 
@@ -335,38 +335,6 @@ class TestDownload:
         assert len(signals.finished.emissions) == 1
 
 
-# ── R5/F3: _apply_update_unix tempfile cleanup ─────────────────────────
-
-
-class TestApplyUpdateUnixCleanup:
-    """Verifies that _apply_update_unix wraps its body in try/finally
-    so the ~100 MB downloaded installer tempfile is removed even on
-    failed applies (R5/F3). Pre-fix os.remove(downloaded) only ran
-    on the success path, leaking the artefact in /tmp on every retry.
-    """
-
-    def test_apply_update_unix_uses_try_finally(self):
-        """Source guard: the function body must contain a finally
-        block that unlinks ``downloaded``."""
-        src = (Path(__file__).resolve().parent.parent
-               / "app" / "updater.py").read_text(encoding="utf-8")
-        i = src.find("def _apply_update_unix(")
-        assert i > 0
-        body = src[i: i + 4000]
-        assert "finally:" in body, \
-            "_apply_update_unix must wrap cleanup in try/finally"
-        # The cleanup must reference downloaded (or alias) inside the
-        # finally — verify by checking the unlink/remove call appears
-        # AFTER a finally: keyword.
-        finally_idx = body.index("finally:")
-        post = body[finally_idx:]
-        assert "downloaded" in post, \
-            "finally block must reference the downloaded tempfile"
-        assert ("os.unlink(downloaded)" in post
-                or "os.remove(downloaded)" in post), \
-            "finally block must unlink the downloaded tempfile"
-
-
 # ── R6/B6-B7: UpdateDialog signal duplication on retry ──────────────────
 
 
@@ -378,49 +346,63 @@ class TestUpdateDialogSignalLifecycle:
     historical (already deleted) threads — warnings or crash.
 
     The fix creates a fresh _Signals instance per ``_start_download``
-    call. These tests guard that behaviour at the source level.
+    call. These tests drive two real downloads in one dialog. They used
+    to read the source instead, and did not bite: ``deleteLater`` was
+    found in the 3000 characters after ``def _start_download`` whether
+    or not the old ``_Signals`` was the one released.
     """
 
-    def test_signals_created_per_download(self):
-        src = (Path(__file__).resolve().parent.parent
-               / "app" / "updater.py").read_text(encoding="utf-8")
-        # __init__ no longer pre-creates the _Signals object — it sets
-        # the attribute to None and waits for _start_download.
-        init_idx = src.find("def __init__(self, release: dict, parent=None):")
-        assert init_idx > 0
-        init_body = src[init_idx: src.find("def _start_download", init_idx)]
-        # Either the attribute is initialised to None or no _Signals()
-        # call appears in __init__ at all — both prove signals are no
-        # longer reused.
-        assert (": _Signals | None = None" in init_body
-                or "self._signals = None" in init_body), \
-            "__init__ must defer _Signals creation to _start_download"
+    @staticmethod
+    def _dialog():
+        from app.updater import UpdateDialog
 
-    def test_start_download_creates_new_signals(self):
-        src = (Path(__file__).resolve().parent.parent
-               / "app" / "updater.py").read_text(encoding="utf-8")
-        sd_idx = src.find("def _start_download")
-        assert sd_idx > 0
-        body = src[sd_idx: sd_idx + 3000]
-        assert "self._signals = _Signals()" in body, \
-            "_start_download must instantiate a fresh _Signals per run"
-        # And the previous one must be deleted/dropped — confirm a
-        # deleteLater call (or explicit disconnect) appears before
-        # reassignment.
-        assert "deleteLater" in body, \
-            "previous _signals must be released (deleteLater)"
+        class _Counting(UpdateDialog):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.errors = []
 
-    def test_no_signals_construction_outside_start_download(self):
-        """Belt-and-suspenders: only _start_download may instantiate
-        _Signals on the dialog. Other call sites would re-introduce
-        the cross-pollination bug."""
-        src = (Path(__file__).resolve().parent.parent
-               / "app" / "updater.py").read_text(encoding="utf-8")
-        # The class body itself may still expose the type, but
-        # "self._signals = _Signals()" should appear exactly once
-        # (inside _start_download).
-        assert src.count("self._signals = _Signals()") == 1, \
-            "self._signals = _Signals() must appear exactly once"
+            def _on_error(self, msg):
+                self.errors.append(msg)
+                super()._on_error(msg)
+
+        release = {
+            "tag_name": "v9.9.9",
+            "body": "## Checksums (SHA256)\n" + "a" * 64 + "  PDFAppsSetup.exe",
+            "assets": [{"name": "PDFAppsSetup.exe",
+                        "browser_download_url": "https://example.invalid/x.exe"}],
+        }
+        return _Counting(release)
+
+    def test_no_signals_exist_before_the_first_download(self, qt_app):
+        assert self._dialog()._signals is None
+
+    def test_a_retry_gets_new_signals_and_each_error_arrives_once(self, qt_app, monkeypatch):
+        import time
+        from PySide6.QtCore import QCoreApplication, QEvent
+        from shiboken6 import isValid
+
+        monkeypatch.setattr(updater.sys, "platform", "win32")
+        dlg = self._dialog()
+
+        def download_and_fail():
+            with patch.object(updater.urllib.request, "urlopen",
+                              side_effect=OSError("offline")):
+                dlg._start_download()
+                deadline = time.monotonic() + 10
+                while dlg._dl_thread is not None:
+                    assert time.monotonic() < deadline, "download never ended"
+                    qt_app.processEvents()
+                    time.sleep(0.005)
+
+        download_and_fail()
+        first = dlg._signals
+        assert first is not None and len(dlg.errors) == 1
+        download_and_fail()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        dlg._stop_dots_animation()
+        assert dlg._signals is not first
+        assert not isValid(first), "the previous _Signals was never deleted"
+        assert len(dlg.errors) == 2, "the retry's error arrived more than once"
 
 
 # ── Live behaviour: signal de-pollution across simulated retries ────────

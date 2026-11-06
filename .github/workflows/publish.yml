@@ -121,11 +121,17 @@ jobs:
           # flatpak/ to data/ would get if re-published from main.
           set -eo pipefail
           VER="${{ needs.resolve.outputs.version }}"
+          # The tag still names the asset removed from its release: pushing it would
+          # revert the AUR to a URL that is a 404.
+          if grep -q '/PDFApps-Linux\.tar\.gz' aur/pdfapps-bin/PKGBUILD; then
+            echo "::warning::tag names the removed Linux asset, leaving pdfapps-bin alone"
+            exit 0
+          fi
 
           # Compute sha256 for all six sources. Five are tag-pinned
           # immutable URLs so SKIP would be technically safe, but AUR
           # users want `updpkgsums` to be a no-op (BluePeril, 2026-05).
-          BIN_SHA=$(curl -fsL "https://github.com/nelsonduarte/PDFApps/releases/download/v${VER}/PDFApps-Linux.tar.gz" | sha256sum | awk '{print $1}')
+          BIN_SHA=$(curl -fsL "https://github.com/nelsonduarte/PDFApps/releases/download/v${VER}/PDFApps-Linux-x86_64.tar.gz" | sha256sum | awk '{print $1}')
           LICENSE_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/LICENSE" | sha256sum | awk '{print $1}')
           DESKTOP_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/data/io.github.nelsonduarte.PDFApps.desktop" | sha256sum | awk '{print $1}')
           METAINFO_SHA=$(curl -fsL "https://raw.githubusercontent.com/nelsonduarte/PDFApps/v${VER}/data/io.github.nelsonduarte.PDFApps.metainfo.xml" | sha256sum | awk '{print $1}')

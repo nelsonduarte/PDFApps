@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor
 import qtawesome as qta
 
+from app._subprocess_env import is_bootloader_var
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP, BORDER
 from app.constants import TOOL_PANEL_MIN_WIDTH
 from app.i18n import t, set_language, get_language, add_recent_file
@@ -41,6 +42,10 @@ from app.tools.import_pdf import TabImport
 from app.tools.page_numbers import TabPageNumbers
 from app.tools.nup import TabNUp
 
+
+# Stamp of a result whose file is gone (MainWindow._work_at_risk). Not None:
+# None is a result whose stat failed otherwise, which may still be there.
+_RESULT_GONE = "gone"
 
 # Grouped sidebar tools — order here = stack index order.
 _NAV_GROUPS = [
@@ -519,6 +524,8 @@ class MainWindow(QMainWindow):
                 w.pipeline_save_requested.connect(self._save_pipeline)
         # Per-viewer pipeline state: {viewer_id: {original_path, temp_path}}
         self._pipeline_state: dict[int, dict] = {}
+        # Set by _confirm_update_restart: the work the user agreed to lose.
+        self._update_agreed_loss = None
 
         # Keyboard shortcuts
         from PySide6.QtGui import QShortcut, QKeySequence
@@ -1035,7 +1042,7 @@ class MainWindow(QMainWindow):
         proc.setWorkingDirectory(cwd)
         env = QProcessEnvironment.systemEnvironment()
         for _k in list(env.keys()):
-            if _k.startswith("_PYI_") or _k.startswith("_MEIPASS"):
+            if is_bootloader_var(_k):
                 env.remove(_k)
         proc.setProcessEnvironment(env)
         proc.startDetached()
@@ -1366,8 +1373,14 @@ class MainWindow(QMainWindow):
         for holder in holders:
             self._wipe_password_holder(holder)
 
-    def closeEvent(self, event):
-        """Save layout state on close, prompt for unsaved pipeline changes."""
+    def _confirm_discard_unsaved(self) -> bool:
+        """Ask about unsaved pipeline results and editor edits.
+
+        False means the user chose Cancel and the window must stay. No
+        teardown in here, only the prompts (and the save the user may ask
+        for): ``closeEvent`` cleans up after a True. The Linux self-update
+        asks through :meth:`_confirm_update_restart` instead.
+        """
         # Check for unsaved pipeline changes
         for v in self._viewers:
             if self._viewer_has_unsaved(v):
@@ -1380,7 +1393,7 @@ class MainWindow(QMainWindow):
                     | QMessageBox.StandardButton.Cancel,
                     QMessageBox.StandardButton.Cancel)
                 if ans == QMessageBox.StandardButton.Cancel:
-                    event.ignore(); return
+                    return False
                 if ans == QMessageBox.StandardButton.Save:
                     self._save_pipeline()
                 break  # only prompt once
@@ -1399,7 +1412,150 @@ class MainWindow(QMainWindow):
                 | QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Cancel)
             if ans == QMessageBox.StandardButton.Cancel:
-                event.ignore(); return
+                return False
+        return True
+
+    # ── Linux self-update: its execve never reaches closeEvent ──────────
+    def _has_running_task(self) -> bool:
+        for i in range(self.stack.count()):
+            fn = getattr(self.stack.widget(i), "has_running_workers", None)
+            if callable(fn) and fn():
+                return True
+        return False
+
+    def _work_at_risk(self) -> tuple[frozenset, frozenset]:
+        """What a restart would lose: pipeline results, then editor edits.
+
+        Results in every tab, not only the current one, as
+        ``(viewer id, path, stamp)``. A result is told apart by its file's
+        mtime and size as well as its path, because a new run can write to
+        the path of the result it replaces. A result whose file is gone
+        gets the stamp ``_RESULT_GONE``: ``_save_pipeline`` deletes the
+        temp dirs of every tool page, so after Save in one tab another tab
+        can still be marked unsaved on a deleted file. Saving that one
+        fails, but on Linux its viewer still has the document open
+        (measured: pages on screen, text extractable, print to PDF works),
+        so the restart would still lose it.
+        """
+        found: set[tuple[int, str, object]] = set()
+        for v in self._viewers:
+            if not self._viewer_has_unsaved(v):
+                continue
+            path = self._pipeline_state[id(v)]["temp_path"]
+            stamp: object
+            try:
+                st = os.stat(path)
+                stamp = (st.st_mtime_ns, st.st_size)
+            except FileNotFoundError:
+                stamp = _RESULT_GONE
+            except OSError:
+                stamp = None
+            found.add((id(v), path, stamp))
+        edit_w = self.stack.widget(self._edit_tool_idx())
+        edits = frozenset(
+            id(e) for e in (getattr(edit_w, "_user_pending", None) or ()))
+        return frozenset(found), edits
+
+    def _confirm_update_restart(self) -> bool:
+        """The prompts of :meth:`_confirm_discard_unsaved`, for the update.
+
+        Asked before the download. False is the user's Cancel. Raises
+        ``UpdateBlocked``, which the dialog shows, when work would still be
+        lost whatever the answer was: a task is running, a result is still
+        not saved after Save (the save dialog was cancelled, or the save
+        failed), or a tab other than the current one has a result whose
+        file is still there (see :meth:`_work_at_risk`). That last one is
+        refused before asking: ``_save_pipeline`` saves the current tab
+        only and then deletes the temp dirs of every tool page, so the
+        other tab would be left on a deleted file. A result whose file is
+        already gone cannot be saved any more, so it is asked about with
+        Discard and Cancel only. What the user agreed to lose is
+        remembered, so that :meth:`_prepare_update_restart` can tell it
+        from work that appears during the download.
+        """
+        from app.update_apply import UpdateBlocked
+        self._update_agreed_loss = None
+        if self._has_running_task():
+            raise UpdateBlocked(t("update.error.task_running"))
+        results, edits = self._work_at_risk()
+        on_disk = {r for r in results if r[2] != _RESULT_GONE}
+        gone = results - on_disk
+        if any(vid != id(self._viewer) for vid, _path, _stamp in on_disk):
+            raise UpdateBlocked(t("update.error.unsaved_other_tab"))
+        # Before the Save prompt, so that Cancel here leaves nothing done.
+        if gone:
+            ans = QMessageBox.question(
+                self, t("msg.warning"), t("update.unsaved_gone_prompt"),
+                QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
+            if ans == QMessageBox.StandardButton.Cancel:
+                return False
+        if on_disk:
+            ans = QMessageBox.question(
+                self, t("msg.warning"), t("update.unsaved_prompt"),
+                QMessageBox.StandardButton.Save
+                | QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
+            if ans == QMessageBox.StandardButton.Cancel:
+                return False
+            if ans == QMessageBox.StandardButton.Save:
+                # The dialog only catches UpdateError: an unwritable folder
+                # reached sys.excepthook as an unexpected error (measured).
+                # The tab keeps its result either way.
+                try:
+                    self._save_pipeline()
+                except OSError as exc:
+                    raise UpdateBlocked(
+                        t("update.error.save_failed", error=exc)) from exc
+                if self._work_at_risk()[0] - gone:
+                    raise UpdateBlocked(t("update.error.unsaved_work"))
+        if edits:
+            ans = QMessageBox.question(
+                self, t("msg.warning"), t("update.unsaved_edits_prompt"),
+                QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel)
+            if ans == QMessageBox.StandardButton.Cancel:
+                return False
+        self._update_agreed_loss = self._work_at_risk()
+        return True
+
+    def _prepare_update_restart(self) -> None:
+        """``before_exec`` of the self-update: closeEvent's teardown.
+
+        The download takes seconds, and a task started before it can end
+        meanwhile with a new result (measured: ready at 2.5 s, execve at
+        8.6 s), or still be running, and draining would cancel it.
+        Either way this raises ``UpdateBlocked``, and the old binary is
+        put back, instead of losing the work in silence.
+
+        Then the pipeline temp dirs go, as in closeEvent: they hold only
+        results the user chose to discard, and nothing else would ever
+        remove them. If ``execve`` fails after this, the app goes on with
+        the tabs still showing those results, from files now deleted, and
+        no longer marked unsaved.
+        """
+        from app.update_apply import UpdateBlocked
+        if self._has_running_task():
+            raise UpdateBlocked(t("update.error.task_running"))
+        agreed_results, agreed_edits = (
+            self._update_agreed_loss or (frozenset(), frozenset()))
+        results, edits = self._work_at_risk()
+        if not results <= agreed_results:
+            raise UpdateBlocked(t("update.error.unsaved_work"))
+        if not edits <= agreed_edits:
+            raise UpdateBlocked(t("update.error.unsaved_edits"))
+        self._wait_for_workers_on_all_pages()
+        for v in list(self._viewers):
+            self._cleanup_pipeline(id(v))
+
+    def closeEvent(self, event):
+        """Save layout state on close, prompt for unsaved pipeline changes."""
+        if not self._confirm_discard_unsaved():
+            event.ignore()
+            return
         # Cleanup all pipeline temp files
         for v in list(self._viewers):
             self._cleanup_pipeline(id(v))

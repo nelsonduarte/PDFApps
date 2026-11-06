@@ -173,5 +173,13 @@ class UpdateController(QObject):
     def show_update_dialog(self):
         if self._update_release:
             from app.updater import UpdateDialog
-            dlg = UpdateDialog(self._update_release, parent=self._window)
+            # Wired here and not looked up on the dialog's parent: the
+            # controller is what composes the window with the updater,
+            # and the dialog stays testable without a MainWindow. On
+            # Linux the update ends in execve, which skips closeEvent.
+            dlg = UpdateDialog(
+                self._update_release, parent=self._window,
+                confirm_discard=self._window._confirm_update_restart,
+                before_exec=self._window._prepare_update_restart,
+            )
             dlg.exec()

@@ -29,6 +29,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Fetch the v1.15.2 tag
+        # test_v1152_refuses_the_renamed_asset runs the updater v1.15.2
+        # shipped, and skips without this tag. One tag at depth 1 is about
+        # 2 MB, 1.4 s from a home connection (2026-11-05); fetch-tags with
+        # fetch-depth 1 would bring all 48 tags, about 250 MB.
+        run: git fetch --no-tags --depth=1 origin +refs/tags/v1.15.2:refs/tags/v1.15.2
+
       - name: Set up Python 3.14
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:

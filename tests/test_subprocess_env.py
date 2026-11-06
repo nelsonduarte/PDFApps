@@ -26,7 +26,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app import _subprocess_env
-from app._subprocess_env import system_tool_env
+from app._subprocess_env import is_bootloader_var, system_tool_env
 
 MEI = "/tmp/_MEIabc"
 
@@ -144,6 +144,22 @@ def test_defaults_are_read_from_sys_at_call_time(monkeypatch):
     assert system_tool_env(src) == {}
     monkeypatch.setattr(sys, "platform", "win32")
     assert system_tool_env(src) is None
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("_PYI_APPLICATION_HOME_DIR", True),
+    ("_PYI_PARENT_PROCESS_LEVEL", True),
+    ("_PYI_ARCHIVE_FILE", True),
+    ("_PYI_SPLASH_IPC", True),
+    ("_MEIPASS", True),
+    ("_MEIPASS2", True),
+    ("LD_LIBRARY_PATH", False),
+    ("PYI_THING", False),
+    ("MEIPASS", False),
+    ("", False),
+])
+def test_is_bootloader_var(name, expected):
+    assert is_bootloader_var(name) is expected
 
 
 # ── no Qt and no app.* imports ───────────────────────────────────────────

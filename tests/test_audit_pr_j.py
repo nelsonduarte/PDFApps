@@ -268,15 +268,29 @@ def test_pdfapps_tests_no_longer_reference_old_stub():
 
 # ── Fix #12: updater backup in temp dir ───────────────────────────────────
 
-def test_updater_backup_uses_tempfile():
-    src = (_REPO_ROOT / "app" / "updater.py").read_text(encoding="utf-8")
-    # The legacy "<current>.bak" concat must be gone; the new path
-    # comes from tempfile.mkstemp.
-    assert 'backup = current + ".bak"' not in src
-    assert "tempfile.mkstemp(" in src
-    # And the suffix used for the backup makes it identifiable to a
-    # forensics workflow.
-    assert ".pdfapps-backup" in src
+def test_updater_backup_uses_tempfile(tmp_path, monkeypatch):
+    """Behavioural: the backup is made in the temp dir, never as a
+    "<exe>.bak" neighbour, and its suffix makes it identifiable to a
+    forensics workflow. The source checks this replaced passed whatever
+    the backup did, since staging the new binary also calls mkstemp."""
+    import tempfile
+    from app import update_apply
+
+    install = tmp_path / "install"
+    install.mkdir()
+    exe = install / "PDFApps"
+    exe.write_bytes(b"\x7fELF installed")
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(temp))
+
+    backup = update_apply._make_backup(str(exe))
+
+    assert os.path.dirname(backup) == str(temp)
+    assert os.path.basename(backup).startswith("PDFApps.")
+    assert backup.endswith(".pdfapps-backup")
+    assert Path(backup).read_bytes() == b"\x7fELF installed"
+    assert sorted(os.listdir(install)) == ["PDFApps"], "a neighbour file appeared"
 
 
 # ── Fix #13: CI artifact upload ───────────────────────────────────────────

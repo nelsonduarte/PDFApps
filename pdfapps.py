@@ -171,6 +171,10 @@ def main():
 
     window = MainWindow()
     window.show()
+    # After a Linux self-update: this version started, so the copy of the
+    # previous one kept in case it did not is no longer needed.
+    from app.update_apply import discard_backup_after_update
+    discard_backup_after_update()
 
     # Open PDFs passed as arguments (e.g.: double-click on a .pdf file
     # or multi-select "Open With" on Windows/macOS). Each valid path

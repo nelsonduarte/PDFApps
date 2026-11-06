@@ -122,7 +122,9 @@ jobs:
         run: |
           python -m PyInstaller --noconfirm pdfapps.spec
           chmod +x dist/PDFApps
-          tar -czf dist/PDFApps-Linux.tar.gz -C dist PDFApps
+          # Not the old PDFApps-Linux.tar.gz, ever: see LINUX_ASSET_NAME in
+          # app/updater.py for what versions up to 1.15.2 do with that name.
+          tar -czf dist/PDFApps-Linux-x86_64.tar.gz -C dist PDFApps
 
       - name: Smoke test the font subsetting child (Linux)
         if: runner.os == 'Linux'
@@ -133,7 +135,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.artifact }}
-          path: dist/PDFApps-Linux.tar.gz
+          path: dist/PDFApps-Linux-x86_64.tar.gz
 
       # ── macOS ───────────────────────────────────────────────────
       - name: Free macOS disk space
@@ -266,7 +268,7 @@ jobs:
           echo "" >> release_notes.md
           echo "## Checksums (SHA256)" >> release_notes.md
           for f in artifacts/PDFApps-Windows/PDFAppsSetup.exe \
-                   artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz \
+                   artifacts/PDFApps-Linux/PDFApps-Linux-x86_64.tar.gz \
                    artifacts/PDFApps-macOS/PDFApps-macOS.dmg; do
             for match in $f; do
               if [ -f "$match" ]; then
@@ -286,5 +288,5 @@ jobs:
           body_path: release_notes.md
           files: |
             artifacts/PDFApps-Windows/PDFAppsSetup.exe
-            artifacts/PDFApps-Linux/PDFApps-Linux.tar.gz
+            artifacts/PDFApps-Linux/PDFApps-Linux-x86_64.tar.gz
             artifacts/PDFApps-macOS/PDFApps-macOS.dmg

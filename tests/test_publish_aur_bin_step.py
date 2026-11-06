@@ -18,9 +18,11 @@ import re
 import shutil
 import sys
 from pathlib import Path
+from typing import Callable
 
 import pytest
 
+from app.updater import LINUX_ASSET_NAME
 from _workflow_steps import (
     ROOT,
     bash_flags,
@@ -75,7 +77,9 @@ exit 0
 """
 
 
-def _run_step(tmp_path: Path, step_name: str, curl_404: str):
+def _run_step(tmp_path: Path, step_name: str, curl_404: str,
+              edit_copy: Callable[[Path], None] | None = None):
+    """*edit_copy* gets the copied ``aur`` folder, as the tag checks it out."""
     require_posix_bash()
     workflow = load_workflow("publish.yml")
     step = find_step(workflow, "aur", step_name)
@@ -98,6 +102,8 @@ def _run_step(tmp_path: Path, step_name: str, curl_404: str):
     })
     work = tmp_path / "work"
     shutil.copytree(ROOT / "aur", work / "aur")
+    if edit_copy is not None:
+        edit_copy(work / "aur")
     curl_calls = tmp_path / "curl.txt"
     git_calls = tmp_path / "git.txt"
     proc = run_bash_script(
@@ -170,3 +176,44 @@ def test_a_failed_download_stops_the_step_before_it_pushes(tmp_path, which, curl
     assert proc.returncode != 0, proc.stdout + proc.stderr
     assert not [g for g in gits if g.split()[:1] == ["push"]], gits
     assert EMPTY_SHA not in proc.stdout
+
+
+# ── a tag older than the rename must leave the AUR alone ──
+
+
+# The removed name is history, so it stays written out; the current one
+# is whatever the updater looks for.
+OLD_ASSET = "PDFApps-Linux.tar.gz"
+NEW_ASSET = LINUX_ASSET_NAME
+
+
+def _name_the_asset(name: str) -> Callable[[Path], None]:
+    def edit(aur: Path) -> None:
+        pkgbuild = aur / "pdfapps-bin" / "PKGBUILD"
+        text = pkgbuild.read_text(encoding="utf-8")
+        assert f"/{NEW_ASSET}" in text, "the PKGBUILD this edits has changed"
+        pkgbuild.write_text(text.replace(f"/{NEW_ASSET}", f"/{name}"),
+                            encoding="utf-8", newline="\n")
+    return edit
+
+
+def test_a_tag_naming_the_removed_asset_pushes_nothing(tmp_path):
+    """Re-running publish.yml for v1.15.2 checks out a PKGBUILD that names
+    the asset since removed from that release: pushing it would put a URL
+    that is a 404 back on the AUR."""
+    proc, curls, gits, _clones = _run_step(
+        tmp_path, BIN_STEP, curl_404="", edit_copy=_name_the_asset(OLD_ASSET))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "::warning::" in proc.stdout
+    assert curls == []
+    assert gits == []
+
+
+def test_a_tag_naming_the_new_asset_still_reaches_the_push(tmp_path):
+    """The other side of the guard: it must not stop a current tag."""
+    proc, curls, gits, _clones = _run_step(
+        tmp_path, BIN_STEP, curl_404="", edit_copy=_name_the_asset(NEW_ASSET))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "::warning::" not in proc.stdout
+    assert any(u.endswith(f"/{NEW_ASSET}") for u in curls), curls
+    assert gits[0].startswith("clone ") and gits[-1] == "push", gits

@@ -699,6 +699,31 @@ class BasePage(QWidget):
         self._bg_thread = run_task(self, self._bg_runner, progress,
                                    _wrap_done, _wrap_err)
 
+    def _running_workers(self) -> list:
+        """(runner, thread) of each background task still running."""
+        running = []
+        for runner_attr, thread_attr in (("_runner", "_runner_thread"),
+                                          ("_bg_runner", "_bg_thread")):
+            runner = getattr(self, runner_attr, None)
+            thread = getattr(self, thread_attr, None)
+            if thread is None:
+                continue
+            try:
+                if not isValid(thread) or not thread.isRunning():
+                    continue
+            except RuntimeError:
+                continue
+            running.append((runner, thread))
+        return running
+
+    def has_running_workers(self) -> bool:
+        """Whether a task of this page is still running, cancelling none.
+
+        For the self-update, which must not end a task the user started:
+        :meth:`wait_for_workers` would cancel it.
+        """
+        return bool(self._running_workers())
+
     def wait_for_workers(self, timeout_ms: int = 2000) -> None:
         """Cancel any active background workers and wait for them to
         finish. Called by the main window's closeEvent so QThreads
@@ -720,17 +745,7 @@ class BasePage(QWidget):
         import time
 
         threads = []
-        for runner_attr, thread_attr in (("_runner", "_runner_thread"),
-                                          ("_bg_runner", "_bg_thread")):
-            runner = getattr(self, runner_attr, None)
-            thread = getattr(self, thread_attr, None)
-            if thread is None:
-                continue
-            try:
-                if not isValid(thread) or not thread.isRunning():
-                    continue
-            except RuntimeError:
-                continue
+        for runner, thread in self._running_workers():
             # cancel() is best-effort — blocking calls inside do_work
             # only honour it at the next checkpoint.
             if runner is not None and isValid(runner):
