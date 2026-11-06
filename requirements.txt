@@ -18,19 +18,55 @@ PySide6>=6.11.1,<6.12
 # GHSA-cgf9-327m-v77c / GHSA-f54x-cmq8-qg57 (6.21.0), GHSA-5hx5-vpf9-5wcv
 # (6.21.1) and three HIGH: GHSA-6c7f-9265-g8fw (CVE-2026-115572),
 # GHSA-jr96-gvgh-j3r4 (CVE-2026-115585) and GHSA-gmh7-3g9r-mjh5
-# (CVE-2026-115580), all fixed in 6.21.2. 6.21.2 is the first release
-# clear of every one of them (api.osv.dev, 2026-10-27); 6.20.0, which
-# build.yml installed for every v1.15.1 binary, still carries nine.
-# "pip-audit -r" audits the newest release that satisfies ">=", not the
-# floor, so a floor that admits vulnerable releases audits clean for as
-# long as a fixed release exists; security-deps.yml therefore also
-# audits the floors themselves, rewritten to "==" and with --no-deps.
+# (CVE-2026-115580), all fixed in 6.21.2. Then seven more HIGH, published
+# 2026-10-30: GHSA-x3rh-gjgm-fmqc (CVE-2026-119209), GHSA-62m5-6wh8-28x7
+# (CVE-2026-119208), GHSA-4vqv-7265-gm2w (CVE-2026-119207) and
+# GHSA-42gh-23hr-vphw (CVE-2026-119206), fixed in 6.21.3, and
+# GHSA-mfr5-77xh-9j7h (CVE-2026-119205), GHSA-cggf-277g-3q54
+# (CVE-2026-119204) and GHSA-5849-834g-hvw5 (CVE-2026-119203), fixed in
+# 6.21.4. 6.21.4 is the first release clear of every one of them
+# (api.osv.dev and the PyPI service, 2026-11-06); 6.21.2, the previous
+# floor, carries all seven, and 6.20.0, which build.yml installed for
+# every v1.15.1 binary, carries sixteen.
+# "pip-audit -r" audits the newest release the whole specifier admits,
+# not the floor, so a floor that admits vulnerable releases audits clean
+# for as long as the specifier admits a fixed release; security-deps.yml
+# therefore also audits the floors themselves, rewritten to "==" and
+# with --no-deps.
 # tests/test_dependency_security_floors.py fails if the floor drops
-# below 6.21.2, wherever pytest runs; tests.yml runs it on every pull
-# request to main and every push to main. An advisory published later
-# against the floor turns nothing that audits this file red once a
-# fixed release exists. Do not lower it.
-pypdf>=6.21.2
+# below 6.21.4, wherever pytest runs; tests.yml runs it on every pull
+# request to main and every push to main. That test only knows the
+# advisories it lists. An advisory published later against 6.21.4 turns
+# the floors audit red. It turns the "-r" audit red too only if no
+# release below the ceiling fixes it: a fix that ships only in 7.x
+# leaves the newest release "-r" can pick (6.21.4 today) vulnerable.
+# Either goes red only when security-deps.yml runs: on pull requests,
+# to any base branch, that touch this file,
+# scripts/requirements_floors.py or the workflow itself; on pushes to
+# main that touch this file or scripts/requirements_floors.py; weekly;
+# or by hand. That is how the seven above surfaced: the weekly run of
+# 2026-11-02 (run 41459693683) found them in the 6.21.2 floor while the
+# "-r" audit passed. That job is not a required check, so its red does
+# not block a merge. Do not lower the floor.
+# Ceiling for the same reason as PySide6 above and PyMuPDF below:
+# pypdf 7.0.0 (2026-11-06, Python >=3.10) is a new major that removes
+# deprecated code, drops cryptography <43, makes file identifiers (/ID)
+# non-deterministic and writes XMP without an XML declaration. The suite
+# has passed with it, before this ceiling existed (tests.yml run
+# 42247044575, a push to main on 2026-11-06, Ubuntu, Python 3.14), but
+# neither the frozen builds nor the snap have been tested with it, and nothing
+# checks what those last two changes do to the files the app writes.
+# Without the ceiling, tests.yml, build.yml and the snap would all
+# install it. 7.0.0 also lists four security fixes (pypdf #4361, #4363,
+# #4364, #4366) that no 6.21.x release carries; none has an advisory yet
+# (api.osv.dev and the PyPI service, 2026-11-06), but one published
+# against 6.21.4 would leave no fixed release below the ceiling: the
+# floor could not move without lifting it. Moving to 7 is a pull request
+# of its own: remove the ceiling, together with
+# tests/test_pypdf_ceiling.py, once the frozen builds and the snap have
+# been tested with 7.x and the suite passes with it. Until then, close
+# by hand any Dependabot PR that widens it.
+pypdf>=6.21.4,<7
 # GHSA-537c-gmf6-5ccf: signature verification bypass in legacy OpenSSL
 # providers fixed in 48.0.1, and PYSEC-2026-3552 / CVE-2026-69247
 # (Bleichenbacher oracle in PKCS#7 EnvelopedData decryption, introduced

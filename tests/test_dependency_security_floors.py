@@ -45,8 +45,8 @@ REQUIREMENTS = ROOT / "requirements.txt"
 # PEP 503 name -> (first release from which every later release is clear
 #                  of every advisory OSV lists for the package,
 #                  releases OSV lists as affected that the floor must reject)
-# Measured against api.osv.dev on 2026-10-05; pypdf and pillow again on
-# 2026-10-28.
+# Measured against api.osv.dev on 2026-10-05; pillow again on
+# 2026-10-28; pypdf again on 2026-11-06.
 SECURITY_FLOORS = {
     # PYSEC-2026-4158 (fixed 6.17.0), PYSEC-2026-4153 (6.18.0),
     # PYSEC-2026-4154 / 4155 / 4156 (6.18.1),
@@ -54,13 +54,16 @@ SECURITY_FLOORS = {
     # GHSA-39mj-jf6j-2qj3 / GHSA-7mh2-4gg2-979f (6.20.0),
     # GHSA-9mx8-4j7g-633p / GHSA-qfv9-64jg-mh7p (6.20.1),
     # GHSA-6vvc-x485-93v7 / GHSA-cgf9-327m-v77c / GHSA-f54x-cmq8-qg57
-    # (6.21.0), GHSA-5hx5-vpf9-5wcv (6.21.1), and the three HIGH
+    # (6.21.0), GHSA-5hx5-vpf9-5wcv (6.21.1), the three HIGH
     # GHSA-6c7f-9265-g8fw / GHSA-jr96-gvgh-j3r4 / GHSA-gmh7-3g9r-mjh5
-    # (6.21.2).
+    # (6.21.2), and seven more HIGH: GHSA-x3rh-gjgm-fmqc /
+    # GHSA-62m5-6wh8-28x7 / GHSA-4vqv-7265-gm2w / GHSA-42gh-23hr-vphw
+    # (6.21.3) and GHSA-mfr5-77xh-9j7h / GHSA-cggf-277g-3q54 /
+    # GHSA-5849-834g-hvw5 (6.21.4), CVE-2026-119203 to CVE-2026-119209.
     "pypdf": (
-        "6.21.2",
+        "6.21.4",
         ("6.16.2", "6.17.0", "6.18.0", "6.18.1", "6.19.0", "6.20.0",
-         "6.20.1", "6.21.0", "6.21.1"),
+         "6.20.1", "6.21.0", "6.21.1", "6.21.2", "6.21.3"),
     ),
     # 59 advisories against 12.3.0 (85 against 12.2.0), five CRITICAL,
     # every one fixed in 13.0.0.
