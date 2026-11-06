@@ -1228,7 +1228,6 @@ def test_a_descendant_that_left_the_group_does_not_hold_the_probe(tmp_path, prob
 def test_the_tarball_build_yml_makes_is_one_the_updater_installs(box, tmp_path):
     """``tar -C dist .`` would pack ``./PDFApps`` and pass CI, and every
     installed copy would then refuse every update."""
-    import re
     from _workflow_steps import find_step, load_workflow, run_bash_script
 
     step = find_step(load_workflow("build.yml"), "build", "Build (Linux)")
