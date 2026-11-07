@@ -35,7 +35,10 @@ Instead, use one of these methods:
 
 ## Scope
 
-PDFApps is a desktop application that runs entirely offline. The main attack surface is maliciously crafted PDF files. Network-related vulnerabilities only apply to the auto-updater module.
+PDFApps is a desktop application that runs entirely offline. The main attack surface is maliciously crafted PDF files. Network-related vulnerabilities apply only to these two parts:
+
+- **The in-app updater**, on direct installs: the macOS disk image, the Linux tar.gz and copies installed with the older Windows installer. It asks the GitHub Releases API over HTTPS whether a newer version exists. A downloaded update is used only if it matches the SHA256 checksum published in the release notes; it is refused when that checksum is missing or the download URL is not HTTPS. Microsoft Store, Snap and AUR installs skip the updater, because the platform updates them.
+- **The older Windows installer**, `PDFAppsSetup.exe`. It is no longer offered for download, but it still runs when a copy installed with it updates itself. If you choose to install them, it downloads Tesseract and Ghostscript, each checked against a SHA256 checksum pinned in the installer, and the OCR language files over HTTPS from the Tesseract project's `tessdata` repository on GitHub. The language files are not checked against a checksum, and the download follows that repository's main branch, not a fixed version.
 
 ## Known limitations
 
@@ -53,5 +56,7 @@ Who else can open that folder:
 | macOS | Not measured. The folder is made in the same way as on Linux |
 
 Measured on Windows 11 and Ubuntu 26.04 with Python 3.14, the version the Windows build uses. On Windows the restricted access list comes from Python itself (its fix for CVE-2024-4030); run from source with a Python that lacks that fix, the folder inherits the access list of the temporary folder instead.
+
+The `pdfapps-compress-*` folder is new in version 1.15.3. Up to version 1.15.2, Compress made its temporary files directly in the system's temporary folder, one loose file per pass, decrypted copies of an encrypted source included. On Linux, the copy saved by PyMuPDF was measured with mode 0644, readable by other users; on Windows, the files inherited the access list of `%TEMP%`.
 
 This limit is accepted for version 1.15.3. A later version is meant to remove these folders at startup. Until then, after such an exit, delete the `pdfapps-compress-*` folders in the temporary folder by hand.

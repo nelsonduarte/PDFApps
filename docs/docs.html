@@ -106,19 +106,19 @@
             <h2>Install</h2>
             <p>PDFApps is available on every major platform. Pick the one that matches your system:</p>
             <ul class="docs-list">
-                <li><strong>Windows 10/11:</strong> download the installer from the <a href="/download">Download page</a></li>
-                <li><strong>macOS 10.14+:</strong> download <code>PDFApps-macOS.dmg</code> from the <a href="/download">Download page</a> and drag PDFApps to Applications. The app is not yet signed by Apple, so the first launch needs an extra step: see <a href="#macos-open">macOS blocks PDFApps on first launch</a></li>
+                <li><strong>Windows 10/11:</strong> get PDFApps from the <a href="https://apps.microsoft.com/detail/9P70QGR8BSMZ">Microsoft Store</a>, which keeps it up to date. If you installed it with the older Windows installer, it keeps updating itself from the app.</li>
+                <li><strong>macOS 13+ (Apple Silicon):</strong> download <code>PDFApps-macOS.dmg</code> from the <a href="/download">Download page</a> and drag PDFApps to Applications. The app is not yet signed by Apple, so the first launch needs an extra step: see <a href="#macos-open">macOS blocks PDFApps on first launch</a></li>
                 <li><strong>Ubuntu / Snap:</strong> <code>sudo snap install pdfapps</code></li>
                 <li><strong>Arch / Manjaro:</strong> <code>yay -S pdfapps</code> (source) or <code>yay -S pdfapps-bin</code> (pre-compiled)</li>
                 <li><strong>Other Linux:</strong> download <code>PDFApps-Linux-x86_64.tar.gz</code>, extract it and run <code>./PDFApps</code>. It needs system libraries that it does not include, such as libGL, so the Snap or the AUR is recommended.</li>
             </ul>
-            <p>For OCR and advanced compression you also need <strong>Tesseract</strong> and <strong>Ghostscript</strong> installed on your system. The Windows installer offers to install both automatically.</p>
+            <p>The OCR tool needs <strong>Tesseract</strong>. <strong>Ghostscript</strong> is optional: Compress works without it, and gives smaller files with it. The Snap includes both. Elsewhere, install them yourself: on Windows from the <a href="https://github.com/UB-Mannheim/tesseract/wiki" target="_blank" rel="noopener noreferrer">Tesseract builds by UB Mannheim</a> and <a href="https://www.ghostscript.com/" target="_blank" rel="noopener noreferrer">ghostscript.com</a>, and on Linux from your package manager. On macOS, install Tesseract with <code>brew install tesseract tesseract-lang</code>; the app does not yet find a Ghostscript installed with Homebrew, and Compress works without it.</p>
         </section>
 
         <section id="first-steps">
             <h2>First steps</h2>
             <p>When you open PDFApps for the first time you see the workspace with a sidebar of 15 tools on the left. Click <strong>Open PDF</strong> in the toolbar (or drag a file onto the window) to start working.</p>
-            <p>The app remembers your last theme, language, and recently opened files between sessions. Configuration is stored in <code>~/.pdfapps_config.json</code>.</p>
+            <p>The app remembers your last theme, language, and recently opened files between sessions. Settings are stored in <code>.pdfapps_config.json</code> in your home folder on Windows and macOS, and in <code>~/.config/pdfapps/config.json</code> on Linux (under <code>$XDG_CONFIG_HOME</code> if it is set). A Linux install that already has <code>~/.pdfapps_config.json</code> keeps using it.</p>
         </section>
 
         <section id="open-pdf">
@@ -192,13 +192,13 @@
 
         <section id="tool-compress">
             <h2>Compress</h2>
-            <p>The Compress tool uses a 3-pass pipeline (Ghostscript → PyMuPDF → pikepdf) and keeps the smallest result. Three quality levels are available:</p>
+            <p>The Compress tool runs Ghostscript, when it is installed, and PyMuPDF, and keeps the smallest result. Three quality levels are available:</p>
             <ul class="docs-list">
                 <li><strong>Extreme</strong> - 72 DPI, 40% quality, grayscale. Best for archival or email.</li>
                 <li><strong>Recommended</strong> - 150 DPI, 65% quality. Good balance.</li>
                 <li><strong>Low</strong> - 300 DPI, 80% quality. Minimal visible loss.</li>
             </ul>
-            <p>Ghostscript is optional but recommended for the "Extreme" level.</p>
+            <p>Ghostscript is optional. When it is installed, Compress uses it at every level, which often gives a smaller file.</p>
         </section>
 
         <section id="tool-encrypt">
@@ -208,7 +208,7 @@
 
         <section id="tool-ocr">
             <h2>OCR (Text Recognition)</h2>
-            <p>Use OCR to extract text from scanned PDFs. Requires <a href="https://github.com/tesseract-ocr/tesseract" target="_blank" rel="noopener noreferrer">Tesseract</a> installed. Supports Portuguese, English, Spanish, French, and German. The output is a new PDF with an invisible text layer over the original images, so the file looks identical but you can search and select text.</p>
+            <p>Use OCR to extract text from scanned PDFs. Requires <a href="https://github.com/tesseract-ocr/tesseract" target="_blank" rel="noopener noreferrer">Tesseract</a> installed. The language list shows every language installed for Tesseract. The Snap includes a few common ones; elsewhere, add more with Tesseract's language packs. The output is a new PDF with an invisible text layer over the original images, so the file looks identical but you can search and select text.</p>
         </section>
 
         <section id="tool-convert">
@@ -218,7 +218,7 @@
                 <li><strong>PNG / JPG</strong> - choose the DPI (72, 150, or 300). One image per page.</li>
                 <li><strong>DOCX</strong> - Word document with headings, images, and formatting preserved.</li>
                 <li><strong>TXT</strong> - plain text extraction.</li>
-                <li><strong>PPTX</strong> - PowerPoint presentation with one slide per page (page rendered as image).</li>
+                <li><strong>PPTX</strong> - PowerPoint presentation with one slide per page, with editable text boxes, images and filled shapes; each line of text is its own text box, so paragraphs do not reflow and complex graphics are simplified.</li>
                 <li><strong>XLSX</strong> - Excel workbook with one sheet per page, text blocks as rows.</li>
                 <li><strong>HTML</strong> - HTML file with semantic headings and styled text.</li>
                 <li><strong>EPUB</strong> - E-book with one chapter per page for readers and Kindle.</li>
@@ -305,7 +305,7 @@
             </div>
             <div class="faq-item">
                 <h3>Do my files leave my computer?</h3>
-                <p>No. Everything runs locally. The only network requests are the startup update check on direct installs (Microsoft Store and other system-managed installs skip it, because the platform handles updates) and the OCR/compression engine downloads during first install.</p>
+                <p>No. Everything runs locally. The only network requests are the startup update check on direct installs (Microsoft Store and other system-managed installs skip it, because the platform handles updates) and, with the older Windows installer, its optional downloads of Tesseract, Ghostscript and the OCR language files.</p>
             </div>
             <div class="faq-item">
                 <h3>Why is the app so big?</h3>
@@ -321,7 +321,7 @@
             </div>
             <div class="faq-item">
                 <h3>How do I get OCR working?</h3>
-                <p>Install Tesseract from your package manager (Linux/macOS) or via the Windows installer (which downloads it automatically). PDFApps detects Tesseract via the system PATH.</p>
+                <p>Install Tesseract: on Windows from the <a href="https://github.com/UB-Mannheim/tesseract/wiki" target="_blank" rel="noopener noreferrer">UB Mannheim builds</a>, on macOS with <code>brew install tesseract tesseract-lang</code>, on Linux from your package manager (the Snap already includes it). PDFApps finds Tesseract on the system PATH or in its usual install folder.</p>
             </div>
         </section>
 
@@ -341,12 +341,12 @@
                 <p>Make sure <code>tesseract</code> is on your system PATH. Test with <code>tesseract --version</code> in a terminal. If installed but not detected, restart PDFApps after installation.</p>
             </div>
             <div class="faq-item">
-                <h3>Compression "Extreme" level fails</h3>
-                <p>The Extreme level requires Ghostscript. Install via <code>brew install ghostscript</code> (macOS), <code>sudo apt install ghostscript</code> (Debian/Ubuntu), or download from <a href="https://www.ghostscript.com/" target="_blank" rel="noopener noreferrer">ghostscript.com</a> (Windows).</p>
+                <h3>Compressed files are not as small as expected</h3>
+                <p>Compress works without Ghostscript, but when Ghostscript is installed it uses it at every level, which often gives a smaller file. Install it via <code>sudo apt install ghostscript</code> (Debian/Ubuntu), or download from <a href="https://www.ghostscript.com/" target="_blank" rel="noopener noreferrer">ghostscript.com</a> (Windows). On macOS, the app does not yet find a Ghostscript installed with Homebrew, so Compress runs without it there.</p>
             </div>
             <div class="faq-item">
                 <h3>The auto-updater is stuck</h3>
-                <p>Auto-updater is disabled in Microsoft Store, Snap and AUR installations because the platform handles updates for you: the Store keeps the app current automatically. In direct installations, check that you have admin rights, because the installer needs UAC elevation on Windows.</p>
+                <p>Auto-updater is disabled in Microsoft Store, Snap and AUR installations because the platform handles updates for you: the Store keeps the app current automatically. If you installed PDFApps with the older Windows installer, the app keeps updating itself; check that you have admin rights, because the installer needs UAC elevation.</p>
             </div>
             <div class="faq-item">
                 <h3>Found a bug?</h3>

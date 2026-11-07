@@ -582,7 +582,7 @@ section {
 
 .platforms-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 24px;
     align-items: center;
     text-align: center;
@@ -1209,7 +1209,7 @@ ol.docs-list li::before {
 @media (max-width: 960px) {
     .features-grid { grid-template-columns: repeat(2, 1fr); }
     .why-grid { grid-template-columns: repeat(2, 1fr); }
-    .platforms-grid { grid-template-columns: repeat(3, 1fr); }
+    .platforms-grid { grid-template-columns: repeat(2, 1fr); }
     .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 32px; }
     .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
     .os-grid { grid-template-columns: 1fr; }

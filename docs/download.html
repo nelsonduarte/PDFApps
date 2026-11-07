@@ -74,13 +74,13 @@
                     Get from Microsoft Store
                 </a>
                 <p class="os-note" style="margin-top: 10px; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5;">
-                    Windows downloads are exclusive to the Microsoft Store for automatic updates and platform validation.
+                    Windows downloads are exclusive to the Microsoft Store for automatic updates and platform validation. If you installed PDFApps with the older Windows installer, it keeps updating itself from the app.
                 </p>
             </div>
             <div class="os-card">
                 <img class="os-icon" src="icons/apple.svg" alt="macOS">
                 <h3>macOS</h3>
-                <div class="os-version">macOS 10.14+ · Intel / Apple Silicon</div>
+                <div class="os-version">macOS 13+ · Apple Silicon</div>
                 <a href="https://github.com/nelsonduarte/PDFApps/releases/latest/download/PDFApps-macOS.dmg" class="btn btn-primary">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Download DMG
@@ -157,7 +157,7 @@
         <div class="section-header">
             <span class="eyebrow">Optional</span>
             <h2>External tools</h2>
-            <p>For OCR and advanced compression. PDFApps works without these but two tools require them.</p>
+            <p>For OCR and smaller compressed files. PDFApps works without them; only the OCR tool needs one.</p>
         </div>
 
         <div class="distro-grid" style="max-width: 720px; margin: 0 auto;">
@@ -172,13 +172,13 @@
                 <svg class="distro-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 <div style="flex: 1;">
                     <h4>Ghostscript</h4>
-                    <div class="distro-desc">Used by the &quot;extreme&quot; compression level for maximum file size reduction.</div>
+                    <div class="distro-desc">When it is installed, Compress uses it at every level and keeps the smallest result. Compress works without it.</div>
                 </div>
             </div>
         </div>
 
         <p style="text-align: center; color: var(--text-muted); margin-top: 24px; font-size: 0.875rem;">
-            The Microsoft Store package bundles both automatically. On Linux, install from your package manager.
+            The Snap package includes both. The Microsoft Store and macOS apps do not: install them yourself, as the <a href="/docs#install">install guide</a> explains. On macOS, the app does not yet find a Ghostscript installed with Homebrew, so only Tesseract is worth installing there. On other Linux installs, use your package manager.
         </p>
     </div>
 </section>

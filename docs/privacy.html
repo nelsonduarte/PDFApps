@@ -65,7 +65,7 @@
 
 <section>
     <div class="container docs-content" style="max-width: 820px;">
-        <p><strong>Last updated:</strong> October 29, 2026</p>
+        <p><strong>Last updated:</strong> November 6, 2026</p>
 
         <section id="short-version">
             <h2>The short version</h2>
@@ -92,9 +92,10 @@
             <h2>3. Network connections the app <em>does</em> make</h2>
             <p>To stay useful, the app makes a small number of outbound network requests. These are limited and transparent:</p>
             <ul class="docs-list">
-                <li><strong>Update check.</strong> On direct installs (the Windows installer, the Linux tarball, the macOS disk image) the app queries the public GitHub Releases API (<code>api.github.com</code>) on launch to see whether a newer version is available. The request contains no personal data, only a standard HTTP user-agent.</li>
-                <li><strong>Update download.</strong> If you choose to install an update, the installer is downloaded from the official GitHub release URL.</li>
-                <li><strong>System-managed installs</strong> (Microsoft Store, Snap, Homebrew, AUR, apt, rpm) skip the in-app update check entirely, so they make no update request at all. Updates flow through your platform's package manager, which for the Microsoft Store means Windows keeps the app up to date for you.</li>
+                <li><strong>Update check.</strong> On direct installs (the macOS disk image, the Linux tarball, and copies installed with the older Windows installer) the app queries the public GitHub Releases API (<code>api.github.com</code>) on launch to see whether a newer version is available. The request contains no personal data, only a standard HTTP user-agent.</li>
+                <li><strong>Update download.</strong> If you choose to install an update, the new version is downloaded from the official GitHub release URL and checked against the SHA256 checksum published with the release before it is used.</li>
+                <li><strong>Older Windows installer.</strong> The standalone Windows installer, which is no longer offered for download but still runs when such a copy updates itself, can download Tesseract, Ghostscript and the OCR language files from GitHub if you choose to install them.</li>
+                <li><strong>System-managed installs</strong> (Microsoft Store, Snap, AUR) skip the in-app update check entirely, so they make no update request at all. Updates flow through your platform's package manager, which for the Microsoft Store means Windows keeps the app up to date for you.</li>
             </ul>
             <p>The app does <strong>not</strong> connect to any other server. PDF processing (merging, splitting, compressing, OCR, conversion, watermarking, and every other tool) runs 100% offline.</p>
         </section>
@@ -103,16 +104,17 @@
             <h2>4. Local data the app stores on your device</h2>
             <p>The app stores a small amount of data locally on your machine, and never transmits it anywhere:</p>
             <ul class="docs-list">
-                <li><strong>Settings file</strong> with your preferences (theme, language, recent paths). Stored in your OS user-config folder (<code>%APPDATA%\PDFApps</code> on Windows, <code>~/.config/PDFApps</code> on Linux, <code>~/Library/Application Support/PDFApps</code> on macOS).</li>
-                <li><strong>Temporary files</strong> created during PDF processing, automatically cleaned up when the app closes.</li>
-                <li><strong>Log files</strong> (only if you enable diagnostic logging) stored next to the settings file. Logs are never sent off-device.</li>
+                <li><strong>Settings file</strong> with your preferences (theme, language, recent files). On Windows and macOS it is <code>.pdfapps_config.json</code> in your home folder. On Linux it is <code>~/.config/pdfapps/config.json</code> (under <code>$XDG_CONFIG_HOME</code> if it is set), or <code>~/.pdfapps_config.json</code> if an older install already created that file.</li>
+                <li><strong>Saved signature</strong>: when you place a signature in the editor, it is saved for reuse by default, because the <strong>Save for reuse</strong> box in the signature dialog starts ticked; untick it to keep the signature from being saved. It is an image next to the settings file: <code>.pdfapps_signature.png</code> in your home folder on Windows and macOS; on Linux, <code>signature.png</code> in <code>~/.config/pdfapps</code> (under <code>$XDG_CONFIG_HOME</code> if it is set), or <code>~/.pdfapps_signature.png</code> if an older install already created <code>~/.pdfapps_config.json</code>.</li>
+                <li><strong>Log file</strong> <code>pdfapps.log</code>, always on, next to the settings file. It records errors and app events, which can include file names and paths. It is capped at about 1 MB, with up to two older copies (<code>pdfapps.log.1</code>, <code>pdfapps.log.2</code>). Logs are never sent off-device.</li>
+                <li><strong>Temporary files</strong> created while a tool runs, in your system's temporary folder. They are deleted when the operation ends, or, for a result you have not saved yet, when you close it or the app. If the app stops abruptly (a killed process, a power loss), some can be left behind; see the project's <a href="https://github.com/nelsonduarte/PDFApps/blob/main/SECURITY.md">security policy</a> for the Compress tool.</li>
             </ul>
-            <p>You can delete this data at any time by uninstalling the app and removing the config folder above.</p>
+            <p>You can delete this data at any time: uninstall the app, then remove the settings file, the saved signature and the log files listed above. Where they live in <code>~/.config/pdfapps</code>, removing that folder removes all three. Snap installs keep them inside the snap's own folder under <code>~/snap/pdfapps</code>.</p>
         </section>
 
         <section id="permissions">
             <h2>5. Permissions the app requests</h2>
-            <p>The app needs access to the local filesystem so you can open and save PDF files at locations of your choice. On Microsoft Store installs the app declares the <code>runFullTrust</code> capability because it is a packaged Win32 desktop application that uses native libraries (Qt/PySide6) and bundled native helpers (Ghostscript for compression, Tesseract for OCR). The app does not request any other capabilities.</p>
+            <p>The app needs access to the local filesystem so you can open and save PDF files at locations of your choice. On Microsoft Store installs the app declares the <code>runFullTrust</code> capability because it is a packaged Win32 desktop application that uses native libraries (Qt/PySide6) and runs Ghostscript (for compression) and Tesseract (for OCR) when you have installed them yourself; the Store package does not include them. The app does not request any other capabilities.</p>
         </section>
 
         <section id="children">
