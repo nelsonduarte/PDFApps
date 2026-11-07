@@ -723,8 +723,9 @@ def test_choose_another_name_is_granted(env, portal, monkeypatch):
     open(first, "w", encoding="utf-8").close()
     asked = _dialogs(monkeypatch, first)
     page._drop_file.btn.click()
+    assert len(asked) == 1, "the click opens the dialog"
     _run(page, spec, env)
-    # One dialog, the click's: its answer is granted and written unasked.
+    # The run opens no dialog: the click's answer is granted and written.
     assert len(asked) == 1, asked
     assert _label(first) == "A"
     assert not page._drop_file.is_portal_phantom()
@@ -748,8 +749,9 @@ def test_choose_another_folder_is_granted(env, portal, monkeypatch):
     os.mkdir(first)
     asked = _dialogs(monkeypatch, first)
     page._drop_folder.btn.click()
+    assert len(asked) == 1, "the click opens the dialog"
     _run(page, spec, env)
-    # One dialog, the click's: its answer is granted and written unasked.
+    # The run opens no dialog: the click's answer is granted and written.
     assert len(asked) == 1, asked
     assert _written(first)
     assert not page._drop_folder.is_portal_phantom()

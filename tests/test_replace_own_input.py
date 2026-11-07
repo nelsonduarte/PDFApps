@@ -127,11 +127,13 @@ def test_the_same_inode_on_another_device_is_another_file(monkeypatch, two_files
     assert is_same_file(a, b) is True, "the control: one id is one file"
 
 
-def test_with_no_file_id_the_case_of_the_name_counts_as_the_os_does(
+def test_with_no_file_id_the_case_of_the_name_is_ignored_only_on_windows(
         monkeypatch, tmp_path):
-    """Windows names are case-insensitive, POSIX ones are not (macOS
-    included: ``normcase`` changes nothing there). Neither file exists, so
-    ``realpath`` keeps each name as given and only the comparison decides."""
+    """``normcase`` folds case on Windows and nowhere else. On macOS it
+    changes nothing, so two names that differ only in case count as two
+    files there, although APFS and HFS+ by default treat them as one; not
+    measured on macOS. Neither file exists, so ``realpath`` keeps each name
+    as given and only the comparison decides."""
     lower = str(tmp_path / "relatório ç.pdf")
     upper = str(tmp_path / "RELATÓRIO Ç.pdf")
     _fake_stat(monkeypatch, {lower: _stat_result(0, 0), upper: _stat_result(0, 0)})
@@ -810,12 +812,15 @@ def test_the_file_in_use_log_has_the_os_fields_and_not_the_text(
     with caplog.at_level(logging.WARNING):
         utils.show_error(None, exc)
 
-    logged = [r.getMessage() for r in caplog.records]
-    assert len(logged) == 1, logged
-    assert logged[0].startswith("File in use: ")
-    assert text not in logged[0]
-    assert f"errno={errno.EACCES} winerror=32 " in logged[0]
-    assert repr(temp) in logged[0] and repr(str(held)) in logged[0]
+    records = [r for r in caplog.records
+               if r.getMessage().startswith("File in use: ")]
+    assert len(records) == 1, [r.getMessage() for r in caplog.records]
+    assert records[0].levelno == logging.WARNING
+    assert records[0].exc_info is None, "no traceback"
+    assert not [r for r in caplog.records if text in r.getMessage()]
+    logged = records[0].getMessage()
+    assert f"errno={errno.EACCES} winerror=32 " in logged
+    assert repr(temp) in logged and repr(str(held)) in logged
     # What the user is shown keeps the whole exception.
     assert [b[2] for b in boxes] == [t("msg.file_in_use")]
     assert text in boxes[0][3] and held.name in boxes[0][3]

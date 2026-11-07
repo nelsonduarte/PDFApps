@@ -19,7 +19,7 @@ import contextlib
 import os
 import sys
 import tempfile
-from typing import Iterable
+from typing import Iterable, TypeGuard
 
 __all__ = ["atomic_pdf_write", "check_not_same_path", "is_file_in_use_error",
            "is_same_file", "resolves_to_any"]
@@ -96,7 +96,8 @@ _WIN_FILE_IN_USE = frozenset({5, 32, 33})
 _WIN_USER_MAPPED_FILE = 1224
 
 
-def is_file_in_use_error(exc: BaseException, platform: "str | None" = None) -> bool:
+def is_file_in_use_error(exc: BaseException,
+                         platform: "str | None" = None) -> TypeGuard[OSError]:
     """Did Windows refuse to let us read or write an existing file, because
     a program holds it open (the viewer included) or it is read-only?
 

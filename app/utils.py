@@ -1158,7 +1158,10 @@ def setup_logging() -> None:
 
 def show_error(parent, exc: BaseException) -> None:
     """Show a translated, friendly error dialog with collapsible technical
-    details. Logs the full exception (with traceback) to the log file.
+    details. Logs the full exception (with traceback) to the log file,
+    except for the two exceptions below: each is logged as a warning with
+    no traceback, and a file in use with only the OS's error codes and the
+    file names, not the exception text.
 
     Replaces the historical pattern:
         QMessageBox.critical(self, t("msg.error"), str(e))
