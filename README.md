@@ -53,7 +53,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 | **Compress**      | Reduce file size with three compression levels (extreme / recommended / low)                                                                         |
 | **Encrypt**       | Protect the PDF with a password or remove existing protection                                                                                        |
 | **Watermark**     | Overlay a watermark/stamp PDF on pages with opacity and position control                                                                             |
-| **OCR**           | Recognise text in scanned PDFs — 5 language packs bundled (PT, EN, ES, FR, DE), works with any of Tesseract's 100+ languages if installed separately |
+| **OCR**           | Recognise text in scanned PDFs with Tesseract, in any language installed for it (the Snap includes a few common ones)                                |
 | **Convert**       | Export PDF to DOCX, PPTX, XLSX, HTML, EPUB, TXT, PNG or JPG (with DPI control)                                                                       |
 | **Page numbers**  | Add page numbering (header/footer) with format, position and font control                                                                            |
 | **N-Up**          | Arrange multiple pages per sheet (2, 4, 6, 9, 16-up) with custom layout                                                                              |
@@ -110,8 +110,7 @@ Most PDF tools are either paid, browser-based, or require uploading your files t
 | Platform                   | How to get it                                                                                                                                                                                              |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Windows** 10/11 (Store)  | [Get it on the Microsoft Store](https://apps.microsoft.com/detail/9P70QGR8BSMZ) — auto-updates handled by Windows                                                                                          |
-| **Windows** 10/11 (direct) | Download `PDFAppsSetup.exe` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest)                                                                                                       |
-| **macOS** 10.14+           | Download `PDFApps-macOS.dmg` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), mount, and drag PDFApps.app to Applications — Tesseract via `brew install tesseract tesseract-lang` |
+| **macOS** 13+ (Apple Silicon) | Download `PDFApps-macOS.dmg` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), mount, and drag PDFApps.app to Applications; Tesseract via `brew install tesseract tesseract-lang` |
 | **Ubuntu / Debian / Snap** | `sudo snap install pdfapps`                                                                                                                                                                                |
 | **Arch / Manjaro**         | `yay -S pdfapps` (source) or `yay -S pdfapps-bin` (binary)                                                                                                                                                 |
 | **Any Linux**              | Download `PDFApps-Linux-x86_64.tar.gz` from [Releases](https://github.com/nelsonduarte/PDFApps/releases/latest), extract it with `tar -xzf` and run `./PDFApps`                                                   |
@@ -140,7 +139,7 @@ python pdfapps.py
 
 > **Tesseract OCR** is required for text recognition:
 >
-> - **Windows**: the installer handles this automatically
+> - **Windows**: install it from the [UB Mannheim builds](https://github.com/UB-Mannheim/tesseract/wiki)
 > - **macOS**: `brew install tesseract tesseract-lang`
 > - **Linux**: `sudo apt install tesseract-ocr tesseract-ocr-por tesseract-ocr-eng`
 
