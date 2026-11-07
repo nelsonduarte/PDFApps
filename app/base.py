@@ -10,14 +10,15 @@ from typing import Iterable
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from shiboken6 import isValid
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFileDialog,
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                                QPushButton, QLabel, QMessageBox)
 
 from app import pdf_io
 from app.constants import DESKTOP, ACCENT, TOOL_PANEL_MIN_WIDTH
 from app.i18n import t
 from app.utils import (ToolHeader, ActionBar, scrolled, _paint_bg,
-                       WrongPasswordError)
+                       WrongPasswordError, ask_output_folder, ask_save_path,
+                       refuse_own_input)
 
 # Iterable is referenced via string-typed annotations in
 # _atomic_pdf_write / _check_not_same_path; keep it importable so
@@ -145,29 +146,50 @@ class BasePage(QWidget):
         """Main logic called by the action button."""
 
     def _prompt_save_as(self, default_name: str = "result.pdf",
-                        start_dir: str = "", filter_key: str = "file_filter.pdf") -> str:
+                        start_dir: str = "", filter_key: str = "file_filter.pdf",
+                        inputs=()) -> str:
         """Open a Save File dialog and return the chosen path (or "")."""
         base = start_dir if start_dir and os.path.isdir(start_dir) else DESKTOP
         suggested = os.path.join(base, default_name)
-        path, _ = QFileDialog.getSaveFileName(
-            self, t("btn.choose"), suggested, t(filter_key))
-        return path or ""
+        return ask_save_path(self, t("btn.choose"), suggested, t(filter_key), inputs)
 
     def _prompt_save_dir(self, start_dir: str = "") -> str:
         """Open a folder picker and return the chosen directory (or "")."""
         base = start_dir if start_dir and os.path.isdir(start_dir) else DESKTOP
-        return QFileDialog.getExistingDirectory(self, t("btn.choose"), base) or ""
+        return ask_output_folder(self, t("btn.choose"), base)
 
     def _resolve_output_file(self, drop_widget, input_path: str = "",
-                             filter_key: str = "file_filter.pdf") -> str:
-        """Return the output file path, prompting via Save dialog if empty.
+                             filter_key: str = "file_filter.pdf",
+                             inputs=None, may_replace_input: bool = False) -> str:
+        """Return the output file path, prompting via Save dialog if the
+        field is empty or holds a path the document portal would swallow.
+        Cancelling that dialog returns "" and leaves the field as it was.
+        So does a path that would replace an input: ``inputs``, when the tool
+        reads more than ``input_path``. ``may_replace_input`` lifts that for
+        a tool whose output is still the same document and that only
+        replaces the input once it is done reading it (Compress), and only
+        for a path a Save dialog returned (``is_chosen``), which asked
+        before replacing it. A field that names an input without that gets
+        the Save dialog: the caller resets the field when its input changes,
+        so that answer stays the one for the current input.
         In pipeline mode, returns a temp file path instead of prompting."""
         # Pipeline mode: save to temp file, skip dialog
         if self._pipeline_active:
             return self._make_pipeline_temp(input_path, drop_widget)
+        inputs = (input_path,) if inputs is None else tuple(inputs)
         out = drop_widget.path()
-        if out:
-            return out
+        # A phantom stays in the field until the dialog answers: its name is
+        # what the next dialog suggests after a Cancel, and what OCR's format
+        # switch rewrites.
+        phantom = out if drop_widget.is_portal_phantom() else ""
+        if out and not phantom:
+            if not may_replace_input:
+                return "" if refuse_own_input(self, out, inputs) else out
+            if drop_widget.is_chosen() or not pdf_io.resolves_to_any(out, inputs):
+                return out
+            # Not the other tools' warning: it says to choose another name,
+            # and Compress's field is hidden, so the run would only end in
+            # it again. The dialog is the one place left to choose.
         default_name = getattr(drop_widget, "_default", "") or "result.pdf"
         if input_path:
             base, ext = os.path.splitext(os.path.basename(input_path))
@@ -175,9 +197,27 @@ class BasePage(QWidget):
             if sfx:
                 default_name = base + "_" + stem + sfx
         start_dir = os.path.dirname(input_path) if input_path else ""
-        out = self._prompt_save_as(default_name, start_dir, filter_key)
-        if out:
-            drop_widget.set_path(out)
+        if phantom:
+            # The field's name carries what the tool worked out (suffix,
+            # OCR's .txt), unless it is left over from an earlier input.
+            if os.path.dirname(phantom) == start_dir:
+                default_name = os.path.basename(phantom)
+            else:
+                default_name = (os.path.splitext(default_name)[0]
+                                + os.path.splitext(phantom)[1])
+        return self._ask_output_file(drop_widget, default_name, start_dir,
+                                     filter_key, inputs, may_replace_input)
+
+    def _ask_output_file(self, drop_widget, default_name: str, start_dir: str,
+                         filter_key: str, inputs,
+                         may_replace_input: bool = False) -> str:
+        """The Save dialog's answer, in the field if it can be written."""
+        out = self._prompt_save_as(default_name, start_dir, filter_key, inputs)
+        if not out:
+            return ""
+        if not may_replace_input and refuse_own_input(self, out, inputs):
+            return ""
+        drop_widget.set_chosen_path(out)
         return out
 
     def _make_pipeline_temp(self, input_path: str, drop_widget=None) -> str:
@@ -331,22 +371,23 @@ class BasePage(QWidget):
                 8000, lambda t=toast: t.setVisible(False) if isValid(t) else None)
 
     def _resolve_output_dir(self, drop_widget, input_path: str = "") -> str:
-        """Return the output directory, prompting via folder picker if empty."""
+        """Return the output directory, prompting via folder picker if the
+        field is empty or holds a folder the document portal would swallow.
+        Cancelling the picker returns "" and leaves the field as it was."""
         out = drop_widget.path()
-        if out:
+        if out and not drop_widget.is_portal_phantom():
             return out
         start_dir = os.path.dirname(input_path) if input_path else ""
         out = self._prompt_save_dir(start_dir)
         if out:
-            drop_widget.set_path(out)
+            drop_widget.set_chosen_path(out)
         return out
 
     # ── overwrite confirmation ─────────────────────────────────────────────
     #
     # Opt-in: only the tools that call these helpers ask before replacing
     # an existing output. ``_resolve_output_file`` / ``_resolve_output_dir``
-    # are left exactly as they were, so the tools that still call them
-    # keep their current behaviour.
+    # never ask, so the tools that still call them keep replacing it.
 
     OVERWRITE_REPLACE = "replace"
     OVERWRITE_RENAME = "rename"
@@ -394,7 +435,8 @@ class BasePage(QWidget):
         return self.OVERWRITE_CANCEL
 
     def _resolve_output_file_guarded(self, drop_widget, input_path: str = "",
-                                     filter_key: str = "file_filter.pdf") -> str:
+                                     filter_key: str = "file_filter.pdf",
+                                     inputs=None) -> str:
         """``_resolve_output_file`` that never replaces a file silently.
 
         Returns the path to write, or ``""`` to abort the run. Asks
@@ -409,9 +451,11 @@ class BasePage(QWidget):
         """
         if self._pipeline_active:
             return self._resolve_output_file(drop_widget, input_path, filter_key)
-        prefilled = bool(drop_widget.path())
+        # A phantom gets the Save dialog below, which asks for itself; the
+        # file that would clash with it may not even exist on the host.
+        prefilled = bool(drop_widget.path()) and not drop_widget.is_portal_phantom()
         confirmed = self._take_confirmed(drop_widget)
-        out = self._resolve_output_file(drop_widget, input_path, filter_key)
+        out = self._resolve_output_file(drop_widget, input_path, filter_key, inputs)
         if not out:
             return ""
         if not prefilled:
@@ -424,11 +468,9 @@ class BasePage(QWidget):
             return out
         if answer != self.OVERWRITE_RENAME:
             return ""
-        new = self._prompt_save_as(os.path.basename(out),
-                                   os.path.dirname(out), filter_key)
-        if new:
-            drop_widget.set_path(new)
-        return new
+        return self._ask_output_file(
+            drop_widget, os.path.basename(out), os.path.dirname(out), filter_key,
+            (input_path,) if inputs is None else tuple(inputs))
 
     def _guard_folder_outputs(self, drop_widget, out_dir: str,
                               names: "Iterable[str]") -> str:
@@ -454,7 +496,7 @@ class BasePage(QWidget):
             new = self._prompt_save_dir(out_dir)
             if not new:
                 return ""
-            drop_widget.set_path(new)
+            drop_widget.set_chosen_path(new)
             out_dir = new
 
     @staticmethod

@@ -108,7 +108,7 @@ class TabDividir(BasePage):
 
     def _pick_output(self):
         d = pick_folder(self)
-        if d: self.drop_out.set_path(d)
+        if d: self.drop_out.set_chosen_path(d)
 
     def _add_row(self):
         r = self.table.rowCount(); self.table.insertRow(r)

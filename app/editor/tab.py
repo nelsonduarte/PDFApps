@@ -18,7 +18,7 @@ import qtawesome as qta
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, DESKTOP, _LQ, _LP
 from app.utils import (
     ToolHeader, ActionBar, info_lbl, _paint_bg, show_error,
-    WrongPasswordError,
+    WrongPasswordError, ask_save_path,
 )
 from app.i18n import t
 from app.widgets import DropFileEdit, ColorPickerButton
@@ -1183,13 +1183,20 @@ class TabEditar(QWidget):
         if not self._doc_path or not os.path.isfile(self._doc_path):
             QMessageBox.warning(self, t("msg.warning"), t("msg.open_pdf_first")); return
         out = self._drop_out.path()
-        if not out:
+        phantom = self._drop_out.is_portal_phantom()
+        # With no edits the run ends in the same warning further down; a PDF
+        # just opened through the portal must not ask where to save first.
+        if phantom and self._mode_idx != _MODE_FORMS and not self._user_pending:
+            QMessageBox.warning(self, t("msg.warning"), t("msg.no_pending")); return
+        if not out or phantom:
             base, ext = os.path.splitext(os.path.basename(self._doc_path))
             suggested = os.path.join(os.path.dirname(self._doc_path), base + "_edited" + ext)
-            out, _ = QFileDialog.getSaveFileName(
-                self, t("btn.choose"), suggested, t("file_filter.pdf"))
+            # An answer naming the open PDF stays allowed: applying edits over
+            # it is a choice the Save dialog has just asked about.
+            out = ask_save_path(self, t("btn.choose"), suggested,
+                                t("file_filter.pdf"), (self._doc_path,))
             if not out: return
-            self._drop_out.set_path(out)
+            self._drop_out.set_chosen_path(out)
         if self._mode_idx == _MODE_FORMS:
             # If there are also pending edits, warn — Forms apply uses
             # pypdf and would silently drop the in-memory edits otherwise.
@@ -1407,7 +1414,9 @@ class TabEditar(QWidget):
                     )
                     _log.info(
                         "Re-encrypted forms output with user password as owner")
-                fd, tmp = tempfile.mkstemp(prefix=".pdfapps_save_", suffix=".pdf",
+                # No leading dot: the snap home interface denies creating
+                # dotfiles directly in ~.
+                fd, tmp = tempfile.mkstemp(prefix="pdfapps_save_", suffix=".pdf",
                                            dir=os.path.dirname(out) or ".")
                 os.close(fd)
                 try:

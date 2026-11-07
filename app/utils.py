@@ -10,14 +10,18 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QPalette, QColor, QPainter
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
-    QScrollArea, QFrame, QFileDialog,
+    QScrollArea, QFrame, QFileDialog, QMessageBox,
 )
 import qtawesome as qta
 
 from app.i18n import t
 from app._shading_patterns import has_shading_pattern
+from app.pdf_io import check_not_same_path, is_file_in_use_error
+from app.portal import (
+    portal_free_suggestion, portal_rejects_folder, portal_rejects_saved_file,
+)
 from app.constants import (
-    ACCENT, DESKTOP,
+    ACCENT, DESKTOP, dialog_start,
     BG_BASE, BG_CARD, BG_INPUT,
     TEXT_PRI,
     SUCCESS_DARK, SUCCESS_LIGHT,
@@ -175,8 +179,43 @@ def pick_pdfs(parent: QWidget) -> list:
     return paths
 
 
+def ask_save_path(parent: QWidget, caption: str, suggested: str,
+                  file_filter: str, inputs=()) -> str:
+    """Save dialog for an output, returning "" on cancel and also on an
+    answer that would report success and leave nothing on the host. See
+    :mod:`app.portal`; ``inputs`` are the files the output derives from.
+    Every Save dialog goes through here, so a caller can trust the answer."""
+    path, _ = QFileDialog.getSaveFileName(
+        parent, caption, portal_free_suggestion(suggested), file_filter)
+    if path and portal_rejects_saved_file(path, inputs):
+        QMessageBox.warning(parent, t("msg.warning"), t("tool.err.portal_output"))
+        return ""
+    return path or ""
+
+
+def ask_output_folder(parent: QWidget, caption: str, start: str = "") -> str:
+    """Folder picker for an output: ``ask_save_path`` for folders."""
+    path = QFileDialog.getExistingDirectory(parent, caption, start)
+    if path and portal_rejects_folder(path):
+        QMessageBox.warning(parent, t("msg.warning"), t("tool.err.portal_output"))
+        return ""
+    return path or ""
+
+
+def refuse_own_input(parent: QWidget, out: str, inputs) -> bool:
+    """Warn and return True when writing ``out`` would replace one of
+    ``inputs``. A tool that reads an input and writes elsewhere has no reason
+    to do that, and it replaces a PDF with whatever the tool produces."""
+    try:
+        check_not_same_path(out, inputs)
+    except RuntimeError as exc:
+        QMessageBox.warning(parent, t("msg.warning"), str(exc))
+        return True
+    return False
+
+
 def pick_folder(parent: QWidget) -> str:
-    return QFileDialog.getExistingDirectory(parent, t("btn.select_folder"))
+    return ask_output_folder(parent, t("btn.select_folder"), dialog_start())
 
 
 # Per-object password dictionaries that must die with ``_pdf_password``:
@@ -1128,8 +1167,10 @@ def show_error(parent, exc: BaseException) -> None:
     is in the collapsed "Show Details" pane, and the full traceback is in
     the log file at `pdfapps.log` next to the config.
 
-    :class:`WrongPasswordError` is the one exception routed differently.
-    It is not a crash: it is a recoverable, self-inflicted and fully
+    Two exceptions are routed differently. One is a file Windows will not
+    let us read or write (:func:`app.pdf_io.is_file_in_use_error`): a
+    warning that names the remedy, the details pane kept. The other is
+    :class:`WrongPasswordError`. It is not a crash: it is a recoverable, self-inflicted and fully
     understood condition whose message is already translated and already
     addressed to the user. Sending it down the generic path showed
     "something went wrong ... the full traceback has been written to the
@@ -1152,6 +1193,21 @@ def show_error(parent, exc: BaseException) -> None:
         # str(exc) only: no `type(exc).__name__` prefix, so the dialog
         # never leaks "WrongPasswordError:" to an end user in 8 locales.
         box.setText(str(exc) or t("tool.err.wrong_password"))
+        box.exec()
+        return
+
+    if is_file_in_use_error(exc):
+        # Not a fault either, and the generic text gave no hint of the
+        # remedy: the file is open in the viewer or another program (or
+        # read-only), and closing it gets past it. Not "save it under
+        # another name": a refused read has no other name to use, and
+        # most tools hide their output field.
+        logging.warning("File in use: %s", exc)
+        box = QMessageBox(parent)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle(t("msg.warning"))
+        box.setText(t("msg.file_in_use"))
+        box.setDetailedText(f"{type(exc).__name__}: {exc}")
         box.exec()
         return
 

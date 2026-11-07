@@ -113,7 +113,8 @@ class TabMarcaDagua(BasePage):
             QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.select_source")); return
         if not wm_path or not os.path.isfile(wm_path):
             QMessageBox.warning(self, t("msg.warning"), t("tool.watermark.select_wm")); return
-        out_path = self._resolve_output_file(self.drop_out, pdf_path)
+        out_path = self._resolve_output_file(self.drop_out, pdf_path,
+                                             inputs=(pdf_path, wm_path))
         if not out_path: return
 
         # R8 bonus #6: the watermark PDF can itself be encrypted (rare

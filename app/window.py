@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QListWidget, QListWidgetItem,
     QStackedWidget, QSplitter, QStatusBar, QFrame,
     QApplication, QLineEdit, QMenu, QTabBar,
-    QFileDialog, QMessageBox,
+    QMessageBox,
 )
 from PySide6.QtGui import QColor
 import qtawesome as qta
@@ -21,7 +21,8 @@ from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP, BORDER
 from app.constants import TOOL_PANEL_MIN_WIDTH
 from app.i18n import t, set_language, get_language, add_recent_file
 from app.styles import STYLE, STYLE_LIGHT
-from app.utils import resource_path, _make_palette
+from app.pdf_io import resolves_to_any
+from app.utils import ask_save_path, resource_path, show_error, _make_palette
 from app.widgets import DropFileEdit
 from app.single_instance import SingleInstanceServer
 from app.update_controller import UpdateController
@@ -521,7 +522,7 @@ class MainWindow(QMainWindow):
             w = self.stack.widget(i)
             if isinstance(w, BasePage):
                 w.pipeline_done.connect(self._on_pipeline_done)
-                w.pipeline_save_requested.connect(self._save_pipeline)
+                w.pipeline_save_requested.connect(self._try_save_pipeline)
         # Per-viewer pipeline state: {viewer_id: {original_path, temp_path}}
         self._pipeline_state: dict[int, dict] = {}
         # Set by _confirm_update_restart: the work the user agreed to lose.
@@ -647,7 +648,7 @@ class MainWindow(QMainWindow):
             if ans == QMessageBox.StandardButton.Cancel:
                 return
             if ans == QMessageBox.StandardButton.Save:
-                self._save_pipeline()
+                self._try_save_pipeline(viewer)
                 return  # save_pipeline reloads, don't close
         self._cleanup_pipeline(id(viewer))
         if self._tab_bar.count() <= 1:
@@ -1141,7 +1142,7 @@ class MainWindow(QMainWindow):
         vid = id(self._viewer)
         ps = self._pipeline_state.get(vid)
         if ps and ps.get("temp_path"):
-            self._save_pipeline()
+            self._try_save_pipeline()
         elif self._current_tool >= 0:
             w = self.stack.widget(self._current_tool)
             if hasattr(w, '_run'):
@@ -1179,21 +1180,30 @@ class MainWindow(QMainWindow):
                         drop.clear()
                 fn(temp_path)
 
-    def _save_pipeline(self):
-        """Save the current pipeline result to a user-chosen file."""
+    def _save_pipeline(self, viewer=None) -> bool:
+        """Save a tab's pipeline result to a user-chosen file: ``viewer``'s,
+        or the current tab's. True once saved, False when there was nothing
+        to save or the Save dialog gave no path to write (Cancel, or an
+        answer it refused). The OSError of a failed write propagates.
+
+        The answer may be the original: the result is still that document,
+        and the Save dialog has just asked before replacing it."""
         import shutil
         import tempfile
-        vid = id(self._viewer)
+        if viewer is None:
+            viewer = self._viewer
+        vid = id(viewer)
         ps = self._pipeline_state.get(vid)
         if not ps or not ps.get("temp_path"):
-            return
+            return False
         orig = ps["original_path"]
         base, ext = os.path.splitext(os.path.basename(orig))
         suggested = os.path.join(os.path.dirname(orig), base + "_edited" + ext)
-        path, _ = QFileDialog.getSaveFileName(
-            self, t("btn.choose"), suggested, t("file_filter.pdf"))
+        path = ask_save_path(self, t("btn.choose"), suggested,
+                             t("file_filter.pdf"), (orig,))
         if not path:
-            return
+            return False
+        replaces_orig = resolves_to_any(path, (orig,))
         # R11-M6: warn if destination is a symlink. A pre-placed symlink
         # could redirect the write to an unintended location; we still
         # honour the user's chosen path (os.replace follows symlinks),
@@ -1222,16 +1232,34 @@ class MainWindow(QMainWindow):
                     os.unlink(tmp)
                 raise
         except OSError:
+            if replaces_orig:
+                # Never onto the original: copy2 truncates it before
+                # copying, and on Windows a replace refused because a
+                # viewer still has it open would land here.
+                raise
             # Last-resort fallback if mkstemp can't write next to dst.
             shutil.copy2(ps["temp_path"], path)
         # Load the saved file in the viewer (replaces temp)
-        self._viewer.load(path)
-        idx = self._viewer_stack.currentIndex()
+        viewer.load(path)
+        idx = self._viewer_stack.indexOf(viewer)
         self._tab_bar.setTabText(idx, os.path.basename(path))
         self._tab_bar.setTabToolTip(idx, path)
         # Cleanup pipeline state
         self._cleanup_pipeline(vid)
         self._sb.showMessage(t("pipeline.saved"))
+        return True
+
+    def _try_save_pipeline(self, viewer=None) -> bool:
+        """``_save_pipeline`` for a gesture of the user's (the toast's
+        button, Ctrl+S, Save in a close prompt): a write that fails is shown
+        through ``show_error``, not left to ``sys.excepthook`` as an
+        unexpected error, and False comes back. ``_save_pipeline`` raises
+        before it touches the result, so the tab keeps it to try again."""
+        try:
+            return self._save_pipeline(viewer)
+        except OSError as exc:
+            show_error(self, exc)
+            return False
 
     def _cleanup_pipeline(self, viewer_id: int):
         """Remove pipeline temp files and state for a viewer."""
@@ -1395,7 +1423,11 @@ class MainWindow(QMainWindow):
                 if ans == QMessageBox.StandardButton.Cancel:
                     return False
                 if ans == QMessageBox.StandardButton.Save:
-                    self._save_pipeline()
+                    # v, not the current tab: it may be another one. A save
+                    # that did not happen keeps the window open, as the
+                    # teardown after a True deletes the result.
+                    if not self._try_save_pipeline(v):
+                        return False
                 break  # only prompt once
         # Check for unsaved edits in the editor tool (drawings, redactions,
         # text edits, signatures, notes added but not yet applied/saved)

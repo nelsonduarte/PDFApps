@@ -17,15 +17,62 @@ cycle.
 
 import contextlib
 import os
+import sys
 import tempfile
 from typing import Iterable
 
-__all__ = ["atomic_pdf_write", "check_not_same_path"]
+__all__ = ["atomic_pdf_write", "check_not_same_path", "is_file_in_use_error",
+           "is_same_file", "resolves_to_any"]
+
+
+def _same_by_path(a: str, b: str) -> bool:
+    return (os.path.normcase(os.path.realpath(a))
+            == os.path.normcase(os.path.realpath(b)))
+
+
+def is_same_file(a: str, b: str) -> bool:
+    """Are ``a`` and ``b`` the same file, also through another hard link?
+
+    False when either does not exist. ``os.path.samefile`` compares only
+    ``st_ino`` and ``st_dev``; a file system with no file id reports 0
+    there (on Windows, some virtual and network drives), and then every
+    file on it would be the same file, so only the paths can tell.
+    """
+    try:
+        sa, sb = os.stat(a), os.stat(b)
+    except OSError:
+        return False
+    if 0 in (sa.st_ino, sa.st_dev, sb.st_ino, sb.st_dev):
+        return _same_by_path(a, b)
+    return os.path.samestat(sa, sb)
+
+
+def resolves_to_any(dst: str,
+                    sources: "Iterable[str] | None" = None) -> bool:
+    """Would writing ``dst`` replace one of ``sources``?
+
+    :func:`is_same_file` catches what ``realpath`` cannot: another hard
+    link to the same file.
+    """
+    try:
+        dst_real = os.path.realpath(dst)
+    except OSError:
+        return False
+    for src in (sources or ()):
+        if not src:
+            continue
+        try:
+            if os.path.realpath(src) == dst_real or is_same_file(src, dst):
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def check_not_same_path(dst: str,
                         sources: "Iterable[str] | None" = None) -> None:
-    """Raise RuntimeError if ``dst`` resolves to any of ``sources``.
+    """Raise RuntimeError if ``dst`` resolves to any of ``sources``
+    (:func:`resolves_to_any`).
 
     Shared invariant for every tool that takes a PDF in and writes
     a result back to disk: if the user picks the same path for
@@ -34,18 +81,45 @@ def check_not_same_path(dst: str,
     get silent dataloss + corrupted output.
     """
     from app.i18n import t
-    try:
-        dst_real = os.path.realpath(dst)
-    except OSError:
-        return
-    for src in (sources or ()):
-        if not src:
-            continue
-        try:
-            if os.path.realpath(src) == dst_real:
-                raise RuntimeError(t("tool.err.same_source_output"))
-        except OSError:
-            continue
+    if resolves_to_any(dst, sources):
+        raise RuntimeError(t("tool.err.same_source_output"))
+
+
+# ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION.
+# Measured on Windows 11 with PyMuPDF 1.28.2 holding the file open:
+# os.replace onto it fails with 5 and os.unlink with 32; os.replace onto a
+# read-only file fails with 5 too. Python maps all three to PermissionError.
+_WIN_FILE_IN_USE = frozenset({5, 32, 33})
+# ERROR_USER_MAPPED_FILE: measured, shutil.copy2 onto a file another
+# handle has memory-mapped fails with it as an OSError (errno 22), with
+# no file name. Only an existing, open file can be mapped.
+_WIN_USER_MAPPED_FILE = 1224
+
+
+def is_file_in_use_error(exc: BaseException, platform: "str | None" = None) -> bool:
+    """Did Windows refuse to let us read or write an existing file, because
+    a program holds it open (the viewer included) or it is read-only?
+
+    The file named is ``filename2`` for ``os.replace`` (its destination),
+    ``filename`` otherwise. One that does not exist, such as a temp file
+    in a folder that cannot be written, is another problem, which closing
+    a file would not solve.
+    """
+    if platform is None:
+        platform = sys.platform
+    if platform != "win32" or not isinstance(exc, OSError):
+        return False
+    winerror = getattr(exc, "winerror", None)
+    if winerror == _WIN_USER_MAPPED_FILE:
+        return True
+    if not isinstance(exc, PermissionError):
+        return False
+    if winerror is not None and winerror not in _WIN_FILE_IN_USE:
+        return False
+    target = exc.filename2 or exc.filename
+    if not isinstance(target, (str, os.PathLike)):
+        return False
+    return os.path.isfile(target)
 
 
 def atomic_pdf_write(writer, dst: str, *,
@@ -61,7 +135,8 @@ def atomic_pdf_write(writer, dst: str, *,
     incremental flags).
 
     1. Reject up-front if ``dst`` resolves to any path in
-       ``sources`` (via ``os.path.realpath``) — this catches the
+       ``sources`` (via ``os.path.realpath``, or is another hard link to
+       one, see :func:`check_not_same_path`). This catches the
        "user picked the same path for input and output" case which
        was producing corrupt output + losing the original.
 

@@ -14,7 +14,7 @@ import qtawesome as qta
 
 from app.constants import (
     ACCENT, BORDER, TEXT_PRI, TEXT_SEC, BG_INNER,
-    _LO, _LP, _LQ, _LN,
+    _LO, _LP, _LQ, _LN, dialog_start,
 )
 from app.i18n import t
 from app.utils import error_color, format_size_localized
@@ -428,7 +428,7 @@ class _SignatureDialog(QDialog):
 
     def _pick_image(self):
         p, _ = QFileDialog.getOpenFileName(
-            self, t("edit.signature.import"), "",
+            self, t("edit.signature.import"), dialog_start(),
             "Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff)")
         if p and os.path.isfile(p):
             # Reject pathological / malicious gigapixel images BEFORE

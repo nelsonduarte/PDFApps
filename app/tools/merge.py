@@ -113,7 +113,7 @@ class TabJuntar(BasePage):
             QMessageBox.critical(self, t("msg.error"),
                                  t("tool.merge.missing_files", files="\n".join(missing)))
             return
-        out = self._resolve_output_file(self.drop_out, paths[0])
+        out = self._resolve_output_file(self.drop_out, paths[0], inputs=paths)
         if not out: return
         try:
             w = PdfWriter()
