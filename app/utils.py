@@ -1202,7 +1202,14 @@ def show_error(parent, exc: BaseException) -> None:
         # read-only), and closing it gets past it. Not "save it under
         # another name": a refused read has no other name to use, and
         # most tools hide their output field.
-        logging.warning("File in use: %s", exc)
+        # The OS's fields only, never str(exc): CodeQL traces a PDF
+        # password into the exceptions that reach show_error, and the
+        # remedy needs no more than the error codes and the files named.
+        logging.warning(
+            "File in use: errno=%s winerror=%s filename=%r filename2=%r",
+            exc.errno, getattr(exc, "winerror", None),
+            exc.filename, exc.filename2,
+        )
         box = QMessageBox(parent)
         box.setIcon(QMessageBox.Icon.Warning)
         box.setWindowTitle(t("msg.warning"))

@@ -26,6 +26,7 @@
 
 import contextlib
 import errno
+import logging
 import os
 import stat
 import sys
@@ -114,6 +115,31 @@ def test_a_file_with_no_file_id_is_still_itself(monkeypatch, two_files):
     assert is_same_file(a, os.path.join(os.path.dirname(a), ".", os.path.basename(a)))
     with pytest.raises(RuntimeError):
         check_not_same_path(a, [a])
+
+
+def test_the_same_inode_on_another_device_is_another_file(monkeypatch, two_files):
+    a, b = two_files
+    _fake_stat(monkeypatch, {a: _stat_result(5, 7), b: _stat_result(5, 8)})
+    assert is_same_file(a, b) is False
+    assert resolves_to_any(b, [a]) is False
+
+    _fake_stat(monkeypatch, {a: _stat_result(5, 7), b: _stat_result(5, 7)})
+    assert is_same_file(a, b) is True, "the control: one id is one file"
+
+
+def test_with_no_file_id_the_case_of_the_name_counts_as_the_os_does(
+        monkeypatch, tmp_path):
+    """Windows names are case-insensitive, POSIX ones are not (macOS
+    included: ``normcase`` changes nothing there). Neither file exists, so
+    ``realpath`` keeps each name as given and only the comparison decides."""
+    lower = str(tmp_path / "relatório ç.pdf")
+    upper = str(tmp_path / "RELATÓRIO Ç.pdf")
+    _fake_stat(monkeypatch, {lower: _stat_result(0, 0), upper: _stat_result(0, 0)})
+    assert os.path.realpath(lower) != os.path.realpath(upper), "the premise"
+
+    expected = sys.platform == "win32"
+    assert is_same_file(lower, upper) is expected
+    assert resolves_to_any(upper, [lower]) is expected
 
 
 def _link_or_skip(src: str, link: str) -> None:
@@ -770,6 +796,31 @@ def test_show_error_says_the_file_is_open(tmp_path, monkeypatch, platform, key, 
     assert held.name in boxes[0][3], "the details name the file"
 
 
+def test_the_file_in_use_log_has_the_os_fields_and_not_the_text(
+        tmp_path, monkeypatch, caplog):
+    held = tmp_path / "aberto ç.pdf"
+    held.write_bytes(b"x")
+    temp = str(tmp_path / "tmpab12.pdf")
+    text = "texto que não vai para o registo"
+    exc = PermissionError(errno.EACCES, text, temp, None, str(held))
+    exc.winerror = 32
+    monkeypatch.setattr(sys, "platform", "win32")
+    boxes = _boxes_shown(monkeypatch)
+
+    with caplog.at_level(logging.WARNING):
+        utils.show_error(None, exc)
+
+    logged = [r.getMessage() for r in caplog.records]
+    assert len(logged) == 1, logged
+    assert logged[0].startswith("File in use: ")
+    assert text not in logged[0]
+    assert f"errno={errno.EACCES} winerror=32 " in logged[0]
+    assert repr(temp) in logged[0] and repr(str(held)) in logged[0]
+    # What the user is shown keeps the whole exception.
+    assert [b[2] for b in boxes] == [t("msg.file_in_use")]
+    assert text in boxes[0][3] and held.name in boxes[0][3]
+
+
 def test_the_file_in_use_message_is_in_every_language():
     import json
     path = Path(__file__).resolve().parent.parent / "app" / "translations.json"
@@ -803,8 +854,8 @@ _NO_SUCH_REMEDY = {
 @contextlib.contextmanager
 def _held_by_another_program(path: str):
     """``path`` open with no sharing at all, as some programs hold a file."""
-    import ctypes
-    from ctypes import wintypes
+    import ctypes.wintypes
+    wintypes = ctypes.wintypes
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
     k32.CreateFileW.restype = wintypes.HANDLE
     k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,

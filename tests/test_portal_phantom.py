@@ -15,6 +15,7 @@ and the real rule run, and a dialog's reply really gets written.
 
 import os
 import shutil
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -58,7 +59,6 @@ from test_overwrite_characterization import (  # noqa: F401
 _UID = 1000
 _DOC = f"/run/user/{_UID}/doc"
 _ALL = list(SPECS)
-_GUARDED_FILE = ["convert_txt"]
 
 
 # -- the rule ----------------------------------------------------------------
@@ -247,7 +247,7 @@ def test_derived_output_opens_the_dialog_with_the_derived_name(
 def test_the_answer_of_that_dialog_is_written_with_no_more_questions(
         env, portal, spec, monkeypatch):
     src = portal.share(env.a, _SOURCE)
-    before = open(src, "rb").read()
+    before = Path(src).read_bytes()
     page = env.make(spec)
     _load(page, spec, src)
     pick = _pick_for(portal, spec)
@@ -259,7 +259,7 @@ def test_the_answer_of_that_dialog_is_written_with_no_more_questions(
     assert _same(_out(page, spec), pick)
     assert _written(spec.produced(pick))
     assert os.listdir(os.path.dirname(src)) == [_SOURCE]
-    assert open(src, "rb").read() == before
+    assert Path(src).read_bytes() == before
     # The teardown of env fails on an overwrite box or an error.
 
 
@@ -724,6 +724,10 @@ def test_choose_another_name_is_granted(env, portal, monkeypatch):
     asked = _dialogs(monkeypatch, first)
     page._drop_file.btn.click()
     _run(page, spec, env)
+    # One dialog, the click's: its answer is granted and written unasked.
+    assert len(asked) == 1, asked
+    assert _label(first) == "A"
+    assert not page._drop_file.is_portal_phantom()
     second = portal.path("0a0b0c0d", "outro.txt")
     asked = _dialogs(monkeypatch, second)
     monkeypatch.setattr(page, "_ask_overwrite",
@@ -745,6 +749,10 @@ def test_choose_another_folder_is_granted(env, portal, monkeypatch):
     asked = _dialogs(monkeypatch, first)
     page._drop_folder.btn.click()
     _run(page, spec, env)
+    # One dialog, the click's: its answer is granted and written unasked.
+    assert len(asked) == 1, asked
+    assert _written(first)
+    assert not page._drop_folder.is_portal_phantom()
     second = portal.path("0a0b0c0d", "outra")
     os.mkdir(second)
     asked = _dialogs(monkeypatch, second)
