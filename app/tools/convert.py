@@ -196,7 +196,7 @@ class TabConverter(BasePage):
         d = pick_folder(self)
         if d:
             self._drop_folder.blockSignals(True)
-            self._drop_folder.set_path(d)
+            self._drop_folder.set_chosen_path(d)
             self._drop_folder.blockSignals(False)
 
     def auto_load(self, path: str):

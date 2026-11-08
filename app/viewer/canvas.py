@@ -712,8 +712,10 @@ class _SelectCanvas(QWidget):
                         if self._path and os.path.isfile(self._path):
                             try:
                                 src_dir = os.path.dirname(self._path) or "."
+                                # No leading dot: the snap home interface
+                                # denies creating dotfiles directly in ~.
                                 fd, backup_path = tempfile.mkstemp(
-                                    prefix=".pdfapps_backup_",
+                                    prefix="pdfapps_backup_",
                                     suffix=".pdf.bak",
                                     dir=src_dir,
                                 )

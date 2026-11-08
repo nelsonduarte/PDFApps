@@ -1542,14 +1542,22 @@ def test_the_controller_hands_the_window_s_prompt_and_teardown_to_the_dialog(mon
     assert made["exec"]
 
 
-def _window_stub(*, pipeline_unsaved: bool, editor_pending: bool):
+def _window_stub(*, pipeline_unsaved: bool, editor_pending: bool,
+                 saved: bool = True):
+    """``saved`` is what ``_save_pipeline`` answers: False for a Save dialog
+    cancelled or refused."""
     from app.window import MainWindow
     calls: list[str] = []
     editor = types.SimpleNamespace(_user_pending=[{"type": "draw"}] if editor_pending else [])
+
+    def _save_pipeline(viewer=None):
+        calls.append(f"save {viewer}")
+        return saved
+
     stub = types.SimpleNamespace(
-        _viewers=["viewer"],
-        _viewer_has_unsaved=lambda v: pipeline_unsaved,
-        _save_pipeline=lambda: calls.append("save"),
+        _viewers=["other tab", "viewer"],
+        _viewer_has_unsaved=lambda v: pipeline_unsaved and v == "viewer",
+        _save_pipeline=_save_pipeline,
         _edit_tool_idx=lambda: 0,
         stack=types.SimpleNamespace(widget=lambda i: editor),
         _cleanup_pipeline=lambda vid: calls.append("cleanup"),
@@ -1558,6 +1566,9 @@ def _window_stub(*, pipeline_unsaved: bool, editor_pending: bool):
     )
     stub._confirm_discard_unsaved = types.MethodType(
         MainWindow._confirm_discard_unsaved, stub)
+    # The real one, so the stub's _save_pipeline is what it calls.
+    stub._try_save_pipeline = types.MethodType(
+        MainWindow._try_save_pipeline, stub)
     return stub, calls
 
 
@@ -1565,11 +1576,11 @@ def _window_stub(*, pipeline_unsaved: bool, editor_pending: bool):
     (False, False, [], True, []),
     (True, False, ["Cancel"], False, []),
     (True, False, ["Discard"], True, []),
-    (True, False, ["Save"], True, ["save"]),
+    (True, False, ["Save"], True, ["save viewer"]),
     (False, True, ["Cancel"], False, []),
     (False, True, ["Discard"], True, []),
     (True, True, ["Discard", "Cancel"], False, []),
-    (True, True, ["Save", "Discard"], True, ["save"]),
+    (True, True, ["Save", "Discard"], True, ["save viewer"]),
 ])
 def test_confirm_discard_only_asks(qapp, monkeypatch, pipeline, editor, answers,
                                    expected, calls_after):
@@ -1590,6 +1601,22 @@ def test_confirm_discard_only_asks(qapp, monkeypatch, pipeline, editor, answers,
     assert replies == [], "not every prompt was shown"
     assert calls == calls_after
     assert set(defaults) <= {QMessageBox.StandardButton.Cancel}
+
+
+@pytest.mark.parametrize("editor", [False, True])
+def test_confirm_discard_stays_when_the_save_did_not_happen(qapp, monkeypatch, editor):
+    """C-1: closeEvent tears down after a True, deleting the result that a
+    cancelled or refused Save dialog left unsaved."""
+    from PySide6.QtWidgets import QMessageBox
+    from app import window
+    stub, calls = _window_stub(pipeline_unsaved=True, editor_pending=editor,
+                               saved=False)
+    replies = [QMessageBox.StandardButton.Save]
+    monkeypatch.setattr(window.QMessageBox, "question",
+                        lambda *a: replies.pop(0))
+    assert stub._confirm_discard_unsaved() is False
+    assert replies == []
+    assert calls == ["save viewer"], "no editor prompt after it either"
 
 
 def test_close_event_stops_before_any_teardown_on_cancel(qapp, monkeypatch):
@@ -1795,6 +1822,43 @@ def test_a_save_that_fails_refuses_the_update_and_says_why(
     assert len(status) > len(head) + len(tail), "the OS error is shown"
     assert dlg._update_btn.isEnabled(), "the user can save elsewhere, then try again"
     assert prompts.texts == [t("update.unsaved_prompt")]
+    assert win._viewer_has_unsaved() and os.path.isfile(out)
+    box.assert_untouched()
+
+
+def test_a_save_over_the_original_that_is_refused_refuses_the_update(
+        win, box, qapp, monkeypatch):
+    """The update's Save calls ``_save_pipeline`` itself, not the window's
+    gestures' ``_try_save_pipeline``: a PermissionError from the replace
+    onto the original (what Windows gives for a held file) is the reason
+    shown, and the original and the result are both still there."""
+    from app import window
+    out = _pipeline_result(win)
+    original = win._pipeline_state[id(win._viewer)]["original_path"]
+    before = Path(original).read_bytes()
+    listing = sorted(os.listdir(os.path.dirname(original)))
+    real_replace = os.replace
+
+    def _replace(src, dst, *a, **k):
+        if os.path.normcase(os.fspath(dst)) == os.path.normcase(original):
+            raise PermissionError(errno.EACCES, "Permission denied", os.fspath(dst))
+        return real_replace(src, dst, *a, **k)
+    monkeypatch.setattr(os, "replace", _replace)
+    shown = []
+    monkeypatch.setattr(window, "show_error", lambda parent, exc: shown.append(exc))
+    prompts = _Prompts("Save")
+    monkeypatch.setattr(window.QMessageBox, "question", prompts)
+    saves = _save_dialog_returns(monkeypatch, original)
+    dlg, urlopen = _update_from_window(win, qapp, monkeypatch)
+    assert len(saves) == 1
+    urlopen.assert_not_called()
+    head, tail = t("update.error.save_failed", error="\0").split("\0")
+    status = dlg._status.text()
+    assert status.startswith(head) and status.endswith(tail)
+    assert shown == []
+    assert dlg._update_btn.isEnabled()
+    assert Path(original).read_bytes() == before
+    assert sorted(os.listdir(os.path.dirname(original))) == listing
     assert win._viewer_has_unsaved() and os.path.isfile(out)
     box.assert_untouched()
 

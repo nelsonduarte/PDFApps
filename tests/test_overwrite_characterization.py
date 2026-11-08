@@ -21,7 +21,11 @@ before any of it changes. These defects are pinned:
   change and Converter on every format change too: a derived name
   follows B, the mode and the format, which is wanted and pinned
   without a marker, but an output the user picked is lost, a defect
-  pinned with the marker.
+  pinned with the marker. Compress re-derives on every load too, since
+  M-1, and drops a picked or dropped output on purpose (the user's
+  decision): a Save dialog's answer is what lets a run replace its
+  input, and it covers only the input it was given for. Pinned without
+  a marker.
 * **Silent overwrite.** The tools that still resolve through
   ``BasePage._resolve_output_file`` / ``_resolve_output_dir`` (and
   ``TabEditar._run``) replace an existing output without asking. A
@@ -487,11 +491,15 @@ SPECS = {s.id: s for s in (
 # The tools whose output stays at the first input's (A/B). The same
 # guard keeps an output the user picked: the list was measured for
 # both (Import, driven differently, has both too).
-_STUCK_OUTPUT = ["rotate", "extract", "reorder", "compress", "page_numbers",
+_STUCK_OUTPUT = ["rotate", "extract", "reorder", "page_numbers",
                  "nup", "watermark", "ocr", "split", "convert_png", "editor"]
 # The tools whose output follows each new input, the user's pick
 # included.
-_FOLLOWING_OUTPUT = ["encrypt", "convert_txt"]
+_FOLLOWING_OUTPUT = ["encrypt", "convert_txt", "compress"]
+# Of those, the ones where losing the pick is the defect. Compress drops
+# it on purpose (M-1, the user's decision): a Save dialog's answer is what
+# lets a run replace its input, and it covers the input it was given for.
+_PICK_LOST = ["encrypt", "convert_txt"]
 # The tools that pre-fill an output and replace it without asking.
 _SILENT_OVERWRITE = ["rotate", "extract", "reorder", "compress",
                      "page_numbers", "nup", "watermark", "ocr", "encrypt",
@@ -507,7 +515,7 @@ _GUARDED_AUTO_LOAD = ["rotate", "extract", "reorder", "compress",
 # (Split, Converter's images) and OCR's text output take only a PDF
 # (the field's filter), so a folder or a .txt is refused. Of the rest
 # only the editor's field is visible (see "Reach" above).
-_DROPPABLE_OUTPUT = ["rotate", "extract", "reorder", "compress",
+_DROPPABLE_OUTPUT = ["rotate", "extract", "reorder",
                      "page_numbers", "nup", "watermark", "editor"]
 # One spec per tool with a main input (Merge and Import have none).
 _MAIN_INPUT = ["rotate", "extract", "reorder", "compress", "page_numbers",
@@ -834,8 +842,38 @@ def test_convert_format_change_moves_a_derived_output(env):
     assert _same(_out(page, spec), base + ".txt")
 
 
+@pytest.mark.parametrize("gesture", ["pick", "drop"])
+def test_compress_drops_the_users_output_on_second_input(env, monkeypatch, gesture):
+    """Compress re-derives its output on every load, and an output picked or
+    dropped for A goes with it, as decided (M-1): it is no longer anything
+    the user chose for B. B's result lands next to B, nothing in the pick."""
+    spec = SPECS["compress"]
+    page = env.make(spec)
+    _load(page, spec, env.a)
+    if gesture == "pick":
+        mine = _user_pick(page, spec, env, monkeypatch)
+        assert page.drop_out.is_chosen()
+    else:
+        folder = env.tmp / "escolha ç"
+        folder.mkdir()
+        mine = str(folder / os.path.basename(spec.out(env.a)))
+        _write_original(mine)
+        _drop_on(page.drop_out, mine)
+        assert _same(_out(page, spec), mine)
+    _load(page, spec, env.b)
+    assert _same(_out(page, spec), spec.out(env.b))
+    assert not page.drop_out.is_chosen() and not page.drop_out.is_confirmed()
+    _run(page, spec, env)
+    assert _label(spec.out(env.b)) == "B"
+    assert _label(mine) == ("ORIGINAL" if gesture == "drop" else _MISSING)
+    assert not _written(spec.out(env.a))
+    assert env.warnings == []
+    assert len(env.infos) == 1
+    _check_stand_ins(env, spec, page, env.b, spec.out(env.b))
+
+
 @pytest.mark.parametrize(
-    "spec", _params(_FOLLOWING_OUTPUT,
+    "spec", _params(_PICK_LOST,
                     pytest.mark.known_defect(reason=_PICK_LOST_REASON)))
 def test_user_picked_output_is_lost_on_second_input(env, spec, monkeypatch):
     # Pinned for whoever changes it: the output stays the user's pick,

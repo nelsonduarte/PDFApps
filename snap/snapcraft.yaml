@@ -2,24 +2,41 @@ name: pdfapps
 title: PDFApps
 base: core22
 version: '1.15.2'
-summary: Fast, offline, subscription-free PDF editor
+summary: Free, offline PDF editor with 15 tools. Your files stay on your computer.
 description: |
-  PDFApps is an all-in-one PDF editor with 13 built-in tools: split, merge,
-  rotate, extract, reorder, compress, encrypt, watermark, OCR, convert
-  (PNG/JPG/DOCX/TXT), visual editor (redact, text, images, signatures,
-  highlights, notes), import (TXT/images/Markdown), and metadata viewer.
+  PDFApps is a free, open source PDF editor that works entirely on your
+  computer. There are no subscriptions, no accounts and no cloud uploads,
+  so your documents stay private.
 
-  Features include continuous-scroll viewer, presentation mode (F5),
-  fullscreen (F11), tabbed viewing, dark/light themes, drag and drop,
-  multi-select PDF open, and 8-language interface (EN, PT, ES, FR, DE,
-  ZH, IT, NL).
+  Organize pages
+  - Split, merge, rotate, extract and reorder
+  - Add page numbers
+  - Place several pages on one sheet (N-up)
 
-  100% offline. No subscriptions, no cloud uploads, no account required.
+  Edit and protect
+  - Visual editor: redact, add text, images, signatures, highlights and notes
+  - Add a watermark
+  - Encrypt or decrypt with a password
+  - Compress to reduce file size
+
+  Convert
+  - OCR: make scanned PDFs searchable (English, Portuguese, Spanish,
+    French and German)
+  - Export to DOCX, PPTX, XLSX, TXT, HTML, EPUB, PNG or JPG
+  - Create PDFs from text, images and Markdown
+
+  Read comfortably
+  - Continuous scrolling and tabs
+  - Presentation mode (F5) and fullscreen (F11)
+  - Dark and light themes
+  - Drag and drop, and opening several PDFs at once
+  - Available in English, Portuguese, Spanish, French, German, Chinese,
+    Italian and Dutch
 
 grade: stable
 confinement: strict
 license: MIT
-website: https://nelsonduarte.github.io/PDFApps/
+website: https://pdf-apps.com
 source-code: https://github.com/nelsonduarte/PDFApps
 issues: https://github.com/nelsonduarte/PDFApps/issues
 contact: https://github.com/nelsonduarte/PDFApps/issues
@@ -37,7 +54,6 @@ apps:
     plugs:
       - home
       - removable-media
-      - network
       - cups
       - desktop
       - desktop-legacy
@@ -52,6 +68,10 @@ apps:
       QT_QPA_PLATFORM: "xcb;wayland"
       LD_LIBRARY_PATH: "$SNAP/lib/python3.10/site-packages/PySide6/Qt/lib:$LD_LIBRARY_PATH"
       FONTCONFIG_PATH: "$SNAP/etc/fonts"
+      # The base has no XKB data and libxkbcommon looks in /usr/share/X11/xkb,
+      # so without this the Wayland plugin dies with "failed to create xkb
+      # context" (rc=139). The xcb plugin takes its keymap from the X server.
+      XKB_CONFIG_ROOT: "$SNAP/usr/share/X11/xkb"
 
 parts:
   pdfapps:
@@ -64,6 +84,7 @@ parts:
       - libgl1-mesa-dev
     stage-packages:
       - libxkbcommon0
+      - xkb-data
       - libegl1
       - libgl1
       - libglib2.0-0
@@ -109,7 +130,23 @@ parts:
       install -d $CRAFT_PART_INSTALL/bin
       cat > $CRAFT_PART_INSTALL/bin/pdfapps <<'EOF'
       #!/bin/sh
-      cd $SNAP/usr/lib/pdfapps
+      # snapd moves XDG_RUNTIME_DIR to /run/user/<uid>/snap.pdfapps and leaves
+      # the compositor's socket one level up, so a relative WAYLAND_DISPLAY
+      # finds nothing and Qt aborts ("Failed to create wl_display", rc=134)
+      # when no Xwayland lets xcb, tried first, win. libwayland takes an
+      # absolute path. Without Wayland, or with the socket in place, nothing
+      # changes, and the relaunch after a language change keeps the absolute
+      # value it inherited.
+      case "$WAYLAND_DISPLAY" in
+        ''|/*) ;;
+        *)
+          if [ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then
+            _socket="$(dirname "$XDG_RUNTIME_DIR")/$WAYLAND_DISPLAY"
+            [ -S "$_socket" ] && export WAYLAND_DISPLAY="$_socket"
+          fi
+          ;;
+      esac
+      cd "$SNAP/usr/lib/pdfapps"
       exec python3 pdfapps.py "$@"
       EOF
       chmod +x $CRAFT_PART_INSTALL/bin/pdfapps

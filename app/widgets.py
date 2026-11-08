@@ -10,9 +10,10 @@ from PySide6.QtWidgets import (
 )
 import qtawesome as qta
 
-from app.constants import ACCENT, DESKTOP, TEXT_SEC, _LQ
+from app.constants import ACCENT, DESKTOP, TEXT_SEC, _LQ, dialog_start
 from app.i18n import t
-from app.utils import error_color, is_dark
+from app.portal import portal_phantom_output
+from app.utils import ask_save_path, error_color, is_dark
 
 
 def _muted_icon_color(dark: bool | None = None) -> str:
@@ -55,6 +56,7 @@ class DropFileEdit(QWidget):
         self._default      = default_name
         self._path_value   = ""
         self._confirmed_path = ""
+        self._chosen_path  = ""
         self._placeholder  = placeholder or t("widget.drop_hint")
         self.setAcceptDrops(True)
         self.setObjectName("drop_zone")
@@ -127,6 +129,8 @@ class DropFileEdit(QWidget):
         ``mark_confirmed`` recorded revokes that mark."""
         if p != self._confirmed_path:
             self._confirmed_path = ""
+        if p != self._chosen_path:
+            self._chosen_path = ""
         self._path_value = p
         name = os.path.basename(p)
         self._lbl.setText(f"  {name}")
@@ -140,9 +144,27 @@ class DropFileEdit(QWidget):
         for w in (self._lbl, self._ico):
             w.style().unpolish(w); w.style().polish(w)
 
+    def set_chosen_path(self, p: str) -> None:
+        """``set_path`` for a path a file dialog returned, the only kind
+        the document portal is sure to have granted. Any later change of
+        path, an extension switch included, drops that status."""
+        self.set_path(p)
+        self._chosen_path = p
+
+    def is_chosen(self) -> bool:
+        """Did a file dialog return the current path (``set_chosen_path``)?"""
+        return bool(self._path_value) and self._path_value == self._chosen_path
+
+    def is_portal_phantom(self) -> bool:
+        """Would a write to the current path never reach the host? See
+        :mod:`app.portal`. A dropped file counts as not granted: at worst
+        that costs one Save dialog, never a success that wrote nothing."""
+        return portal_phantom_output(self._path_value, (self._chosen_path,))
+
     def clear(self):
         self._path_value = ""
         self._confirmed_path = ""
+        self._chosen_path = ""
         muted = _muted_icon_color()
         self._lbl.setText(self._placeholder)
         self._lbl.setToolTip("")
@@ -224,11 +246,11 @@ class DropFileEdit(QWidget):
 
     def _browse(self):
         if self._save:
-            p, _ = QFileDialog.getSaveFileName(self, t("widget.save_as"), self._default, self._filters)
+            p = ask_save_path(self, t("widget.save_as"), dialog_start(self._default), self._filters)
         else:
             p, _ = QFileDialog.getOpenFileName(self, t("widget.open_file"), DESKTOP, self._filters)
         if p:
-            self.set_path(p)
+            self.set_chosen_path(p)
             if self._save:
                 if os.path.lexists(p):
                     self.mark_confirmed()

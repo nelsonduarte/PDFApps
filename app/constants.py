@@ -1,7 +1,33 @@
 """PDFApps – design system constants (colours / theme)."""
 
 import os as _os
-DESKTOP = _os.path.join(_os.path.expanduser("~"), "Desktop")
+
+
+def _snap_real_home(environ=_os.environ) -> str:
+    """The user's home when running in a snap, "" otherwise.
+
+    Inside a snap ``~`` is the private ``~/snap/<name>/<rev>``, which the
+    user cannot find and which a refresh replaces.
+    """
+    if not environ.get("SNAP"):
+        return ""
+    home = environ.get("SNAP_REAL_HOME", "")
+    return home if _os.path.isdir(home) else ""
+
+
+def dialog_start(name: str = "") -> str:
+    """Start path for a file dialog given a bare file name, or none.
+
+    Outside a snap returns ``name`` as it is. Inside one Qt would resolve a
+    bare name, or no path at all, against the working directory, and the
+    snap launcher moves that into the read-only ``$SNAP``: accepting the
+    suggestion then failed with EROFS.
+    """
+    home = _snap_real_home()
+    return _os.path.join(home, name) if name else home
+
+
+DESKTOP = _snap_real_home() or _os.path.join(_os.path.expanduser("~"), "Desktop")
 
 APP_VERSION = "1.15.2"
 GITHUB_REPO = "nelsonduarte/PDFApps"

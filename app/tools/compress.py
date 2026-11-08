@@ -100,9 +100,18 @@ class TabComprimir(BasePage):
         if not self._maybe_prompt_password(p):
             self.drop_in.blockSignals(True); self.drop_in.set_path("")
             self.drop_in.blockSignals(False); return
-        if not self.drop_out.path():
-            base, ext = os.path.splitext(p)
-            self.drop_out.set_path(base + "_compressed" + ext)
+        # Every input gets its own output, and a Save dialog's answer for
+        # the one before stops counting: that answer is what lets a run
+        # replace its input (BasePage._resolve_output_file). Kept while
+        # the field was not empty, it replaced the next input unasked.
+        # Silently: MainWindow loads every field's path into the viewer,
+        # which then held the previous run's result open, and the next run
+        # could not replace it (WinError 5 on Windows).
+        base, ext = os.path.splitext(p)
+        self.drop_out.blockSignals(True)
+        self.drop_out.clear()
+        self.drop_out.set_path(base + "_compressed" + ext)
+        self.drop_out.blockSignals(False)
         size = os.path.getsize(p)
         try:
             r = self._open_reader(p)
@@ -117,7 +126,12 @@ class TabComprimir(BasePage):
         pdf_path = self.drop_in.path()
         if not pdf_path or not os.path.isfile(pdf_path):
             QMessageBox.warning(self, t("msg.warning"), t("msg.select_valid_pdf")); return
-        out_path = self._resolve_output_file(self.drop_out, pdf_path)
+        # Compressing a PDF onto itself is safe, as _compress_pdf writes
+        # every pass to a temp file and only then os.replace()s the source,
+        # but it has to be deliberate: only a Save dialog's answer for this
+        # input may name it (see _load_input).
+        out_path = self._resolve_output_file(self.drop_out, pdf_path,
+                                             may_replace_input=True)
         if not out_path: return
         level = self._LEVEL_KEYS[self.cmb_level.currentIndex()]
         # Propagate the password captured by _maybe_prompt_password so
