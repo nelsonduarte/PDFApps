@@ -177,13 +177,13 @@ python -m PyInstaller --clean installer.spec
 | GUI              | [PySide6](https://doc.qt.io/qtforpython/) (Qt 6)                                                                | 6.11.1 (below 6.12)               |
 | PDF rendering    | [PyMuPDF](https://pymupdf.readthedocs.io/)                                                                      | 1.28.2 (below 2)                  |
 | PDF manipulation | [pypdf](https://pypdf.readthedocs.io/)                                                                          | 6.21.4 (below 7)                  |
-| OCR              | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13                            |
+| OCR              | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | pytesseract 0.3.13                |
 | DOCX export      | [python-docx](https://python-docx.readthedocs.io/)                                                              | 1.2.0                             |
 | Image processing | [Pillow](https://python-pillow.org/)                                                                            | 13.0.0 (12.3.0 below Python 3.11) |
 | Icons            | [QtAwesome](https://github.com/spyder-ide/qtawesome)                                                            | 1.4.2                             |
 | Packaging        | [PyInstaller](https://pyinstaller.org/)                                                                         | 6.22.3                            |
 
-Minimum versions from `requirements.txt`, with its ceiling in parentheses where it sets one; the comments there give the reason for each.
+Minimum versions from `requirements.txt`; the parentheses give its ceiling where it sets one and, for Pillow, the floor that applies below Python 3.11. Where a floor or ceiling has a reason, it is in the comment above that line. Tesseract is a separate program, not a Python package, so `requirements.txt` sets no version for it (for a source install, see [Run from source](#run-from-source)); 0.3.13 is the minimum for pytesseract, the Python package that calls it.
 
 ---
 

@@ -75,7 +75,7 @@ QT_QPA_PLATFORM=offscreen python -m pytest -q -rs
 
 In PowerShell, set the variable first: `$env:QT_QPA_PLATFORM = "offscreen"`.
 
-`requirements-dev.txt` adds pytest, pytest-qt, ruff and PyYAML, among others; without any of these four, parts of the suite fail instead of skipping. `QT_QPA_PLATFORM=offscreen` lets the tests create real Qt widgets without a display, and is required on a machine that has none.
+`requirements-dev.txt` adds pytest, pytest-qt, ruff and PyYAML, among others. Without pytest nothing runs; without pytest-qt or ruff, some tests fail instead of skipping; without PyYAML, collection fails and a run of the whole suite stops before any test runs. `QT_QPA_PLATFORM=offscreen` lets the tests create real Qt widgets without a display, and is required on a machine that has none.
 
 Some tests run on one platform only (Windows file locks, POSIX file modes), and some need a POSIX `bash` on PATH (Git Bash on Windows) or the `v1.15.2` tag in the clone (`git fetch origin tag v1.15.2`). Without them they skip, and `-rs` lists each skip with its reason.
 
@@ -1561,7 +1561,7 @@ When writing code that handles files, user input, or external processes, follow 
 **Dependencies:**
 - Run `pip-audit` before releases to check for known CVEs
 - Keep minimum versions in `requirements.txt` updated when vulnerabilities are patched
-- CI enforces this automatically via the `Security - Python dependencies` workflow (`.github/workflows/security-deps.yml`) — see [CI security check](#ci-security-check) below
+- The `Security - Python dependencies` workflow (`.github/workflows/security-deps.yml`) checks this in CI, but only on the events listed below, and a red run does not block a merge; see [CI security check](#ci-security-check)
 
 ### CI security check
 
@@ -1569,14 +1569,14 @@ The `security-deps` workflow runs `pip-audit` against `requirements.txt` and aga
 
 | Trigger | When |
 |---|---|
-| `pull_request` | The PR modifies `requirements.txt`, `scripts/requirements_floors.py`, or the workflow itself |
-| `push` to `main` | Same paths as above |
+| `pull_request` | The PR, to any base branch, modifies `requirements.txt`, `scripts/requirements_floors.py`, or the workflow itself |
+| `push` to `main` | The push modifies `requirements.txt` or `scripts/requirements_floors.py` (a change to the workflow alone does not trigger it) |
 | `schedule` | Weekly, Monday 06:00 UTC |
 | `workflow_dispatch` | Manual: `gh workflow run security-deps.yml` |
 
 **What it does:**
 - Posts (or updates) a single comment on the PR with the `pip-audit` findings for `requirements.txt` and its floors, plus an informational outdated-packages table
-- Runs `pip-audit --strict` as a final gate — the PR merge is blocked if any known vulnerability is reported
+- Runs `pip-audit --strict` as a final gate: the job fails if any known vulnerability is reported, or if pip-audit cannot complete after three attempts. The job (`pip-audit + outdated check`) is not a required check on `main`, so a failure shows as red and does not block a merge
 
 The PR comment is posted via the `gh` CLI (no third-party action), so there is no external supply-chain dependency in the security workflow itself.
 

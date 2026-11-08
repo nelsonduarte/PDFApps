@@ -20,10 +20,13 @@ concurrency:
 # tests/test_updater_apply.py also names the three job ids.
 # pytest-windows runs the Windows-only tests, which skip on Linux, on
 # the platform the Store and PDFAppsSetup.exe builds target.
-# pytest-py312 runs the suite on the Python of the core24 snap base.
-# The ruleset decides which checks are required, not this file, so keep
-# the three names unchanged. None of the three has continue-on-error: a
-# failure must show as red.
+# pytest-py312 runs the suite on the closest match to the Python of the
+# core24 snap base (see its "Set up Python 3.12.3" step).
+# The ruleset, not this file, decides which checks are required, and it
+# lists them by job name: renaming a job leaves the old check pending
+# forever, which blocks every pull request to main. Keep the three names
+# unchanged. None of the three has continue-on-error: a failure must
+# show as red.
 jobs:
   pytest:
     name: pytest (Ubuntu, Python 3.14)
