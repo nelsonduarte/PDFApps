@@ -7,8 +7,9 @@
 #
 # There is no lint workflow, yet ruff is still mandatory in CI, because
 # the suite shells out to it: tests/test_audit_pr_j.py::
-# test_no_f401_f541_e741_lint_residual runs `python -m ruff check
-# --select F401,F541,E741 app/ pdfapps.py installer.py` as a subprocess
+# test_no_f401_f541_e741_f821_tc004_lint_residual_on_py310 runs
+# `python -m ruff check --target-version py310 --select
+# F401,F541,E741,F821,TC004 app/ pdfapps.py installer.py` as a subprocess
 # and pytest.fail()s on a non-zero exit, so a missing ruff is a test
 # FAILURE, not a skip.
 #

@@ -12,9 +12,19 @@ go on working, and the snap is the only place it shows.
 quoted annotation stays a string, and so does everything in a module
 with ``from __future__ import annotations``. A name missing (NameError),
 an attribute missing from a module (AttributeError) and ``"str" | None``
-(TypeError) are what that evaluation can raise. Not covered: functions
-nested in another function, and an unquoted name defined further down
-the module, which 3.10 cannot see yet at that point and 3.14 can.
+(TypeError) are what that evaluation can raise. ``typing.get_type_hints``,
+in the first test, goes further than 3.10 did: it evaluates the quoted
+annotations too.
+
+Not covered here: functions nested in another function, and an unquoted
+name defined further down the module, which 3.10 cannot see yet at that
+point and 3.14 can (both are ruff's F821 in
+``tests/test_audit_pr_j.py``, run for py310). Not covered by this test
+nor by ruff: names ``typing`` only has after 3.10 (``Self``, ``Never``,
+``override``, ``TypeIs``), which import and evaluate fine on 3.14; the
+versions of third-party libraries, which are the ones this venv has,
+not the snap's; and definitions made only on some platforms (under
+``sys.platform``), of which this run sees one.
 """
 
 import importlib
@@ -41,14 +51,14 @@ def _defined_in(module):
     """The module, and the classes and functions defined in it, with the
     methods of those classes (properties' accessors included)."""
     yield module.__name__, module
-    stack = [(module.__name__, value) for value in vars(module).values()]
+    stack = list(vars(module).values())
     seen = set()
     while stack:
-        prefix, obj = stack.pop()
+        obj = stack.pop()
         if isinstance(obj, (staticmethod, classmethod)):
             obj = obj.__func__
         if isinstance(obj, property):
-            stack.extend((prefix, f) for f in (obj.fget, obj.fset, obj.fdel)
+            stack.extend(f for f in (obj.fget, obj.fset, obj.fdel)
                          if f is not None)
             continue
         if not (inspect.isclass(obj) or inspect.isfunction(obj)):
@@ -59,7 +69,7 @@ def _defined_in(module):
         name = f"{module.__name__}.{obj.__qualname__}"
         yield name, obj
         if inspect.isclass(obj):
-            stack.extend((name, value) for value in vars(obj).values())
+            stack.extend(vars(obj).values())
 
 
 def test_every_annotation_evaluated_on_import_evaluates():

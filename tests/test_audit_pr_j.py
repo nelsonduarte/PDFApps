@@ -227,12 +227,22 @@ def test_get_max_recent_clamps_garbage(tmp_path, monkeypatch):
 
 # ── Fix #9: ruff lint clean ───────────────────────────────────────────────
 
-def test_no_f401_f541_e741_lint_residual():
-    """ruff --select F401,F541,E741 must report a clean tree."""
+def test_no_f401_f541_e741_f821_tc004_lint_residual_on_py310():
+    """ruff --target-version py310 --select F401,F541,E741,F821,TC004 must
+    report a clean tree.
+
+    The snap runs on core22's Python 3.10, which evaluates annotations when
+    they are defined. F821 catches a name an annotation uses that is not
+    defined (an import missing, a class defined further down), nested
+    functions included; TC004 an import kept under ``if TYPE_CHECKING:``
+    that such an annotation needs at runtime. The target is explicit: for
+    py314 (PEP 649) ruff treats annotations as deferred and reports
+    neither the forward reference nor the TC004 case."""
     import subprocess
     py = sys.executable
     res = subprocess.run(
-        [py, "-m", "ruff", "check", "--select", "F401,F541,E741",
+        [py, "-m", "ruff", "check", "--target-version", "py310",
+         "--select", "F401,F541,E741,F821,TC004",
          "app/", "pdfapps.py", "installer.py"],
         cwd=str(_REPO_ROOT), capture_output=True, text=True, timeout=60)
     if res.returncode != 0:

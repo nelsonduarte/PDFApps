@@ -809,7 +809,9 @@ def test_the_file_in_use_log_has_the_os_fields_and_not_the_text(
     monkeypatch.setattr(sys, "platform", "win32")
     boxes = _boxes_shown(monkeypatch)
 
-    with caplog.at_level(logging.WARNING):
+    # DEBUG, below the INFO that setup_logging gives pdfapps.log: a record
+    # the real log would keep, at any level, is one this test sees.
+    with caplog.at_level(logging.DEBUG):
         utils.show_error(None, exc)
 
     records = [r for r in caplog.records
