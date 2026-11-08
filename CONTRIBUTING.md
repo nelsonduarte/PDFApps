@@ -75,19 +75,19 @@ QT_QPA_PLATFORM=offscreen python -m pytest -q -rs
 
 In PowerShell, set the variable first: `$env:QT_QPA_PLATFORM = "offscreen"`.
 
-`requirements-dev.txt` adds pytest, pytest-qt, ruff and PyYAML; parts of the suite fail without them instead of skipping. `QT_QPA_PLATFORM=offscreen` lets the tests create real Qt widgets without a display, and is required on a machine that has none.
+`requirements-dev.txt` adds pytest, pytest-qt, ruff and PyYAML, among others; without any of these four, parts of the suite fail instead of skipping. `QT_QPA_PLATFORM=offscreen` lets the tests create real Qt widgets without a display, and is required on a machine that has none.
 
 Some tests run on one platform only (Windows file locks, POSIX file modes), and some need a POSIX `bash` on PATH (Git Bash on Windows) or the `v1.15.2` tag in the clone (`git fetch origin tag v1.15.2`). Without them they skip, and `-rs` lists each skip with its reason.
 
-CI (`.github/workflows/tests.yml`) runs the suite on every pull request and push to `main`, in three jobs:
+CI (`.github/workflows/tests.yml`) runs the suite on every pull request to `main` and every push to `main`, in three jobs:
 
 | Check | Runner | Python |
 |---|---|---|
 | `pytest (Ubuntu, Python 3.14)` | `ubuntu-24.04` | 3.14 |
 | `pytest (Windows, Python 3.14)` | `windows-2025` | 3.14 |
-| `pytest (Ubuntu 24.04, Python 3.12)` | `ubuntu-24.04` | 3.12.3, the Python of Ubuntu 24.04, which the snap's next base (`core24`) is built from |
+| `pytest (Ubuntu 24.04, Python 3.12)` | `ubuntu-24.04` | 3.12.3 from upstream, without the patches in Ubuntu 24.04's `python3.12` (also 3.12.3), the package the snap's next base (`core24`) takes its Python from |
 
-Only the first is a required check on `main`.
+All three are required checks on `main`.
 
 ---
 

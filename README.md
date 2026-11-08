@@ -21,7 +21,7 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/nelsonduarte/PDFApps/build.yml?logo=github)](https://github.com/nelsonduarte/PDFApps/actions)
 [![Stars](https://img.shields.io/github/stars/nelsonduarte/PDFApps?style=flat&color=f59e0b&logo=github)](https://github.com/nelsonduarte/PDFApps/stargazers)
 [![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![PySide6](https://img.shields.io/badge/PySide6-6.10-green?logo=qt&logoColor=white)](https://doc.qt.io/qtforpython/)
+[![PySide6](https://img.shields.io/badge/PySide6-6.11-green?logo=qt&logoColor=white)](https://doc.qt.io/qtforpython/)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#)
 [![License](https://img.shields.io/badge/license-MIT-orange)](LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/sponsor-♥-ea4aaa?logo=github)](https://github.com/sponsors/nelsonduarte)
@@ -172,16 +172,18 @@ python -m PyInstaller --clean installer.spec
 
 ## Tech stack
 
-| Component        | Technology                                                                                                      | Version |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- | ------- |
-| GUI              | [PySide6](https://doc.qt.io/qtforpython/) (Qt 6)                                                                | 6.10.2  |
-| PDF rendering    | [PyMuPDF](https://pymupdf.readthedocs.io/)                                                                      | 1.28.2  |
-| PDF manipulation | [pypdf](https://pypdf.readthedocs.io/)                                                                          | 6.8.0   |
-| OCR              | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13  |
-| DOCX export      | [python-docx](https://python-docx.readthedocs.io/)                                                              | 1.2.0   |
-| Image processing | [Pillow](https://python-pillow.org/)                                                                            | 12.1.1  |
-| Icons            | [QtAwesome](https://github.com/spyder-ide/qtawesome)                                                            | 1.4.1   |
-| Packaging        | [PyInstaller](https://pyinstaller.org/)                                                                         | 6.19.0  |
+| Component        | Technology                                                                                                      | Version                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| GUI              | [PySide6](https://doc.qt.io/qtforpython/) (Qt 6)                                                                | 6.11.1 (below 6.12)               |
+| PDF rendering    | [PyMuPDF](https://pymupdf.readthedocs.io/)                                                                      | 1.28.2 (below 2)                  |
+| PDF manipulation | [pypdf](https://pypdf.readthedocs.io/)                                                                          | 6.21.4 (below 7)                  |
+| OCR              | [Tesseract](https://github.com/tesseract-ocr/tesseract) + [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13                            |
+| DOCX export      | [python-docx](https://python-docx.readthedocs.io/)                                                              | 1.2.0                             |
+| Image processing | [Pillow](https://python-pillow.org/)                                                                            | 13.0.0 (12.3.0 below Python 3.11) |
+| Icons            | [QtAwesome](https://github.com/spyder-ide/qtawesome)                                                            | 1.4.2                             |
+| Packaging        | [PyInstaller](https://pyinstaller.org/)                                                                         | 6.22.3                            |
+
+Minimum versions from `requirements.txt`, with its ceiling in parentheses where it sets one; the comments there give the reason for each.
 
 ---
 

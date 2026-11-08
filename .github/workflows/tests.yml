@@ -14,15 +14,16 @@ concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
 
-# Three jobs written out instead of one matrix. Only "pytest (Ubuntu,
-# Python 3.14)" is a required check on main: a matrix would make its
-# name a template, and fail-fast would cancel it when another leg
-# fails. tests/test_updater_apply.py also names the three job ids.
+# Three jobs written out instead of one matrix. The three job names are
+# required checks on main: a matrix would make each name a template,
+# and fail-fast would cancel the other legs when one fails.
+# tests/test_updater_apply.py also names the three job ids.
 # pytest-windows runs the Windows-only tests, which skip on Linux, on
 # the platform the Store and PDFAppsSetup.exe builds target.
 # pytest-py312 runs the suite on the Python of the core24 snap base.
-# Neither is required (the ruleset decides that, not this file), and
-# neither has continue-on-error: a failure there must show as red.
+# The ruleset decides which checks are required, not this file, so keep
+# the three names unchanged. None of the three has continue-on-error: a
+# failure must show as red.
 jobs:
   pytest:
     name: pytest (Ubuntu, Python 3.14)
