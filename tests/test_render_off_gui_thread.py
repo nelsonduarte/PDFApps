@@ -1,10 +1,13 @@
 """Page renders must never build or touch a QPixmap off the GUI thread.
 
-Qt only allows ``QPixmap`` on the GUI thread; ``QImage`` may be used on
-any thread. Both page renderers (``_PageJob`` in the viewer,
+Qt guarantees ``QImage`` on any thread, and ``QPixmap`` off the GUI
+thread only where the platform declares ``ThreadedPixmaps`` (sources in
+``app/page_image.py``). Both page renderers (``_PageJob`` in the viewer,
 ``_EditPageJob`` in the editor) used to build the QPixmap inside the
-pool worker (``QPixmap.loadFromData``), and a hang was caught with the
-pool thread inside that call while the GUI thread was laying out pages.
+pool worker (``QPixmap.loadFromData``); they now emit a QImage, as
+``ThumbnailWorker`` already did. A hang once caught with the pool thread
+inside that call was not reproduced, before or after the change, and
+these tests do not prove it came from there.
 
 The guard swaps ``PySide6.QtGui.QPixmap`` (what a function-local
 ``from PySide6.QtGui import QPixmap`` reads at call time, the form the
@@ -16,7 +19,6 @@ from a thread other than ``threading.main_thread()``.
 
 from __future__ import annotations
 
-import faulthandler
 import gc
 import importlib
 import os
@@ -122,6 +124,45 @@ def guard(monkeypatch):
     return violations
 
 
+@pytest.fixture(autouse=True)
+def stored_non_pixmaps(monkeypatch):
+    """Check what each canvas's ``_on_page_ready`` stores for paintEvent.
+
+    A slot that stored the worker's QImage itself would only show up in
+    the next paintEvent, as a ``Fatal Python error`` from drawPixmap that
+    ends the run with no assertion. The wrapper records the wrong type
+    and swaps in a converted pixmap, so painting survives and the test
+    fails with a message instead."""
+    bad: list[str] = []
+    orig_viewer = _SelectCanvas._on_page_ready
+    orig_editor = PdfEditCanvas._on_page_ready
+
+    def _vet(value, where: str):
+        if value is None or isinstance(value, _REAL_QPIXMAP):
+            return value
+        bad.append(f"{where} stored {type(value).__name__}")
+        if isinstance(value, QImage):
+            return _REAL_QPIXMAP.fromImage(value)
+        return _REAL_QPIXMAP(1, 1)
+
+    def _viewer(self, gen, idx, image, words):
+        orig_viewer(self, gen, idx, image, words)
+        if 0 <= idx < len(self._entries):
+            entry = self._entries[idx]
+            entry.pixmap = _vet(entry.pixmap, "viewer _on_page_ready")
+
+    def _editor(self, gen, idx, image):
+        orig_editor(self, gen, idx, image)
+        if 0 <= idx < len(self._page_pixmaps):
+            self._page_pixmaps[idx] = _vet(self._page_pixmaps[idx],
+                                           "editor _on_page_ready")
+
+    monkeypatch.setattr(_SelectCanvas, "_on_page_ready", _viewer)
+    monkeypatch.setattr(PdfEditCanvas, "_on_page_ready", _editor)
+    yield bad
+    assert bad == [], f"page slot stored a non-QPixmap: {bad[:5]}"
+
+
 def _pump_until(cond, deadline_s: float = _RENDER_DEADLINE_S) -> bool:
     end = time.monotonic() + deadline_s
     while time.monotonic() < end:
@@ -211,23 +252,27 @@ def _assert_same_pixmap(shown: QPixmap, ref: QPixmap) -> None:
 # ── T1: no QPixmap off the GUI thread ──────────────────────────────────
 
 
-def test_viewer_render_builds_no_qpixmap_off_gui_thread(guard, pdf_path):
+def test_viewer_render_builds_no_qpixmap_off_gui_thread(guard, pdf_path,
+                                                        stored_non_pixmaps):
     canvas, sa = _open_viewer(pdf_path)
     try:
         rendered = [e for e in canvas._entries if e.pixmap is not None]
         assert len(rendered) >= 2, "too few pages rendered to prove anything"
         assert guard == [], f"QPixmap used off the GUI thread: {guard[:5]}"
+        assert stored_non_pixmaps == [], stored_non_pixmaps[:5]
     finally:
         canvas.close_doc()
         _teardown(sa)
 
 
-def test_editor_render_builds_no_qpixmap_off_gui_thread(guard, pdf_path):
+def test_editor_render_builds_no_qpixmap_off_gui_thread(guard, pdf_path,
+                                                        stored_non_pixmaps):
     canvas, sa = _open_editor(pdf_path)
     try:
         rendered = [p for p in canvas._page_pixmaps if p is not None]
         assert len(rendered) >= 2, "too few pages rendered to prove anything"
         assert guard == [], f"QPixmap used off the GUI thread: {guard[:5]}"
+        assert stored_non_pixmaps == [], stored_non_pixmaps[:5]
     finally:
         canvas.close_doc()
         _teardown(sa)
@@ -336,71 +381,101 @@ def test_page_image_fallback_matches_png_path(pdf_path, monkeypatch):
     assert fallback.convertToFormat(fmt) == normal.convertToFormat(fmt)
 
 
+@pytest.mark.parametrize("dpr", [1.0, 2.0], ids=["dpr1", "dpr2"])
+def test_page_image_fallback_does_not_share_the_pixmap_buffer(pdf_path,
+                                                              monkeypatch,
+                                                              dpr):
+    """The samples fallback must copy the pixels out of the PyMuPDF
+    Pixmap. Keeping that Pixmap alive and overwriting it makes the check
+    deterministic: an image still reading its buffer changes with it, an
+    image that owns a copy does not."""
+    from app import page_image
+    kept: list[pymupdf.Pixmap] = []
+    real_get_pixmap = pymupdf.Page.get_pixmap
+
+    def _keep(self, *args, **kwargs):
+        pix = real_get_pixmap(self, *args, **kwargs)
+        kept.append(pix)
+        return pix
+
+    class _NoDecode(QImage):
+        def loadFromData(self, *args, **kwargs):
+            return False
+
+    monkeypatch.setattr(pymupdf.Page, "get_pixmap", _keep)
+    monkeypatch.setattr(page_image, "QImage", _NoDecode)
+    doc = pymupdf.open(str(pdf_path))
+    try:
+        img = page_image.render_page_image(doc[0], 1.0, dpr)
+        assert len(kept) == 1
+        snapshot = img.copy()
+        kept[0].clear_with(0)
+        assert img == snapshot, \
+            "the fallback image still reads the PyMuPDF Pixmap's buffer"
+        assert img.devicePixelRatio() == dpr
+    finally:
+        doc.close()
+
+
 # ── T2: stress, must not hang ──────────────────────────────────────────
+#
+# No watchdog of their own: faulthandler.dump_traceback_later() in the
+# test replaces the one pytest arms for faulthandler_timeout (set in the
+# Windows and Python 3.12 CI jobs) and, with output captured, a dump to
+# sys.stderr followed by exit=True leaves no stacks and no JUnit file.
+# pytest's own timer writes to the real stderr, so a wedge here fails
+# with every thread's stack.
 
 
 _STRESS_ROUNDS = 6
-_STRESS_WATCHDOG_S = 120
 
 
 def test_viewer_open_close_zoom_page_stress_does_not_hang(guard, pdf_path,
                                                           tmp_path):
     """Open and close viewer panels while zooming and paging with
-    processEvents pumping. faulthandler dumps every stack and kills the
-    process if it wedges, instead of hanging the suite."""
+    processEvents pumping."""
     from app.viewer.panel import PdfViewerPanel
 
     other = _make_pdf(tmp_path / "outro ficheiro.pdf", n_pages=9)
-    faulthandler.dump_traceback_later(_STRESS_WATCHDOG_S, exit=True)
-    t0 = time.monotonic()
-    try:
-        for rnd in range(_STRESS_ROUNDS):
-            panel = PdfViewerPanel()
-            panel.resize(900, 700)
-            panel.show()
-            panel.load(str(pdf_path if rnd % 2 == 0 else other))
-            canvas = panel._canvas
-            for step in range(10):
-                if step % 3 == 0:
-                    canvas.zoom_in()
-                elif step % 3 == 1:
-                    canvas.zoom_out()
-                else:
-                    panel._next_page()
-                for _ in range(3):
-                    _app.processEvents()
-                if step == 5:
-                    # Swap the document mid-render.
-                    panel.load(str(other if rnd % 2 == 0 else pdf_path))
-            _pump_until(lambda c=canvas: not c._pending, deadline_s=5.0)
-            canvas._pool.waitForDone(5000)
-            panel.close()
-            panel.deleteLater()
-            for _ in range(5):
+    for rnd in range(_STRESS_ROUNDS):
+        panel = PdfViewerPanel()
+        panel.resize(900, 700)
+        panel.show()
+        panel.load(str(pdf_path if rnd % 2 == 0 else other))
+        canvas = panel._canvas
+        for step in range(10):
+            if step % 3 == 0:
+                canvas.zoom_in()
+            elif step % 3 == 1:
+                canvas.zoom_out()
+            else:
+                panel._next_page()
+            for _ in range(3):
                 _app.processEvents()
-        elapsed = time.monotonic() - t0
-    finally:
-        faulthandler.cancel_dump_traceback_later()
-    assert elapsed < _STRESS_WATCHDOG_S
+            if step == 5:
+                # Swap the document mid-render.
+                panel.load(str(other if rnd % 2 == 0 else pdf_path))
+        _pump_until(lambda c=canvas: not c._pending, deadline_s=5.0)
+        canvas._pool.waitForDone(5000)
+        panel.close()
+        panel.deleteLater()
+        for _ in range(5):
+            _app.processEvents()
     assert guard == [], f"QPixmap used off the GUI thread: {guard[:5]}"
 
 
 def test_editor_zoom_reload_stress_does_not_hang(guard, pdf_path, tmp_path):
     other = _make_pdf(tmp_path / "outro editor.pdf", n_pages=9)
-    faulthandler.dump_traceback_later(_STRESS_WATCHDOG_S, exit=True)
-    try:
-        canvas = PdfEditCanvas()
-        sa = _host(canvas)
-        for rnd in range(_STRESS_ROUNDS):
-            canvas.load(str(pdf_path if rnd % 2 == 0 else other))
-            for step in range(8):
-                (canvas.zoom_in if step % 2 == 0 else canvas.zoom_out)()
-                for _ in range(3):
-                    _app.processEvents()
-            _pump_until(lambda c=canvas: not c._pending, deadline_s=5.0)
-        QThreadPool.globalInstance().waitForDone(5000)
-        canvas.close_doc()
-        _teardown(sa)
-    finally:
-        faulthandler.cancel_dump_traceback_later()
+    canvas = PdfEditCanvas()
+    sa = _host(canvas)
+    for rnd in range(_STRESS_ROUNDS):
+        canvas.load(str(pdf_path if rnd % 2 == 0 else other))
+        for step in range(8):
+            (canvas.zoom_in if step % 2 == 0 else canvas.zoom_out)()
+            for _ in range(3):
+                _app.processEvents()
+        _pump_until(lambda c=canvas: not c._pending, deadline_s=5.0)
+    QThreadPool.globalInstance().waitForDone(5000)
+    canvas.close_doc()
+    _teardown(sa)
     assert guard == [], f"QPixmap used off the GUI thread: {guard[:5]}"

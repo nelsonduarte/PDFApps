@@ -25,8 +25,9 @@ _NOTE_ICON_SIZE = 22   # note icon size in pixels
 # ── Worker ────────────────────────────────────────────────────────────────────
 
 class _RenderSignals(QObject):
-    # QImage, not QPixmap: the job runs on a pool thread and Qt only
-    # allows QPixmap on the GUI thread; _on_page_ready converts it.
+    # QImage, not QPixmap: the job runs on a pool thread, where Qt
+    # guarantees QImage but QPixmap only on ThreadedPixmaps platforms
+    # (see app/page_image.py); _on_page_ready converts it.
     page_ready = Signal(int, int, QImage, object)  # gen, idx, image, words
 
 

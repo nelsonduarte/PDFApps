@@ -1,13 +1,25 @@
 """PDFApps – a PDF page rasterised into a QImage, off the GUI thread.
 
-Qt only allows ``QPixmap`` on the GUI thread; ``QImage`` may be built on
-any thread. The page render workers of the viewer and the editor call
+Qt guarantees ``QImage`` on any thread. ``QPixmap`` off the GUI thread
+works only where the platform plugin declares
+``QPlatformIntegration::ThreadedPixmaps``; elsewhere Qt warns and hands
+back a null pixmap. In Qt 6.11 the Windows, xcb (X11), Wayland, cocoa
+and offscreen plugins declare it, so on those the old in-worker
+``QPixmap`` was legal, just not portable. Sources:
+https://doc.qt.io/qt-6/threads-modules.html ("(for most platforms)
+QPixmap") and the ``ThreadedPixmaps`` entry in
+https://code.qt.io/cgit/qt/qtbase.git/tree/src/gui/kernel/qplatformintegration.cpp?h=v6.11.0
+
+So the page render workers of the viewer and the editor call
 :func:`render_page_image` from a ``QThreadPool`` worker and emit the
-``QImage``; the GUI-thread slot that receives it does the
+``QImage``, and the GUI-thread slot that receives it does the
 ``QPixmap.fromImage`` conversion, which keeps the device pixel ratio.
-Building the ``QPixmap`` in the worker was caught in a hang, with the
-pool thread inside ``QPixmap.loadFromData`` while the GUI thread laid
-out pages.
+``ThumbnailWorker`` already worked this way.
+
+A hang was once caught with a pool thread inside
+``QPixmap.loadFromData`` while the GUI thread laid out pages. It was
+NOT reproduced, before or after this change, so it is not proven to
+come from here, and this module is not claimed to fix it.
 """
 
 from __future__ import annotations
