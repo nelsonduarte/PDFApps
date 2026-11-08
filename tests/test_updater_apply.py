@@ -2529,13 +2529,40 @@ def test_v1152_refuses_the_renamed_asset(box, qapp, monkeypatch):
     box.assert_untouched()
 
 
+_RUNS_PYTEST = re.compile(r"-m\s+pytest\b")
+
+
+def _ci_jobs_that_run_pytest() -> dict[str, list[str]]:
+    """``{"<workflow>:<job id>": [each step's run block]}`` for every CI
+    job with a step that runs the suite."""
+    from _workflow_steps import WORKFLOWS, load_workflow
+    jobs = {}
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        for job_id, job in load_workflow(path.name)["jobs"].items():
+            runs = [step.get("run", "") for step in job.get("steps", [])]
+            if any(_RUNS_PYTEST.search(run) for run in runs):
+                jobs[f"{path.name}:{job_id}"] = runs
+    return jobs
+
+
 def test_ci_fetches_the_tag_the_v1152_test_reads():
-    """Otherwise a change on one side makes CI skip that test, in silence."""
-    from _workflow_steps import load_workflow
+    """Otherwise a change on one side makes CI skip that test, in silence.
+
+    Every job that runs the suite needs the fetch, before the step that
+    runs it: a job without it would skip the test there and stay green.
+    """
     ref = f"refs/tags/{V1152_TAG}"
-    runs = [step.get("run", "")
-            for step in load_workflow("tests.yml")["jobs"]["pytest"]["steps"]]
-    assert any(f"+{ref}:{ref}" in run for run in runs), runs
+    jobs = _ci_jobs_that_run_pytest()
+    # A pattern that stopped matching would find no job and check nothing.
+    assert {"tests.yml:pytest", "tests.yml:pytest-windows",
+            "tests.yml:pytest-py312"} <= set(jobs), sorted(jobs)
+    unfetched = {}
+    for name, runs in jobs.items():
+        fetches = [i for i, run in enumerate(runs) if f"+{ref}:{ref}" in run]
+        first_pytest = next(i for i, run in enumerate(runs) if _RUNS_PYTEST.search(run))
+        if not fetches or fetches[0] > first_pytest:
+            unfetched[name] = runs
+    assert not unfetched, unfetched
 
 
 def test_no_download_message_is_the_one_those_versions_show():

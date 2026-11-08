@@ -14,6 +14,15 @@ concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
 
+# Three jobs written out instead of one matrix. Only "pytest (Ubuntu,
+# Python 3.14)" is a required check on main: a matrix would make its
+# name a template, and fail-fast would cancel it when another leg
+# fails. tests/test_updater_apply.py also names the three job ids.
+# pytest-windows runs the Windows-only tests, which skip on Linux, on
+# the platform the Store and PDFAppsSetup.exe builds target.
+# pytest-py312 runs the suite on the Python of the core24 snap base.
+# Neither is required (the ruleset decides that, not this file), and
+# neither has continue-on-error: a failure there must show as red.
 jobs:
   pytest:
     name: pytest (Ubuntu, Python 3.14)
@@ -85,6 +94,98 @@ jobs:
           # Mandatory: the suite instantiates real QWidgets, and the
           # default xcb plugin aborts with "could not connect to
           # display" on a headless runner.
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m pytest -q -rs
+
+  pytest-windows:
+    name: pytest (Windows, Python 3.14)
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        # Git Bash, so the run blocks below mean what they mean on Linux.
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch the v1.15.2 tag
+        # Same reason as in the pytest job: without the tag,
+        # test_v1152_refuses_the_renamed_asset skips.
+        run: git fetch --no-tags --depth=1 origin +refs/tags/v1.15.2:refs/tags/v1.15.2
+
+      - name: Set up Python 3.14
+        # The version build.yml freezes the Windows binaries with.
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run test suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+        # faulthandler_timeout dumps every thread's stack when one test
+        # runs past 300 s, and exit_on_timeout then ends the process, so
+        # a hang fails with a traceback instead of eating the job's 30
+        # minutes in silence. --durations and the JUnit file measure
+        # where the time goes on this runner.
+        run: |
+          python -m pytest -q -rs --durations=25 -o faulthandler_timeout=300 -o faulthandler_exit_on_timeout=true --junitxml=junit.xml
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: junit-windows-py314
+          path: junit.xml
+
+  pytest-py312:
+    name: pytest (Ubuntu 24.04, Python 3.12)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch the v1.15.2 tag
+        # Same reason as in the pytest job: without the tag,
+        # test_v1152_refuses_the_renamed_asset skips.
+        run: git fetch --no-tags --depth=1 origin +refs/tags/v1.15.2:refs/tags/v1.15.2
+
+      - name: Set up Python 3.12.3
+        # 3.12.3 and not 3.12: Ubuntu 24.04 ships python3.12 as upstream
+        # 3.12.3 plus security patches (3.12.3-1ubuntu0.17 on Launchpad,
+        # 2026-11-08), the package a core24 snap's Python comes from.
+        # "3.12" would resolve to the newest 3.12.x and could pass on
+        # standard library behaviour from a later patch release that the
+        # snap lacks. Ubuntu's patches are not in this build either, so
+        # it is the closest match, not an exact one.
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12.3'
+
+      - name: Install Qt system deps
+        # The same two packages as the pytest job; the reasons are there.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run test suite
+        env:
           QT_QPA_PLATFORM: offscreen
         run: |
           python -m pytest -q -rs
