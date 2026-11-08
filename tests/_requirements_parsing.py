@@ -52,11 +52,13 @@ def target_environment(python_version: str, sys_platform: str) -> dict[str, str]
 # used in test ids. The Python versions come from the workflows and
 # manifests named below; when one of them moves, this table moves with it.
 TARGET_ENVIRONMENTS = {
-    # build.yml matrix; tests.yml and security-deps.yml also run 3.14,
-    # on Linux.
+    # build.yml matrix; tests.yml also runs 3.14 on Windows and Linux,
+    # security-deps.yml on Linux.
     "windows-py3.14": target_environment("3.14", "win32"),
     "macos-py3.14": target_environment("3.14", "darwin"),
     "linux-py3.14": target_environment("3.14", "linux"),
+    # tests.yml's pytest-py312 job (3.12.3, Ubuntu 24.04's python3.12).
+    "linux-py3.12": target_environment("3.12", "linux"),
     # The snap (base: core22, python3.10 in snap/snapcraft.yaml).
     "linux-py3.10": target_environment("3.10", "linux"),
 }

@@ -187,5 +187,8 @@ jobs:
       - name: Run test suite
         env:
           QT_QPA_PLATFORM: offscreen
+        # The faulthandler options of the pytest-windows job, for the
+        # reason given there: a hang ends with every thread's stack
+        # instead of running out the job's 20 minutes.
         run: |
-          python -m pytest -q -rs
+          python -m pytest -q -rs -o faulthandler_timeout=300 -o faulthandler_exit_on_timeout=true
