@@ -401,7 +401,9 @@ def test_page_image_fallback_does_not_share_the_pixmap_buffer(
         assert len(kept) == 1
         snapshot = img.copy()
         kept[0].clear_with(0)
-        assert img == snapshot,             "the fallback image still reads the PyMuPDF Pixmap's buffer"
+        assert img == snapshot, (
+            "the fallback image still reads the PyMuPDF Pixmap's buffer"
+        )
         assert img.devicePixelRatio() == dpr
     finally:
         doc.close()

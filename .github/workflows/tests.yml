@@ -96,8 +96,8 @@ jobs:
           # display" on a headless runner.
           QT_QPA_PLATFORM: offscreen
         # The faulthandler options of the pytest-windows job, for the
-        # reason given there. Without them a hang in this job, the
-        # required one, ran out the 20 minutes and left no stack.
+        # reason given there: a hang ends with every thread's stack
+        # instead of running out the job's 20 minutes.
         run: |
           python -m pytest -q -rs -o faulthandler_timeout=300 -o faulthandler_exit_on_timeout=true
 
