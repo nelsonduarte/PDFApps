@@ -28,7 +28,7 @@ class TabComprimir(BasePage):
         f = self._form
         sec_src = section(t("tool.compress.source"))
         f.addWidget(sec_src)
-        self.drop_in = DropFileEdit()
+        self.drop_in = DropFileEdit(document=True)
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
         self.drop_in.btn.clicked.connect(self._pick_input)
@@ -104,14 +104,12 @@ class TabComprimir(BasePage):
         # the one before stops counting: that answer is what lets a run
         # replace its input (BasePage._resolve_output_file). Kept while
         # the field was not empty, it replaced the next input unasked.
-        # Silently: MainWindow loads every field's path into the viewer,
-        # which then held the previous run's result open, and the next run
-        # could not replace it (WinError 5 on Windows).
+        # The output field is not a document field, so MainWindow does not
+        # load it into the viewer (see DropFileEdit): the previous run's
+        # result is not held open and the next run can replace it.
         base, ext = os.path.splitext(p)
-        self.drop_out.blockSignals(True)
         self.drop_out.clear()
         self.drop_out.set_path(base + "_compressed" + ext)
-        self.drop_out.blockSignals(False)
         size = os.path.getsize(p)
         try:
             r = self._open_reader(p)
