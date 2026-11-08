@@ -818,6 +818,9 @@ def test_the_file_in_use_log_has_the_os_fields_and_not_the_text(
     assert records[0].levelno == logging.WARNING
     assert records[0].exc_info is None, "no traceback"
     assert not [r for r in caplog.records if text in r.getMessage()]
+    # caplog.text holds the formatted tracebacks too: another record that
+    # carries the exception would write the text through exc_info.
+    assert text not in caplog.text
     logged = records[0].getMessage()
     assert f"errno={errno.EACCES} winerror=32 " in logged
     assert repr(temp) in logged and repr(str(held)) in logged
