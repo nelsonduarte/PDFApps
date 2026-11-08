@@ -7,7 +7,7 @@ the snap fails after the release is out, when publish.yml builds it.
 
 CI cannot catch this on its own, because every job that installs
 requirements.txt on a pull request (tests.yml, security-deps.yml) uses
-Python 3.14, where ``soupsieve>=3.0.3`` installs fine.
+Python 3.14 or 3.12, where ``soupsieve>=3.0.3`` installs fine.
 Dependabot raises ``>=`` floors in this file to the newest release: the
 weekly pip version updates in .github/dependabot.yml did so for lxml
 (#86, then #176) and idna (#105), and security updates are enabled too.

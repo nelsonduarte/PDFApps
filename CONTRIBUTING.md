@@ -32,7 +32,7 @@ Thank you for your interest in contributing to PDFApps! This guide covers the fu
 
 ### Prerequisites
 
-- Python 3.14+
+- Python 3.14
 - Windows / macOS / Linux
 - (Optional) [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) — for the OCR tool
 - (Optional) [Ghostscript](https://www.ghostscript.com/) — for advanced PDF compression
@@ -65,6 +65,29 @@ python pdfapps.py
 **Optional runtime dependencies:**
 - **Ghostscript** (`gs` / `gswin64c`) — used by the compression pipeline for high-quality image downsampling
 - **Tesseract** — used by the OCR tool to add text layers to scanned PDFs
+
+### Running the tests
+
+```bash
+pip install -r requirements-dev.txt
+QT_QPA_PLATFORM=offscreen python -m pytest -q -rs
+```
+
+In PowerShell, set the variable first: `$env:QT_QPA_PLATFORM = "offscreen"`.
+
+`requirements-dev.txt` adds pytest, pytest-qt, ruff and PyYAML; parts of the suite fail without them instead of skipping. `QT_QPA_PLATFORM=offscreen` lets the tests create real Qt widgets without a display, and is required on a machine that has none.
+
+Some tests run on one platform only (Windows file locks, POSIX file modes), and some need a POSIX `bash` on PATH (Git Bash on Windows) or the `v1.15.2` tag in the clone (`git fetch origin tag v1.15.2`). Without them they skip, and `-rs` lists each skip with its reason.
+
+CI (`.github/workflows/tests.yml`) runs the suite on every pull request and push to `main`, in three jobs:
+
+| Check | Runner | Python |
+|---|---|---|
+| `pytest (Ubuntu, Python 3.14)` | `ubuntu-24.04` | 3.14 |
+| `pytest (Windows, Python 3.14)` | `windows-2025` | 3.14 |
+| `pytest (Ubuntu 24.04, Python 3.12)` | `ubuntu-24.04` | 3.12.3, the Python of Ubuntu 24.04, which the snap's next base (`core24`) is built from |
+
+Only the first is a required check on `main`.
 
 ---
 

@@ -307,7 +307,7 @@ def test_marker_split_resolves_to_one_line_per_environment():
         for label, env in TARGET_ENVIRONMENTS.items()
     }
     assert str(by_env["linux-py3.10"].specifier) == ">=12.3.0"
-    for label in ("windows-py3.14", "macos-py3.14", "linux-py3.14"):
+    for label in ("windows-py3.14", "macos-py3.14", "linux-py3.14", "linux-py3.12"):
         assert str(by_env[label].specifier) == ">=13.0.0", label
     # Without an environment there is no single Pillow requirement.
     assert "pillow" not in parse_requirements_text(_PILLOW_SPLIT)
