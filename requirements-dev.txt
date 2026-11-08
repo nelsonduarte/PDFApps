@@ -13,11 +13,14 @@
 # and pytest.fail()s on a non-zero exit, so a missing ruff is a test
 # FAILURE, not a skip.
 #
-# PyYAML is mandatory for the same kind of reason: tests/
-# test_release_bump_script.py imports it at module scope, so without it
-# collection ERRORs and the run aborts as Interrupted.
+# PyYAML is mandatory for the same kind of reason: five test modules
+# import it at module scope, three directly (test_release_assets.py,
+# test_release_bump_script.py, test_snap_manifest.py) and two through
+# tests/_workflow_steps.py (test_publish_aur_bin_step.py,
+# test_workflow_jobs.py), so without it collection ERRORs in all five
+# and the run aborts as Interrupted before any test runs.
 # (tests/test_security_deps_workflow.py does wrap the import in
-# try/except and skip; that one does not.)
+# try/except and skip; those five do not.)
 #
 # Install with:  pip install -r requirements-dev.txt
 #
@@ -32,10 +35,14 @@ bandit>=1.9.4
 pip-audit>=2.10.1
 pyyaml>=6.0.3
 ruff>=0.16.10
-# Test runners. pytest-qt is not optional: 12 tests in
-# tests/test_viewer_shared_doc.py take the `qtbot` fixture directly, with
-# no importorskip guard, so without it they ERROR with
-# "fixture 'qtbot' not found" rather than skipping.
+# Test runners. pytest-qt is not optional: tests in six files use the
+# `qtbot` fixture with no importorskip guard (13 in
+# tests/test_viewer_shared_doc.py alone), so without it they fail with
+# "fixture 'qtbot' not found" rather than skipping: as an ERROR where
+# the test, or a fixture it takes, names `qtbot` as an argument, and as
+# a FAILURE where the test looks a fixture up at run time
+# (request.getfixturevalue). Those six files,
+# run with -p no:pytest-qt on 2026-11-08: 156 errors and 14 failures.
 pytest>=9.1.1
 pytest-qt>=4.5.0
 coverage>=7.16.2
