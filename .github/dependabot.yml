@@ -8,8 +8,15 @@ updates:
     groups:
       # CodeQL refuses to run when init and analyze are on different
       # versions, so a PR that bumps only one of them is always red.
+      # Dependabot will not let one group cover both version and
+      # security updates, hence the two groups with the same patterns.
       codeql-action:
         applies-to: version-updates
+        patterns:
+          - "github/codeql-action"
+          - "github/codeql-action/*"
+      codeql-action-security:
+        applies-to: security-updates
         patterns:
           - "github/codeql-action"
           - "github/codeql-action/*"

@@ -5,16 +5,21 @@ CodeQL aborts the Analyze step when ``github/codeql-action/init`` and
 workflow that use github/codeql-action must use the same version"), so
 Dependabot opening one PR per sub-action (#216, #218) gave two PRs that
 could never go green on their own.
+
+A group applies to version updates or to security updates, never both,
+so each kind of update is checked on its own.
 """
 from __future__ import annotations
 
 import re
 
+import pytest
 import yaml
 
 from _workflow_steps import ROOT, WORKFLOWS
 
 _CODEQL_REPO = "github/codeql-action"
+_UPDATE_KINDS = ("version-updates", "security-updates")
 
 
 def _github_actions_entry() -> dict:
@@ -32,14 +37,14 @@ def _matches(pattern: str, name: str) -> bool:
     return re.fullmatch(regex, name) is not None
 
 
-def _version_update_group(groups: dict, name: str) -> str | None:
-    """The group Dependabot files a version update of ``name`` under.
+def _update_group(groups: dict, name: str, kind: str) -> str | None:
+    """The group Dependabot files a ``kind`` update of ``name`` under.
 
     A dependency goes to the first group it matches; ``applies-to``
     defaults to version updates.
     """
     for group_id, rule in groups.items():
-        if rule.get("applies-to", "version-updates") != "version-updates":
+        if rule.get("applies-to", "version-updates") != kind:
             continue
         if any(_matches(p, name) for p in rule.get("exclude-patterns", [])):
             continue
@@ -73,20 +78,22 @@ def test_the_workflows_use_codeql_init_and_analyze():
     assert {f"{_CODEQL_REPO}/init", f"{_CODEQL_REPO}/analyze"} <= found, found
 
 
-def test_every_codeql_sub_action_shares_one_version_update_group():
+@pytest.mark.parametrize("kind", _UPDATE_KINDS)
+def test_every_codeql_sub_action_shares_one_group(kind):
     groups = _github_actions_entry().get("groups", {})
     names = _codeql_actions(_actions_in_workflows())
     names |= {_CODEQL_REPO, f"{_CODEQL_REPO}/upload-sarif"}
-    placed = {n: _version_update_group(groups, n) for n in sorted(names)}
+    placed = {n: _update_group(groups, n, kind) for n in sorted(names)}
     assert None not in placed.values(), placed
     assert len(set(placed.values())) == 1, placed
 
 
-def test_the_codeql_group_takes_no_other_action():
+@pytest.mark.parametrize("kind", _UPDATE_KINDS)
+def test_the_codeql_group_takes_no_other_action(kind):
     groups = _github_actions_entry().get("groups", {})
-    codeql_group = _version_update_group(groups, f"{_CODEQL_REPO}/init")
+    codeql_group = _update_group(groups, f"{_CODEQL_REPO}/init", kind)
     assert codeql_group is not None
     names = _actions_in_workflows()
     others = {n for n in names - _codeql_actions(names)
-              if _version_update_group(groups, n) == codeql_group}
+              if _update_group(groups, n, kind) == codeql_group}
     assert not others, others
