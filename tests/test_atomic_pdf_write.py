@@ -65,10 +65,15 @@ def test_check_rejects_exact_same_path(tmp_path: Path):
         BasePage._check_not_same_path(str(src), [str(src)])
 
 
-def test_check_rejects_via_realpath(tmp_path: Path):
+def test_check_rejects_via_realpath(tmp_path: Path, monkeypatch):
     """A relative path and an absolute path to the same file must
     both flag as colliding (realpath equality)."""
     src = _make_pdf(tmp_path / "in.pdf")
+    # On Windows relpath raises when the cwd and tmp_path sit on different
+    # drives (CI: cwd on D:, tmp on C:). Passing only start= is not enough:
+    # realpath resolves the relative path against the cwd, so the cwd itself
+    # must be tmp_path.
+    monkeypatch.chdir(tmp_path)
     rel = os.path.relpath(str(src))
     with pytest.raises(RuntimeError):
         BasePage._check_not_same_path(rel, [str(src)])
