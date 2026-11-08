@@ -22,13 +22,12 @@ import inspect
 import pkgutil
 import typing
 
-import app
-from app import pdf_io
+import app.pdf_io
 
 
 def test_pdf_io_public_functions_type_hints_resolve():
-    hints = {name: typing.get_type_hints(getattr(pdf_io, name))
-             for name in pdf_io.__all__}
+    hints = {name: typing.get_type_hints(getattr(app.pdf_io, name))
+             for name in app.pdf_io.__all__}
     assert hints["is_file_in_use_error"]["return"] == typing.TypeGuard[OSError]
 
 
