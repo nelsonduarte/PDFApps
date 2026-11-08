@@ -4,11 +4,12 @@ import contextlib
 import os
 
 from PySide6.QtCore import Qt, Signal, QRect, QPoint, QObject, QRunnable, QThreadPool, QEvent
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QWidget, QSizePolicy, QLineEdit
 
 from app.constants import ACCENT, BG_INNER, TEXT_SEC, _LN, _LI
 from app.i18n import t
+from app.page_image import render_page_image
 
 _NOTE_ICON_SIZE = 22
 _PAGE_GAP = 4
@@ -90,7 +91,9 @@ def _get_icon_cursor(icon_name: str, hx: int, hy: int,
 
 
 class _EditRenderSignals(QObject):
-    page_ready = Signal(int, int, object)  # gen, idx, QPixmap
+    # QImage, not QPixmap: the job runs on a pool thread and Qt only
+    # allows QPixmap on the GUI thread; _on_page_ready converts it.
+    page_ready = Signal(int, int, QImage)  # gen, idx, image
 
 
 class _EditPageJob(QRunnable):
@@ -112,26 +115,11 @@ class _EditPageJob(QRunnable):
         doc = None
         try:
             import pymupdf
-            from PySide6.QtGui import QPixmap as QP, QImage
             doc = pymupdf.open(self._path)
             if doc.needs_pass and self._password:
                 doc.authenticate(self._password)
-            page = doc[self._idx]
-            rz = self._zoom * self._dpr
-            pix = page.get_pixmap(matrix=pymupdf.Matrix(rz, rz), annots=False)
-            img = pix.tobytes("png")
-            qp = QP()
-            if not qp.loadFromData(img):
-                # samples_mv is a memoryview backed by the PyMuPDF Pixmap,
-                # which is backed by the open Document. Force an eager
-                # copy via QImage.copy() before letting the doc fall
-                # out of scope in the finally clause — otherwise the
-                # underlying buffer can be freed mid-QImage-blit.
-                qi = QImage(pix.samples_mv, pix.width, pix.height,
-                            pix.stride, QImage.Format.Format_RGB888)
-                qp = QP.fromImage(qi.copy())
-            qp.setDevicePixelRatio(self._dpr)
-            self.signals.page_ready.emit(self._gen, self._idx, qp)
+            img = render_page_image(doc[self._idx], self._zoom, self._dpr)
+            self.signals.page_ready.emit(self._gen, self._idx, img)
         except Exception:
             import traceback, logging
             logging.error("Edit page render failed (idx=%d):\n%s",
@@ -668,12 +656,12 @@ class PdfEditCanvas(QWidget):
                                         gen, self._render_signals,
                                         password=getattr(self, "_password", "")))
 
-    def _on_page_ready(self, gen: int, idx: int, pixmap):
+    def _on_page_ready(self, gen: int, idx: int, image: QImage):
         if gen != self._gen:
             return
         self._pending.discard(idx)
         if 0 <= idx < len(self._page_pixmaps):
-            self._page_pixmaps[idx] = pixmap
+            self._page_pixmaps[idx] = QPixmap.fromImage(image)
             self.update()
 
     def _page_and_local(self, sx, sy):

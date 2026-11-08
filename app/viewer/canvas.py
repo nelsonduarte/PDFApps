@@ -9,11 +9,12 @@ import tempfile
 
 from PySide6.QtCore import Qt, Signal, QRect, QObject, QRunnable, QThreadPool
 from PySide6.QtWidgets import QWidget, QApplication
-from PySide6.QtGui import QColor, QPainter, QPen, QFont
+from PySide6.QtGui import QColor, QPainter, QPen, QFont, QImage, QPixmap
 import qtawesome as qta
 
 from app.constants import BG_INNER, TEXT_SEC, _LN
 from app.i18n import t
+from app.page_image import render_page_image
 
 _PAGE_GAP       = 4    # px between pages
 _BUFFER_PGS     = 2    # extra pages to pre-render outside the visible area
@@ -24,7 +25,9 @@ _NOTE_ICON_SIZE = 22   # note icon size in pixels
 # ── Worker ────────────────────────────────────────────────────────────────────
 
 class _RenderSignals(QObject):
-    page_ready = Signal(int, int, object, object)  # gen, idx, QPixmap, words
+    # QImage, not QPixmap: the job runs on a pool thread and Qt only
+    # allows QPixmap on the GUI thread; _on_page_ready converts it.
+    page_ready = Signal(int, int, QImage, object)  # gen, idx, image, words
 
 
 class _PageJob(QRunnable):
@@ -48,31 +51,14 @@ class _PageJob(QRunnable):
         doc = None
         try:
             import pymupdf
-            from PySide6.QtGui import QPixmap as QP, QImage
             doc = pymupdf.open(self._path)
             if self._password:
                 doc.authenticate(self._password)
             page  = doc[self._idx]
-            rz    = self._zoom * self._dpr
-            pix   = page.get_pixmap(matrix=pymupdf.Matrix(rz, rz), annots=False)
-            if self._night_mode:
-                pix.invert_irect()
+            img   = render_page_image(page, self._zoom, self._dpr,
+                                      invert=self._night_mode)
             words = page.get_text("words")
-            img   = pix.tobytes("png")
-            qp = QP()
-            if not qp.loadFromData(img):
-                # samples_mv is a memoryview backed by the PyMuPDF Pixmap,
-                # which in turn is backed by the open Document. Closing
-                # the doc before QImage finishes copying the buffer
-                # frees the underlying allocation under PySide's feet
-                # (rare, but observed on Windows under tight memory).
-                # QImage.copy() forces an eager copy, after which the
-                # pixmap/document can be safely released.
-                qi = QImage(pix.samples_mv, pix.width, pix.height,
-                            pix.stride, QImage.Format.Format_RGB888)
-                qp = QP.fromImage(qi.copy())
-            qp.setDevicePixelRatio(self._dpr)
-            self.signals.page_ready.emit(self._gen, self._idx, qp, words)
+            self.signals.page_ready.emit(self._gen, self._idx, img, words)
         except Exception:
             import traceback, logging
             logging.error("Page render failed:\n%s", traceback.format_exc())
@@ -91,7 +77,7 @@ class _PageEntry:
         self.y_off  = y_off
         self.w      = w
         self.h      = h
-        self.pixmap = None   # QPixmap | None — filled by worker
+        self.pixmap: QPixmap | None = None   # built by _on_page_ready
         self.words  = None   # list | None   — filled by worker
         self.annots = None   # list | None   — [(rect, text), ...]
 
@@ -360,12 +346,12 @@ class _SelectCanvas(QWidget):
                                     self._zoom, dpr, gen, self._signals,
                                     night_mode=self._night_mode))
 
-    def _on_page_ready(self, gen: int, idx: int, pixmap, words):
+    def _on_page_ready(self, gen: int, idx: int, image: QImage, words):
         if gen != self._gen:
             return  # outdated render after zoom change — discard
         self._pending.discard(idx)
         if 0 <= idx < len(self._entries):
-            self._entries[idx].pixmap = pixmap
+            self._entries[idx].pixmap = QPixmap.fromImage(image)
             self._entries[idx].words  = words
             self.update()
 
