@@ -61,14 +61,16 @@ def test_worker_pixmap_lifetime_uses_copy():
 
 
 def test_worker_emits_qimage_not_qpixmap():
-    """QPixmap construction is main-thread-only in Qt. The worker must
-    emit QImage; the panel converts to QPixmap in a main-thread slot."""
+    """Off the GUI thread Qt guarantees QImage, and QPixmap only on
+    platforms that declare ThreadedPixmaps (see app/page_image.py). The
+    worker must emit QImage; the panel converts to QPixmap in a
+    main-thread slot."""
     # Signal should carry QImage, not QPixmap. It also carries the
     # generation/epoch (trailing int) so stale thumbnails from a
     # superseded document can be dropped by the panel.
     assert "Signal(int, QImage, int)" in THUMBS_SRC, (
         "ThumbnailWorker.thumbnail_ready must emit QImage, not QPixmap, "
-        "since QPixmap construction requires the main GUI thread"
+        "since QPixmap off the GUI thread is not portable"
     )
     # The main-thread slot converts image -> pixmap.
     assert "QPixmap.fromImage" in THUMBS_SRC

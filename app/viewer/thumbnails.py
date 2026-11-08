@@ -155,10 +155,11 @@ class ThumbnailWorker(QThread):
     graceful shutdown before dropping the reference.
     """
 
-    # Emits QImage (thread-safe) rather than QPixmap: Qt requires
-    # QPixmap to be constructed / mutated only in the main GUI thread,
-    # so the receiver slot ``ThumbnailPanel._on_image_ready`` performs
-    # the ``QPixmap.fromImage()`` conversion on the main thread before
+    # Emits QImage rather than QPixmap: Qt guarantees QImage on any
+    # thread, but QPixmap off the GUI thread only on platforms that
+    # declare ThreadedPixmaps (see app/page_image.py), so the receiver
+    # slot ``ThumbnailPanel._on_image_ready`` performs the
+    # ``QPixmap.fromImage()`` conversion on the main thread before
     # handing the pixmap to the model.
     thumbnail_ready = Signal(int, QImage, int)  # (page_index, thumbnail, epoch)
     # Emitted once when the worker finishes having rendered ZERO pages
@@ -252,10 +253,10 @@ class ThumbnailWorker(QThread):
                     # dangling buffer (same fix pattern as the print
                     # loop and OCR round 3).
                     #
-                    # Emit QImage (thread-safe) — the main-thread slot
-                    # converts to QPixmap. Constructing QPixmap here in
-                    # the worker thread is invalid per Qt's threading
-                    # model (silent no-op or crash on some platforms).
+                    # Emit QImage; the main-thread slot converts to
+                    # QPixmap. A QPixmap built here, in the worker
+                    # thread, is supported only on platforms that
+                    # declare ThreadedPixmaps (see app/page_image.py).
                     img = QImage(
                         pix.samples, pix.width, pix.height,
                         pix.stride, QImage.Format.Format_RGB888,
@@ -699,9 +700,10 @@ class ThumbnailPanel(QWidget):
             self._doc_path, page_indices, self._password, self._epoch,
             dpr, self)
         # Explicit QueuedConnection so the slot runs on this (main)
-        # thread rather than the worker — required for QPixmap
-        # construction, and matches the Py3.14 PySide6 routing rules
-        # documented in memory/project_compress_freeze_py314.md.
+        # thread rather than the worker: it builds the QPixmap, which is
+        # portable only on the GUI thread, and it matches the Py3.14
+        # PySide6 routing rules documented in
+        # memory/project_compress_freeze_py314.md.
         worker.thumbnail_ready.connect(
             self._on_image_ready,
             Qt.ConnectionType.QueuedConnection,
@@ -728,7 +730,8 @@ class ThumbnailPanel(QWidget):
         """Runs on the main GUI thread. Convert the worker's QImage
         into a QPixmap and hand it to the model.
 
-        QPixmap construction is only valid on the main thread; doing it
+        Off the GUI thread Qt supports QPixmap only on platforms that
+        declare ThreadedPixmaps (see app/page_image.py); building it
         here (instead of in the worker) is why the parent signal
         carries QImage."""
         # Drop thumbnails from a superseded document: a queued emission

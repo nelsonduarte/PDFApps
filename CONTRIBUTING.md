@@ -921,7 +921,7 @@ _SelectCanvas
 | `_layout_and_schedule()` | Calculates page dimensions at current zoom, positions entries vertically, loads annotations, schedules visible page renders |
 | `_visible_range()` | Returns `(first_page, last_page)` indices currently visible (+ buffer) |
 | `_schedule_visible()` | Queues `_PageJob` for each unrendered visible page |
-| `_on_page_ready(gen, idx, pixmap, words)` | Callback from worker thread; stores pixmap and words in `_entries[idx]` |
+| `_on_page_ready(gen, idx, image, words)` | Slot on the GUI thread for the worker's signal; converts the `QImage` with `QPixmap.fromImage` and stores the pixmap and words in `_entries[idx]` |
 | `_invalidate_and_relayout()` | Clears all pixmaps and re-layouts (e.g., after zoom change) |
 | `_load_annotations()` | Reads PDF annotations (comments/notes) from all pages |
 
@@ -948,9 +948,9 @@ _SelectCanvas
 Runs in `QThreadPool`. Each job:
 
 1. Opens `pymupdf.Document(path)` independently (thread-safe)
-2. Renders page at `zoom × devicePixelRatio` for crisp display
+2. Renders page at `zoom × devicePixelRatio` for crisp display, into a `QImage` (`app/page_image.py`; Qt guarantees `QImage` on any thread, `QPixmap` only where the platform declares `ThreadedPixmaps`)
 3. Extracts word list via `page.get_text("words")`
-4. Emits `page_ready(generation, page_index, pixmap, words)`
+4. Emits `page_ready(generation, page_index, image, words)`
 
 The `generation` counter prevents stale results from a previous zoom level being applied.
 
@@ -1411,10 +1411,10 @@ MainWindow._load_and_track(path)
               └── _schedule_visible()
                     ├── Determine viewport + buffer range
                     └── Queue _PageJob for each unrendered page
-                          ├── (in thread) PyMuPDF renders page → QPixmap
+                          ├── (in thread) PyMuPDF renders page → QImage
                           ├── (in thread) Extract word list for search
                           └── Emit page_ready signal
-                                └── Canvas stores pixmap, calls update()
+                                └── Canvas converts to QPixmap, stores it, calls update()
 ```
 
 ### Tool Execution
