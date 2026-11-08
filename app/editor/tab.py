@@ -161,7 +161,7 @@ class TabEditar(QWidget):
         # -- PDF file --
         self._grp_file = grp_file = QGroupBox(t("edit.pdf_file"))
         gf = QVBoxLayout(grp_file); gf.setSpacing(4)
-        self._drop_in = DropFileEdit()
+        self._drop_in = DropFileEdit(document=True)
         try: self._drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
         self._drop_in.btn.clicked.connect(self._pick_pdf)

@@ -43,7 +43,7 @@ class TabEncriptar(BasePage):
         f = self._form
         sec_src = section(t("tool.encrypt.source"))
         f.addWidget(sec_src)
-        self.drop_in = DropFileEdit()
+        self.drop_in = DropFileEdit(document=True)
         try: self.drop_in.btn.clicked.disconnect()
         except RuntimeError: pass
         self.drop_in.btn.clicked.connect(self._pick_input)

@@ -42,14 +42,26 @@ def _drop_icon(icon_name: str, color: str) -> QPushButton:
 
 
 class DropFileEdit(QWidget):
-    """File field with drag & drop, status icon and clear button."""
+    """File field with drag & drop, status icon and clear button.
+
+    ``document=True`` marks the field that holds the document the tool
+    works on, its main input; ``MainWindow`` loads only those fields'
+    paths into the viewer. Off by default, so a new field never does: an
+    output, an output folder or a secondary input (Watermark's mark, the
+    editor's image) loaded into the viewer named a file the tool was about
+    to write, the viewer held it, and on Windows the write failed with
+    WinError 5. Those paths also went into the tab title and the recent
+    files.
+    """
 
     path_changed = Signal(str)
 
     def __init__(self, placeholder=None,
                  filters=None,
-                 save=False, default_name="result.pdf"):
+                 save=False, default_name="result.pdf", *,
+                 document=False):
         super().__init__()
+        self._document     = bool(document)
         self._filters      = filters or t("file_filter.pdf")
         self._accept_exts  = self._parse_extensions(self._filters)
         self._save         = save
@@ -92,6 +104,10 @@ class DropFileEdit(QWidget):
     # ── API ──────────────────────────────────────────────────────────────────
     def path(self) -> str:
         return self._path_value
+
+    def is_document(self) -> bool:
+        """Does this field hold the tool's document (``document=True``)?"""
+        return self._document
 
     def mark_confirmed(self) -> None:
         """Record that the Save dialog already asked about replacing the

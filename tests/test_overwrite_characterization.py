@@ -51,21 +51,23 @@ before any of it changes. These defects are pinned:
 * **Output in the temp folder** (I5). With a pipeline result in the
   viewer, Split, OCR and Converter write next to it, in the folder the
   pipeline's cleanup deletes.
-* **Every field loads the viewer.** ``MainWindow.__init__`` connects
-  the ``path_changed`` of every ``DropFileEdit`` of every tool to
-  ``self._viewer.load``: the main input (``drop_in``, the editor's
-  ``_drop_in``), which is wanted and pinned without a marker, and
-  every other field, which is the defect. Pre-filling an output
-  (on a load, an Encrypt mode change, a pipeline result reloaded into
-  the tool) or choosing a secondary input (Watermark's mark through its
-  button, an image dropped on the editor's image field) loads that path
-  into the viewer when it is a file (a PDF of the user's; the
-  watermark, which then becomes the pipeline's original; an encrypted
-  one, which asks for its password and, on cancel, leaves the tab
-  empty; a ``.txt`` or a ``.png``, which warns "invalid format"), and
-  in every case renames the tab after it and records it in the recent
-  files, even when no such file exists, or when it is a folder
-  (Split), which the recent files' ``lexists`` filter keeps.
+* **Only the main input loads the viewer** (I2, done). ``MainWindow``
+  connects the ``path_changed`` of a tool's ``DropFileEdit`` to the
+  viewer only when the field is the tool's document
+  (``DropFileEdit(document=True)``: ``drop_in``, the editor's
+  ``_drop_in``). Before I2 every field was connected, and pre-filling
+  an output (on a load, an Encrypt mode change, a pipeline result
+  reloaded into the tool) or choosing a secondary input (Watermark's
+  mark through its button, an image dropped on the editor's image
+  field) loaded that path into the viewer when it was a file (a PDF of
+  the user's; the watermark, which then became the pipeline's original;
+  an encrypted one, which asked for its password and, on cancel, left
+  the tab empty; a ``.txt`` or a ``.png``, which warned "invalid
+  format"), and in every case renamed the tab after it and recorded it
+  in the recent files, even when no such file existed, or when it was a
+  folder (Split), which the recent files' ``lexists`` filter keeps.
+  Section 4 pins, without a marker, that none of those fields does any
+  of that now, and that the main input still does.
 
 Tests marked ``known_defect`` pass today and pin a defect; each reason
 says which increment changes it, or that none is scheduled, and whatever
@@ -255,12 +257,6 @@ _TEMP_OUTPUT_REASON = (
     "output from the viewer's pipeline result, next to it, and the "
     "pipeline's cleanup deletes that folder with the user's result in "
     "it; I5 changes it")
-_VIEWER_REASON = (
-    "every field loads the viewer: MainWindow connects the path_changed "
-    "of every DropFileEdit (outputs, Watermark's mark, the editor's "
-    "image) to viewer.load; I2 keeps only the main input wired, so no "
-    "other field loads the viewer, renames the tab or adds to the "
-    "recent files")
 
 _ORIGINAL = "ORIGINAL USER FILE"
 _MISSING = "MISSING"
@@ -391,10 +387,10 @@ def _set_pages(page, env):
 
 
 def _set_watermark(page, env):
-    # Through the field's own button, as the user picks it. The tool
-    # does not listen to drop_wm, but in a MainWindow the pick also
-    # loads the mark into the viewer (pinned in section 4). The
-    # fail-closed Open dialog goes back once the pick is made.
+    # Through the field's own button, as the user picks it. Neither the
+    # tool nor the MainWindow listens to drop_wm: the pick leaves the
+    # viewer alone (pinned in section 4). The fail-closed Open dialog
+    # goes back once the pick is made.
     fail_closed = QFileDialog.__dict__["getOpenFileName"]
     asked = []
 
@@ -1217,10 +1213,9 @@ def test_window_tool_reopened_on_second_tab_runs_on_first_pdf(
             assert _label(spec.produced(spec.out(env.b))) == _MISSING
             assert len(env.infos) == 1
             _check_stand_ins(env, spec, page, env.a, spec.out(env.a))
-        # The tab's title is another defect's, pinned on its own by
-        # test_window_pipeline_result_renames_tab_after_its_prefilled_output
-        # (section 4): asserted here, I2 would have to rewrite this
-        # stuck-input test too.
+        # The tab's title after a pipeline run is pinned on its own by
+        # test_window_pipeline_result_keeps_the_unsaved_mark (section 4),
+        # and left out here: this stuck-input test is I3's to rewrite.
     finally:
         _close_window(win, qtbot, env.tmp)
 
@@ -1384,7 +1379,7 @@ def test_window_closing_the_tab_leaves_the_tool_on_the_closed_pdf(
         _close_window(win, qtbot, env.tmp)
 
 
-# -- 4. an output field loads the viewer -------------------------------------
+# -- 4. only the main input loads the viewer ---------------------------------
 
 
 def _open_tool_on(win, qtbot, cls, path: str):
@@ -1399,11 +1394,11 @@ def _open_tool_on(win, qtbot, cls, path: str):
     return page
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_existing_prefilled_output_replaces_the_viewers_pdf(
+def test_window_existing_prefilled_output_leaves_the_viewers_pdf(
         env, monkeypatch, qtbot):
-    # After I2: the viewer keeps A, the tab keeps A's name and the
-    # output does not enter the recent files.
+    """Rotate, opened on A, pre-fills ``<A>_rotated.pdf``, which exists:
+    the viewer keeps A, the tab keeps A's name and the output stays out of
+    the recent files. Before I2 the viewer opened the output."""
     out = SPECS["rotate"].out(env.a)
     _write_original(out)
     win = _window(monkeypatch, env.tmp)
@@ -1412,59 +1407,55 @@ def test_window_existing_prefilled_output_replaces_the_viewers_pdf(
         assert _same(rotate.drop_in.path(), env.a)
         assert _same(rotate.drop_out.path(), out)
         assert win._tab_bar.count() == 1
-        assert _same(win._viewer.current_path(), out)
-        assert _label(win._viewer.current_path()) == "ORIGINAL"
-        assert win._tab_bar.tabText(0) == Path(out).name
-        assert [Path(p).name for p in _recents(env.tmp)] == \
-            [Path(out).name, Path(env.a).name]
+        assert _same(win._viewer.current_path(), env.a)
+        assert _label(win._viewer.current_path()) == "A"
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
+        assert _label(out) == "ORIGINAL"
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_missing_prefilled_output_renames_tab_and_enters_recents(
+def test_window_missing_prefilled_output_leaves_tab_and_recents(
         env, monkeypatch, qtbot):
-    # After I2: the tab keeps A's name and the recent files hold A only.
+    """The same pre-fill, of an output that does not exist: the tab keeps
+    A's name and the recent files hold A only."""
     out = SPECS["rotate"].out(env.a)
     win = _window(monkeypatch, env.tmp)
     try:
         _open_tool_on(win, qtbot, TabRotar, env.a)
         assert not os.path.exists(out)
         assert _same(win._viewer.current_path(), env.a)
-        assert win._tab_bar.tabText(0) == Path(out).name
-        assert [Path(p).name for p in _recents(env.tmp)] == \
-            [Path(out).name, Path(env.a).name]
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_existing_encrypted_output_asks_password_and_empties_tab(
+def test_window_existing_encrypted_output_asks_no_password(
         env, monkeypatch, qtbot):
-    # After I2: no password prompt, and the viewer keeps A.
+    """Encrypt pre-fills ``<A>_enc.pdf``, which exists and needs a
+    password: nothing asks for it and the viewer keeps A. Before I2 the
+    viewer asked, and on cancel left the tab empty."""
     out = SPECS["encrypt"].out(env.a)
     _make_pdf(Path(out), "ENCRYPTED", 1, user_pw=secrets.token_hex(8))
     win = _window(monkeypatch, env.tmp)
     try:
         encrypt = _open_tool_on(win, qtbot, TabEncriptar, env.a)
         assert _same(encrypt.drop_out.path(), out)
-        # The viewer's own password dialog, cancelled by the stub.
-        assert [(name, details[0]) for name, details in env.modals] == \
-            [("QDialog.exec", "_PdfPasswordDialog")]
-        env.modals.clear()  # expected here; teardown fails on any other
-        assert win._viewer.current_path() == ""
-        assert win._viewer._pymupdf_doc is None
-        assert win._tab_bar.tabText(0) == Path(out).name
-        assert [Path(p).name for p in _recents(env.tmp)] == \
-            [Path(out).name, Path(env.a).name]
+        assert env.modals == []
+        assert _same(win._viewer.current_path(), env.a)
+        assert win._viewer._pymupdf_doc is not None
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_existing_txt_output_warns_invalid_format(
-        env, monkeypatch, qtbot):
-    # After I2: no warning, the tab keeps A's name, the recents hold A.
+def test_window_existing_txt_output_warns_nothing(env, monkeypatch, qtbot):
+    """Converter to text pre-fills ``<A>.txt``, which exists: no "invalid
+    format" warning, the tab keeps A's name, the recents hold A, and the
+    user's file is untouched."""
     out = SPECS["convert_txt"].out(env.a)
     _write_original(out)
     win = _window(monkeypatch, env.tmp)
@@ -1473,22 +1464,20 @@ def test_window_existing_txt_output_warns_invalid_format(
         _convert_txt(page, env)
         _open_tool_on(win, qtbot, TabConverter, env.a)
         assert _same(page._drop_file.path(), out)
-        assert env.warnings == [(t("viewer.invalid_format"),
-                                 t("viewer.invalid_msg"))]
+        assert env.warnings == []
         assert _same(win._viewer.current_path(), env.a)
-        assert win._tab_bar.tabText(0) == Path(out).name
-        assert [Path(p).name for p in _recents(env.tmp)] == \
-            [Path(out).name, Path(env.a).name]
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
         assert _label(out) == "ORIGINAL"
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_drop_on_tool_in_normal_mode_puts_missing_output_in_recents(
+def test_window_drop_on_tool_keeps_the_missing_output_out_of_recents(
         env, monkeypatch, qtbot):
-    # After I2: the recent files hold A only. Dropping A on the input
-    # field loads A into the viewer, which is wanted and stays.
+    """A dropped on Rotate's input in normal mode loads A into the viewer,
+    which is wanted; the output it pre-fills stays out of the recent
+    files."""
     out = SPECS["rotate"].out(env.a)
     win = _window(monkeypatch, env.tmp)
     try:
@@ -1501,8 +1490,7 @@ def test_window_drop_on_tool_in_normal_mode_puts_missing_output_in_recents(
         assert not os.path.exists(out)
         assert _same(win._viewer.current_path(), env.a)
         assert win._tab_bar.tabText(0) == Path(env.a).name
-        assert [Path(p).name for p in _recents(env.tmp)] == \
-            [Path(env.a).name, Path(out).name]
+        _assert_recents(env.tmp, [env.a])
     finally:
         _close_window(win, qtbot, env.tmp)
 
@@ -1593,14 +1581,15 @@ _OTHER_FIELDS = (
 def test_window_field_table_lists_every_field(env, monkeypatch, qtbot):
     """``_OTHER_FIELDS`` plus the main inputs are every ``DropFileEdit``
     of every tool, so a new field cannot escape the per-field test
-    below."""
+    below. The fields marked ``is_document()``, the ones the window wires
+    to the viewer, are exactly the main inputs."""
     from app.widgets import DropFileEdit
     from app.window import NAV_ITEMS
 
     win = _window(monkeypatch, env.tmp)
     try:
-        expected = [(SPECS[i].cls, SPECS[i].in_attr) for i in _MAIN_INPUT]
-        expected += _OTHER_FIELDS
+        main = [(SPECS[i].cls, SPECS[i].in_attr) for i in _MAIN_INPUT]
+        expected = main + list(_OTHER_FIELDS)
         listed = {id(getattr(_nav_item(win, cls)[0], attr))
                   for cls, attr in expected}
         assert len(listed) == len(expected)
@@ -1609,19 +1598,22 @@ def test_window_field_table_lists_every_field(env, monkeypatch, qtbot):
             found += win.stack.widget(index).findChildren(DropFileEdit)
         assert [f for f in found if id(f) not in listed] == []
         assert len(found) == len(expected)
+        main_ids = {id(getattr(_nav_item(win, cls)[0], attr))
+                    for cls, attr in main}
+        assert {id(f) for f in found if f.is_document()} == main_ids
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
 @pytest.mark.parametrize(
     ("cls", "attr"), _OTHER_FIELDS,
     ids=[f"{cls.__name__}-{attr}" for cls, attr in _OTHER_FIELDS])
-def test_window_field_loads_the_viewer(env, cls, attr, monkeypatch, qtbot):
-    # After I2 every case fails: the viewer and the tab keep A and the
-    # recent files hold A only. One case still passing after that change
-    # names a field left wired. The stimulus is the same for every field
-    # (a PDF, set as a pick or a drop would); the tool need not be open.
+def test_window_field_leaves_the_viewer_alone(
+        env, cls, attr, monkeypatch, qtbot):
+    """No field but the main input reaches the viewer: it and its tab keep
+    A, and the recent files hold A only. A case failing names a field
+    wired again. The stimulus is the same for every field (a PDF, set as
+    a pick or a drop would); the tool need not be open."""
     other = _make_pdf(env.tmp / "outro ç.pdf", "OUTRO", 1)
     win = _window(monkeypatch, env.tmp)
     try:
@@ -1630,18 +1622,19 @@ def test_window_field_loads_the_viewer(env, cls, attr, monkeypatch, qtbot):
         qtbot.wait(50)
         getattr(page, attr).set_path(other)
         qtbot.wait(50)
+        assert _same(getattr(page, attr).path(), other)
         assert win._tab_bar.count() == 1
-        assert _same(win._viewer.current_path(), other)
-        assert win._tab_bar.tabText(0) == Path(other).name
-        _assert_recents(env.tmp, [other, env.a])
+        assert _same(win._viewer.current_path(), env.a)
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
 def _rotate_open_on_existing_output(env, monkeypatch, qtbot):
-    # One effect per test below: a change that removes only some of them
-    # (the output still loads the viewer, only untracked) changes the
-    # result of those tests and leaves the others passing.
+    # One effect per test below: a change that wires the output again
+    # for only some of them (it loads the viewer, but untracked) fails
+    # those tests and leaves the others passing.
     out = SPECS["rotate"].out(env.a)
     _write_original(out)
     win = _window(monkeypatch, env.tmp)
@@ -1653,45 +1646,41 @@ def _rotate_open_on_existing_output(env, monkeypatch, qtbot):
     return win, out
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_rotate_output_effect_viewer_shows_it(
+def test_window_rotate_output_effect_viewer_keeps_the_document(
         env, monkeypatch, qtbot):
-    # After I2: the viewer keeps A.
-    win, out = _rotate_open_on_existing_output(env, monkeypatch, qtbot)
+    """The viewer keeps A."""
+    win, _out = _rotate_open_on_existing_output(env, monkeypatch, qtbot)
     try:
-        assert _same(win._viewer.current_path(), out)
+        assert _same(win._viewer.current_path(), env.a)
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_rotate_output_effect_tab_takes_its_name(
+def test_window_rotate_output_effect_tab_keeps_the_documents_name(
         env, monkeypatch, qtbot):
-    # After I2: the tab keeps A's name.
-    win, out = _rotate_open_on_existing_output(env, monkeypatch, qtbot)
+    """The tab keeps A's name."""
+    win, _out = _rotate_open_on_existing_output(env, monkeypatch, qtbot)
     try:
-        assert win._tab_bar.tabText(0) == Path(out).name
+        assert win._tab_bar.tabText(0) == Path(env.a).name
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_rotate_output_effect_enters_recents(
+def test_window_rotate_output_effect_stays_out_of_recents(
         env, monkeypatch, qtbot):
-    # After I2: the recent files hold A only.
-    win, out = _rotate_open_on_existing_output(env, monkeypatch, qtbot)
+    """The recent files hold A only."""
+    win, _out = _rotate_open_on_existing_output(env, monkeypatch, qtbot)
     try:
-        _assert_recents(env.tmp, [out, env.a])
+        _assert_recents(env.tmp, [env.a])
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_editor_prefilled_output_renames_tab_and_enters_recents(
+def test_window_editor_prefilled_output_leaves_tab_and_recents(
         env, monkeypatch, qtbot):
-    # After I2: the tab keeps A's name and the recent files hold A only.
-    # The editor pre-fills "<A>_edited.pdf" when it loads the viewer's
-    # PDF; the viewer behind it stays on A, that output not existing.
+    """The editor pre-fills "<A>_edited.pdf" when it loads the viewer's
+    PDF: the viewer behind it stays on A, the tab keeps A's name and the
+    recent files hold A only."""
     out = SPECS["editor"].out(env.a)
     win = _window(monkeypatch, env.tmp)
     try:
@@ -1704,18 +1693,16 @@ def test_window_editor_prefilled_output_renames_tab_and_enters_recents(
         assert _same(editor._drop_out.path(), out)
         assert not os.path.exists(out)
         assert _same(win._viewer.current_path(), env.a)
-        assert win._tab_bar.tabText(0) == Path(out).name
-        _assert_recents(env.tmp, [out, env.a])
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_merge_save_dialog_output_names_the_empty_tab(
+def test_window_merge_save_dialog_output_leaves_the_empty_tab(
         env, monkeypatch, qtbot):
-    # After I2: the empty tab keeps its placeholder title and the recent
-    # files stay empty. The Save dialog's answer reaches the field before
-    # the file exists, so the viewer has nothing to show.
+    """Merge's Save dialog answers a new file: the empty tab keeps its
+    placeholder title and the recent files stay empty."""
     chosen = str(env.tmp / "merged out.pdf")
     monkeypatch.setattr(QFileDialog, "getSaveFileName",
                         staticmethod(lambda *a, **k: (chosen, "")))
@@ -1730,25 +1717,23 @@ def test_window_merge_save_dialog_output_names_the_empty_tab(
         assert _label(chosen) == "A+B"
         assert len(env.infos) == 1
         assert win._viewer.current_path() == ""
-        assert win._tab_bar.tabText(0) == Path(chosen).name
-        _assert_recents(env.tmp, [chosen])
+        assert win._tab_bar.tabText(0) == t("viewer.title")
+        _assert_recents(env.tmp, [])
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_pipeline_result_renames_tab_after_its_prefilled_output(
+def test_window_pipeline_result_keeps_the_unsaved_mark(
         env, monkeypatch, qtbot):
-    # After I2: after the run the tab reads "● <A's name>" (the unsaved
-    # mark _on_pipeline_done sets) and the recent files hold A only. The
-    # output reloaded here sits in the temp folder, which is I5's.
+    """After a pipeline run the tab reads "● <A's name>", the unsaved mark
+    ``_on_pipeline_done`` sets, and the recent files are what they were.
+    ``_on_pipeline_done`` then hands the result to ``auto_load``, whose
+    pre-fill of the output no longer reaches the viewer. The output
+    reloaded here sits in the temp folder, which is I5's."""
     spec = SPECS["rotate"]
     win = _window(monkeypatch, env.tmp)
     try:
         rotate = _open_tool_on(win, qtbot, TabRotar, env.a)
-        # The run's own effect only: the pre-fill on opening the tool is
-        # pinned by
-        # test_window_missing_prefilled_output_renames_tab_and_enters_recents.
         recents_before = _recents(env.tmp)
         pipe = env.tmp / "pipeline"
         pipe.mkdir()
@@ -1758,24 +1743,23 @@ def test_window_pipeline_result_renames_tab_after_its_prefilled_output(
         temp = str(pipe / (Path(env.a).stem + spec.pipeline_suffix + ".pdf"))
         assert _same(win._viewer.current_path(), temp)
         assert _label(temp) == "A"
-        # _on_pipeline_done marks the tab "● alfa ç.pdf", then hands the
-        # result to auto_load, whose pre-fill loads the viewer.
         reloaded_out = spec.out(temp)
         assert _same(rotate.drop_in.path(), temp)
         assert _same(rotate.drop_out.path(), reloaded_out)
         assert not os.path.exists(reloaded_out)
-        assert win._tab_bar.tabText(0) == Path(reloaded_out).name
-        _assert_recents(env.tmp, [reloaded_out, *recents_before])
+        assert win._tab_bar.tabText(0) == "● " + Path(env.a).name
+        assert _recents(env.tmp) == recents_before
         assert env.infos == []
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_watermark_pick_replaces_the_viewers_pdf(
+def test_window_watermark_pick_leaves_the_viewers_pdf(
         env, monkeypatch, qtbot):
-    # After I2: the viewer, its tab and the recent files keep A, and the
-    # pipeline's Save suggests "<A>_edited.pdf" next to A.
+    """Picking the mark leaves the viewer, its tab and the recent files on
+    A; the pipeline's original is A, and its Save suggests
+    "<A>_edited.pdf" next to A. Before I2 the mark became the viewer's
+    document, and the pipeline's original."""
     spec = SPECS["watermark"]
     win = _window(monkeypatch, env.tmp)
     try:
@@ -1785,9 +1769,9 @@ def test_window_watermark_pick_replaces_the_viewers_pdf(
         _set_watermark(page, env)
         qtbot.wait(50)
         assert win._tab_bar.count() == 1
-        assert _same(win._viewer.current_path(), env.wm)
-        assert win._tab_bar.tabText(0) == Path(env.wm).name
-        assert _same(_recents(env.tmp)[0], env.wm)
+        assert _same(win._viewer.current_path(), env.a)
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
 
         pipe = env.tmp / "pipeline"
         pipe.mkdir()
@@ -1799,7 +1783,7 @@ def test_window_watermark_pick_replaces_the_viewers_pdf(
             Path(env.a).stem + spec.pipeline_suffix + ".pdf"
         assert _label(temp) == "A"
         state = win._pipeline_state[id(win._viewer)]
-        assert _same(state["original_path"], env.wm)
+        assert _same(state["original_path"], env.a)
 
         suggested = []
 
@@ -1811,17 +1795,16 @@ def test_window_watermark_pick_replaces_the_viewers_pdf(
         win._save_pipeline()
         assert len(suggested) == 1
         assert _same(suggested[0], os.path.join(
-            os.path.dirname(env.wm), Path(env.wm).stem + "_edited.pdf"))
+            os.path.dirname(env.a), Path(env.a).stem + "_edited.pdf"))
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_split_prefilled_folder_renames_tab_and_enters_recents(
+def test_window_split_prefilled_folder_leaves_tab_and_recents(
         env, monkeypatch, qtbot):
-    # After I2: the tab keeps A's name and the recent files hold A only.
-    # Unwiring keyed on the save flag misses this field: Split's output is
-    # a folder field, not a save one.
+    """Split pre-fills A's folder: the tab keeps A's name and the recent
+    files hold A only. The wiring is keyed on the document mark, not on
+    the save flag, which this field (a folder field) does not carry."""
     from app.i18n import get_recent_files
 
     folder = os.path.dirname(env.a)
@@ -1831,20 +1814,18 @@ def test_window_split_prefilled_folder_renames_tab_and_enters_recents(
         assert not split.drop_out._save
         assert _same(split.drop_out.path(), folder)
         assert _same(win._viewer.current_path(), env.a)
-        assert win._tab_bar.tabText(0) == Path(folder).name
-        _assert_recents(env.tmp, [folder, env.a])
-        # The folder exists, so the lexists filter keeps it.
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
         got = get_recent_files()
-        assert len(got) == 2 and _same(got[0], folder), got
+        assert len(got) == 1 and _same(got[0], env.a), got
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_import_prefilled_output_names_the_empty_tab(
+def test_window_import_prefilled_output_leaves_the_empty_tab(
         env, monkeypatch, qtbot):
-    # After I2: the empty tab keeps its placeholder title and the recent
-    # files stay empty.
+    """Import pre-fills "<stem>.pdf" when files are picked: the empty tab
+    keeps its placeholder title and the recent files stay empty."""
     src_dir = env.tmp / "texto ç"
     src_dir.mkdir()
     src = src_dir / "texto ç.txt"
@@ -1860,39 +1841,41 @@ def test_window_import_prefilled_output_names_the_empty_tab(
         assert _same(page.drop_out.path(), out)
         assert not os.path.exists(out)
         assert win._viewer.current_path() == ""
-        assert win._tab_bar.tabText(0) == Path(out).name
-        _assert_recents(env.tmp, [out])
+        assert win._tab_bar.tabText(0) == t("viewer.title")
+        _assert_recents(env.tmp, [])
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_encrypt_mode_change_renames_tab_and_enters_recents(
+def test_window_encrypt_mode_change_leaves_tab_and_recents(
         env, monkeypatch, qtbot):
-    # After I2: the tab keeps A's name and the recent files hold A only.
+    """Encrypt pre-fills "<A>_enc.pdf" on opening and "<A>_dec.pdf" on a
+    mode change: after each, the tab keeps A's name and the recent files
+    hold A only."""
     base = os.path.splitext(env.a)[0]
     enc, dec = base + "_enc.pdf", base + "_dec.pdf"
     win = _window(monkeypatch, env.tmp)
     try:
         encrypt = _open_tool_on(win, qtbot, TabEncriptar, env.a)
-        assert win._tab_bar.tabText(0) == Path(enc).name
+        assert _same(encrypt.drop_out.path(), enc)
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
         encrypt.cmb_mode.setCurrentIndex(_DECRYPT)
         qtbot.wait(50)
         assert _same(encrypt.drop_out.path(), dec)
         assert not os.path.exists(dec)
         assert _same(win._viewer.current_path(), env.a)
-        assert win._tab_bar.tabText(0) == Path(dec).name
-        _assert_recents(env.tmp, [dec, enc, env.a])
+        assert win._tab_bar.tabText(0) == Path(env.a).name
+        _assert_recents(env.tmp, [env.a])
     finally:
         _close_window(win, qtbot, env.tmp)
 
 
-@pytest.mark.known_defect(reason=_VIEWER_REASON)
-def test_window_editor_image_drop_warns_invalid_format(
-        env, monkeypatch, qtbot):
-    # After I2: no warning, the tab keeps its name and the image stays
-    # out of the recent files, as when the image is picked through the
-    # field's button (_pick_image blocks the field's signals).
+def test_window_editor_image_drop_warns_nothing(env, monkeypatch, qtbot):
+    """An image dropped on the editor's image field: no warning, the tab
+    keeps its name and the image stays out of the recent files, as when
+    the image is picked through the field's button (``_pick_image``
+    blocks the field's signals)."""
     img = env.tmp / "imagem ç.png"
     pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 4, 4), False).save(
         str(img))
@@ -1904,20 +1887,16 @@ def test_window_editor_image_drop_warns_invalid_format(
         win._on_nav_clicked(item)
         qtbot.wait(50)
         assert _same(editor._doc_path, env.a)
-        # Only what the drop changes is asserted: the editor's own
-        # pre-fill of "<A>_edited.pdf" before it is the output's
-        # defect, pinned by
-        # test_window_editor_prefilled_output_renames_tab_and_enters_recents.
         recents_before = _recents(env.tmp)
-        assert win._tab_bar.tabText(0) != img.name
+        title_before = win._tab_bar.tabText(0)
+        assert title_before == Path(env.a).name
         _drop_on(editor._img_drop, str(img))
         qtbot.wait(50)
         assert _same(editor._img_drop.path(), str(img))
-        assert env.warnings == [(t("viewer.invalid_format"),
-                                 t("viewer.invalid_msg"))]
+        assert env.warnings == []
         assert _same(win._viewer.current_path(), env.a)
-        assert win._tab_bar.tabText(0) == img.name
-        _assert_recents(env.tmp, [str(img), *recents_before])
+        assert win._tab_bar.tabText(0) == title_before
+        assert _recents(env.tmp) == recents_before
     finally:
         _close_window(win, qtbot, env.tmp)
 

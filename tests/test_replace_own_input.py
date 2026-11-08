@@ -16,8 +16,10 @@
   input changed, so compressing A and then picking A's output as the input
   replaced that file unasked. Only a Save dialog's answer, for the current
   input, may name the input now. Filling that hidden field on each load
-  also loaded the previous run's result into the viewer, which held it,
-  and the next run could not replace it.
+  once loaded the previous run's result into the viewer, which held it,
+  and the next run could not replace it: since I2 the window loads only
+  a tool's document field into the viewer, and the output field is not
+  one.
 * A read or write Windows refuses (the file is open, in the viewer or
   elsewhere, or read-only) is shown with what to do, and the toast's
   button, Ctrl+S and a tab's close prompt show a failed save instead of
@@ -322,10 +324,11 @@ def test_compress_dialog_answer_stops_counting_on_a_new_input(env, monkeypatch):
 
 
 def test_compress_twice_on_one_input_leaves_the_viewer_alone(env, monkeypatch, qtbot):
-    """The output field is filled on every load, and MainWindow loads every
-    field into the viewer: on the second load the viewer opened the first
-    run's result and held it, and on Windows the second run could not
-    replace it (WinError 5)."""
+    """The output field is filled on every load. When MainWindow loaded
+    every field into the viewer, the second load opened the first run's
+    result there and held it, and on Windows the second run could not
+    replace it (WinError 5). Since I2 only a tool's document field reaches
+    the viewer, so the output field stays out of it."""
     win = _window(monkeypatch, env.tmp)
     try:
         page, item = _nav_item(win, TabComprimir)

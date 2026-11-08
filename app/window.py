@@ -511,10 +511,13 @@ class MainWindow(QMainWindow):
 
         self._current_tool = -1
         self.nav.itemClicked.connect(self._on_nav_clicked)
-        # Connect all DropFileEdit widgets to load in active viewer
+        # Only a tool's document field loads the viewer (see DropFileEdit).
+        # Connected after the pages are built, so the tool's own slot runs
+        # first: Qt calls a signal's slots in the order they were connected.
         for i in range(self.stack.count()):
             for dfe in self.stack.widget(i).findChildren(DropFileEdit):
-                dfe.path_changed.connect(lambda p: self._viewer.load(p))
+                if dfe.is_document():
+                    dfe.path_changed.connect(self._load_document_field)
 
         # Pipeline: connect tool signals to reload viewer with result
         from app.base import BasePage
@@ -580,6 +583,13 @@ class MainWindow(QMainWindow):
         if 0 <= idx < len(self._viewers):
             return self._viewers[idx]
         return self._viewers[0]
+
+    def _load_document_field(self, path: str) -> None:
+        """A tool's document field changed: show it in the current tab.
+
+        ``self._viewer`` and its ``load`` (which ``_add_viewer_tab``
+        replaces per tab) are read at the call, not at connect time."""
+        self._viewer.load(path)
 
     def _add_viewer_tab(self, path: str = "") -> PdfViewerPanel:
         v = PdfViewerPanel()
