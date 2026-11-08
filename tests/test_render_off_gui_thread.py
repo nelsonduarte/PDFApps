@@ -20,7 +20,6 @@ from a thread other than ``threading.main_thread()``.
 from __future__ import annotations
 
 import gc
-import importlib
 import os
 import sys
 import threading
@@ -45,9 +44,9 @@ import pymupdf
 
 import app.editor.canvas as editor_canvas
 import app.viewer.canvas as viewer_canvas
-from app.editor.canvas import PdfEditCanvas
-from app.viewer.canvas import _SelectCanvas
 
+PdfEditCanvas = editor_canvas.PdfEditCanvas
+_SelectCanvas = viewer_canvas._SelectCanvas
 _REAL_QPIXMAP = QPixmap
 _N_PAGES = 6
 _RENDER_DEADLINE_S = 20.0
@@ -113,13 +112,10 @@ def guard(monkeypatch):
             _check("QPixmap.fromImage")
             return _REAL_QPIXMAP.fromImage(*args, **kwargs)
 
+    from app import page_image
+
     monkeypatch.setattr(QtGui, "QPixmap", _GuardedQPixmap)
-    mods = [viewer_canvas, editor_canvas]
-    try:
-        mods.append(importlib.import_module("app.page_image"))
-    except ImportError:
-        pass
-    for mod in mods:
+    for mod in (viewer_canvas, editor_canvas, page_image):
         monkeypatch.setattr(mod, "QPixmap", _GuardedQPixmap, raising=False)
     return violations
 
