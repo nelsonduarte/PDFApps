@@ -95,8 +95,11 @@ jobs:
           # default xcb plugin aborts with "could not connect to
           # display" on a headless runner.
           QT_QPA_PLATFORM: offscreen
+        # The faulthandler options of the pytest-windows job, for the
+        # reason given there. Without them a hang in this job, the
+        # required one, ran out the 20 minutes and left no stack.
         run: |
-          python -m pytest -q -rs
+          python -m pytest -q -rs -o faulthandler_timeout=300 -o faulthandler_exit_on_timeout=true
 
   pytest-windows:
     name: pytest (Windows, Python 3.14)

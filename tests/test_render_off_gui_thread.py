@@ -129,10 +129,13 @@ def stored_non_pixmaps(monkeypatch):
     """Check what each canvas's ``_on_page_ready`` stores for paintEvent.
 
     A slot that stored the worker's QImage itself would only show up in
-    the next paintEvent, as a ``Fatal Python error`` from drawPixmap that
-    ends the run with no assertion. The wrapper records the wrong type
-    and swaps in a converted pixmap, so painting survives and the test
-    fails with a message instead."""
+    the next paintEvent, where drawPixmap raises ``ValueError`` on it.
+    With the ``guard`` fixture active (``QtGui.QPixmap`` swapped for a
+    Python class) that becomes ``Fatal Python error: libshiboken:
+    seterror_argument did not receive a result``, which ends the run
+    with no assertion. The wrapper records the wrong type and swaps in a
+    converted pixmap, so painting survives and the test fails with a
+    message instead."""
     bad: list[str] = []
     orig_viewer = _SelectCanvas._on_page_ready
     orig_editor = PdfEditCanvas._on_page_ready
@@ -355,40 +358,20 @@ def test_page_image_owns_its_pixels_after_document_close(pdf_path):
     assert img == ref
 
 
-def test_page_image_fallback_matches_png_path(pdf_path, monkeypatch):
-    """If the PNG decode fails, the samples fallback must give the same
-    pixels and DPR, and own its buffer once the document is gone."""
-    from app import page_image
-    doc = pymupdf.open(str(pdf_path))
-    try:
-        normal = page_image.render_page_image(doc[0], 1.0, 2.0)
-    finally:
-        doc.close()
-
-    class _NoDecode(QImage):
-        def loadFromData(self, *args, **kwargs):
-            return False
-
-    monkeypatch.setattr(page_image, "QImage", _NoDecode)
-    doc = pymupdf.open(str(pdf_path))
-    fallback = page_image.render_page_image(doc[0], 1.0, 2.0)
-    doc.close()
-    del doc
-    gc.collect()
-    assert fallback.devicePixelRatio() == 2.0
-    assert fallback.size() == normal.size()
-    fmt = QImage.Format.Format_RGB32
-    assert fallback.convertToFormat(fmt) == normal.convertToFormat(fmt)
+class _NoDecode(QImage):
+    def loadFromData(self, *args, **kwargs):
+        return False
 
 
-@pytest.mark.parametrize("dpr", [1.0, 2.0], ids=["dpr1", "dpr2"])
-def test_page_image_fallback_does_not_share_the_pixmap_buffer(pdf_path,
-                                                              monkeypatch,
-                                                              dpr):
-    """The samples fallback must copy the pixels out of the PyMuPDF
-    Pixmap. Keeping that Pixmap alive and overwriting it makes the check
-    deterministic: an image still reading its buffer changes with it, an
-    image that owns a copy does not."""
+def _force_fallback(monkeypatch) -> list[pymupdf.Pixmap]:
+    """Force ``render_page_image`` onto its samples fallback and keep
+    every PyMuPDF Pixmap it makes alive in the returned list.
+
+    A fallback image that still reads its Pixmap's buffer reads valid
+    memory while the Pixmap is kept. Once ``render_page_image`` returns
+    and the Pixmap is freed it reads freed memory: without the eager
+    ``.copy()`` that ended this file's run with an access violation on
+    Windows, before pytest printed any assertion message."""
     from app import page_image
     kept: list[pymupdf.Pixmap] = []
     real_get_pixmap = pymupdf.Page.get_pixmap
@@ -398,33 +381,67 @@ def test_page_image_fallback_does_not_share_the_pixmap_buffer(pdf_path,
         kept.append(pix)
         return pix
 
-    class _NoDecode(QImage):
-        def loadFromData(self, *args, **kwargs):
-            return False
-
     monkeypatch.setattr(pymupdf.Page, "get_pixmap", _keep)
     monkeypatch.setattr(page_image, "QImage", _NoDecode)
+    return kept
+
+
+@pytest.mark.parametrize("dpr", [1.0, 2.0], ids=["dpr1", "dpr2"])
+def test_page_image_fallback_does_not_share_the_pixmap_buffer(
+        pdf_path, monkeypatch, dpr):
+    """The samples fallback must copy the pixels out of the PyMuPDF
+    Pixmap. Keeping that Pixmap alive and overwriting it makes the check
+    deterministic: an image still reading its buffer changes with it, an
+    image that owns a copy does not."""
+    from app import page_image
+    kept = _force_fallback(monkeypatch)
     doc = pymupdf.open(str(pdf_path))
     try:
         img = page_image.render_page_image(doc[0], 1.0, dpr)
         assert len(kept) == 1
         snapshot = img.copy()
         kept[0].clear_with(0)
-        assert img == snapshot, \
-            "the fallback image still reads the PyMuPDF Pixmap's buffer"
+        assert img == snapshot,             "the fallback image still reads the PyMuPDF Pixmap's buffer"
         assert img.devicePixelRatio() == dpr
+    finally:
+        doc.close()
+
+
+def test_page_image_fallback_matches_png_path(pdf_path, monkeypatch):
+    """If the PNG decode fails, the samples fallback must give the same
+    pixels and DPR. That it owns its buffer is the previous test's job;
+    the Pixmap is kept alive here so that a missing copy fails there,
+    with a message, instead of crashing the process here."""
+    from app import page_image
+    doc = pymupdf.open(str(pdf_path))
+    try:
+        normal = page_image.render_page_image(doc[0], 1.0, 2.0)
+    finally:
+        doc.close()
+
+    kept = _force_fallback(monkeypatch)
+    doc = pymupdf.open(str(pdf_path))
+    try:
+        fallback = page_image.render_page_image(doc[0], 1.0, 2.0)
+        assert len(kept) == 1
+        assert fallback.devicePixelRatio() == 2.0
+        assert fallback.size() == normal.size()
+        fmt = QImage.Format.Format_RGB32
+        assert fallback.convertToFormat(fmt) == normal.convertToFormat(fmt)
     finally:
         doc.close()
 
 
 # ── T2: stress, must not hang ──────────────────────────────────────────
 #
-# No watchdog of their own: faulthandler.dump_traceback_later() in the
-# test replaces the one pytest arms for faulthandler_timeout (set in the
-# Windows and Python 3.12 CI jobs) and, with output captured, a dump to
-# sys.stderr followed by exit=True leaves no stacks and no JUnit file.
-# pytest's own timer writes to the real stderr, so a wedge here fails
-# with every thread's stack.
+# No watchdog of their own. Every job in tests.yml sets
+# faulthandler_timeout and faulthandler_exit_on_timeout, and pytest's
+# timer writes to the real stderr, so a wedge here prints every
+# thread's stack before the process exits; it exits before pytest can
+# write a JUnit file, so the stacks in the log are all that is left.
+# faulthandler.dump_traceback_later() in the test would replace that
+# timer and, with output captured, dump into the captured sys.stderr,
+# so the run would end with no stacks at all.
 
 
 _STRESS_ROUNDS = 6

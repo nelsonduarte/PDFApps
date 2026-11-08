@@ -1,14 +1,19 @@
 """PDFApps – a PDF page rasterised into a QImage, off the GUI thread.
 
 Qt guarantees ``QImage`` on any thread. ``QPixmap`` off the GUI thread
-works only where the platform plugin declares
-``QPlatformIntegration::ThreadedPixmaps``; elsewhere Qt warns and hands
-back a null pixmap. In Qt 6.11 the Windows, xcb (X11), Wayland, cocoa
-and offscreen plugins declare it, so on those the old in-worker
-``QPixmap`` was legal, just not portable. Sources:
+is supported only where the platform plugin declares
+``QPlatformIntegration::ThreadedPixmaps``; on any other platform that
+use is neither supported nor guaranteed. In Qt 6.11 the Windows, xcb
+(X11), Wayland, cocoa and offscreen plugins declare it, so on those the
+old in-worker ``QPixmap`` was legal, just not portable. Sources:
 https://doc.qt.io/qt-6/threads-modules.html ("(for most platforms)
-QPixmap") and the ``ThreadedPixmaps`` entry in
+QPixmap"), the ``ThreadedPixmaps`` entry in
 https://code.qt.io/cgit/qt/qtbase.git/tree/src/gui/kernel/qplatformintegration.cpp?h=v6.11.0
+and the ``hasCapability`` of each plugin, under
+https://code.qt.io/cgit/qt/qtbase.git/tree/src/plugins/platforms/?h=v6.11.0
+in ``windows/qwindowsintegration.cpp``, ``xcb/qxcbintegration.cpp``,
+``cocoa/qcocoaintegration.mm``, ``offscreen/qoffscreenintegration.cpp``
+and ``wayland/qwaylandintegration.cpp``.
 
 So the page render workers of the viewer and the editor call
 :func:`render_page_image` from a ``QThreadPool`` worker and emit the
