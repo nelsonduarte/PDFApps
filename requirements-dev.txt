@@ -19,8 +19,14 @@
 # tests/_workflow_steps.py (test_publish_aur_bin_step.py,
 # test_workflow_jobs.py), so without it collection ERRORs in all five
 # and the run aborts as Interrupted before any test runs.
-# (tests/test_security_deps_workflow.py does wrap the import in
-# try/except and skip; those five do not.)
+# Three more import it inside test functions, through
+# tests/_workflow_steps.py, so those tests fail instead of skipping.
+# Each file run on its own with yaml blocked (2026-11-08):
+# test_security_deps_workflow.py 4 failed, 8 passed, 7 skipped (its
+# module-scope import is wrapped in try/except, so the tests that load
+# the workflow through _load_workflow_yaml() skip, but the four gate
+# tests import _workflow_steps first and fail); test_updater_apply.py
+# 2 failed; test_font_subset.py 1 failed.
 #
 # Install with:  pip install -r requirements-dev.txt
 #

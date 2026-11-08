@@ -1,9 +1,14 @@
 """README.md's tech stack table and PySide6 badge must match requirements.txt.
 
-The table went 8 rows out of 8 behind requirements.txt (README at
-1ef2721) with no test failing. Each row's Version cell gives the
-package's floor, then in parentheses either its ceiling ("below X") or,
-for Pillow, the floor of its Python < 3.11 line ("X below Python Y").
+In the README at 1ef2721, five floors in the table were behind
+requirements.txt (PySide6, pypdf, Pillow, QtAwesome and PyInstaller)
+and the PySide6 badge said 6.10, with no test failing. By this test's
+rules, 7 of the 8 rows fail there: those five, PyMuPDF (no ceiling)
+and OCR (the cell does not name pytesseract). Only python-docx passes.
+
+Each row's Version cell gives the package's floor, then in parentheses
+either its ceiling ("below X") or, for Pillow, the floor of its
+Python < 3.11 line ("X below Python Y").
 This test reads both files and compares them, so a floor or ceiling
 moved in one and not the other fails here.
 """
@@ -14,6 +19,7 @@ import re
 from pathlib import Path
 
 from _requirements_parsing import (
+    applicable,
     floor_of,
     parse_requirement_lines,
     target_environment,
@@ -104,7 +110,7 @@ def _split_problems(label: str, reqs: list[Requirement], m: re.Match[str]) -> li
     problems = []
     for python, floor in ((m["boundary"], m["floor"]), (below, m["low_floor"])):
         env = target_environment(python, "linux")
-        kept = [r for r in reqs if r.marker is not None and r.marker.evaluate(env)]
+        kept = applicable(reqs, env)
         if len(kept) != 1:
             problems.append(f"{label}: {len(kept)} lines apply on Python {python}")
             continue
@@ -158,8 +164,16 @@ def badge_problems(readme: str, requirements: str) -> list[str]:
     badges = _BADGE.findall(readme)
     if len(badges) != 1:
         return [f"README.md has {len(badges)} PySide6 badges, expected 1"]
-    (pyside6,) = parse_requirement_lines(requirements)["pyside6"]
-    floor = floor_of(pyside6.specifier)
+    lines = parse_requirement_lines(requirements).get("pyside6", [])
+    if len(lines) != 1 or lines[0].marker is not None:
+        message = (
+            "PySide6 badge: expected one unmarked pyside6 line in requirements.txt, "
+            f"found {[str(r) for r in lines]}"
+        )
+        return [message]
+    floor = floor_of(lines[0].specifier)
+    if floor is None:
+        return [f"PySide6 badge: requirements.txt line '{lines[0]}' sets no floor to compare with"]
     badge = tuple(int(part) for part in badges[0])
     if badge != floor.release[:2]:
         return [f"PySide6 badge says {badge[0]}.{badge[1]}, requirements.txt floor is {floor}"]

@@ -21,7 +21,8 @@ concurrency:
 # pytest-windows runs the Windows-only tests, which skip on Linux, on
 # the platform the Store and PDFAppsSetup.exe builds target.
 # pytest-py312 runs the suite on the closest match to the Python of the
-# core24 snap base (see its "Set up Python 3.12.3" step).
+# core24 base planned for the snap, which is still on core22 today (see
+# snap/snapcraft.yaml and the job's "Set up Python 3.12.3" step).
 # The ruleset, not this file, decides which checks are required, and it
 # lists them by job name: renaming a job leaves the old check pending
 # forever, which blocks every pull request to main. Keep the three names
