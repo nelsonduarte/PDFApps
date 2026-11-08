@@ -5,6 +5,14 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      # CodeQL refuses to run when init and analyze are on different
+      # versions, so a PR that bumps only one of them is always red.
+      codeql-action:
+        applies-to: version-updates
+        patterns:
+          - "github/codeql-action"
+          - "github/codeql-action/*"
 
   - package-ecosystem: "pip"
     directory: "/"
