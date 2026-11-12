@@ -1,0 +1,120 @@
+name: Snap build
+
+# Builds the snap from the pull request or main and checks its payload,
+# so a manifest change is first built here and not on a public tag
+# (publish.yml builds only from a tag). It publishes nothing, logs in
+# nowhere and reads no secret.
+#
+# Not a required check, and it must not become one as it is: with the
+# paths filter below, a pull request that touches none of them never
+# starts this workflow, and a required check that never reports stays
+# "Pending" and blocks the merge.
+#
+# The paths are what the snap is built from: snap/snapcraft.yaml takes
+# requirements.txt and `source: .`; its override-build copies app,
+# pdfapps.py, icon.ico, icon_512.png, pdfapps.svg and the two files in
+# data/; the snap icon is snap/gui/pdfapps.png. setup.py and
+# pyproject.toml do not exist, but the python plugin runs
+# `pip install -U .` as soon as one of them does.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'snap/**'
+      - 'requirements.txt'
+      - 'app/**'
+      - 'pdfapps.py'
+      - 'icon.ico'
+      - 'icon_512.png'
+      - 'pdfapps.svg'
+      - 'data/**'
+      - 'setup.py'
+      - 'pyproject.toml'
+      - '.github/workflows/snap-build.yml'
+      - 'scripts/check_snap_payload.py'
+  push:
+    branches: [main]
+    paths:
+      - 'snap/**'
+      - 'requirements.txt'
+      - 'app/**'
+      - 'pdfapps.py'
+      - 'icon.ico'
+      - 'icon_512.png'
+      - 'pdfapps.svg'
+      - 'data/**'
+      - 'setup.py'
+      - 'pyproject.toml'
+      - '.github/workflows/snap-build.yml'
+      - 'scripts/check_snap_payload.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: snap build
+    # The snap is built inside LXD from its base, so the runner only hosts
+    # the container and does not decide what goes into the snap.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # snapcore/action-build v1.3.0 still declares node20; the same opt-in
+    # as publish.yml's snap job, for the reasons given there. Keep this,
+    # the action-build SHA and the snapcraft channel the same as there, so
+    # a green run here says something about the release build.
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build snap
+        id: build
+        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1
+        with:
+          # publish.yml does not set this yet and takes the action's
+          # default, stable; on 2026-11-11 latest/stable and 9.x/stable
+          # were the same snapcraft revision (19387, 9.2.1).
+          snapcraft-channel: 9.x/stable
+
+      - name: Install squashfs-tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squashfs-tools
+
+      - name: List the payload
+        env:
+          SNAP_FILE: ${{ steps.build.outputs.snap }}
+        run: unsquashfs -ll "$SNAP_FILE" > payload-listing.txt
+
+      - name: Check the payload
+        env:
+          SNAP_FILE: ${{ steps.build.outputs.snap }}
+        run: >-
+          python3 scripts/check_snap_payload.py
+          --manifest snap/snapcraft.yaml
+          --listing payload-listing.txt
+          --snap "$SNAP_FILE"
+
+      - name: Upload the snap and the listing
+        # Runs after a failed check too, so the listing that failed it can
+        # be read. Skipped for pull requests from forks. That is hygiene,
+        # not a security boundary: what keeps fork code in check is the
+        # approval a first-time contributor's run needs, that no workflow
+        # here consumes these artifacts (there is no workflow_run), and
+        # that nobody installs a snap built from a fork's code.
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snap-payload
+          path: |
+            ${{ steps.build.outputs.snap }}
+            payload-listing.txt
+          if-no-files-found: warn
+          retention-days: 7
