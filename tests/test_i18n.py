@@ -5,9 +5,12 @@ Covers:
   * _resolve_config_paths — XDG on fresh Linux, legacy on Windows/macOS/
     existing installs
   * get_recent_files — filters non-existent and non-string entries
+  * _load_config_language / init: a saved language that is not a
+    string falls back to detection instead of breaking the import
 """
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -196,3 +199,180 @@ class TestGetRecentFiles:
         cfg.write_text(json.dumps({"language": "pt"}))
         monkeypatch.setattr(i18n, "_CONFIG_PATH", str(cfg))
         assert i18n.get_recent_files() == []
+
+
+# ── _load_config_language / init: saved language that is not a string ─
+
+# A non-empty list or dict made `saved in _TRANSLATIONS` raise TypeError
+# (unhashable) inside init(), which runs on import, so the app did not
+# start. The other values never raised but are pinned to the same
+# contract: anything that is not a string is "no saved language".
+_UNHASHABLE_LANGS = [["pt"], {"a": 1}]
+_OTHER_NON_STRING_LANGS = [[], {}, 5, None, True, 1.5]
+_NON_STRING_LANGS = _UNHASHABLE_LANGS + _OTHER_NON_STRING_LANGS
+
+# Fake detection result, distinct from every saved value used below, so
+# the tests can tell "took the saved language" from "fell back".
+_DETECTED = "nl"
+
+
+@pytest.fixture
+def lang_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Throwaway config, fixed detection, and the module state init()
+    rebinds (_LANG, _TRANSLATIONS) restored afterwards. The real config
+    is not read nor written here: _CONFIG_PATH points into tmp_path."""
+    cfg_dir = tmp_path / "cfg"
+    cfg_dir.mkdir()
+    cfg = cfg_dir / "config.json"
+    monkeypatch.setattr(i18n, "_CONFIG_PATH", str(cfg))
+    monkeypatch.setattr(i18n, "_LANG", i18n._LANG)
+    monkeypatch.setattr(i18n, "_TRANSLATIONS", i18n._TRANSLATIONS)
+    detect_calls: list[int] = []
+
+    def fake_detect() -> str:
+        detect_calls.append(1)
+        return _DETECTED
+
+    monkeypatch.setattr(i18n, "_detect_system_language", fake_detect)
+    write_calls: list[object] = []
+    monkeypatch.setattr(i18n, "_atomic_write_config",
+                        lambda c: write_calls.append(c))
+    return cfg, detect_calls, write_calls
+
+
+def _write_raw(cfg: Path, obj) -> None:
+    cfg.write_text(json.dumps(obj), encoding="utf-8")
+
+
+def _snapshot(cfg: Path) -> dict:
+    """Every file next to the config, with bytes and mtime, so a write
+    by any route (helper, direct open, backup copy) shows up."""
+    return {p.name: (p.read_bytes(), p.stat().st_mtime_ns)
+            for p in cfg.parent.iterdir()}
+
+
+class TestLoadConfigLanguageType:
+    @pytest.mark.parametrize("value", _NON_STRING_LANGS, ids=repr)
+    def test_non_string_language_reads_as_empty(self, lang_env, value):
+        cfg, _, _ = lang_env
+        _write_raw(cfg, {"language": value})
+        assert i18n._load_config_language() == ""
+
+    @pytest.mark.parametrize("value", ["de", "zz-ZZ", "xx", ""])
+    def test_string_language_is_returned_as_is(self, lang_env, value):
+        cfg, _, _ = lang_env
+        _write_raw(cfg, {"language": value})
+        assert i18n._load_config_language() == value
+
+    def test_reads_config_path_at_call_time(self, lang_env, tmp_path,
+                                            monkeypatch):
+        # Many tests monkeypatch _CONFIG_PATH; the reader must keep looking
+        # it up on each call rather than binding it once.
+        other = tmp_path / "other.json"
+        _write_raw(other, {"language": "fr"})
+        monkeypatch.setattr(i18n, "_CONFIG_PATH", str(other))
+        assert i18n._load_config_language() == "fr"
+
+
+class TestInitWithSavedLanguage:
+    @pytest.mark.parametrize("value", _NON_STRING_LANGS, ids=repr)
+    def test_non_string_language_falls_back_to_detection(self, lang_env,
+                                                         value):
+        cfg, detect_calls, write_calls = lang_env
+        _write_raw(cfg, {"language": value})
+        before = _snapshot(cfg)
+        i18n.init()
+        assert i18n.get_language() == _DETECTED
+        assert detect_calls == [1]
+        assert write_calls == []
+        assert _snapshot(cfg) == before
+
+    @pytest.mark.parametrize("raw", [["pt"], "pt", 5, None],
+                             ids=["list", "str", "int", "null"])
+    def test_non_object_root_falls_back_to_detection(self, lang_env, raw):
+        cfg, detect_calls, write_calls = lang_env
+        _write_raw(cfg, raw)
+        before = _snapshot(cfg)
+        i18n.init()
+        assert i18n.get_language() == _DETECTED
+        assert detect_calls == [1]
+        assert write_calls == []
+        assert _snapshot(cfg) == before
+
+    @pytest.mark.parametrize("value", ["xx", "zz-ZZ", ""])
+    def test_unknown_string_falls_back_to_detection(self, lang_env, value):
+        cfg, detect_calls, write_calls = lang_env
+        _write_raw(cfg, {"language": value})
+        before = _snapshot(cfg)
+        i18n.init()
+        assert i18n.get_language() == _DETECTED
+        assert detect_calls == [1]
+        assert write_calls == []
+        assert _snapshot(cfg) == before
+
+    @pytest.mark.parametrize("value", ["de", "pt", "en"])
+    def test_valid_saved_language_is_kept(self, lang_env, value):
+        cfg, detect_calls, write_calls = lang_env
+        _write_raw(cfg, {"language": value, "dark_mode": False})
+        before = _snapshot(cfg)
+        i18n.init()
+        assert i18n.get_language() == value
+        assert detect_calls == []
+        assert write_calls == []
+        assert _snapshot(cfg) == before
+
+    def test_missing_config_falls_back_without_creating_it(self, lang_env):
+        cfg, detect_calls, write_calls = lang_env
+        i18n.init()
+        assert i18n.get_language() == _DETECTED
+        assert detect_calls == [1]
+        assert write_calls == []
+        assert list(cfg.parent.iterdir()) == []
+
+
+# The real defect was at import: init() runs at module level, so this
+# imports app.i18n in a child process whose home is a temp dir. The
+# legacy ~/.pdfapps_config.json there wins on every platform (see
+# _resolve_config_paths), so the user's own config is never touched.
+_PROBE = """\
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from app import i18n
+print(json.dumps({"config": i18n._CONFIG_PATH,
+                  "lang": i18n.get_language(),
+                  "detected": i18n._detect_system_language()}))
+"""
+
+
+def _import_in_isolated_home(tmp_path: Path, cfg_obj):
+    home = tmp_path / "home"
+    home.mkdir()
+    cfg = home / ".pdfapps_config.json"
+    _write_raw(cfg, cfg_obj)
+    before = cfg.read_bytes()
+    probe_dir = tmp_path / "probe"
+    probe_dir.mkdir()
+    probe = probe_dir / "probe.py"
+    probe.write_text(_PROBE, encoding="utf-8")
+    env = dict(os.environ)
+    for var in ("HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA"):
+        env[var] = str(home)
+    env["XDG_CONFIG_HOME"] = str(home / ".config")
+    repo = str(Path(__file__).resolve().parent.parent)
+    proc = subprocess.run([sys.executable, "-I", str(probe), repo],
+                          check=False, env=env, capture_output=True,
+                          text=True, timeout=120)
+    return proc, cfg, before
+
+
+@pytest.mark.parametrize(
+    "cfg_obj",
+    [{"language": ["pt"]}, {"language": {"a": 1}}, ["pt"]],
+    ids=["language-list", "language-dict", "root-list"])
+def test_import_starts_with_non_string_language(tmp_path, cfg_obj):
+    proc, cfg, before = _import_in_isolated_home(tmp_path, cfg_obj)
+    assert proc.returncode == 0, proc.stderr
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert os.path.normcase(out["config"]) == os.path.normcase(str(cfg))
+    assert out["lang"] == out["detected"]
+    assert cfg.read_bytes() == before

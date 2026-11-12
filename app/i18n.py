@@ -112,9 +112,13 @@ def _load_config_language() -> str:
     try:
         with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
             cfg = json.load(f)
-            return cfg.get("language", "")
+            lang = cfg.get("language", "")
     except Exception:
         return ""
+    # A hand-edited config can hold a list or a dict here. A non-empty
+    # one made `saved in _TRANSLATIONS` in init() raise TypeError
+    # (unhashable) on import, so the app did not start at all.
+    return lang if isinstance(lang, str) else ""
 
 
 def _atomic_write_config(cfg: dict):
