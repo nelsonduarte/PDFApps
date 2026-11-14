@@ -92,9 +92,13 @@ qtawesome>=1.4.2
 # applies wherever this file is installed.
 # tests/test_dependency_security_floors.py checks that from Python 3.8
 # to 3.20, with 13.0.0 as the floor on 3.11+ and 12.3.0 below, and fails
-# if the 3.10 line stops admitting 12.3.0 (a Dependabot PR raising it to
-# 13.0.0 would break the snap; close it by hand). Drop the 3.10 line
-# once the snap no longer builds on Python 3.10.
+# if the 3.10 line stops admitting 12.3.0 (raising it to 13.0.0 by hand
+# would break the snap). Dependabot never proposes that: it drops every
+# line whose marker is false on the Python it runs on, the newest it
+# ships because the markers of these two lines contradict each other
+# (see the soupsieve comment below), so it only ever sees and raises the
+# 3.11 line. Drop the 3.10 line once the snap no longer
+# builds on Python 3.10.
 pillow>=13.0.0; python_version >= "3.11"
 pillow>=12.3.0; python_version < "3.11"
 # PyMuPDF 1.28.0 can segfault in Document.subset_fonts()
@@ -141,22 +145,66 @@ urllib3>=2.8.0
 # Floor for PYSEC-2026-215, idna < 3.15.
 idna>=3.20
 # Transitive of beautifulsoup4 only, which asks for soupsieve>=1.6.1.
-# Without this line, pip would not upgrade it in an existing venv unless
+# Without these lines, pip would not upgrade it in an existing venv unless
 # run with --upgrade --upgrade-strategy eager. app/ never calls .select()
 # (app/tools/import_pdf.py only uses find_all on "html.parser" trees),
 # but bs4 imports soupsieve whenever bs4 is imported, and PyInstaller
-# bundles it. Floor for PYSEC-2026-4170 / PYSEC-2026-4171 (polynomial
-# ReDoS in the selector parser, affecting 2.8.4), fixed in 2.9, which
-# also clears PYSEC-2026-3071 / PYSEC-2026-3072 (fixed in 2.8.4).
-# tests/test_dependency_security_floors.py fails if the floor drops
-# below 2.9. Do not lower it. Do not raise it above 2.10 either: every
-# soupsieve 3.x requires Python >=3.11 (>=3.11.5 from 3.0.2), and one
-# build still installs this file on Python 3.10, where ">=2.9" resolves
-# to 2.10: the snap (core22, Python 3.10) would fail with "No matching
-# distribution", after the release is out.
-# tests/test_soupsieve_py310.py fails if this line stops admitting 2.10,
-# so a Dependabot PR that raises it goes red; close it by hand. Remove
-# the restriction, together with that test, once the snap no longer
-# builds on Python 3.10.
-soupsieve>=2.9
+# bundles it. PYSEC-2026-3071 / PYSEC-2026-3072 (fixed in 2.8.4) and
+# PYSEC-2026-4170 / PYSEC-2026-4171 (polynomial ReDoS in the selector
+# parser, fixed in 2.9), then four published 2026-11-13:
+# GHSA-4j63-6c4x-wfg4 (CVE-2026-126192, MODERATE, fixed in 2.10.0),
+# GHSA-6655-6qjp-jx7x (CVE-2026-126191, HIGH) and GHSA-7g44-g9rc-x53w
+# (CVE-2026-126193, MODERATE), fixed in 3.0.2, and GHSA-mmhr-3c5m-f64f
+# (CVE-2026-126190, HIGH), fixed in 4.0.0 (api.osv.dev and the PyPI
+# service, 2026-11-13). 4.0.0 is the first release clear of all of them,
+# and it requires Python >=3.11.5, as every release from 3.0.2 on does
+# (3.0 and 3.0.1 say >=3.11 and are yanked). One build still installs
+# this file on Python 3.10: the snap (core22), where 2.10 is the newest
+# release pip can install. Hence the two lines, split by marker like
+# pillow's: Python 3.11.5 and later take 4.0.0, older Pythons keep 2.10,
+# which clears the first of the four and carries the other three. That
+# residual on the snap is accepted, not fixed: no release that fixes
+# them installs on Python 3.10. It is acceptable because all four are
+# reached only by evaluating a CSS selector, which app/ never does;
+# tests/test_no_css_selectors.py fails if it starts to.
+# The marker is python_full_version, not
+# python_version as for pillow: with python_version >= "3.11", Python
+# 3.11.0 to 3.11.4 (Debian 12 ships 3.11.2) would take a line no release
+# installable there satisfies, and pip would stop with "No matching
+# distribution". The two markers must partition the Python versions.
+# tests/test_dependency_security_floors.py checks that from Python 3.8
+# to 3.20, with 4.0.0 as the floor from 3.11.5 and 2.10 below, and
+# tests/test_soupsieve_py310.py fails if the line Python 3.10 takes
+# stops admitting 2.10 (raising it to 3.0.2 or later breaks the snap,
+# after the release is out). Do not lower either floor.
+# Dependabot never sees the 3.10 line (dependabot-core, read on
+# 2026-11-13). With no .python-version, pyproject.toml, setup.py,
+# runtime.txt, Pipfile or pip-compile header in this repository, it
+# takes Python constraints from the python_version markers of this file
+# (python_full_version markers do not count) and runs the lowest Python
+# it ships that meets them all. Pillow's two markers contradict each
+# other, so none does and it runs the newest it ships (3.15.2 on
+# 2026-11-13); without pillow's 3.10 line it would run 3.11.18, still
+# above 3.11.5. It drops every line whose marker is false there, so it
+# only proposes raising the 3.11.5 line. Those PRs go red in one
+# assertion, tests/test_requirements_floors_script.py, which pins the
+# exact floor; update it in the same PR. Only a file or a marker that
+# sent Dependabot to a Python below 3.11.5 would show it the 3.10 line.
+# #249, which asked for >=4.0.1 and would have broken the snap, came
+# when the file still had a single soupsieve line.
+# Its security updates open no PR for a ">=" line. So the 3.10 line
+# changes only by hand, and tests/test_soupsieve_py310.py guards that.
+# Security on the 3.11.5 line rests on the floors audit in
+# security-deps.yml, which turns red when an advisory reaches the 4.0.0
+# floor (weekly, and on pull requests and pushes to main that touch this
+# file; not a required check); the remedy is to raise that floor by
+# hand. That audit cannot see the 3.10 residual: pip-audit runs on
+# Python 3.14 there and skips the 3.10 line by its marker, so an
+# advisory fixed only above 2.10 never turns it red. What keeps that
+# residual acceptable is tests/test_no_css_selectors.py, not the audit.
+# Once the snap no longer builds on Python 3.10, drop the 3.10 line,
+# together with tests/test_soupsieve_py310.py and the soupsieve entry
+# of RESIDUAL_FLOORS in tests/test_dependency_security_floors.py.
+soupsieve>=4.0.0; python_full_version >= "3.11.5"
+soupsieve>=2.10; python_full_version < "3.11.5"
 pyinstaller>=6.22.3

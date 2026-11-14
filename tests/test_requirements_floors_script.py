@@ -73,6 +73,8 @@ def test_the_real_requirements_pin_every_line(tmp_path):
     assert "pypdf==6.21.4" in pins
     assert 'pillow==13.0.0; python_version >= "3.11"' in pins
     assert 'pillow==12.3.0; python_version < "3.11"' in pins
+    assert 'soupsieve==4.0.0; python_full_version >= "3.11.5"' in pins
+    assert 'soupsieve==2.10; python_full_version < "3.11.5"' in pins
     assert "pymupdf==1.28.2" in pins
 
 
