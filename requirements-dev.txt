@@ -42,7 +42,7 @@ mypy>=2.4.1
 bandit>=1.9.4
 pip-audit>=2.10.1
 pyyaml>=6.0.3
-ruff>=0.16.10
+ruff>=0.17.4
 # Test runners. pytest-qt is not optional: tests in six files use the
 # `qtbot` fixture with no importorskip guard (13 in
 # tests/test_viewer_shared_doc.py alone), so without it they fail with
