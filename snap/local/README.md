@@ -12,9 +12,10 @@ This directory contains the files needed to publish PDFApps to the [Snap Store](
 You need a Linux machine (or WSL Ubuntu) with snapcraft installed:
 
 ```bash
-# Install snapcraft (Ubuntu/Debian)
-sudo snap install snapcraft --classic
-sudo snap install lxd
+# Install snapcraft (Ubuntu/Debian), on the channels CI builds with
+# (.github/workflows/snap-build.yml)
+sudo snap install snapcraft --classic --channel=9.x/stable
+sudo snap install lxd --channel=5.21/stable
 sudo lxd init --auto
 
 # Build (from project root)

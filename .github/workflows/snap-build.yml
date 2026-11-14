@@ -15,7 +15,10 @@ name: Snap build
 # pdfapps.py, icon.ico, icon_512.png, pdfapps.svg and the two files in
 # data/; the snap icon is snap/gui/pdfapps.png. setup.py and
 # pyproject.toml do not exist, but the python plugin runs
-# `pip install -U .` as soon as one of them does.
+# `pip install -U .` as soon as one of them does. The two scripts do not
+# go into the snap: check_snap_payload.py checks what was built, and
+# install_snap_tools.py decides what it is built with (the LXD and the
+# Snapcraft the action finds installed), not what it is built from.
 on:
   pull_request:
     branches: [main]
@@ -32,6 +35,7 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/snap-build.yml'
       - 'scripts/check_snap_payload.py'
+      - 'scripts/install_snap_tools.py'
   push:
     branches: [main]
     paths:
@@ -47,6 +51,7 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/snap-build.yml'
       - 'scripts/check_snap_payload.py'
+      - 'scripts/install_snap_tools.py'
   workflow_dispatch:
 
 permissions:
@@ -66,13 +71,73 @@ jobs:
     # snapcore/action-build v1.3.0 still declares node20; the same opt-in
     # as publish.yml's snap job, for the reasons given there. Keep this,
     # the action-build SHA and the snapcraft channel the same as there, so
-    # a green run here says something about the release build.
+    # a green run here says something about the release build. publish.yml
+    # does not run install_snap_tools.py yet: its arguments only have to
+    # match there once PR1b adds the script to that job.
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Probe the Snap Store
+        # Diagnostics for the job summary, never a reason to fail: the
+        # kernel, snapd's version (the conflict exit status and the error
+        # texts the script reads depend on it), and five requests to the
+        # Store API with the time of each phase. It does not test the
+        # refresh endpoint, the CDN nor the moment of the install. The
+        # timeout keeps a hung snap or curl from using up the job's.
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          {
+            echo "## Runner and Snap Store probe"
+            echo
+            echo "- Kernel: $(uname -r)"
+            echo
+            echo '```'
+            snap version || echo "snap version failed"
+            snap list || echo "snap list failed"
+            echo '```'
+            echo
+            echo "| n | HTTP | DNS | TCP | TLS | first byte | total |"
+            echo "|---|---|---|---|---|---|---|"
+            for n in 1 2 3 4 5; do
+              # curl writes the -w line even when it fails (with HTTP 000),
+              # so it is kept aside and written only on success: one row
+              # per probe.
+              rc=0
+              row=$(curl -sS -o /dev/null --max-time 20 -H "Snap-Device-Series: 16" \
+                -w "| $n | %{http_code} | %{time_namelookup} | %{time_connect} | %{time_appconnect} | %{time_starttransfer} | %{time_total} |\n" \
+                https://api.snapcraft.io/v2/snaps/info/lxd) || rc=$?
+              if [ "$rc" -eq 0 ]; then
+                printf '%s\n' "$row"
+              else
+                echo "| $n | curl-exit-$rc | | | | | |"
+              fi
+              if [ "$n" -lt 5 ]; then sleep 2; fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install LXD and Snapcraft
+        # Installs both with retries the action does not have, so the
+        # action only refreshes them. The snapcraft channel must be the
+        # action's snapcraft-channel below: another one would make the
+        # action switch tracks, with no retry. LXD 5.21 runs on core24,
+        # like Snapcraft 9.x, where LXD's default track (6) needs core26.
+        # Exit status 3 or 4 comes with an ::error line saying why.
+        # The script's own deadline bounds the Store calls; past it, the
+        # worst case adds a snap list already started, then lxd waitready
+        # and the provenance. test_w6 checks that this step's timeout is
+        # above the script's deadline plus that worst case: it is a
+        # backstop for a hang that none of its timeouts catches, not a
+        # limit the script is expected to reach.
+        timeout-minutes: 25
+        run: >-
+          python3 -I scripts/install_snap_tools.py
+          --lxd-channel 5.21/stable
+          --snapcraft-channel 9.x/stable
 
       - name: Build snap
         id: build
@@ -82,6 +147,21 @@ jobs:
           # default, stable; on 2026-11-11 latest/stable and 9.x/stable
           # were the same snapcraft revision (19387, 9.2.1).
           snapcraft-channel: 9.x/stable
+
+      - name: Show what snapcraft mounted in the instance
+        # Temporary, for the first runs: whether the project directory,
+        # .git included, is mounted into the LXD instance. To be removed
+        # once that is recorded.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          shopt -s nullglob
+          logs=(/home/runner/.local/state/snapcraft/log/*.log)
+          if [ "${#logs[@]}" -eq 0 ]; then
+            echo "no snapcraft log under /home/runner/.local/state/snapcraft/log"
+          else
+            grep -hnE 'mount|/root/project' "${logs[@]}" | head -n 200 || true
+          fi
 
       - name: Install squashfs-tools
         run: |
@@ -116,5 +196,17 @@ jobs:
           path: |
             ${{ steps.build.outputs.snap }}
             payload-listing.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload the snapcraft logs
+        # Only when something failed, under the same fork rule. An
+        # artifact of its own, so the snap-payload paths keep their
+        # common ancestor.
+        if: ${{ failure() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapcraft-logs
+          path: /home/runner/.local/state/snapcraft/log/*.log
           if-no-files-found: warn
           retention-days: 7
