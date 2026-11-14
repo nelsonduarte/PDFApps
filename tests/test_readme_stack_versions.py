@@ -45,8 +45,9 @@ COMPONENTS = {
     "Packaging": ("PyInstaller", "pyinstaller"),
 }
 
-# Pillow is the one package split by marker: one line from Python 3.11
-# on, one below. The README gives both floors and the boundary.
+# Pillow is the one README component split by marker: one line from
+# Python 3.11 on, one below. The README gives both floors and the
+# boundary.
 SPLIT_PACKAGE = "pillow"
 
 _VERSION_CELL = re.compile(

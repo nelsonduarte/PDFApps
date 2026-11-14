@@ -147,7 +147,8 @@ def test_no_network_plug(manifest) -> None:
 
 def test_base_stays_core22(manifest) -> None:
     # core24 is separate work; the python3.10 paths in the environment and
-    # the python_version < "3.11" lines in requirements.txt depend on this.
+    # the Python 3.10 lines in requirements.txt (pillow's python_version
+    # < "3.11", soupsieve's python_full_version < "3.11.5") depend on this.
     assert manifest["base"] == "core22"
     assert "python3.10" in manifest["apps"]["pdfapps"]["environment"]["PYTHONPATH"]
 

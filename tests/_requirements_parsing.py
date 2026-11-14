@@ -21,13 +21,20 @@ from packaging.version import InvalidVersion, Version
 INLINE_COMMENT = re.compile(r"(^|\s)#.*$")
 
 
-def target_environment(python_version: str, sys_platform: str) -> dict[str, str]:
+def target_environment(python: str, sys_platform: str) -> dict[str, str]:
     """A complete PEP 508 marker environment for one build target.
 
     Complete on purpose: ``Marker.evaluate`` fills any missing key from
     the interpreter running pytest, so a partial dict would make the
     result depend on the machine the suite happens to run on.
+
+    ``python`` is "X.Y", taken as X.Y.0, or "X.Y.Z", for markers on
+    ``python_full_version`` whose boundary is not a .0 release.
     """
+    parts = python.split(".")
+    assert len(parts) in (2, 3) and all(p.isdigit() for p in parts), python
+    python_version = ".".join(parts[:2])
+    full_version = python if len(parts) == 3 else f"{python}.0"
     system, os_name, machine = {
         "win32": ("Windows", "nt", "AMD64"),
         "darwin": ("Darwin", "posix", "arm64"),
@@ -35,14 +42,14 @@ def target_environment(python_version: str, sys_platform: str) -> dict[str, str]
     }[sys_platform]
     return {
         "implementation_name": "cpython",
-        "implementation_version": f"{python_version}.0",
+        "implementation_version": full_version,
         "os_name": os_name,
         "platform_machine": machine,
         "platform_python_implementation": "CPython",
         "platform_release": "",
         "platform_system": system,
         "platform_version": "",
-        "python_full_version": f"{python_version}.0",
+        "python_full_version": full_version,
         "python_version": python_version,
         "sys_platform": sys_platform,
     }
@@ -58,9 +65,10 @@ TARGET_ENVIRONMENTS = {
     "macos-py3.14": target_environment("3.14", "darwin"),
     "linux-py3.14": target_environment("3.14", "linux"),
     # tests.yml's pytest-py312 job (3.12.3, Ubuntu 24.04's python3.12).
-    "linux-py3.12": target_environment("3.12", "linux"),
-    # The snap (base: core22, python3.10 in snap/snapcraft.yaml).
-    "linux-py3.10": target_environment("3.10", "linux"),
+    "linux-py3.12": target_environment("3.12.3", "linux"),
+    # The snap (base: core22, python3.10 in snap/snapcraft.yaml; core22
+    # ships 3.10.12).
+    "linux-py3.10": target_environment("3.10.12", "linux"),
 }
 
 

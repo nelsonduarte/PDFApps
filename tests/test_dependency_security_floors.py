@@ -16,11 +16,11 @@ pypdf 6.20.0 and Pillow 12.3.0.
 
 A package may be split across lines by environment marker when its first
 clean release cannot install everywhere (Pillow 13.0.0 needs Python
-3.11, and the snap builds on 3.10). Such a split must
-give exactly one line in every environment, and each line must hold the
-floor where it applies: the clean floor, or, only on the Python versions
-the clean release cannot install on, the accepted residual floor in
-RESIDUAL_FLOORS.
+3.11, soupsieve 4.0.0 needs 3.11.5, and the snap builds on 3.10). Such
+a split must give exactly one line in every environment, and each line
+must hold the floor where it applies: the clean floor, or, only on the
+Python versions the clean release cannot install on, the accepted
+residual floor in RESIDUAL_FLOORS.
 
 What this does NOT catch: an advisory published after the table below
 was measured. The test only knows the advisories it lists.
@@ -46,7 +46,7 @@ REQUIREMENTS = ROOT / "requirements.txt"
 #                  of every advisory OSV lists for the package,
 #                  releases OSV lists as affected that the floor must reject)
 # Measured against api.osv.dev on 2026-10-05; pillow again on
-# 2026-10-28; pypdf again on 2026-11-06.
+# 2026-10-28; pypdf again on 2026-11-06; soupsieve again on 2026-11-13.
 SECURITY_FLOORS = {
     # PYSEC-2026-4158 (fixed 6.17.0), PYSEC-2026-4153 (6.18.0),
     # PYSEC-2026-4154 / 4155 / 4156 (6.18.1),
@@ -78,15 +78,24 @@ SECURITY_FLOORS = {
     # PYSEC-2026-215 (fixed 3.15).
     "idna": ("3.15", ("3.13", "3.14")),
     # PYSEC-2026-3071 / 3072 (fixed 2.8.4), PYSEC-2026-4170 / 4171 (fixed
-    # 2.9; OSV writes it 2.9.0, PyPI publishes it as "2.9"). Measured on
-    # 2026-10-16.
-    "soupsieve": ("2.9", ("2.8.3", "2.8.4")),
+    # 2.9; OSV writes it 2.9.0, PyPI publishes it as "2.9"), measured on
+    # 2026-10-16. Then, published 2026-11-13: GHSA-4j63-6c4x-wfg4 (fixed
+    # 2.10.0), GHSA-6655-6qjp-jx7x (HIGH) / GHSA-7g44-g9rc-x53w (3.0.2)
+    # and GHSA-mmhr-3c5m-f64f (HIGH, 4.0.0; PyPI publishes it as "4.0").
+    # 3.0 and 3.0.1 are yanked, so pip never picks them for a ">=" line.
+    "soupsieve": (
+        "4.0.0",
+        ("2.8.3", "2.8.4", "2.9", "2.9.1", "2.9.2", "2.10", "3.0.2",
+         "3.0.3", "3.0.4"),
+    ),
 }
 
 # Accepted residuals, where the first clean release cannot be installed.
 # PEP 503 name -> (Python versions the residual floor covers,
 #                  Requires-Python of the first clean release, from PyPI,
 #                  floor on those versions, releases it must still reject)
+# Both version sets are matched against python_full_version, as
+# Requires-Python is, so a boundary such as 3.11.5 holds.
 # test_residual_floors_cover_only_pythons_the_clean_release_excludes keeps
 # the first two disjoint, so a residual cannot spread to a Python version
 # that could install the fixed release.
@@ -96,15 +105,24 @@ RESIDUAL_FLOORS = {
     # advisories than 12.2.0.
     "pillow": (SpecifierSet("<3.11"), SpecifierSet(">=3.11"), "12.3.0",
                ("12.1.1", "12.2.0")),
+    # soupsieve 4.0.0 declares Requires-Python >=3.11.5, as every release
+    # from 3.0.2 does; 3.0 and 3.0.1 (>=3.11) are yanked (PyPI,
+    # 2026-11-13). 2.10 is the newest release Python 3.10 to 3.11.4 can
+    # install; it clears GHSA-4j63-6c4x-wfg4 and carries the other three.
+    "soupsieve": (SpecifierSet("<3.11.5"), SpecifierSet(">=3.11.5"), "2.10",
+                  ("2.8.4", "2.9", "2.9.1", "2.9.2")),
 }
 
 # Every Python a source install could plausibly use, on every desktop
 # platform, plus the build targets. A marker split is judged on all of
 # them, not only on the targets, so a gap or overlap cannot hide in a
 # version no build happens to use today.
+# The micro releases: either side of soupsieve's 3.11.5 boundary, and
+# what core22 (3.10.12) and Ubuntu 24.04 (3.12.3) ship.
 SWEEP_ENVIRONMENTS = [
-    target_environment(f"3.{minor}", platform)
-    for minor in range(8, 21)
+    target_environment(python, platform)
+    for python in [f"3.{minor}" for minor in range(8, 21)]
+    + ["3.10.12", "3.11.4", "3.11.5", "3.12.3"]
     for platform in ("win32", "darwin", "linux")
 ] + list(TARGET_ENVIRONMENTS.values())
 
@@ -142,7 +160,7 @@ def _assert_floor(req: Requirement, minimum: Version) -> None:
 def _floor_for(name: str, environment: dict[str, str]) -> tuple[str, tuple[str, ...]]:
     minimum, affected = SECURITY_FLOORS[name]
     residual = RESIDUAL_FLOORS.get(name)
-    if residual is not None and residual[0].contains(environment["python_version"]):
+    if residual is not None and residual[0].contains(environment["python_full_version"]):
         return residual[2], residual[3]
     return minimum, affected
 
@@ -174,7 +192,7 @@ def _floor_problems(text: str, name: str) -> tuple[list[str], list[str]]:
         ]
         return floor_problems, admitted
     for env in SWEEP_ENVIRONMENTS:
-        where = f"Python {env['python_version']} on {env['sys_platform']}"
+        where = f"Python {env['python_full_version']} on {env['sys_platform']}"
         kept = applicable(lines, env)
         if len(kept) != 1:
             floor_problems.append(f"{name}: {len(kept)} lines apply on {where}")
@@ -258,7 +276,7 @@ _PILLOW_SPLIT = (
         # The residual is for old Pythons, not for a platform.
         ('pillow>=13.0.0; sys_platform != "win32"\n'
          'pillow>=12.3.0; sys_platform == "win32"\n',
-         "below 13.0.0 on Python 3.14 on win32"),
+         "below 13.0.0 on Python 3.14.0 on win32"),
         ("pillow>=12.3.0\n", "admits releases below 13.0.0"),
         ('pillow>=13.0.0; python_version >= "3.11"\n', "environment marker"),
         ("", "missing"),
@@ -283,7 +301,7 @@ def test_split_floor_check_reports_affected_releases_per_environment():
     assert any("admits 12.1.1 on Python 3.10" in a for a in admitted), admitted
     # Only the Python versions below 3.11, where the residual line applies.
     assert all(
-        any(f" on Python {v} on " in a for v in ("3.8", "3.9", "3.10"))
+        any(f" on Python {v}." in a for v in ("3.8", "3.9", "3.10"))
         for a in admitted
     ), admitted
 
@@ -318,12 +336,17 @@ def test_marker_split_resolves_to_one_line_per_environment():
 
 def test_residual_floors_cover_only_pythons_the_clean_release_excludes():
     for name, (covers, clean_requires, floor, _affected) in RESIDUAL_FLOORS.items():
-        assert Version(floor) < Version(SECURITY_FLOORS[name][0]), name
+        assert Version(floor) < Version(SECURITY_FLOORS[name][0]), (
+            f"{name}: the residual floor {floor} is not below the clean "
+            f"floor {SECURITY_FLOORS[name][0]} in SECURITY_FLOORS, so it is "
+            "no residual; fix one of the two, or drop the RESIDUAL_FLOORS "
+            "entry once the clean release installs everywhere"
+        )
         overlap = [
-            env["python_version"]
+            env["python_full_version"]
             for env in SWEEP_ENVIRONMENTS
-            if covers.contains(env["python_version"])
-            and clean_requires.contains(env["python_version"])
+            if covers.contains(env["python_full_version"])
+            and clean_requires.contains(env["python_full_version"])
         ]
         assert not overlap, (
             f"{name}: the residual floor {floor} covers Python {sorted(set(overlap))}, "
@@ -335,7 +358,7 @@ def _residual_install_problems(text: str, name: str) -> list[str]:
     """Residual lines that no longer admit their own residual floor.
 
     The residual floor is the newest release those Python versions can
-    install, so a line there that rejects it (Dependabot raising
+    install, so a line there that rejects it (a hand edit raising
     ``pillow>=12.3.0; python_version < "3.11"`` to 13.0.0, say) leaves
     pip with "No matching distribution": the snap fails after the
     release, as tests/test_soupsieve_py310.py explains for soupsieve.
@@ -344,13 +367,13 @@ def _residual_install_problems(text: str, name: str) -> list[str]:
     lines = parse_requirement_lines(text).get(name, [])
     problems = []
     for env in SWEEP_ENVIRONMENTS:
-        if not covers.contains(env["python_version"]):
+        if not covers.contains(env["python_full_version"]):
             continue
         for req in applicable(lines, env):
             if not req.specifier.contains(floor):
                 problems.append(
                     f"'{req}' rejects {floor}, the newest {name} Python "
-                    f"{env['python_version']} can install"
+                    f"{env['python_full_version']} can install"
                 )
     return list(dict.fromkeys(problems))
 
@@ -366,6 +389,63 @@ def _residual_install_problems(text: str, name: str) -> list[str]:
 )
 def test_residual_install_check(text, ok):
     assert (_residual_install_problems(text, "pillow") == []) is ok
+
+
+_SOUPSIEVE_SPLIT = (
+    'soupsieve>=4.0.0; python_full_version >= "3.11.5"\n'
+    'soupsieve>=2.10; python_full_version < "3.11.5"\n'
+)
+
+
+# On python_version, 3.11.0 to 3.11.4 get a line nothing they can
+# install satisfies.
+_SOUPSIEVE_SPLIT_ON_PYTHON_VERSION = (
+    'soupsieve>=4.0.0; python_version >= "3.11"\n'
+    'soupsieve>=2.10; python_version < "3.11"\n'
+)
+
+
+def _soupsieve_split(new: str, old: str, boundary: str = "3.11.5") -> str:
+    return (f'soupsieve{new}; python_full_version >= "{boundary}"\n'
+            f'soupsieve{old}; python_full_version < "3.11.5"\n')
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (_SOUPSIEVE_SPLIT, None),
+        (_SOUPSIEVE_SPLIT_ON_PYTHON_VERSION,
+         "rejects 2.10, the newest soupsieve Python 3.11.4 can install"),
+        # The 3.10 line raised past what 3.10 installs.
+        (_soupsieve_split(">=4.0.0", ">=3.0.2"),
+         "rejects 2.10, the newest soupsieve Python 3.10.12 can install"),
+        # The 3.11.5+ line left on a vulnerable floor.
+        (_soupsieve_split(">=3.0.2", ">=2.10"),
+         "admits releases below 4.0.0 on Python 3.11.5"),
+        # The 3.10 line left on 2.9, which 2.10 fixes.
+        (_soupsieve_split(">=4.0.0", ">=2.9"),
+         "admits releases below 2.10 on Python 3.10.12"),
+        # No marker: one line cannot hold both floors.
+        ("soupsieve>=2.10\n", "admits releases below 4.0.0"),
+        ("soupsieve>=4.0.0\n", "rejects 2.10, the newest soupsieve Python 3.10.0"),
+        # Two lines on 3.10.
+        (_soupsieve_split(">=4.0.0", ">=2.10", boundary="3.10"),
+         "2 lines apply on Python 3.10.0"),
+    ],
+)
+def test_soupsieve_split_holds_4_0_0_from_3_11_5_and_2_10_below(text, expected):
+    floor_problems, admitted = _floor_problems(text, "soupsieve")
+    problems = floor_problems + _residual_install_problems(text, "soupsieve")
+    if expected is None:
+        assert problems == [] and admitted == [], (
+            f"{text!r} is the split requirements.txt should have, yet the "
+            f"checks report {problems + admitted}"
+        )
+    else:
+        assert any(expected in p for p in problems), (
+            f"for {text!r} the checks should report {expected!r}; "
+            f"they report {problems or 'nothing'}"
+        )
 
 
 @pytest.mark.parametrize("name", sorted(RESIDUAL_FLOORS))
