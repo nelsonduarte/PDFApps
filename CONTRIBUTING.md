@@ -89,6 +89,8 @@ CI (`.github/workflows/tests.yml`) runs the suite on every pull request to `main
 
 All three are required checks on `main`.
 
+`.github/workflows/snap-build.yml` builds the snap and checks its payload with `scripts/check_snap_payload.py` on pull requests to `main` and pushes to `main` that touch what the snap is built from (the workflow lists the paths), and on manual dispatch. Before the build, `scripts/install_snap_tools.py` installs LXD and Snapcraft on the channels the workflow passes it, retrying the Snap Store errors that are transient up to a deadline (the step "Install LXD and Snapcraft" has the arguments, and the script's `--help` its defaults and exit statuses); when it gives up, the run fails with an `::error` line that names what failed (a snap, or the `chown` of `/` or the `lxd waitready` the script also runs) and its last error. It publishes nothing and uses no secret. It is not a required check: with that paths filter, a required check would stay pending on every pull request that touches none of the paths. The `.snap` and the payload listing are uploaded as an artifact only for runs from this repository, not for pull requests from forks. That is hygiene, not a security boundary: what protects the repository is the approval a first-time contributor's run needs, that no workflow consumes these artifacts (there is no `workflow_run`), and that nobody installs a snap built from a fork.
+
 ---
 
 ## Architecture Overview

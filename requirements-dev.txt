@@ -9,16 +9,18 @@
 # the suite shells out to it: tests/test_audit_pr_j.py::
 # test_no_f401_f541_e741_f821_tc004_lint_residual_on_py310 runs
 # `python -m ruff check --target-version py310 --select
-# F401,F541,E741,F821,TC004 app/ pdfapps.py installer.py` as a subprocess
-# and pytest.fail()s on a non-zero exit, so a missing ruff is a test
-# FAILURE, not a skip.
+# F401,F541,E741,F821,TC004` on the paths that test lists, as a
+# subprocess, and pytest.fail()s on a non-zero exit, so a missing ruff
+# is a test FAILURE, not a skip.
 #
-# PyYAML is mandatory for the same kind of reason: five test modules
-# import it at module scope, three directly (test_release_assets.py,
-# test_release_bump_script.py, test_snap_manifest.py) and two through
-# tests/_workflow_steps.py (test_publish_aur_bin_step.py,
-# test_workflow_jobs.py), so without it collection ERRORs in all five
-# and the run aborts as Interrupted before any test runs.
+# PyYAML is mandatory for the same kind of reason: seven test modules
+# import it at module scope (2026-11-13), four directly
+# (test_dependabot_config.py, test_release_assets.py,
+# test_release_bump_script.py, test_snap_manifest.py) and three only
+# through tests/_workflow_steps.py (test_install_snap_tools.py,
+# test_publish_aur_bin_step.py, test_workflow_jobs.py), so without it
+# collection ERRORs in all seven and the run aborts as Interrupted
+# before any test runs.
 # Three more import it inside test functions, through
 # tests/_workflow_steps.py, so those tests fail instead of skipping.
 # Each file run on its own with yaml blocked (2026-11-08):

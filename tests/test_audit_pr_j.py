@@ -237,13 +237,20 @@ def test_no_f401_f541_e741_f821_tc004_lint_residual_on_py310():
     functions included; TC004 an import kept under ``if TYPE_CHECKING:``
     that such an annotation needs at runtime. The target is explicit: for
     py314 (PEP 649) ruff treats annotations as deferred and reports
-    neither the forward reference nor the TC004 case."""
+    neither the forward reference nor the TC004 case.
+
+    scripts/install_snap_tools.py is in the list, and the rest of scripts/
+    is not, because it is the one script that must run on Python 3.10 (the
+    python3 of ubuntu-22.04, where publish.yml's snap job is to run it).
+    For it this check covers syntax newer than 3.10, which ruff reports
+    for the target whatever rules are selected, and the rules above; not
+    stdlib APIs added after 3.10, such as enum.StrEnum or datetime.UTC."""
     import subprocess
     py = sys.executable
     res = subprocess.run(
         [py, "-m", "ruff", "check", "--target-version", "py310",
          "--select", "F401,F541,E741,F821,TC004",
-         "app/", "pdfapps.py", "installer.py"],
+         "app/", "pdfapps.py", "installer.py", "scripts/install_snap_tools.py"],
         cwd=str(_REPO_ROOT), capture_output=True, text=True, timeout=60)
     if res.returncode != 0:
         pytest.fail(f"ruff still reports lint:\n{res.stdout}\n{res.stderr}")
