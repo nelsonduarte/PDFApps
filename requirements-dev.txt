@@ -51,4 +51,4 @@ ruff>=0.16.10
 # run with -p no:pytest-qt on 2026-11-08: 156 errors and 14 failures.
 pytest>=9.1.1
 pytest-qt>=4.5.0
-coverage>=7.16.2
+coverage>=7.17.2
