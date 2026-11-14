@@ -51,7 +51,7 @@ jobs:
         run: git fetch --no-tags --depth=1 origin +refs/tags/v1.15.2:refs/tags/v1.15.2
 
       - name: Set up Python 3.14
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
 
@@ -126,7 +126,7 @@ jobs:
 
       - name: Set up Python 3.14
         # The version build.yml freezes the Windows binaries with.
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
 
@@ -176,7 +176,7 @@ jobs:
         # standard library behaviour from a later patch release that the
         # snap lacks. Ubuntu's patches are not in this build either, so
         # it is the closest match, not an exact one.
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12.3'
 
