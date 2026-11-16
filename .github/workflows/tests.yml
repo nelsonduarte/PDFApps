@@ -102,7 +102,8 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         # The faulthandler options of the pytest-windows job, for the
         # reason given there: a hang ends with every thread's stack
-        # instead of running out the job's 20 minutes.
+        # instead of running out the job's 20 minutes. _CHILD_TIMEOUT
+        # in tests/test_conftest_isolation.py stays below these 300 s.
         run: |
           python -m pytest -q -rs -o faulthandler_timeout=300 -o faulthandler_exit_on_timeout=true
 
@@ -143,7 +144,9 @@ jobs:
         # runs past 300 s, and exit_on_timeout then ends the process, so
         # a hang fails with a traceback instead of eating the job's 30
         # minutes in silence. --durations and the JUnit file measure
-        # where the time goes on this runner.
+        # where the time goes on this runner. _CHILD_TIMEOUT in
+        # tests/test_conftest_isolation.py stays below these 300 s, so a
+        # hung child process fails its test and not the whole run.
         run: |
           python -m pytest -q -rs --durations=25 -o faulthandler_timeout=300 -o faulthandler_exit_on_timeout=true --junitxml=junit.xml
 
@@ -197,6 +200,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         # The faulthandler options of the pytest-windows job, for the
         # reason given there: a hang ends with every thread's stack
-        # instead of running out the job's 20 minutes.
+        # instead of running out the job's 20 minutes. _CHILD_TIMEOUT
+        # in tests/test_conftest_isolation.py stays below these 300 s.
         run: |
           python -m pytest -q -rs -o faulthandler_timeout=300 -o faulthandler_exit_on_timeout=true
