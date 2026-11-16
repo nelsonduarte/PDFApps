@@ -1442,7 +1442,8 @@ def test_entry_does_not_set_up_logging_or_touch_the_config(tmp_path):
     home.mkdir()
     env = dict(os.environ, HOME=str(home), USERPROFILE=str(home),
                APPDATA=str(home), LOCALAPPDATA=str(home),
-               XDG_CONFIG_HOME=str(home))
+               XDG_CONFIG_HOME=str(home), XDG_DATA_HOME=str(home),
+               XDG_STATE_HOME=str(home), XDG_CACHE_HOME=str(home))
     src = _make_pdf(tmp_path / "in.pdf")
     assert _run_entry(_job(src, tmp_path / "o.pdf"), env=env).returncode == 0
     assert list(home.iterdir()) == []
