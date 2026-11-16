@@ -16,7 +16,7 @@ import qtawesome as qta
 
 from app.i18n import t
 from app._shading_patterns import has_shading_pattern
-from app.pdf_io import check_not_same_path, is_file_in_use_error
+from app.pdf_io import check_not_same_path, is_file_in_use_error, is_unwritable_folder_error
 from app.portal import (
     portal_free_suggestion, portal_rejects_folder, portal_rejects_saved_file,
 )
@@ -1156,12 +1156,24 @@ def setup_logging() -> None:
         pass
 
 
+def _warn_with_details(parent, text: str, exc: BaseException) -> None:
+    """A warning that names the remedy, the exception in the details pane."""
+    from PySide6.QtWidgets import QMessageBox
+
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Warning)
+    box.setWindowTitle(t("msg.warning"))
+    box.setText(text)
+    box.setDetailedText(f"{type(exc).__name__}: {exc}")
+    box.exec()
+
+
 def show_error(parent, exc: BaseException) -> None:
     """Show a translated, friendly error dialog with collapsible technical
     details. Logs the full exception (with traceback) to the log file,
-    except for the two exceptions below: each is logged as a warning with
-    no traceback, and a file in use with only the OS's error codes and the
-    file names, not the exception text.
+    except for the three exceptions below: each is logged as a warning with
+    no traceback, and a file in use or a folder that refused a file with
+    only the OS's error codes and the file names, not the exception text.
 
     Replaces the historical pattern:
         QMessageBox.critical(self, t("msg.error"), str(e))
@@ -1170,12 +1182,15 @@ def show_error(parent, exc: BaseException) -> None:
     is in the collapsed "Show Details" pane, and the full traceback is in
     the log file at `pdfapps.log` next to the config.
 
-    Two exceptions are routed differently. One is a file Windows will not
+    Three exceptions are routed differently. One is a file Windows will not
     let us read or write (:func:`app.pdf_io.is_file_in_use_error`): a
-    warning that names the remedy, the details pane kept. The other is
-    :class:`WrongPasswordError`. It is not a crash: it is a recoverable, self-inflicted and fully
-    understood condition whose message is already translated and already
-    addressed to the user. Sending it down the generic path showed
+    warning that names the remedy, the details pane kept. Another is a
+    folder that refused a new file in it
+    (:func:`app.pdf_io.is_unwritable_folder_error`): the same shape, with
+    its own remedy. The last is :class:`WrongPasswordError`. It is not a
+    crash: it is a recoverable, self-inflicted and fully understood
+    condition whose message is already translated and already addressed to
+    the user. Sending it down the generic path showed
     "something went wrong ... the full traceback has been written to the
     log file" as the primary text and hid the real sentence behind
     "Show Details", prefixed with the Python class name. So it gets a
@@ -1213,12 +1228,18 @@ def show_error(parent, exc: BaseException) -> None:
             exc.errno, getattr(exc, "winerror", None),
             exc.filename, exc.filename2,
         )
-        box = QMessageBox(parent)
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle(t("msg.warning"))
-        box.setText(t("msg.file_in_use"))
-        box.setDetailedText(f"{type(exc).__name__}: {exc}")
-        box.exec()
+        _warn_with_details(parent, t("msg.file_in_use"), exc)
+        return
+
+    if is_unwritable_folder_error(exc):
+        # The folder lets no new file in (no permission to create one):
+        # another folder gets past it. The OS's fields only, as above, for
+        # the same CodeQL reason.
+        logging.warning(
+            "Folder not writable: errno=%s winerror=%s filename=%r",
+            exc.errno, getattr(exc, "winerror", None), exc.filename,
+        )
+        _warn_with_details(parent, t("msg.folder_not_writable"), exc)
         return
 
     # logging.exception() relies on sys.exc_info() being active, but this

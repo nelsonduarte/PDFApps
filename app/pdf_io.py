@@ -22,7 +22,7 @@ import tempfile
 from typing import Iterable, TypeGuard
 
 __all__ = ["atomic_pdf_write", "check_not_same_path", "is_file_in_use_error",
-           "is_same_file", "resolves_to_any"]
+           "is_same_file", "is_unwritable_folder_error", "resolves_to_any"]
 
 
 def _same_by_path(a: str, b: str) -> bool:
@@ -121,6 +121,28 @@ def is_file_in_use_error(exc: BaseException,
     if not isinstance(target, (str, os.PathLike)):
         return False
     return os.path.isfile(target)
+
+
+def is_unwritable_folder_error(exc: BaseException) -> TypeGuard[PermissionError]:
+    """Did a folder that exists refuse a new file in it?
+
+    What ``tempfile.mkstemp`` raises in a folder the user may not create
+    files in: a PermissionError naming the temp file it could not create,
+    which does not exist, inside a folder that does. A refused
+    ``os.replace`` names its destination in ``filename2``, and an existing
+    file named alone is a file refused, not the folder: both are another
+    problem. The same on every platform (a POSIX folder with no write bit
+    gives it too).
+    """
+    if not isinstance(exc, PermissionError) or exc.filename2 is not None:
+        return False
+    target = exc.filename
+    # A file descriptor, or no name at all: no folder to speak of.
+    if not isinstance(target, (str, os.PathLike)):
+        return False
+    if os.path.lexists(target):
+        return False
+    return os.path.isdir(os.path.dirname(os.path.abspath(target)))
 
 
 def atomic_pdf_write(writer, dst: str, *,

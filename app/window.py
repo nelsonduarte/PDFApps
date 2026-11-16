@@ -21,7 +21,6 @@ from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP, BORDER
 from app.constants import TOOL_PANEL_MIN_WIDTH
 from app.i18n import t, set_language, get_language, add_recent_file
 from app.styles import STYLE, STYLE_LIGHT
-from app.pdf_io import resolves_to_any
 from app.utils import ask_save_path, resource_path, show_error, _make_palette
 from app.widgets import DropFileEdit
 from app.single_instance import SingleInstanceServer
@@ -1194,7 +1193,8 @@ class MainWindow(QMainWindow):
         """Save a tab's pipeline result to a user-chosen file: ``viewer``'s,
         or the current tab's. True once saved, False when there was nothing
         to save or the Save dialog gave no path to write (Cancel, or an
-        answer it refused). The OSError of a failed write propagates.
+        answer it refused). The OSError of a failed write propagates, with
+        the destination as it was: nothing writes onto it in place.
 
         The answer may be the original: the result is still that document,
         and the Save dialog has just asked before replacing it."""
@@ -1213,11 +1213,11 @@ class MainWindow(QMainWindow):
                              t("file_filter.pdf"), (orig,))
         if not path:
             return False
-        replaces_orig = resolves_to_any(path, (orig,))
-        # R11-M6: warn if destination is a symlink. A pre-placed symlink
-        # could redirect the write to an unintended location; we still
-        # honour the user's chosen path (os.replace follows symlinks),
-        # but logging gives an audit trail.
+        # R11-M6: warn if the destination is reached through a symlink,
+        # for an audit trail. os.replace does not follow a link at the
+        # destination: it replaces the link itself with the saved file and
+        # leaves the link's target as it was. A linked folder in the path
+        # is followed, as by any open.
         try:
             if os.path.lexists(path) and os.path.realpath(path) != os.path.abspath(path):
                 import logging as _logging
@@ -1226,29 +1226,25 @@ class MainWindow(QMainWindow):
                     path, os.path.realpath(path))
         except Exception:
             pass
-        # R11-M5: replace shutil.copy2 (non-atomic — a crash or power
-        # loss mid-copy would truncate the destination). Copy to a sibling
-        # temp file then os.replace it into place. Falls back to direct
-        # copy when the dst dir is unwritable (best effort).
+        # R11-M5: copy to a sibling temp file, then os.replace it into
+        # place. No copy straight onto the destination as a last resort,
+        # neither when the folder refuses the temp file nor when the
+        # replace is refused (on Windows, a file another program holds open
+        # with write sharing but no delete sharing): shutil.copy2 opens the
+        # destination truncating it and only then copies, so a crash, a
+        # full disk or a drive pulled out mid-copy leaves it cut short.
+        # The OSError propagates instead, and the tab keeps the result to
+        # try again or save elsewhere.
+        dst_dir = os.path.dirname(path) or "."
+        fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=dst_dir)
+        os.close(fd)
         try:
-            dst_dir = os.path.dirname(path) or "."
-            fd, tmp = tempfile.mkstemp(suffix=".pdf", dir=dst_dir)
-            os.close(fd)
-            try:
-                shutil.copyfile(ps["temp_path"], tmp)
-                os.replace(tmp, path)
-            except Exception:
-                with contextlib.suppress(Exception):
-                    os.unlink(tmp)
-                raise
-        except OSError:
-            if replaces_orig:
-                # Never onto the original: copy2 truncates it before
-                # copying, and on Windows a replace refused because a
-                # viewer still has it open would land here.
-                raise
-            # Last-resort fallback if mkstemp can't write next to dst.
-            shutil.copy2(ps["temp_path"], path)
+            shutil.copyfile(ps["temp_path"], tmp)
+            os.replace(tmp, path)
+        except Exception:
+            with contextlib.suppress(Exception):
+                os.unlink(tmp)
+            raise
         # Load the saved file in the viewer (replaces temp)
         viewer.load(path)
         idx = self._viewer_stack.indexOf(viewer)

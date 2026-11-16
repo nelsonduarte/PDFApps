@@ -1826,6 +1826,85 @@ def test_a_save_that_fails_refuses_the_update_and_says_why(
     box.assert_untouched()
 
 
+def _mkstemp_refused_in(monkeypatch, folder: Path) -> list:
+    """``tempfile.mkstemp`` in ``folder`` raises what it raises in a folder
+    the user may not create files in (the real one, per platform, is in
+    ``tests/test_folder_not_writable.py``): the temp name it tried, which
+    does not exist, and no ``filename2``. Elsewhere it works."""
+    real = tempfile.mkstemp
+    refused = []
+
+    def _mkstemp(*a, dir=None, **k):
+        if dir is not None and (os.path.normcase(os.path.abspath(os.fspath(dir)))
+                                == os.path.normcase(str(folder))):
+            exc = PermissionError(errno.EACCES, "Permission denied",
+                                  str(folder / "tmpk3x9q1zz.pdf"))
+            refused.append(exc)
+            raise exc
+        return real(*a, dir=dir, **k)
+    monkeypatch.setattr(tempfile, "mkstemp", _mkstemp)
+    return refused
+
+
+@pytest.mark.parametrize("how", [
+    "mkstemp refused",
+    pytest.param("read-only folder", marks=[
+        posix_only,
+        pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                           reason="root writes in a read-only folder")]),
+])
+def test_a_folder_that_refuses_new_files_refuses_the_update_and_keeps_the_file(
+        win, box, qapp, monkeypatch, tmp_path, how):
+    """One of the two cases the old fallback "saved": the folder takes no
+    new file, the file chosen is there and writable. shutil.copy2 wrote
+    over it, which truncates it first, and the update went on. Now the
+    save fails and the update is refused, with the file as it was
+    (accepted: the result stays in the tab, to save in another folder)."""
+    import shutil
+
+    from app import window
+    out = _pipeline_result(win)
+    folder = tmp_path / "dest ç"
+    folder.mkdir()
+    target = folder / "saved.pdf"
+    before = b"the user's own file, which a failed save must leave alone"
+    target.write_bytes(before)
+    os.chmod(target, 0o600)
+    real_copy2 = shutil.copy2
+    copies = []
+
+    def _copy2(src, dst, *a, **k):
+        copies.append((os.fspath(src), os.fspath(dst)))
+        return real_copy2(src, dst, *a, **k)
+
+    monkeypatch.setattr(shutil, "copy2", _copy2)
+    prompts = _Prompts("Save")
+    monkeypatch.setattr(window.QMessageBox, "question", prompts)
+    saves = _save_dialog_returns(monkeypatch, str(target))
+    if how == "read-only folder":
+        os.chmod(folder, 0o500)
+        try:
+            dlg, urlopen = _update_from_window(win, qapp, monkeypatch)
+        finally:
+            os.chmod(folder, 0o700)
+    else:
+        refused = _mkstemp_refused_in(monkeypatch, folder)
+        dlg, urlopen = _update_from_window(win, qapp, monkeypatch)
+        assert len(refused) == 1, "the save tried a temp file in that folder"
+    assert len(saves) == 1
+    assert copies == []
+    assert target.read_bytes() == before
+    assert os.listdir(folder) == ["saved.pdf"]
+    urlopen.assert_not_called()
+    head, tail = t("update.error.save_failed", error="\0").split("\0")
+    status = dlg._status.text()
+    assert status.startswith(head) and status.endswith(tail)
+    assert dlg._update_btn.isEnabled(), "the user can save elsewhere, then try again"
+    assert prompts.texts == [t("update.unsaved_prompt")]
+    assert win._viewer_has_unsaved() and os.path.isfile(out)
+    box.assert_untouched()
+
+
 def test_a_save_over_the_original_that_is_refused_refuses_the_update(
         win, box, qapp, monkeypatch):
     """The update's Save calls ``_save_pipeline`` itself, not the window's
