@@ -134,8 +134,9 @@ def test_decrypt_return_checked(path):
 
 def test_pipeline_save_uses_os_replace():
     src = _read("app/window.py")
-    # The save_pipeline body must use mkstemp + os.replace, not just
-    # shutil.copy2. shutil.copy2 may still be present as a fallback.
+    # The save_pipeline body must use mkstemp + os.replace. There is no
+    # shutil.copy2 fallback any more: it truncated the destination
+    # (tests/test_replace_own_input.py, point 11).
     save_block = src.split("def _save_pipeline")[1].split("def _cleanup_pipeline")[0]
     assert "os.replace" in save_block, (
         "_save_pipeline must use os.replace for atomicity."

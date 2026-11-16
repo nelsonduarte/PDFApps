@@ -402,8 +402,9 @@ def _failing_replace_onto(monkeypatch, target: str) -> None:
 
 
 def test_pipeline_save_over_the_original_never_truncates_it(env, monkeypatch, qtbot):
-    """The copy2 fallback opens the destination for writing: on the
-    original, a failed replace would have rewritten it in place."""
+    """A failed replace leaves the original as it was. The copy2 fallback
+    that used to follow one opened the destination for writing: on the
+    original, it would have rewritten it in place."""
     win = _window(monkeypatch, env.tmp)
     try:
         before = Path(env.a).read_bytes()
@@ -423,7 +424,7 @@ def test_pipeline_save_over_the_original_never_truncates_it(env, monkeypatch, qt
 
 def test_pipeline_save_onto_a_hard_link_of_the_original_never_truncates_it(
         env, monkeypatch, qtbot):
-    """Another name, the same file: copy2 onto the link would rewrite the
+    """Another name, the same file: a copy onto the link would rewrite the
     original in place, so the paths alone cannot tell it is the original."""
     link = os.path.join(os.path.dirname(env.a), "ligação ç.pdf")
     _link_or_skip(env.a, link)
@@ -445,22 +446,146 @@ def test_pipeline_save_onto_a_hard_link_of_the_original_never_truncates_it(
         _close_window(win, qtbot, env.tmp)
 
 
-def test_pipeline_save_elsewhere_keeps_its_last_resort_copy(env, monkeypatch, qtbot):
-    """The boundary: any other destination still falls back to copy2."""
+# -- point 11: no copy straight onto the destination, anywhere ---------------
+#
+# A failed save used to end in shutil.copy2(result, destination) for any
+# destination but the original. copy2 opens the destination truncating it
+# and only then copies: a failure mid-copy left it cut short.
+
+_OLD = b"the user's own file, which a failed save must leave alone"
+
+
+def _copy2_spy(monkeypatch) -> list:
+    """``shutil.copy2`` still works, and every call is recorded: the old
+    fallback is seen, and what it did to the destination too."""
+    import shutil
+    real = shutil.copy2
+    calls = []
+
+    def _copy2(src, dst, *a, **k):
+        calls.append((os.fspath(src), os.fspath(dst)))
+        return real(src, dst, *a, **k)
+    monkeypatch.setattr(shutil, "copy2", _copy2)
+    return calls
+
+
+def _folder_refuses_new_files(monkeypatch, folder: str) -> list:
+    """``tempfile.mkstemp`` in ``folder`` raises what it raises in a folder
+    the user may not create files in: the temp name it tried, which does
+    not exist, and no ``filename2``. Elsewhere it works."""
+    import tempfile
+    real = tempfile.mkstemp
+    refused = []
+
+    def _mkstemp(*a, dir=None, **k):
+        if dir is not None and _same(os.fspath(dir), folder):
+            exc = PermissionError(errno.EACCES, "Permission denied",
+                                  os.path.join(folder, "tmpk3x9q1zz.pdf"))
+            refused.append(exc)
+            raise exc
+        return real(*a, dir=dir, **k)
+    monkeypatch.setattr(tempfile, "mkstemp", _mkstemp)
+    return refused
+
+
+def _destination(env) -> str:
+    folder = env.tmp / "destino ç"
+    folder.mkdir()
+    dst = folder / "já existe ç.pdf"
+    dst.write_bytes(_OLD)
+    return str(dst)
+
+
+def test_pipeline_save_elsewhere_never_truncates_it(env, monkeypatch, qtbot):
+    """A replace refused for any destination, not only the original: the
+    error comes out, the destination is as it was, no temp file stays."""
     win = _window(monkeypatch, env.tmp)
     try:
-        result = Path(env.b).read_bytes()
-        _pending(win, win._viewer, env.a, result)
-        other = str(env.tmp / "outro ç.pdf")
-        Path(other).write_bytes(b"old")
+        temp = _pending(win, win._viewer, env.a, Path(env.b).read_bytes())
+        other = _destination(env)
         _dialogs(monkeypatch, other)
         _failing_replace_onto(monkeypatch, other)
+        copies = _copy2_spy(monkeypatch)
 
-        assert win._save_pipeline() is True
+        with pytest.raises(PermissionError):
+            win._save_pipeline()
 
-        assert Path(other).read_bytes() == result
+        assert copies == []
+        assert Path(other).read_bytes() == _OLD
+        assert os.listdir(os.path.dirname(other)) == [os.path.basename(other)]
+        _assert_kept(win, win._viewer, temp)
     finally:
         _close_window(win, qtbot, env.tmp)
+
+
+def test_pipeline_save_in_a_folder_that_refuses_new_files(env, monkeypatch, qtbot):
+    """One of the two cases the fallback saved: the folder refuses the
+    temp file but the destination is there and writable. Now the error
+    comes out. (The other: a replace refused onto a file the copy could
+    still open, ``test_a_destination_held_with_no_delete_sharing_is_left_alone``.)"""
+    win = _window(monkeypatch, env.tmp)
+    try:
+        temp = _pending(win, win._viewer, env.a, Path(env.b).read_bytes())
+        other = _destination(env)
+        _dialogs(monkeypatch, other)
+        refused = _folder_refuses_new_files(monkeypatch, os.path.dirname(other))
+        copies = _copy2_spy(monkeypatch)
+
+        with pytest.raises(PermissionError) as info:
+            win._save_pipeline()
+
+        assert len(refused) == 1 and info.value is refused[0]
+        assert copies == []
+        assert Path(other).read_bytes() == _OLD
+        _assert_kept(win, win._viewer, temp)
+    finally:
+        _close_window(win, qtbot, env.tmp)
+
+
+def test_the_user_reads_that_the_folder_refuses_new_files(env, monkeypatch, one_tab):
+    """End to end, the real ``show_error``: what Ctrl+S shows."""
+    win, viewer, temp = one_tab
+    other = _destination(env)
+    _dialogs(monkeypatch, other)
+    _folder_refuses_new_files(monkeypatch, os.path.dirname(other))
+    copies = _copy2_spy(monkeypatch)
+    boxes = _boxes_shown(monkeypatch)
+
+    assert win._try_save_pipeline() is False
+
+    assert [(b[0], b[1], b[2]) for b in boxes] == \
+        [(QMessageBox.Icon.Warning, t("msg.warning"), t("msg.folder_not_writable"))]
+    assert "PermissionError" in boxes[0][3]
+    assert copies == []
+    assert Path(other).read_bytes() == _OLD
+    _assert_kept(win, viewer, temp)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX folder modes")
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0,
+                    reason="root creates files in a read-only folder")
+def test_a_real_read_only_folder_says_so_and_keeps_the_file(env, monkeypatch, one_tab):
+    """No stand-in: a folder with no write bit, the file in it writable."""
+    win, viewer, temp = one_tab
+    other = _destination(env)
+    folder = os.path.dirname(other)
+    os.chmod(other, 0o600)
+    _dialogs(monkeypatch, other)
+    copies = _copy2_spy(monkeypatch)
+    boxes = _boxes_shown(monkeypatch)
+    os.chmod(folder, 0o555)
+    try:
+        saved = win._try_save_pipeline()
+    finally:
+        os.chmod(folder, 0o755)
+
+    assert saved is False
+    assert [(b[0], b[2]) for b in boxes] == \
+        [(QMessageBox.Icon.Warning, t("msg.folder_not_writable"))]
+    assert copies == []
+    assert Path(other).read_bytes() == _OLD
+    assert os.listdir(folder) == [os.path.basename(other)]
+    _assert_kept(win, viewer, temp)
 
 
 # -- A-1: a tool that refuses, after "Choose another name" -------------------
@@ -864,9 +989,15 @@ _NO_SUCH_REMEDY = {
 }
 
 
+_GENERIC_READ, _GENERIC_WRITE = 0x80000000, 0x40000000
+_FILE_SHARE_READ, _FILE_SHARE_WRITE = 0x1, 0x2
+
+
 @contextlib.contextmanager
-def _held_by_another_program(path: str):
-    """``path`` open with no sharing at all, as some programs hold a file."""
+def _held_by_another_program(path: str, access: int = _GENERIC_READ, share: int = 0):
+    """``path`` open as another program holds it: ``CreateFileW`` with
+    ``access`` and ``share``. By default to read, with no sharing at all,
+    as some programs hold a file."""
     import ctypes.wintypes
     wintypes = ctypes.wintypes
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -875,8 +1006,8 @@ def _held_by_another_program(path: str):
                                 wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD,
                                 wintypes.HANDLE]
     k32.CloseHandle.argtypes = [wintypes.HANDLE]
-    generic_read, open_existing = 0x80000000, 3
-    handle = k32.CreateFileW(path, generic_read, 0, None, open_existing, 0, None)
+    open_existing = 3
+    handle = k32.CreateFileW(path, access, share, None, open_existing, 0, None)
     if handle in (None, ctypes.c_void_p(-1).value):
         raise ctypes.WinError(ctypes.get_last_error())
     try:
@@ -991,4 +1122,41 @@ def test_the_user_reads_that_the_file_is_open(env, monkeypatch, one_tab):
 
     assert [(b[0], b[1], b[2]) for b in boxes] == \
         [(QMessageBox.Icon.Warning, t("msg.warning"), t("msg.file_in_use"))]
+    _assert_kept(win, viewer, temp)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows share modes")
+def test_a_destination_held_with_no_delete_sharing_is_left_alone(
+        env, monkeypatch, one_tab):
+    """Point 11, the second case the fallback saved. Another program holds
+    the destination to read and write, sharing both but not delete: the
+    replace onto it is refused (WinError 5), and copy2, which opens the
+    file as the holder allows, wrote the result over it in place. Now the
+    error is shown, the file is as it was and the tab keeps the result."""
+    win, viewer, temp = one_tab
+    other = _destination(env)
+    _dialogs(monkeypatch, other)
+    copies = _copy2_spy(monkeypatch)
+    boxes = _boxes_shown(monkeypatch)
+    refused = []
+
+    def _show_error(parent, exc):
+        refused.append(exc)
+        utils.show_error(parent, exc)
+    monkeypatch.setattr("app.window.show_error", _show_error)
+    hooked = []
+    monkeypatch.setattr(sys, "excepthook", lambda *exc_info: hooked.append(exc_info[0]))
+
+    with _held_by_another_program(other, access=_GENERIC_READ | _GENERIC_WRITE,
+                                  share=_FILE_SHARE_READ | _FILE_SHARE_WRITE):
+        _ctrl_s(win, viewer, temp)
+
+    assert hooked == []
+    assert [type(e) for e in refused] == [PermissionError]
+    assert refused[0].winerror == 5 and _same(refused[0].filename2, other)
+    assert [(b[0], b[1], b[2]) for b in boxes] == \
+        [(QMessageBox.Icon.Warning, t("msg.warning"), t("msg.file_in_use"))]
+    assert copies == []
+    assert Path(other).read_bytes() == _OLD
+    assert os.listdir(os.path.dirname(other)) == [os.path.basename(other)]
     _assert_kept(win, viewer, temp)
