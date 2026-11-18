@@ -205,6 +205,6 @@ idna>=3.20
 # Once the snap no longer builds on Python 3.10, drop the 3.10 line,
 # together with tests/test_soupsieve_py310.py and the soupsieve entry
 # of RESIDUAL_FLOORS in tests/test_dependency_security_floors.py.
-soupsieve>=4.0.0; python_full_version >= "3.11.5"
+soupsieve>=4.1.1; python_full_version >= "3.11.5"
 soupsieve>=2.10; python_full_version < "3.11.5"
 pyinstaller>=6.22.3
