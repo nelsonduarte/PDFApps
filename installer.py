@@ -1,5 +1,6 @@
 """PDFApps — Cross-platform Installer (Windows / macOS / Linux)"""
 import contextlib
+import ntpath
 import os, sys, shutil, subprocess, threading, urllib.request, time, locale, hashlib, hmac
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -519,6 +520,61 @@ def _no_window():
     return {"creationflags": 0x08000000} if sys.platform == "win32" else {}
 
 
+# ── Which program file to start ─────────────────────────────────────────────
+# Copies of app/_exe_paths.py, which this script cannot import (the
+# installer does not ship the app package); _system32_dir and
+# _system32_path exist only here and in uninstaller.py. The tests hold
+# the copies to the same cases. On Windows a bare program name is looked
+# up in the current folder before PATH, by CreateProcess and by
+# shutil.which alike.
+
+_SYSTEM_DIR_BUF_LEN = 1024
+
+
+def _is_usable_executable(path, *, windows):
+    """An absolute path to an existing file, ending in .exe on Windows."""
+    if not path or not os.path.isabs(path) or not os.path.isfile(path):
+        return False
+    return not windows or os.path.splitext(path)[1].lower() == ".exe"
+
+
+def _drive_absolute(path):
+    """*path* if it is a full Windows path with a drive or a UNC share."""
+    if path and ntpath.isabs(path) and ntpath.splitdrive(path)[0]:
+        return path
+    return None
+
+
+def _api_dir(name):
+    """The folder the kernel32 function *name* reports, or None. No
+    argtypes or restype: they would be set on the shared ctypes.windll."""
+    try:
+        import ctypes
+        func = getattr(ctypes.windll.kernel32, name)
+        buf = ctypes.create_unicode_buffer(_SYSTEM_DIR_BUF_LEN)
+        n = func(buf, len(buf))
+    except (ImportError, AttributeError, OSError):
+        return None
+    if not 0 < n < len(buf):
+        return None
+    return _drive_absolute(buf.value)
+
+
+def _windows_dir():
+    return (_api_dir("GetSystemWindowsDirectoryW")
+            or _drive_absolute(os.environ.get("SystemRoot"))
+            or ntpath.join("C:\\", "Windows"))
+
+
+def _system32_dir():
+    return (_api_dir("GetSystemDirectoryW")
+            or ntpath.join(_windows_dir(), "System32"))
+
+
+def _system32_path(*parts):
+    return ntpath.join(_system32_dir(), *parts)
+
+
 # ── Shortcuts / launchers ───────────────────────────────────────────────────────
 
 def create_shortcut_windows(target: str, lnk: str) -> None:
@@ -531,8 +587,10 @@ def create_shortcut_windows(target: str, lnk: str) -> None:
         f"$s=(New-Object -COM WScript.Shell).CreateShortcut('{l_safe}');"
         f"$s.TargetPath='{t_safe}';$s.IconLocation='{t_safe}';$s.Save()"
     )
+    powershell = _system32_path(
+        "WindowsPowerShell", "v1.0", "powershell.exe")
     subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+        [powershell, "-NoProfile", "-NonInteractive", "-Command", ps],
         capture_output=True, **_no_window()
     )
 
@@ -628,7 +686,7 @@ def _register_file_association_win(app_exe: str) -> None:
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER,
                               r"Software\RegisteredApplications") as k:
             winreg.SetValueEx(k, APP_NAME, 0, winreg.REG_SZ, cap_key)
-        subprocess.run(["ie4uinit.exe", "-show"],
+        subprocess.run([_system32_path("ie4uinit.exe"), "-show"],
                        capture_output=True, **_no_window())
     except Exception:
         pass
@@ -671,7 +729,13 @@ def register_uninstall(install_dir: str, uninstall_exe: str) -> None:
 # ── Tesseract ─────────────────────────────────────────────────────────────────
 
 def tesseract_installed() -> bool:
-    return os.path.isfile(TESSERACT_EXE) or bool(shutil.which("tesseract"))
+    # A tesseract.exe planted in the current folder must not pass for an
+    # installed Tesseract: which() answers it as a relative path, refused
+    # by the rule. It also hides one that is only on PATH (which() stops
+    # at the first match); TESSERACT_EXE is still checked.
+    return (os.path.isfile(TESSERACT_EXE)
+            or _is_usable_executable(shutil.which("tesseract"),
+                                     windows=sys.platform == "win32"))
 
 
 def download_file(url: str, dest: str, on_progress=None,
@@ -771,7 +835,13 @@ def install_lang_packs_windows(step_fn, base_pct: int) -> None:
 # ── Ghostscript ───────────────────────────────────────────────────────────────
 
 def ghostscript_installed() -> bool:
-    if bool(shutil.which("gswin64c")) or bool(shutil.which("gs")):
+    # Both lookups pass the rule, as in tesseract_installed: a gswin64c.exe
+    # planted in the current folder must not hide the install offer nor end
+    # the wait after installing. It also hides one that is only on PATH;
+    # the install folder below is still checked.
+    windows = sys.platform == "win32"
+    if (_is_usable_executable(shutil.which("gswin64c"), windows=windows)
+            or _is_usable_executable(shutil.which("gs"), windows=windows)):
         return True
     if sys.platform == "win32":
         import glob

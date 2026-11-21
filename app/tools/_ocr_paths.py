@@ -3,7 +3,7 @@
 Helpers for :mod:`app.tools.ocr`. This module has no Qt and no ``app.*``
 imports of its own, but importing it through the ``app.tools`` package
 loads Qt anyway (see ``app/tools/__init__.py``). ``app.tools.ocr``
-re-exports both names.
+re-exports the names it uses.
 
 The tests replace ``os.path.isdir``, ``glob.glob``, ``shutil.which`` and
 ``sys.platform`` on the module objects, so this file must keep calling them
@@ -19,28 +19,47 @@ import shutil
 import sys
 
 
-def _find_tesseract() -> str | None:
-    """Returns the tesseract executable path or None if not found."""
-    found = shutil.which("tesseract")
-    if found:
-        return found
+def _is_usable_executable(path: str | None, *, windows: bool) -> bool:
+    """Copy of ``app._exe_paths.is_usable_executable``, which this module
+    cannot import (see the allowlist in ``tests/test_ocr_tessdata.py``):
+    an absolute path to an existing file, ending in ``.exe`` on Windows.
+    The tests hold the copies to the same cases."""
+    if not path or not os.path.isabs(path) or not os.path.isfile(path):
+        return False
+    return not windows or os.path.splitext(path)[1].lower() == ".exe"
+
+
+def _tesseract_candidates() -> list[str]:
+    """Where Tesseract installs by default on this platform. Absolute, so
+    the first one can stand in for a Tesseract that was not found."""
     if sys.platform == "win32":
-        candidates = [
+        return [
             r"C:\Program Files\Tesseract-OCR\tesseract.exe",
             r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
         ]
-    elif sys.platform == "darwin":
-        candidates = [
+    if sys.platform == "darwin":
+        return [
             "/opt/homebrew/bin/tesseract",
             "/usr/local/bin/tesseract",
         ]
-    else:
-        candidates = [
-            "/usr/bin/tesseract",
-            "/usr/local/bin/tesseract",
-            "/snap/bin/tesseract",
-        ]
-    for p in candidates:
+    return [
+        "/usr/bin/tesseract",
+        "/usr/local/bin/tesseract",
+        "/snap/bin/tesseract",
+    ]
+
+
+def _find_tesseract() -> str | None:
+    """Returns the tesseract executable path or None if not found."""
+    found = shutil.which("tesseract")
+    # On Windows, which() looks in the current folder before PATH and
+    # answers a file there as the relative ".\tesseract.EXE", which the
+    # rule refuses. The cost: a tesseract.exe in the current folder also
+    # hides one that is only on PATH, as which() stops at the first match;
+    # the search then goes on with the fixed install folders below.
+    if _is_usable_executable(found, windows=sys.platform == "win32"):
+        return found
+    for p in _tesseract_candidates():
         if os.path.isfile(p):
             return p
     return None

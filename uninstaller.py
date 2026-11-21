@@ -1,4 +1,5 @@
 """PDFApps — Cross-platform Uninstaller (Windows / macOS / Linux)"""
+import ntpath
 import os, sys, shutil, subprocess, threading, time, locale
 import tkinter as tk
 from tkinter import messagebox
@@ -85,6 +86,61 @@ def _t(key: str, **kwargs) -> str:
 
 def _no_window():
     return {"creationflags": 0x08000000} if sys.platform == "win32" else {}
+
+
+# ── Which program file to start ─────────────────────────────────────────────
+# Copies of app/_exe_paths.py, which this script cannot import (the
+# uninstaller does not ship the app package); _system32_dir and
+# _system32_path exist only here and in installer.py. The tests hold
+# the copies to the same cases. On Windows a bare program name is looked
+# up in the current folder before PATH, by CreateProcess and by cmd
+# alike.
+
+_SYSTEM_DIR_BUF_LEN = 1024
+
+
+def _drive_absolute(path):
+    """*path* if it is a full Windows path with a drive or a UNC share."""
+    if path and ntpath.isabs(path) and ntpath.splitdrive(path)[0]:
+        return path
+    return None
+
+
+def _api_dir(name):
+    """The folder the kernel32 function *name* reports, or None. No
+    argtypes or restype: they would be set on the shared ctypes.windll."""
+    try:
+        import ctypes
+        func = getattr(ctypes.windll.kernel32, name)
+        buf = ctypes.create_unicode_buffer(_SYSTEM_DIR_BUF_LEN)
+        n = func(buf, len(buf))
+    except (ImportError, AttributeError, OSError):
+        return None
+    if not 0 < n < len(buf):
+        return None
+    return _drive_absolute(buf.value)
+
+
+def _windows_dir():
+    return (_api_dir("GetSystemWindowsDirectoryW")
+            or _drive_absolute(os.environ.get("SystemRoot"))
+            or ntpath.join("C:\\", "Windows"))
+
+
+def _system32_dir():
+    return (_api_dir("GetSystemDirectoryW")
+            or ntpath.join(_windows_dir(), "System32"))
+
+
+def _system32_path(*parts):
+    return ntpath.join(_system32_dir(), *parts)
+
+
+def _has_bat_metachar(path):
+    """Whether *path* holds a character that would let it break out of
+    its quotes, or out of its line, in the generated BAT file."""
+    return any(c in path for c in ('\r', '\n', '"', '%', '&', '|',
+                                   '<', '>', '^'))
 
 
 def get_install_dir() -> str:
@@ -200,18 +256,22 @@ def _schedule_dir_removal(install_dir: str) -> None:
         install_dir = os.path.normpath(install_dir)
         if not os.path.isabs(install_dir):
             return  # refuse relative paths outright
-        if any(c in install_dir for c in ('\r', '\n', '"', '%', '&', '|',
-                                          '<', '>', '^')):
+        # The script names timeout.exe by its full path, so cmd does not
+        # look for it in the current folder; that path goes into the
+        # script too, so it passes the same check.
+        timeout_exe = _system32_path("timeout.exe")
+        if any(_has_bat_metachar(p) for p in (install_dir, timeout_exe)):
             return
         import tempfile
         fd, bat = tempfile.mkstemp(prefix="pdfapps_", suffix=".bat")
         os.close(fd)
         with open(bat, "w") as f:
             f.write("@echo off\n")
-            f.write("timeout /t 5 /nobreak > nul\n")
+            f.write(f'"{timeout_exe}" /t 5 /nobreak > nul\n')
             f.write(f'rmdir /s /q "{install_dir}"\n')
             f.write('del "%~f0"\n')
-        subprocess.Popen(["cmd", "/c", bat], **_no_window())
+        subprocess.Popen([_system32_path("cmd.exe"), "/c", bat],
+                         **_no_window())
     else:
         def _remove():
             time.sleep(2)
