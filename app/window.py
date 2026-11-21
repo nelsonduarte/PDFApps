@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor
 import qtawesome as qta
 
+from app import _browser
 from app._subprocess_env import is_bootloader_var
 from app.constants import ACCENT, TEXT_PRI, TEXT_SEC, _LQ, DESKTOP, BORDER
 from app.constants import TOOL_PANEL_MIN_WIDTH
@@ -243,7 +244,7 @@ class MainWindow(QMainWindow):
         self._help_btn.setObjectName("theme_btn")
         _a11y(self._help_btn, t("help.tip"))
         self._help_btn.setFixedSize(28, 28)
-        self._help_btn.clicked.connect(lambda: __import__('webbrowser').open("https://pdf-apps.com/docs#first-steps"))
+        self._help_btn.clicked.connect(lambda: _browser.open("https://pdf-apps.com/docs#first-steps"))
         wb_h.addWidget(self._help_btn)
 
         _lang_labels = {"en": "EN", "pt": "PT", "es": "ES", "fr": "FR", "de": "DE", "zh": "ZH", "it": "IT", "nl": "NL"}

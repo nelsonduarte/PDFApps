@@ -13,6 +13,7 @@ from shiboken6 import isValid
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                                QPushButton, QLabel, QMessageBox)
 
+from app import _exe_paths
 from app import pdf_io
 from app.constants import DESKTOP, ACCENT, TOOL_PANEL_MIN_WIDTH
 from app.i18n import t
@@ -56,7 +57,8 @@ def _reveal_file(path: str) -> None:
     Falls back to opening the parent folder on Linux (xdg-open can't select)."""
     try:
         if sys.platform == "win32":
-            subprocess.Popen(["explorer", "/select,", os.path.normpath(path)])
+            subprocess.Popen([_exe_paths.windows_path("explorer.exe"),
+                              "/select,", os.path.normpath(path)])
         elif sys.platform == "darwin":
             subprocess.Popen(["open", "-R", path])
         else:
@@ -70,7 +72,8 @@ def _open_folder(path: str) -> None:
     try:
         folder = os.path.dirname(path) if os.path.isfile(path) else path
         if sys.platform == "win32":
-            subprocess.Popen(["explorer", os.path.normpath(folder)])
+            subprocess.Popen([_exe_paths.windows_path("explorer.exe"),
+                              os.path.normpath(folder)])
         elif sys.platform == "darwin":
             subprocess.Popen(["open", folder])
         else:

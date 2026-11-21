@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 import qtawesome as qta
 
+from app import _exe_paths
 from app.i18n import t
 from app._shading_patterns import has_shading_pattern
 from app.pdf_io import check_not_same_path, is_file_in_use_error, is_unwritable_folder_error
@@ -451,15 +452,21 @@ def _find_gs():
     if _GS_CACHE[0]:
         return _GS_CACHE[1]
     import shutil as _sh, platform as _pl
-    names = (["gswin64c", "gswin32c", "gs"]
-             if _pl.system() == "Windows" else ["gs"])
+    windows = _pl.system() == "Windows"
+    names = ["gswin64c", "gswin32c", "gs"] if windows else ["gs"]
     for n in names:
         p = _sh.which(n)
-        if p and os.path.isfile(p):
+        # Checked before abspath, which would hide where p came from. On
+        # Windows which() looks in the current folder before PATH and
+        # answers a file there as the relative ".\gswin64c.EXE", refused
+        # here. The cost: a gswin64c.exe in the current folder also hides
+        # one that is only on PATH, as which() stops at the first match;
+        # the search goes on with the next name and the install folders.
+        if _exe_paths.is_usable_executable(p, windows=windows):
             _GS_CACHE = (True, os.path.abspath(p))
             return _GS_CACHE[1]
     # Windows: check common install paths
-    if _pl.system() == "Windows":
+    if windows:
         import glob
         for pattern in [r"C:\Program Files\gs\gs*\bin\gswin64c.exe",
                         r"C:\Program Files\gs\gs*\bin\gswin32c.exe",

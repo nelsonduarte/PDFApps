@@ -22,7 +22,8 @@ from app.constants import TEXT_SEC, DESKTOP
 from app.widgets import DropFileEdit
 # Looked up through this module's globals by _locate_tesseract, and imported
 # from here by tests: keep the names bound in app.tools.ocr.
-from app.tools._ocr_paths import _find_tessdata, _find_tesseract
+from app.tools._ocr_paths import (
+    _find_tessdata, _find_tesseract, _tesseract_candidates)
 from app.tools._ocr_langs import (
     default_code, list_installed_langs, offered_codes)
 
@@ -30,8 +31,11 @@ from app.tools._ocr_langs import (
 def _locate_tesseract(pytesseract) -> None:
     """Point pytesseract at the Tesseract binary and its tessdata."""
     tess_exe = _find_tesseract()
-    if tess_exe:
-        pytesseract.pytesseract.tesseract_cmd = tess_exe
+    # Never pytesseract's bare default "tesseract": Windows would look for
+    # it in the current folder first. A missing file at this absolute
+    # path fails to start, which leads to the same "not found" dialog.
+    pytesseract.pytesseract.tesseract_cmd = (
+        tess_exe or _tesseract_candidates()[0])
     tessdata = _find_tessdata(tess_exe)
     if tessdata:
         os.environ["TESSDATA_PREFIX"] = tessdata
