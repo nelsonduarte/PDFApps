@@ -33,15 +33,19 @@ def touch(path: Path) -> str:
 
 
 def which_answer(kind: str, tmp_path: Path, monkeypatch, stem: str) -> str:
-    """What a fake ``shutil.which`` answers. Relative answers name a file
-    that exists from the current folder, so only being relative refuses
-    them."""
+    """What a fake ``shutil.which`` answers. Relative answers, and the one
+    with a root but no drive, name a file that exists from the current
+    folder, so only being relative refuses them. For those the current
+    folder moves to *tmp_path*: the path without a drive resolves against
+    the drive of the current folder, and the checkout and the temporary
+    folder may sit on different drives (D: and C: on the Windows runner)."""
     if kind in ("relative", "dot_relative"):
         monkeypatch.chdir(tmp_path)
         touch(tmp_path / f"{stem}.EXE")
         name = f"{stem}.EXE"
         return name if kind == "relative" else os.path.join(".", name)
     if kind == "rooted_no_drive":
+        monkeypatch.chdir(tmp_path)
         exe = touch(tmp_path / "abs" / f"{stem}.EXE")
         return os.path.splitdrive(exe)[1]
     return touch(tmp_path / "abs" / kind.replace("tesseract", stem))
