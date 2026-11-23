@@ -457,7 +457,13 @@ class MainWindow(QMainWindow):
         tab_row = QHBoxLayout(); tab_row.setContentsMargins(0, 0, 0, 0); tab_row.setSpacing(0)
         self._tab_bar = QTabBar()
         self._tab_bar.setTabsClosable(True)
-        self._tab_bar.setMovable(True)
+        # Fixed order until tab reordering is supported (redesign step
+        # I10): a tab's index is also its index in self._viewers and
+        # self._viewer_stack, which code across this class relies on (for
+        # example _on_tab_changed and _close_tab), and nothing handles
+        # tabMoved, so a dragged tab would show and close another tab's
+        # document.
+        self._tab_bar.setMovable(False)
         self._tab_bar.setExpanding(False)
         self._tab_bar.setObjectName("viewer_tabs")
         self._current_tool = -1
