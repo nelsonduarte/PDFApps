@@ -506,7 +506,7 @@ Two complete Qt Style Sheets (~450 lines total): `STYLE` (dark) and `STYLE_LIGHT
 | `#workspace_bar` | Top toolbar | Dark header with border-bottom |
 | `#workspace_title` | "Workspace" label | Bold, primary text |
 | `#workspace_badge` | Mode indicator | "Mode: Viewer" pill |
-| `#viewer_tabs` | Tab bar | Closable, movable tabs |
+| `#viewer_tabs` | Tab bar | Closable tabs |
 | `#viewer_nav_btn` | Toolbar icon buttons | 28×28, transparent bg, rounded hover |
 | `#content_area` | Tool stack container | — |
 | `#tool_header` | Tool header section | Icon + title + description |
